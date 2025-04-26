@@ -172,3 +172,35 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Docker
+.docker/
+docker-data/
+*.env
+!example.env
+
+# Database
+*.dump
+*.sql
+*.db
+postgres-data/
+
+# Kafka
+kafka-data/
+
+# Logs
+logs/
+*.log.*
+
+# Local configuration
+config/local/
+*.local.yaml
+*.local.yml
+*.local.json
+
+# VS Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
