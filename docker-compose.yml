@@ -31,10 +31,12 @@ services:
       - "8001:8001"
     volumes:
       - ./patient-service:/app
+      - ./shared:/app/shared  # Add this line to mount the shared directory
     environment:
       - DATABASE_URL=postgresql://boona:boona_password@pgbouncer:6432/therapy_platform
       - FLASK_APP=app.py
       - FLASK_ENV=development
+      - PYTHONPATH=/app  # Ensure PYTHONPATH is set correctly
     restart: unless-stopped
 
 volumes:

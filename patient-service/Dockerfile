@@ -5,9 +5,6 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy shared directory from parent folder
-COPY ../shared /app/shared
-
 COPY . .
 
 # Create a non-root user to run the application
