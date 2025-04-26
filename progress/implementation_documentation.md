@@ -75,7 +75,7 @@ boona_MVP/
 └── scraping-service/       # Scraping microservice
 ```
 
-Each service will have a similar structure:
+Each service follows a similar structure:
 ```
 service-name/
 ├── api/                  # API endpoints
@@ -121,8 +121,6 @@ service-name/
 
 1. Created docker-compose.yml with PostgreSQL configuration:
    ```yaml
-   version: '3.8'
-
    services:
      postgres:
        image: postgres:14
@@ -207,91 +205,179 @@ service-name/
            db.close()
    ```
 
-## Next Steps
+### Patient Service Implementation ✅
 
-### 1. Implement Patient Service Database Models
+1. Created Patient Database Models:
+   - Implemented SQLAlchemy model for Patient entity in `patient-service/models/patient.py`
+   - Created enums for PatientStatus and TherapistGenderPreference
+   - Added all required fields from the specifications
+   - Implemented proper relationships and constraints
+   - Ensured Flake8 compliance with proper docstrings and code formatting
 
-1. Create patient database models:
-   ```bash
-   touch patient-service/models/patient.py
-   ```
+2. Created Patient Service API:
+   - Implemented Flask application structure in `patient-service/app.py`
+   - Created RESTful API endpoints in `patient-service/api/patients.py`
+   - Implemented CRUD operations (Create, Read, Update, Delete)
+   - Added support for filtering patients by status
+   - Implemented error handling and proper HTTP status codes
+   - Set up marshalling for consistent API responses
 
-2. Define SQLAlchemy models based on requirements in inhaltliche_anforderungen.md:
-   - Create SQLAlchemy classes for Patient entity
-   - Implement all fields from the requirements
-   - Add relationships to other entities
+3. Set Up Docker Environment:
+   - Created Dockerfile for patient service with Python 3.11
+   - Set up proper environment variables and configuration
+   - Added non-root user for security
+   - Updated docker-compose.yml to include patient service
+   - Configured volume mapping for development
 
-### 2. Create Patient Service Basic API Structure
+4. Fixed Import Issues:
+   - Corrected import paths to work correctly with the hyphenated directory structure
+   - Updated imports in app.py from `patient_service.api.patients` to relative imports `api.patients`
+   - Fixed imports in patients.py from `patient_service.models.patient` to relative imports `models.patient`
+   - Ensured code follows Flake8 standards including proper line breaks and whitespace management
 
-1. Create Flask application structure:
-   ```bash
-   touch patient-service/app.py
-   mkdir -p patient-service/api
-   touch patient-service/api/__init__.py
-   touch patient-service/api/patients.py
-   ```
-
-2. Implement basic API endpoints:
-   - Create patient
-   - Get patient by ID
-   - Update patient
-   - List patients with filtering
-
-### 3. Configure Message Queue
-
-1. Update docker-compose.yml with Kafka and Zookeeper:
-   ```bash
-   # Add Kafka and Zookeeper services to docker-compose.yml
-   ```
-
-2. Create Kafka topics configuration:
-   ```bash
-   mkdir -p docker/kafka
-   touch docker/kafka/create-topics.sh
-   ```
-
-### 4. Configure Message Queue
-
-1. Update docker-compose.yml with Kafka and Zookeeper
-2. Create Kafka topics configuration
-3. Establish message formats
-
-### 5. Docker Configuration
-
-1. Create base Docker images for microservices
-2. Configure Docker Compose for local development
-3. Set up volume management
-4. Configure networking
-
-### 6. Implement Core Services
-
-1. Start with Patient Service
-2. Implement Therapist Service
-3. Develop Matching Service
-4. Create Communication Service
-
-### 7. Develop Basic UI
-
-1. Create templates for patient forms
-2. Develop interfaces for therapist management
-3. Build search and matching UI
-4. Implement status dashboards
-
-## Implementation Plan Progress
+## Current Status
 
 - [x] Verify core dependencies
 - [x] Set up Python environment
 - [x] Create project structure
 - [x] Set up database
 - [x] Install essential Python dependencies
-- [ ] Implement patient service models
-- [ ] Create patient service API
+- [x] Implement patient service models
+- [x] Create patient service API
+- [x] Set up Docker environment for patient service
+- [ ] Create database migrations
 - [ ] Configure message queue
-- [ ] Set up Docker environment for services
-- [ ] Implement remaining core services
-- [ ] Develop basic UI
-- [ ] Implement matching algorithm
-- [ ] Develop communication service
+- [ ] Implement therapist service
+- [ ] Develop matching service
+- [ ] Create communication service
+- [ ] Implement web interface
 - [ ] Set up geocoding service
 - [ ] Implement web scraping
-- [ ] Test and refine
+
+## Known Issues and Fixes
+
+### Import Issues in Patient Service
+
+The patient-service had issues with import paths due to the hyphenated directory name. Python module names can't contain hyphens, causing the imports to fail.
+
+**Original Problematic Code:**
+```python
+# In app.py
+from patient_service.api.patients import (
+    PatientResource, PatientListResource
+)
+
+# In api/patients.py
+from patient_service.models.patient import Patient, PatientStatus
+```
+
+**Fixed Code:**
+```python
+# In app.py
+from api.patients import PatientResource, PatientListResource
+
+# In api/patients.py
+from models.patient import Patient, PatientStatus
+```
+
+This fix ensures that the imports work correctly with the project's directory structure.
+
+## Next Steps
+
+### 1. Create Database Migrations
+
+1. Update Alembic configuration to include the patient models:
+   ```bash
+   mkdir -p migrations/alembic/versions
+   ```
+
+2. Configure Alembic to detect the SQLAlchemy models:
+   - Update env.py to import the models
+   - Set target_metadata to the Base.metadata
+
+3. Create initial migration for patient service:
+   ```bash
+   cd migrations
+   alembic revision --autogenerate -m "create patient table"
+   ```
+
+4. Apply migrations:
+   ```bash
+   alembic upgrade head
+   ```
+
+### 2. Configure Message Queue
+
+1. Update docker-compose.yml to add Kafka and Zookeeper:
+   ```yaml
+   zookeeper:
+     image: confluentinc/cp-zookeeper:latest
+     environment:
+       ZOOKEEPER_CLIENT_PORT: 2181
+     ports:
+       - "2181:2181"
+
+   kafka:
+     image: confluentinc/cp-kafka:latest
+     depends_on:
+       - zookeeper
+     ports:
+       - "9092:9092"
+     environment:
+       KAFKA_BROKER_ID: 1
+       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+   ```
+
+2. Create Kafka topic configuration script:
+   ```bash
+   mkdir -p docker/kafka
+   touch docker/kafka/create-topics.sh
+   ```
+
+3. Implement Kafka events for patient service:
+   - Create patient-service/events directory
+   - Implement producers and consumers for patient events
+   - Set up event schemas for patient creation, updates, etc.
+
+### 3. Implement Therapist Service
+
+1. Create therapist database models:
+   ```bash
+   mkdir -p therapist-service/models
+   touch therapist-service/models/__init__.py
+   touch therapist-service/models/therapist.py
+   ```
+
+2. Define SQLAlchemy models based on requirements:
+   - Create SQLAlchemy classes for Therapist entity
+   - Implement all fields from the requirements
+   - Add relationships to other entities
+
+3. Create Therapist Service API structure:
+   ```bash
+   touch therapist-service/app.py
+   mkdir -p therapist-service/api
+   touch therapist-service/api/__init__.py
+   touch therapist-service/api/therapists.py
+   ```
+
+4. Implement basic API endpoints:
+   - Create therapist
+   - Get therapist by ID
+   - Update therapist
+   - List therapists with filtering
+   - Blocking/unblocking functionality
+
+5. Create Docker configuration:
+   ```bash
+   touch therapist-service/Dockerfile
+   touch therapist-service/requirements.txt
+   ```
+
+6. Update docker-compose.yml to include therapist service
+
+### 4. Develop Matching Service
+
+Follow similar steps to implement the matching service, focusing on the core matching algorithm and workflows.

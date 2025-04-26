@@ -3,7 +3,7 @@ from flask import request
 from flask_restful import Resource, fields, marshal_with, reqparse
 from sqlalchemy.exc import SQLAlchemyError
 
-from patient_service.models.patient import Patient, PatientStatus
+from models.patient import Patient, PatientStatus
 from shared.utils.database import SessionLocal
 
 
