@@ -296,3 +296,6 @@ volumes:
 - Independent scaling of services
 - Database partitioning approach
 - Caching strategy for read-heavy operations
+
+## 13. Code requirements
+- All Python code should be conform with Flake8 including blank lines are not allowed to contain whitespaces and at the end a newline is required

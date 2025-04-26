@@ -22,5 +22,20 @@ services:
       - ./docker/pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt
     restart: unless-stopped
 
+  # Add the patient service configuration
+  patient-service:
+    build: ./patient-service
+    depends_on:
+      - pgbouncer
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./patient-service:/app
+    environment:
+      - DATABASE_URL=postgresql://boona:boona_password@pgbouncer:6432/therapy_platform
+      - FLASK_APP=app.py
+      - FLASK_ENV=development
+    restart: unless-stopped
+
 volumes:
   postgres-data:
