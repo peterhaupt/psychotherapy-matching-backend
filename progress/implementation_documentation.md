@@ -45,6 +45,7 @@ VS Code: Version 1.99.3 (Universal)
    - Log files
    - Local configuration
    - IDE-specific files
+   - Ensured database initialization scripts are NOT excluded from version control
 
 ## Implementation Approach
 
@@ -208,15 +209,15 @@ service-name/
 ### Patient Service Implementation ✅
 
 1. Created Patient Database Models:
-   - Implemented SQLAlchemy model for Patient entity in `patient-service/models/patient.py`
+   - Implemented SQLAlchemy model for Patient entity in `patient_service/models/patient.py`
    - Created enums for PatientStatus and TherapistGenderPreference
    - Added all required fields from the specifications
    - Implemented proper relationships and constraints
    - Ensured Flake8 compliance with proper docstrings and code formatting
 
 2. Created Patient Service API:
-   - Implemented Flask application structure in `patient-service/app.py`
-   - Created RESTful API endpoints in `patient-service/api/patients.py`
+   - Implemented Flask application structure in `patient_service/app.py`
+   - Created RESTful API endpoints in `patient_service/api/patients.py`
    - Implemented CRUD operations (Create, Read, Update, Delete)
    - Added support for filtering patients by status
    - Implemented error handling and proper HTTP status codes
@@ -230,10 +231,37 @@ service-name/
    - Configured volume mapping for development
 
 4. Fixed Import Issues:
-   - Corrected import paths to work correctly with the hyphenated directory structure
+   - Corrected import paths to work correctly with the directory structure
    - Updated imports in app.py from `patient_service.api.patients` to relative imports `api.patients`
    - Fixed imports in patients.py from `patient_service.models.patient` to relative imports `models.patient`
    - Ensured code follows Flake8 standards including proper line breaks and whitespace management
+
+### Database Migrations Implementation ✅
+
+1. Updated Alembic environment configuration in `migrations/alembic/env.py`:
+   - Added imports for SQLAlchemy Base and Patient model
+   - Set target_metadata to Base.metadata to enable auto-generation
+   - Added proper path configuration to find project modules
+   - Added Flake8 directives to handle necessary imports after path configuration
+
+2. Created initial migration for patient service:
+   ```bash
+   cd migrations
+   alembic revision --autogenerate -m "create patient table"
+   ```
+   - Successfully generated migration file with SQL statements for patient table creation
+
+3. Applied migrations to database:
+   ```bash
+   alembic upgrade head
+   ```
+   - Successfully created patient_service.patients table with all specified columns
+   - Verified schema and table creation with test query
+
+4. Fixed schema creation issues:
+   - Ensured SQL initialization scripts weren't excluded from Git repository
+   - Modified .gitignore to specifically include database initialization scripts
+   - Recreated database volumes to properly apply schema creation scripts
 
 ## Current Status
 
@@ -245,7 +273,7 @@ service-name/
 - [x] Implement patient service models
 - [x] Create patient service API
 - [x] Set up Docker environment for patient service
-- [ ] Create database migrations
+- [x] Create database migrations
 - [ ] Configure message queue
 - [ ] Implement therapist service
 - [ ] Develop matching service
@@ -282,31 +310,26 @@ from models.patient import Patient, PatientStatus
 
 This fix ensures that the imports work correctly with the project's directory structure. Additionally, we've renamed all hyphenated directories to use underscores (e.g., `patient-service` → `patient_service`) while keeping the service names with hyphens in docker-compose.yml and documentation.
 
+### Database Schema Issues
+
+When trying to apply migrations, we encountered an error because the database schemas didn't exist:
+
+```
+psycopg2.errors.InvalidSchemaName: schema "patient_service" does not exist
+```
+
+This was fixed by:
+1. Creating a proper initialization script in `docker/postgres/init.sql`
+2. Ensuring the script was included in version control (modified .gitignore)
+3. Recreating database volumes to force initialization script execution:
+   ```bash
+   docker-compose down -v
+   docker-compose up -d
+   ```
+
 ## Next Steps
 
-### 1. Create Database Migrations
-
-1. Update Alembic configuration to include the patient models:
-   ```bash
-   mkdir -p migrations/alembic/versions
-   ```
-
-2. Configure Alembic to detect the SQLAlchemy models:
-   - Update env.py to import the models
-   - Set target_metadata to the Base.metadata
-
-3. Create initial migration for patient service:
-   ```bash
-   cd migrations
-   alembic revision --autogenerate -m "create patient table"
-   ```
-
-4. Apply migrations:
-   ```bash
-   alembic upgrade head
-   ```
-
-### 2. Configure Message Queue
+### 1. Configure Message Queue
 
 1. Update docker-compose.yml to add Kafka and Zookeeper:
    ```yaml
@@ -341,7 +364,7 @@ This fix ensures that the imports work correctly with the project's directory st
    - Implement producers and consumers for patient events
    - Set up event schemas for patient creation, updates, etc.
 
-### 3. Implement Therapist Service
+### 2. Implement Therapist Service
 
 1. Create therapist database models:
    ```bash
@@ -378,6 +401,6 @@ This fix ensures that the imports work correctly with the project's directory st
 
 6. Update docker-compose.yml to include therapist service
 
-### 4. Develop Matching Service
+### 3. Develop Matching Service
 
 Follow similar steps to implement the matching service, focusing on the core matching algorithm and workflows.
