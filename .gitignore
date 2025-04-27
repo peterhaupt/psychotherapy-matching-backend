@@ -181,9 +181,12 @@ docker-data/
 
 # Database
 *.dump
-*.sql
-*.db
+*.backup
+*-data.sql
 postgres-data/
+
+# But NOT schema initialization scripts
+!docker/postgres/*.sql
 
 # Kafka
 kafka-data/
