@@ -222,7 +222,7 @@ volumes:
     /kafka                  # Kafka utils
     /api                    # API utilities
   
-  /patient-service          # One directory per microservice
+  /patient_service          # One directory per microservice
     /api                    # REST API endpoints
     /models                 # Service-specific models
     /events                 # Kafka producers/consumers
@@ -230,7 +230,7 @@ volumes:
     /static                 # CSS, JS, etc.
     Dockerfile
   
-  /therapist-service        # Similar structure
+  /therapist_service        # Similar structure
   # Other services...
   
   docker-compose.yml        # Main Docker Compose file

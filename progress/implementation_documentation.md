@@ -67,12 +67,12 @@ boona_MVP/
 │   ├── kafka/              # Kafka helpers
 │   ├── api/                # REST API utilities
 │   └── auth/               # Authentication modules
-├── patient-service/        # Patient microservice
-├── therapist-service/      # Therapist microservice
-├── matching-service/       # Matching microservice
-├── communication-service/  # Communication microservice
-├── geocoding-service/      # Geocoding microservice
-└── scraping-service/       # Scraping microservice
+├── patient_service/        # Patient microservice
+├── therapist_service/      # Therapist microservice
+├── matching_service/       # Matching microservice
+├── communication_service/  # Communication microservice
+├── geocoding_service/      # Geocoding microservice
+└── scraping_service/       # Scraping microservice
 ```
 
 Each service follows a similar structure:
@@ -103,18 +103,18 @@ service-name/
    │   ├── kafka/              # Kafka helpers
    │   ├── api/                # REST API utilities
    │   └── auth/               # Authentication modules
-   ├── patient-service/        # Patient microservice
+   ├── patient_service/        # Patient microservice
    │   ├── api/                # API endpoints
    │   ├── models/             # Service-specific models
    │   ├── events/             # Kafka producers/consumers
    │   ├── templates/          # HTML templates
    │   ├── static/             # CSS, JS, etc.
    │   └── tests/              # Unit and integration tests
-   ├── therapist-service/      # Therapist microservice
-   ├── matching-service/       # Matching microservice
-   ├── communication-service/  # Communication microservice
-   ├── geocoding-service/      # Geocoding microservice
-   └── scraping-service/       # Scraping microservice
+   ├── therapist_service/      # Therapist microservice
+   ├── matching_service/       # Matching microservice
+   ├── communication_service/  # Communication microservice
+   ├── geocoding_service/      # Geocoding microservice
+   └── scraping_service/       # Scraping microservice
    ```
 
 ### Database Setup ✅
@@ -258,7 +258,7 @@ service-name/
 
 ### Import Issues in Patient Service
 
-The patient-service had issues with import paths due to the hyphenated directory name. Python module names can't contain hyphens, causing the imports to fail.
+The patient_service had issues with import paths due to the hyphenated directory name. Python module names can't contain hyphens, causing the imports to fail. We've renamed the directories to use underscores to fix this issue.
 
 **Original Problematic Code:**
 ```python
@@ -280,7 +280,7 @@ from api.patients import PatientResource, PatientListResource
 from models.patient import Patient, PatientStatus
 ```
 
-This fix ensures that the imports work correctly with the project's directory structure.
+This fix ensures that the imports work correctly with the project's directory structure. Additionally, we've renamed all hyphenated directories to use underscores (e.g., `patient-service` → `patient_service`) while keeping the service names with hyphens in docker-compose.yml and documentation.
 
 ## Next Steps
 
@@ -337,7 +337,7 @@ This fix ensures that the imports work correctly with the project's directory st
    ```
 
 3. Implement Kafka events for patient service:
-   - Create patient-service/events directory
+   - Create patient_service/events directory
    - Implement producers and consumers for patient events
    - Set up event schemas for patient creation, updates, etc.
 
@@ -345,9 +345,9 @@ This fix ensures that the imports work correctly with the project's directory st
 
 1. Create therapist database models:
    ```bash
-   mkdir -p therapist-service/models
-   touch therapist-service/models/__init__.py
-   touch therapist-service/models/therapist.py
+   mkdir -p therapist_service/models
+   touch therapist_service/models/__init__.py
+   touch therapist_service/models/therapist.py
    ```
 
 2. Define SQLAlchemy models based on requirements:
@@ -357,10 +357,10 @@ This fix ensures that the imports work correctly with the project's directory st
 
 3. Create Therapist Service API structure:
    ```bash
-   touch therapist-service/app.py
-   mkdir -p therapist-service/api
-   touch therapist-service/api/__init__.py
-   touch therapist-service/api/therapists.py
+   touch therapist_service/app.py
+   mkdir -p therapist_service/api
+   touch therapist_service/api/__init__.py
+   touch therapist_service/api/therapists.py
    ```
 
 4. Implement basic API endpoints:
@@ -372,8 +372,8 @@ This fix ensures that the imports work correctly with the project's directory st
 
 5. Create Docker configuration:
    ```bash
-   touch therapist-service/Dockerfile
-   touch therapist-service/requirements.txt
+   touch therapist_service/Dockerfile
+   touch therapist_service/requirements.txt
    ```
 
 6. Update docker-compose.yml to include therapist service
