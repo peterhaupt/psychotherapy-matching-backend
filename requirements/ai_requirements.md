@@ -5,3 +5,4 @@
 - remind to document changes after some steps
 - first explain an error - only fix errors after analysis is approved
 - never guess what an error might be - always properly analyse the error till you are sure about the cause
+- I always want code as artifacts that I can copy
