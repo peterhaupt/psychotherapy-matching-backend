@@ -11,7 +11,7 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 | Database Configuration | ✅ Complete | [Details](02_database_configuration.md) |
 | Patient Service | ✅ Complete | [Details](03_patient_service.md) |
 | Kafka Configuration | ✅ Complete | [Details](04_kafka_configuration.md) |
-| Kafka Integration for Patient Service | 🔄 In Progress | - |
+| Kafka Integration for Patient Service | ✅ Complete | [Details](05_kafka_integration_testing.md) |
 | Therapist Service | 🔄 Planned | - |
 | Matching Service | 🔄 Planned | - |
 | Communication Service | 🔄 Planned | - |
@@ -45,30 +45,36 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 - Shared utilities for producers and consumers
 - Standardized event schema
 
+### Kafka Integration for Patient Service ✅
+- Event producers implemented for patient operations
+- API endpoints updated to publish events
+- Docker-based testing approach implemented
+- Integration verification process documented
+
 ## Current Focus
-- Implementing Kafka event producers/consumers for patient service
-- Integrating Kafka with patient creation/update/delete operations
-- Setting up event handling for cross-service communication
+- Preparing for Therapist Service implementation
+- Designing Therapist model and database schema
+- Planning API endpoints for Therapist Service
 
 ## Next Steps
 
-### 1. Complete Kafka Integration for Patient Service
-- Create `patient_service/events` directory
-- Implement event producers for patient operations
-- Set up event listeners for relevant topics
-- Update API endpoints to publish events
-
-### 2. Implement Therapist Service
+### 1. Implement Therapist Service
 - Create therapist database models
 - Implement CRUD API endpoints
 - Docker configuration
 - Kafka integration
 
-### 3. Develop Matching Service
+### 2. Develop Matching Service
 - Create matching algorithm
 - Implement placement request model
 - Create matching API endpoints
 - Set up event handling for patient and therapist updates
+
+### 3. Implement Communication Service
+- Create email templates
+- Implement email queue management
+- Set up email sending mechanism
+- Implement phone call scheduling
 
 ## Challenges and Solutions
 
@@ -84,20 +90,24 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 **Challenge**: Services needed access to shared code.
 **Solution**: Added volume mapping for the shared directory.
 
+### Kafka Connection from Host ✓
+**Challenge**: Python scripts running on the host machine couldn't connect to Kafka due to advertised listeners.
+**Solution**: Implemented a Docker-based testing approach using Kafka's built-in command-line tools.
+
 ## Upcoming Milestones
 
-1. **End of Week 1**: Complete patient service with Kafka integration
-2. **End of Week 2**: Complete therapist service implementation
-3. **End of Week 3**: Implement basic matching service
-4. **End of Week 4**: Add communication service for email management
+1. **End of Week 1**: Complete therapist service implementation *(in progress)*
+2. **End of Week 2**: Implement basic matching service
+3. **End of Week 3**: Add communication service for email management
+4. **End of Week 4**: Implement geocoding service
 
 ## Resource Allocation
 
-- Environment Setup: 1 day
-- Database Configuration: 1 day
-- Patient Service: 2 days
-- Kafka Configuration: 1 day
-- Kafka Integration: 1 day (in progress)
+- Environment Setup: 1 day ✓
+- Database Configuration: 1 day ✓
+- Patient Service: 2 days ✓
+- Kafka Configuration: 1 day ✓
+- Kafka Integration: 1 day ✓
 - Therapist Service: 2 days (planned)
 - Matching Service: 3 days (planned)
 - Communication Service: 2 days (planned)
@@ -120,6 +130,7 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 | Database Configuration | ✅ Complete | April 28, 2025 |
 | Patient Service | ✅ Complete | April 28, 2025 |
 | Kafka Configuration | ✅ Complete | April 28, 2025 |
+| Kafka Integration Testing | ✅ Complete | April 28, 2025 |
 | Implementation Plan | ✅ Complete | April 27, 2025 |
 | API Documentation | 🔄 Planned | - |
 | Deployment Guide | 🔄 Planned | - |
