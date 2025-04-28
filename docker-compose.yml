@@ -68,6 +68,15 @@ services:
     volumes:
       - kafka-data:/var/lib/kafka/data
     restart: unless-stopped
+    
+  kafka-setup:
+    image: confluentinc/cp-kafka:latest
+    depends_on:
+      - kafka
+    volumes:
+      - ./docker/kafka:/scripts
+    command: ["bash", "-c", "sleep 10 && /scripts/create-topics.sh"]
+    restart: "no"
 
 volumes:
   postgres-data:
