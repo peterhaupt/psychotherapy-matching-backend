@@ -1,51 +1,53 @@
-"""Main application file for the Patient Service."""
+"""Consumer for Kafka events in the Patient Service."""
 import logging
-from flask import Flask
-from flask_restful import Api
 
-from api.patients import PatientResource, PatientListResource
-from events.producers import producer
-# Commented out for now as we're not using consumers yet
-# from events.consumers import start_consumers
+from shared.kafka import EventSchema
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+# Initialize logging
 logger = logging.getLogger(__name__)
 
 
-def create_app():
-    """Create and configure the Flask application."""
-    app = Flask(__name__)
+def handle_therapist_event(event: EventSchema) -> None:
+    """Handle events from the therapist service.
 
-    # Configure database connection
-    app.config["SQLALCHEMY_DATABASE_URI"] = (
-        "postgresql://boona:boona_password@pgbouncer:6432/therapy_platform"
+    Args:
+        event: The event to process
+    """
+    logger.info(
+        f"Processing therapist event: {event.event_type}",
+        extra={"event_id": event.event_id}
     )
-    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-    # Initialize RESTful API
-    api = Api(app)
-
-    # Register API endpoints
-    api.add_resource(PatientListResource, '/api/patients')
-    api.add_resource(PatientResource, '/api/patients/<int:patient_id>')
-
-    # Initialize Kafka event consumers
-    # Commented out for now until we need them
-    # start_consumers()
-
-    @app.teardown_appcontext
-    def shutdown_kafka(exception=None):
-        """Close Kafka connections when application shuts down."""
-        producer.close()
-        logger.info("Kafka producer closed")
-
-    return app
+    # Handle different event types
+    if event.event_type == "therapist.blocked":
+        # For example, update patient records where this therapist is assigned
+        therapist_id = event.payload.get("therapist_id")
+        logger.info(f"Therapist {therapist_id} has been blocked")
+        # Implement specific handling logic here
 
 
-if __name__ == "__main__":
-    app = create_app()
-    app.run(host="0.0.0.0", port=8001, debug=True)
+def start_consumers():
+    """Start all Kafka consumers for the Patient Service."""
+    try:
+        # Example consumer for therapist events
+        # This would be activated when therapist service is implemented
+        # therapist_consumer = KafkaConsumer(
+        #     topics=["therapist-events"],
+        #     group_id="patient-service",
+        # )
+        
+        # Define the event types we're interested in
+        # therapist_event_types = ["therapist.blocked", "therapist.unblocked"]
+        
+        # Start processing in a separate thread
+        # import threading
+        # thread = threading.Thread(
+        #     target=therapist_consumer.process_events,
+        #     args=(handle_therapist_event, therapist_event_types),
+        #     daemon=True
+        # )
+        # thread.start()
+        
+        logger.info("Kafka consumers initialized")
+    except Exception as e:
+        logger.error(f"Failed to start Kafka consumers: {str(e)}")

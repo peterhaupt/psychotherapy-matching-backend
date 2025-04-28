@@ -23,13 +23,17 @@ def listen_for_events(topic, timeout=60):
     """
     logger.info(f"Listening for events on topic '{topic}' for {timeout} seconds")
     
-    # Create consumer
+    # Create consumer with local connection settings
     consumer = KafkaConsumer(
         topic,
         bootstrap_servers='localhost:9092',
         auto_offset_reset='latest',
         value_deserializer=lambda m: json.loads(m.decode('utf-8')),
-        consumer_timeout_ms=timeout * 1000
+        consumer_timeout_ms=timeout * 1000,
+        # Force to use only localhost and not follow advertised listeners
+        api_version_auto_timeout_ms=30000,
+        # Don't try to refresh metadata which might lead to "kafka:9092" lookups
+        connections_max_idle_ms=int(timeout * 1000 * 1.1)
     )
     
     # Listen for messages
