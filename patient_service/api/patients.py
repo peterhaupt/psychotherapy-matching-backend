@@ -5,6 +5,11 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from models.patient import Patient, PatientStatus
 from shared.utils.database import SessionLocal
+from events.producers import (
+    publish_patient_created,
+    publish_patient_updated,
+    publish_patient_deleted
+)
 
 
 # Output fields definition for patient responses
@@ -28,7 +33,7 @@ class PatientResource(Resource):
         """Get a specific patient by ID."""
         db = SessionLocal()
         try:
-            patient = db.query(Patient).filter(Patient.id == patient_id).first()
+            patient = db.query(Patient).filter(Patient.id == patient_id).first()  # noqa: E501
             if not patient:
                 return {'message': 'Patient not found'}, 404
             return patient
@@ -53,7 +58,9 @@ class PatientResource(Resource):
         
         db = SessionLocal()
         try:
-            patient = db.query(Patient).filter(Patient.id == patient_id).first()
+            patient = db.query(Patient).filter(
+                Patient.id == patient_id
+            ).first()
             if not patient:
                 return {'message': 'Patient not found'}, 404
             
@@ -67,6 +74,18 @@ class PatientResource(Resource):
                         setattr(patient, key, value)
             
             db.commit()
+            
+            # Publish event for patient update
+            patient_data = {
+                'vorname': patient.vorname,
+                'nachname': patient.nachname,
+                'anrede': patient.anrede,
+                'email': patient.email,
+                'telefon': patient.telefon,
+                'status': patient.status.value if patient.status else None
+            }
+            publish_patient_updated(patient.id, patient_data)
+            
             return patient
         except SQLAlchemyError as e:
             db.rollback()
@@ -78,12 +97,18 @@ class PatientResource(Resource):
         """Delete a patient."""
         db = SessionLocal()
         try:
-            patient = db.query(Patient).filter(Patient.id == patient_id).first()
+            patient = db.query(Patient).filter(
+                Patient.id == patient_id
+            ).first()
             if not patient:
                 return {'message': 'Patient not found'}, 404
             
             db.delete(patient)
             db.commit()
+            
+            # Publish event for patient deletion
+            publish_patient_deleted(patient_id)
+            
             return {'message': 'Patient deleted successfully'}, 200
         except SQLAlchemyError as e:
             db.rollback()
@@ -149,6 +174,17 @@ class PatientListResource(Resource):
             db.add(patient)
             db.commit()
             db.refresh(patient)
+            
+            # Publish event for patient creation
+            patient_data = {
+                'vorname': patient.vorname,
+                'nachname': patient.nachname,
+                'anrede': patient.anrede,
+                'email': patient.email,
+                'telefon': patient.telefon,
+                'status': patient.status.value if patient.status else None
+            }
+            publish_patient_created(patient.id, patient_data)
             
             return patient, 201
         except SQLAlchemyError as e:
