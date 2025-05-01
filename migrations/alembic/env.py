@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from shared.utils.database import Base  # noqa: E402
 # Need to import all models that will be part of migrations
 from patient_service.models.patient import Patient  # noqa: F401, E402
+from therapist_service.models.therapist import Therapist  # noqa: F401, E402
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

@@ -12,7 +12,7 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 | Patient Service | ✅ Complete | [Details](03_patient_service.md) |
 | Kafka Configuration | ✅ Complete | [Details](04_kafka_configuration.md) |
 | Kafka Integration for Patient Service | ✅ Complete | [Details](05_kafka_integration_testing.md) |
-| Therapist Service | 🔄 Planned | - |
+| Therapist Service | ✅ Complete | [Details](06_therapist_service.md) |
 | Matching Service | 🔄 Planned | - |
 | Communication Service | 🔄 Planned | - |
 | Geocoding Service | 🔄 Planned | - |
@@ -51,30 +51,35 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 - Docker-based testing approach implemented
 - Integration verification process documented
 
+### Therapist Service ✅
+- Therapist model implemented with all required fields
+- CRUD API endpoints created for therapist management
+- Kafka event producers for therapist events
+- Docker configuration and integration
+
 ## Current Focus
-- Preparing for Therapist Service implementation
-- Designing Therapist model and database schema
-- Planning API endpoints for Therapist Service
+- Preparing for Matching Service implementation
+- Designing matching algorithm
+- Planning integration between Patient and Therapist services
 
 ## Next Steps
 
-### 1. Implement Therapist Service
-- Create therapist database models
-- Implement CRUD API endpoints
-- Docker configuration
-- Kafka integration
-
-### 2. Develop Matching Service
-- Create matching algorithm
-- Implement placement request model
-- Create matching API endpoints
+### 1. Implement Matching Service
+- Create matching algorithm based on specified criteria
+- Implement placement request models
+- Create API endpoints for matching
 - Set up event handling for patient and therapist updates
 
-### 3. Implement Communication Service
+### 2. Develop Communication Service
 - Create email templates
 - Implement email queue management
 - Set up email sending mechanism
 - Implement phone call scheduling
+
+### 3. Implement Geocoding Service
+- Create OpenStreetMap API integration
+- Implement distance calculation
+- Create caching mechanism for geocoding results
 
 ## Challenges and Solutions
 
@@ -96,10 +101,10 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 
 ## Upcoming Milestones
 
-1. **End of Week 1**: Complete therapist service implementation *(in progress)*
-2. **End of Week 2**: Implement basic matching service
-3. **End of Week 3**: Add communication service for email management
-4. **End of Week 4**: Implement geocoding service
+1. **End of Week 1**: Complete matching service implementation *(in progress)*
+2. **End of Week 2**: Implement basic communication service
+3. **End of Week 3**: Add geocoding service 
+4. **End of Week 4**: Implement web scraping service
 
 ## Resource Allocation
 
@@ -108,7 +113,7 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 - Patient Service: 2 days ✓
 - Kafka Configuration: 1 day ✓
 - Kafka Integration: 1 day ✓
-- Therapist Service: 2 days (planned)
+- Therapist Service: 2 days ✓
 - Matching Service: 3 days (planned)
 - Communication Service: 2 days (planned)
 - Geocoding Service: 2 days (planned)
@@ -131,6 +136,7 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 | Patient Service | ✅ Complete | April 28, 2025 |
 | Kafka Configuration | ✅ Complete | April 28, 2025 |
 | Kafka Integration Testing | ✅ Complete | April 28, 2025 |
+| Therapist Service | ✅ Complete | April 29, 2025 |
 | Implementation Plan | ✅ Complete | April 27, 2025 |
 | API Documentation | 🔄 Planned | - |
 | Deployment Guide | 🔄 Planned | - |
