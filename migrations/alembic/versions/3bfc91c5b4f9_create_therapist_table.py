@@ -22,9 +22,8 @@ def upgrade() -> None:
     """Upgrade schema."""
     # Create TherapistStatus enum type
     therapist_status = sa.Enum('ACTIVE', 'BLOCKED', 'INACTIVE', name='therapiststatus')
-    therapist_status.create(op.get_bind())
     
-    # Create therapists table
+    # Create therapists table with explicit reference to the existing enum
     op.create_table('therapists',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('anrede', sa.String(length=10), nullable=True),
