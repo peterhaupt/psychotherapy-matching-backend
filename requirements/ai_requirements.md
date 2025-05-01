@@ -8,3 +8,5 @@
 - I always want code and markdown files as artifacts that I can copy
 - Understanding an error is crucial. It is far more important than fixing. Always first understand an error and then fix it.
 - So, if an analysis contains the words might, likely, etc. it is not yet finished. I always want a definitive error analysis before any fix.
+- Always ask questions, if anything in unclear.
+- Don't assume that something is configured as default. Always ask if it really is configured as default.
