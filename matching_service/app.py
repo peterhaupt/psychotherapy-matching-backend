@@ -2,6 +2,9 @@
 from flask import Flask
 from flask_restful import Api
 
+from api.matching import PlacementRequestResource, PlacementRequestListResource
+from events.consumers import start_consumers
+
 
 def create_app():
     """Create and configure the Flask application."""
@@ -17,7 +20,11 @@ def create_app():
     api = Api(app)
 
     # Register API endpoints
-    # To be implemented
+    api.add_resource(PlacementRequestListResource, '/api/placement-requests')
+    api.add_resource(PlacementRequestResource, '/api/placement-requests/<int:request_id>')
+
+    # Start Kafka consumers
+    start_consumers()
 
     return app
 
