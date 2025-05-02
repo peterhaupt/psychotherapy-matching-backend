@@ -56,6 +56,24 @@ services:
       - PYTHONPATH=/app
     restart: unless-stopped
 
+  # Matching-service configuration
+  matching-service:
+    build: ./matching_service
+    depends_on:
+      - pgbouncer
+      - kafka
+    ports:
+      - "8003:8003"
+    volumes:
+      - ./matching_service:/app
+      - ./shared:/app/shared
+    environment:
+      - DATABASE_URL=postgresql://boona:boona_password@pgbouncer:6432/therapy_platform
+      - FLASK_APP=app.py
+      - FLASK_ENV=development
+      - PYTHONPATH=/app
+    restart: unless-stopped
+
   zookeeper:
     image: confluentinc/cp-zookeeper:latest
     environment:
