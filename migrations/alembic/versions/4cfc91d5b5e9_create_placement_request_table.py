@@ -19,12 +19,12 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
-    # Create PlacementRequestStatus enum type
+    # Define the enum but don't explicitly create it
     placement_request_status = sa.Enum(
         'OPEN', 'IN_PROGRESS', 'REJECTED', 'ACCEPTED',
         name='placementrequeststatus'
     )
-    placement_request_status.create(op.get_bind())
+    # Removed the create() call
     
     # Create placement_requests table
     op.create_table('placement_requests',
@@ -91,5 +91,4 @@ def downgrade() -> None:
     )
     op.drop_table('placement_requests', schema='matching_service')
     
-    # Drop the enum type
-    sa.Enum(name='placementrequeststatus').drop(op.get_bind())
+    # Not explicitly dropping the enum type
