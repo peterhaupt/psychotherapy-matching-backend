@@ -136,19 +136,12 @@ def send_email(email_id):
 
 
 def send_queued_emails(limit=10):
-    """Send queued emails.
-    
-    Args:
-        limit: Maximum number of emails to send
-        
-    Returns:
-        int: Number of emails sent successfully
-    """
+    """Send queued emails."""
     db = SessionLocal()
     try:
-        # Get queued emails
+        # Get queued emails - use .value to get the actual string value
         emails = db.query(Email).filter(
-            Email.status == EmailStatus.QUEUED
+            Email.status == EmailStatus.QUEUED.value  # Change here: add .value
         ).order_by(Email.queued_at).limit(limit).all()
         
         sent_count = 0
