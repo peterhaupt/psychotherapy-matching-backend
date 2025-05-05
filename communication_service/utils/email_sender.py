@@ -139,19 +139,37 @@ def send_queued_emails(limit=10):
     """Send queued emails."""
     db = SessionLocal()
     try:
-        # Get queued emails - use .value to get the actual string value
-        emails = db.query(Email).filter(
-            Email.status == EmailStatus.QUEUED.value  # Change here: add .value
-        ).order_by(Email.queued_at).limit(limit).all()
+        logger.info("Starting send_queued_emails with systematic approach")
+        
+        # Method 1: Use a hybrid approach with direct value casting
+        from sqlalchemy import cast, String, literal_column
+        
+        # Create a query that casts the status column to string and compares with the enum value
+        query = db.query(Email).filter(
+            cast(Email.status, String) == EmailStatus.QUEUED.value
+        )
+        
+        # Log the actual SQL being generated
+        sql_str = str(query.statement.compile(
+            compile_kwargs={"literal_binds": True}
+        ))
+        logger.info(f"Generated SQL: {sql_str}")
+        
+        # Execute the query
+        emails = query.order_by(Email.queued_at).limit(limit).all()
+        
+        logger.info(f"Found {len(emails)} emails with QUEUED status")
         
         sent_count = 0
         for email in emails:
+            logger.info(f"Processing email {email.id} with status {email.status}")
             if send_email(email.id):
                 sent_count += 1
         
+        logger.info(f"Successfully sent {sent_count} emails")
         return sent_count
     except Exception as e:
-        logger.error(f"Error sending queued emails: {str(e)}")
+        logger.error(f"Error sending queued emails: {str(e)}", exc_info=True)
         return 0
     finally:
         db.close()
