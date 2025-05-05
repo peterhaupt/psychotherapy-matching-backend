@@ -5,20 +5,52 @@ from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
+from flask import current_app
 from shared.utils.database import SessionLocal
 from models.email import Email, EmailStatus
+from utils.template_renderer import render_template
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
-# SMTP Settings
-SMTP_HOST = "127.0.0.1"
-SMTP_PORT = 1025
-SMTP_USERNAME = "therapieplatz@peterhaupt.de"
-SMTP_PASSWORD = "***REMOVED_EXPOSED_PASSWORD***"
-SMTP_USE_TLS = True
+# Default SMTP settings (will be overridden by app config if available)
+DEFAULT_SMTP_HOST = "127.0.0.1"
+DEFAULT_SMTP_PORT = 1025
+DEFAULT_SMTP_USERNAME = "therapieplatz@peterhaupt.de"
+DEFAULT_SMTP_PASSWORD = "***REMOVED_EXPOSED_PASSWORD***"
+DEFAULT_SMTP_USE_TLS = True
 DEFAULT_SENDER = "therapieplatz@peterhaupt.de"
 DEFAULT_SENDER_NAME = "Boona Therapieplatz-Vermittlung"
+
+
+def get_smtp_settings():
+    """Get SMTP settings from app config or use defaults.
+    
+    Returns:
+        dict: SMTP settings
+    """
+    try:
+        # Try to get settings from Flask app config
+        return {
+            'host': current_app.config.get('SMTP_HOST', DEFAULT_SMTP_HOST),
+            'port': current_app.config.get('SMTP_PORT', DEFAULT_SMTP_PORT),
+            'username': current_app.config.get('SMTP_USERNAME', DEFAULT_SMTP_USERNAME),
+            'password': current_app.config.get('SMTP_PASSWORD', DEFAULT_SMTP_PASSWORD),
+            'use_tls': current_app.config.get('SMTP_USE_TLS', DEFAULT_SMTP_USE_TLS),
+            'sender': current_app.config.get('EMAIL_SENDER', DEFAULT_SENDER),
+            'sender_name': current_app.config.get('EMAIL_SENDER_NAME', DEFAULT_SENDER_NAME),
+        }
+    except RuntimeError:
+        # Not running in Flask app context, use defaults
+        return {
+            'host': DEFAULT_SMTP_HOST,
+            'port': DEFAULT_SMTP_PORT,
+            'username': DEFAULT_SMTP_USERNAME,
+            'password': DEFAULT_SMTP_PASSWORD,
+            'use_tls': DEFAULT_SMTP_USE_TLS,
+            'sender': DEFAULT_SENDER,
+            'sender_name': DEFAULT_SENDER_NAME,
+        }
 
 
 def send_email(email_id):
@@ -48,24 +80,25 @@ def send_email(email_id):
         msg['From'] = f"{email.sender_name} <{email.sender_email}>"
         msg['To'] = f"{email.recipient_name} <{email.recipient_email}>"
         
-        # Attach the plain text and HTML versions
+        # Attach the plain text version
         text_part = MIMEText(email.body_text, 'plain')
-        html_part = MIMEText(email.body_html, 'html')
         msg.attach(text_part)
-        msg.attach(html_part)
+        
+        # Get SMTP settings
+        smtp_settings = get_smtp_settings()
         
         # Send the email
         try:
             # Connect to the SMTP server
-            if SMTP_USE_TLS:
-                server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
+            if smtp_settings['use_tls']:
+                server = smtplib.SMTP(smtp_settings['host'], smtp_settings['port'])
                 server.starttls()
             else:
-                server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
+                server = smtplib.SMTP(smtp_settings['host'], smtp_settings['port'])
             
             # Login if credentials are provided
-            if SMTP_USERNAME and SMTP_PASSWORD:
-                server.login(SMTP_USERNAME, SMTP_PASSWORD)
+            if smtp_settings['username'] and smtp_settings['password']:
+                server.login(smtp_settings['username'], smtp_settings['password'])
             
             # Send the email
             server.sendmail(

@@ -10,3 +10,4 @@
 - So, if an analysis contains the words might, likely, etc. it is not yet finished. I always want a definitive error analysis before any fix.
 - Always ask questions, if anything in unclear.
 - Don't assume that something is configured as default. Always ask if it really is configured as default.
+- Only give me one artifact at once. Ask me explicitly, if I want multiple artifacts at the same time.

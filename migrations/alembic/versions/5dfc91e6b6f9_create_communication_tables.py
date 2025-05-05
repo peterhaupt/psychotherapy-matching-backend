@@ -22,7 +22,7 @@ def upgrade() -> None:
     """Upgrade schema."""
     # Create EmailStatus enum type
     email_status = sa.Enum(
-        'DRAFT', 'QUEUED', 'SENDING', 'SENT', 'FAILED',
+        'entwurf', 'in_warteschlange', 'wird_gesendet', 'gesendet', 'fehlgeschlagen',
         name='emailstatus'
     )
     
