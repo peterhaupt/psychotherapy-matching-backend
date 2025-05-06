@@ -80,17 +80,32 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 
 ## Current Focus
 - Completing the Communication Service implementation
-  - Implementing email batching logic with frequency limits
-  - Enhancing email queue processing
-  - Adding phone call scheduling functionality
-  - Implementing integration tests
+  - Updating Therapist model with potential availability fields
+  - Creating model for phone call scheduling 
+  - Implementing email batching logic with 7-day frequency limit
+  - Enhancing email queue processing with batching capabilities
+  - Adding phone call scheduling algorithm with 5-minute intervals
+  - Implementing phone call rescheduling for failed attempts
+  - Adding automatic scheduling of calls 7 days after unanswered emails
+  - Creating phone call prioritization based on therapist potential availability
 
 ## Next Steps
 
 ### 1. Complete Communication Service
-- Implement frequency limits (max 1 email per therapist per week)
-- Add batch email processing for multiple patient requests
-- Create phone call scheduling functionality
+- Update Therapist model with new fields:
+  - Add `potentially_available` (Boolean)
+  - Add `potentially_available_notes` (Text)
+  - Define JSON structure for `telefonische_erreichbarkeit`
+- Create Phone Call scheduling table
+- Implement email batching system
+  - Enforce frequency limits (max 1 email per therapist per week)
+  - Group patients by therapist
+  - Prioritize by patient registration date
+- Develop phone call scheduling algorithm
+  - Schedule calls during therapist's available hours
+  - Enforce 4-week cooling period after rejections
+  - Prioritize "potentially available" therapists
+  - Include rescheduling logic for failed attempts
 - Implement integration tests
 
 ### 2. Develop Geocoding Service
@@ -140,12 +155,20 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 **Challenge**: Need for standardized, reusable email templates.
 **Solution**: Implemented a Jinja2-based template system with inheritance and responsive design.
 
+### Email Batching Logic 🔄
+**Challenge**: Need to implement batching of patient requests to the same therapist.
+**Solution**: Designing system to track last contact date and group patients by therapist with priority based on registration date.
+
+### Phone Call Scheduling 🔄
+**Challenge**: Creating an algorithm to schedule calls in therapist's available time slots.
+**Solution**: Developing a system to parse therapist availability JSON and schedule calls in 5-minute increments.
+
 ## Upcoming Milestones
 
-1. **End of Week 1**: Complete communication service implementation *(current focus)*
-2. **End of Week 2**: Implement basic geocoding service
-3. **End of Week 3**: Add web scraping service 
-4. **End of Week 4**: Implement web interface
+1. **Week 1 (Current)**: Complete communication service implementation - Email batching and phone call scheduling
+2. **Week 2**: Implement basic geocoding service
+3. **Week 3**: Add web scraping service 
+4. **Week 4**: Implement web interface
 
 ## Resource Allocation
 
@@ -156,7 +179,7 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 - Kafka Integration: 1 day ✓
 - Therapist Service: 2 days ✓
 - Matching Service: 3 days ✓
-- Communication Service: 2 days (1.5 days completed, 0.5 days remaining)
+- Communication Service: 3 days (1.5 days completed, 1.5 days remaining)
 - Geocoding Service: 2 days (planned)
 - Web Scraping Service: 3 days (planned)
 - Web Interface: 5 days (planned)
@@ -182,6 +205,9 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 | Therapist Service | ✅ Complete | April 29, 2025 |
 | Matching Service | ✅ Complete | May 02, 2025 |
 | Communication Service | 🔄 Updated | May 06, 2025 |
-| Implementation Plan | ✅ Complete | April 27, 2025 |
+| Implementation Plan | ✅ Updated | May 06, 2025 |
+| Communication Service Architecture | 🆕 New | May 06, 2025 |
+| Database Schema Updates | 🆕 New | May 06, 2025 |
+| Future Enhancements | 🆕 New | May 06, 2025 |
 | API Documentation | 🔄 Planned | - |
 | Deployment Guide | 🔄 Planned | - |

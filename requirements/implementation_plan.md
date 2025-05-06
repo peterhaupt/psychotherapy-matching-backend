@@ -104,9 +104,16 @@ This document outlines the phased implementation approach for developing the Psy
 1. **Communication Service**
    - Email template system
    - Email composition logic
-   - Queue management
+   - Email batch processing system
+   - Email queue management
    - Sending mechanism
    - Response tracking
+   - Frequency limitation enforcement (max 1 email per therapist per week)
+   - Therapist availability slot storage and parsing
+   - Phone call scheduling system
+   - Phone call batch processing
+   - Phone call rescheduling mechanism for failed attempts
+   - Integration with matching service for automatic communication scheduling
 
 2. **Geocoding Service**
    - OpenStreetMap API integration

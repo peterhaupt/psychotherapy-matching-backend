@@ -25,7 +25,7 @@ Die minimale lokale Version soll als Grundlage für ein erweiterbares System die
 | Webseite | Text | |
 | Kassensitz | Boolean | |
 | Geschlecht | Text | Abgeleitet aus Anrede |
-| Telefonische Erreichbarkeit | Struktur | Zeiten, wann der Therapeut telefonisch erreichbar ist |
+| Telefonische Erreichbarkeit | Struktur | Zeiten, wann der Therapeut telefonisch erreichbar ist (strukturiert nach Wochentagen und Zeitfenstern) |
 | Fremdsprachen | Liste | |
 | Psychotherapieverfahren | Liste | z.B. Verhaltenstherapie, systemische Therapie, tiefenpsychologisch fundierte Therapie |
 | Zusatzqualifikationen | Text | |
@@ -38,6 +38,8 @@ Die minimale lokale Version soll als Grundlage für ein erweiterbares System die
 | Gesperrt | Boolean | Ob der Therapeut aktuell für neue Anfragen gesperrt ist |
 | Sperrgrund | Text | Grund für die Sperrung |
 | Sperrdatum | Datum | Zeitpunkt der Sperrung |
+| Potenziell Verfügbar | Boolean | Kennzeichnung, ob der Therapeut potenziell verfügbare Plätze haben könnte |
+| Potenziell Verfügbar Notizen | Text | Erläuterungen zur potenziellen Verfügbarkeit |
 
 ### 2.2 Patienten
 
@@ -117,9 +119,13 @@ Die minimale lokale Version soll als Grundlage für ein erweiterbares System die
 |------|-----|-------------|
 | Therapeut | Referenz | Verweis auf den Therapeuten |
 | Geplantes Datum | Datum | |
+| Geplante Uhrzeit | Uhrzeit | Zeit für den geplanten Anruf |
+| Dauer | Integer | Geplante Dauer in Minuten (standardmäßig 5 Minuten) |
 | Tatsächliches Datum | Datum | |
 | Platzanfragen | Liste | Referenzen auf die besprochenen Platzanfragen |
 | Notizen | Text | Ergebnis und Notizen zum Telefonat |
+| Status | Enum | Geplant, Durchgeführt, Fehlgeschlagen |
+| Bei Fehlschlag nächster Versuch | Datum | Wann soll bei einem fehlgeschlagenen Anruf der nächste Versuch stattfinden |
 
 ## 3. Kernprozesse
 
@@ -161,12 +167,17 @@ Die minimale lokale Version soll als Grundlage für ein erweiterbares System die
 - **Verzögerte Anfragen**: Wenn ein Therapeut bereits in dieser Woche kontaktiert wurde, werden neue Anfragen auf die nächste Woche verschoben
 - **Dokumentation**: Alle versendeten E-Mails werden im System dokumentiert
 - **Antwortverarbeitung**: E-Mail-Antworten werden manuell im System erfasst
+- **Batchverarbeitung**: Patienten werden in Batches nach Wartezeit (Registrierungsdatum) priorisiert
 
 #### 3.2.2 Telefonmanagement
 - **Planung**: Telefonate werden gemäß der telefonischen Erreichbarkeit der Therapeuten geplant
-- **Frequenzbegrenzung**: Maximal ein Telefonat pro Therapeut pro Woche
+- **Frequenzbegrenzung**: Nach einer Ablehnung wird ein Therapeut für vier Wochen nicht wieder kontaktiert
 - **Sammeltelefonate**: Bei mehreren Anfragen für einen Therapeuten werden diese in einem Telefonat zusammengefasst
 - **Dokumentation**: Alle Telefonate werden im System dokumentiert
+- **Automatische Planung**: Telefonate werden automatisch 7 Tage nach E-Mail-Versand geplant, wenn keine Antwort erfolgt
+- **Zeitplanung**: Telefonate werden in 5-Minuten-Intervallen geplant
+- **Priorisierung**: Therapeuten mit dem Flag "Potenziell Verfügbar" werden bevorzugt kontaktiert
+- **Neuplanung**: Fehlgeschlagene Telefonate werden zum nächstmöglichen Zeitfenster des Therapeuten neu geplant
 
 ### 3.3 Webscraping-Prozess
 
@@ -188,13 +199,20 @@ Die minimale lokale Version soll als Grundlage für ein erweiterbares System die
 - **Dokumentation**: Alle versendeten E-Mails werden mit Datum, Empfänger und Inhalt gespeichert
 - **Antworterfassung**: Manuelle Erfassung von E-Mail-Antworten im System
 - **Sammel-E-Mails**: Automatische Zusammenfassung mehrerer Anfragen in einer E-Mail
+- **Batch-Verarbeitung**: System gruppiert Patienten nach Therapeuten und hält die 7-Tage-Frequenzbegrenzung ein
+- **Priorisierung**: Patienten werden nach Wartezeit (Registrierungsdatum) priorisiert
 
 ### 4.2 Telefonmanagement
 
 - **Planung**: Telefonate werden basierend auf den Erreichbarkeitszeiträumen der Therapeuten geplant
 - **Priorisierung**: Therapeuten ohne E-Mail oder ohne E-Mail-Antwort werden bevorzugt angerufen
+- **Bevorzugung**: "Potenziell verfügbare" Therapeuten werden zuerst kontaktiert
 - **Dokumentation**: Telefonate werden vor- und nachbereitet (Planung, Durchführung, Ergebnis)
 - **Sammeltelefonate**: Automatische Planung von Sammeltelefonaten für mehrere Patienten
+- **Automatische Planung**: Telefonate werden 7 Tage nach E-Mail ohne Antwort automatisch geplant
+- **Zeitintervalle**: Telefonate werden in 5-Minuten-Blöcken geplant
+- **Neuplanung**: Bei fehlgeschlagenen Anrufen wird automatisch ein neuer Termin zum nächstmöglichen Zeitpunkt geplant
+- **Sperrzeit**: Nach Ablehnung werden keine weiteren Telefonate für 4 Wochen mit diesem Therapeuten geplant
 
 ### 4.3 Therapeutensperrung
 
@@ -213,7 +231,7 @@ Die minimale lokale Version soll als Grundlage für ein erweiterbares System die
 
 ## 5. Besondere Regeln und Einschränkungen
 
-- **Kontaktfrequenz**: Ein Therapeut darf maximal einmal pro Woche kontaktiert werden (E-Mail oder Telefon)
+- **Kontaktfrequenz**: Ein Therapeut darf maximal einmal pro Woche per E-Mail und nach Ablehnung erst nach 4 Wochen telefonisch kontaktiert werden
 - **Datenschutz**: Sensible Patientendaten müssen besonders geschützt werden
 - **Erweiterbarkeit**: Das System muss modular und erweiterbar gestaltet sein
 - **Lokaler Betrieb**: Die erste Version läuft nur lokal, muss aber für Cloud-Deployment vorbereitet sein
