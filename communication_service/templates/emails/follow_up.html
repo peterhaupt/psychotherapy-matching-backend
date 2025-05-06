@@ -1,0 +1,28 @@
+{% extends "base_email.html" %}
+
+{% block content %}
+<p>ich möchte höflich nachfragen bezüglich unserer vorherigen Anfrage vom {{ previous_contact_date }} zur Therapieplatz-Vermittlung.</p>
+
+<p>Wir hatten Sie kontaktiert, da wir derzeit {{ patient_count }} Patient(in){% if patient_count > 1 %}nen{% endif %} betreuen, für die/den wir einen passenden Therapieplatz suchen. Falls Sie unsere vorherige Nachricht übersehen haben, finden Sie hier nochmals die wichtigsten Informationen:</p>
+
+{% if patient_count == 1 %}
+<div class="patient-info">
+    <h3>Patienteninformationen</h3>
+    <p><strong>Diagnose:</strong> {{ patient.diagnose }}</p>
+    {% if patient.geschlecht %}
+    <p><strong>Geschlecht:</strong> {{ patient.geschlecht }}</p>
+    {% endif %}
+    <p><strong>Verfügbarkeit:</strong> {{ patient.zeitliche_verfuegbarkeit_text }}</p>
+    <p><strong>Beschwerden seit:</strong> {{ patient.beschwerden_seit }}</p>
+    {% if patient.offen_fuer_gruppentherapie %}
+    <p><strong>Offen für Gruppentherapie:</strong> Ja</p>
+    {% endif %}
+</div>
+{% else %}
+<p>In unserer vorherigen E-Mail haben wir Ihnen Informationen zu mehreren Patient(inn)en zukommen lassen. Falls Sie die Informationen erneut benötigen, antworten Sie bitte auf diese E-Mail, und wir senden Ihnen die Details gerne nochmals zu.</p>
+{% endif %}
+
+<p>Wir würden uns sehr über eine kurze Rückmeldung freuen, ob Sie aktuell freie Kapazitäten haben oder in naher Zukunft einen Therapieplatz anbieten können. Selbst eine negative Antwort würde uns helfen, unsere Suche effektiver zu gestalten.</p>
+
+<p>Falls es Ihnen lieber ist, können wir Sie auch gerne telefonisch kontaktieren. Teilen Sie uns dafür bitte einen geeigneten Zeitpunkt mit.</p>
+{% endblock %}

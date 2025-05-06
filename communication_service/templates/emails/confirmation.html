@@ -1,0 +1,48 @@
+{% extends "base_email.html" %}
+
+{% block content %}
+<p>vielen Dank für Ihre positive Rückmeldung bezüglich der Aufnahme {% if patient_count > 1 %}unserer Patient(inn)en{% else %}unseres/unserer Patient(in){% endif %}. Wir freuen uns sehr, dass wir gemeinsam einen Therapieplatz vermitteln können.</p>
+
+<h3>Bestätigung der Therapieplatz-Zusage</h3>
+
+{% if patient_count == 1 %}
+<div class="patient-info">
+    <p>Sie haben zugesagt, folgende(n) Patient(in) zu übernehmen:</p>
+    <p><strong>Patient(in):</strong> {% if patient.anrede %}{{ patient.anrede }}{% endif %} {% if patient.vorname %}{{ patient.vorname }} {{ patient.nachname }}{% else %}ID: {{ patient.id }}{% endif %}</p>
+    <p><strong>Diagnose:</strong> {{ patient.diagnose }}</p>
+</div>
+
+<p>Die Kontaktdaten des/der Patient(in) lauten:</p>
+<ul>
+    <li><strong>Telefon:</strong> {{ patient.telefon }}</li>
+    {% if patient.email %}
+    <li><strong>E-Mail:</strong> {{ patient.email }}</li>
+    {% endif %}
+</ul>
+{% else %}
+<div class="patient-info">
+    <p>Sie haben zugesagt, folgende Patient(inn)en zu übernehmen:</p>
+    <ul>
+    {% for patient in patients %}
+        <li>
+            <strong>Patient(in) {{ loop.index }}:</strong> 
+            {% if patient.anrede %}{{ patient.anrede }}{% endif %} 
+            {% if patient.vorname %}{{ patient.vorname }} {{ patient.nachname }}{% else %}ID: {{ patient.id }}{% endif %}
+            (Diagnose: {{ patient.diagnose }})
+        </li>
+    {% endfor %}
+    </ul>
+</div>
+
+<p>Die Kontaktdaten der Patient(inn)en wurden Ihnen in einer separaten, verschlüsselten Nachricht zugesandt.</p>
+{% endif %}
+
+<p>Nächste Schritte:</p>
+<ol>
+    <li>Wir haben {% if patient_count > 1 %}die Patient(inn)en{% else %}den/die Patient(in){% endif %} bereits über Ihre Zusage informiert.</li>
+    <li>{% if patient_count > 1 %}Die Patient(inn)en werden{% else %}Der/Die Patient(in) wird{% endif %} sich in den nächsten Tagen bei Ihnen melden, um einen ersten Termin zu vereinbaren.</li>
+    <li>Falls es Probleme bei der Kontaktaufnahme geben sollte, informieren Sie uns bitte.</li>
+</ol>
+
+<p>Wir bedanken uns herzlich für Ihre Unterstützung und Zusammenarbeit. Sollten Sie Fragen haben oder weitere Informationen benötigen, stehen wir Ihnen gerne zur Verfügung.</p>
+{% endblock %}

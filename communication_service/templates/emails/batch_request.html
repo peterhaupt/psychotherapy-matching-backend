@@ -1,0 +1,36 @@
+{% extends "base_email.html" %}
+
+{% block content %}
+<p>ich hoffe, diese Nachricht erreicht Sie gut. Wir sind Boona Therapieplatz-Vermittlung, ein Service, der Menschen bei der Suche nach einem passenden Therapieplatz unterstützt.</p>
+
+<p>Wir haben derzeit mehrere Patient(inn)en, für die wir einen Therapieplatz suchen und für die Sie als passende(r) Therapeut(in) in Frage kommen könnten.</p>
+
+<p>Im Folgenden finden Sie Informationen zu diesen Patient(inn)en:</p>
+
+{% for patient in patients %}
+<div class="patient-info">
+    <h3>Patient(in) {{ loop.index }}</h3>
+    <p><strong>Diagnose:</strong> {{ patient.diagnose }}</p>
+    {% if patient.geschlecht %}
+    <p><strong>Geschlecht:</strong> {{ patient.geschlecht }}</p>
+    {% endif %}
+    <p><strong>Verfügbarkeit:</strong> {{ patient.zeitliche_verfuegbarkeit_text }}</p>
+    <p><strong>Beschwerden seit:</strong> {{ patient.beschwerden_seit }}</p>
+    {% if patient.offen_fuer_gruppentherapie %}
+    <p><strong>Offen für Gruppentherapie:</strong> Ja</p>
+    {% endif %}
+    {% if patient.psychotherapieerfahrung %}
+    <p><strong>Psychotherapieerfahrung:</strong> Ja</p>
+    {% endif %}
+    {% if patient.aktuelle_psychische_beschwerden %}
+    <p><strong>Aktuelle Beschwerden:</strong> {{ patient.aktuelle_psychische_beschwerden|truncate(100) }}</p>
+    {% endif %}
+</div>
+{% endfor %}
+
+<p>Haben Sie aktuell freie Therapieplätze oder die Möglichkeit, in naher Zukunft einen Platz für eine(n) oder mehrere dieser Patient(inn)en anzubieten? Falls ja, würden wir uns sehr freuen, von Ihnen zu hören.</p>
+
+<p>Sie können direkt auf diese E-Mail antworten oder uns unter der im Briefkopf angegebenen Telefonnummer kontaktieren. Bitte geben Sie in Ihrer Antwort an, für welche(n) Patient(in) Sie einen Platz anbieten können (z.B. "Patient 1 und 3"). Die Vermittlung erfolgt für die Patient(inn)en kostenfrei.</p>
+
+<p>Falls Sie aktuell keine freien Plätze haben, wären wir Ihnen für eine kurze Rückmeldung dennoch dankbar. Dies hilft uns, unsere Suche effektiv zu gestalten.</p>
+{% endblock %}
