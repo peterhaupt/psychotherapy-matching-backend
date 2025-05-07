@@ -3,6 +3,8 @@ import logging
 import threading
 from datetime import datetime, timedelta
 
+from sqlalchemy import cast, String
+
 from shared.kafka import EventSchema, KafkaConsumer
 from shared.utils.database import SessionLocal
 from models.email import Email, EmailStatus
@@ -85,7 +87,7 @@ def check_unanswered_emails():
         
         unanswered_emails = db.query(Email).filter(
             Email.sent_at <= seven_days_ago,
-            Email.status == EmailStatus.SENT,
+            cast(Email.status, String) == EmailStatus.SENT.value,  # Use enum value instead of enum name
             Email.response_received.is_(False)
         ).all()
         

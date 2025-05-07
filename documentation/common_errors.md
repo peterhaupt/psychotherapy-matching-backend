@@ -139,3 +139,149 @@ class PlacementRequestStatus(str, Enum):
 ```
 
 Remember that modifying the enum structure may require database migrations if the values are stored in the database.
+
+## Database Enum Value Mismatch
+
+### Error Description
+
+When querying database records using Enum fields, you might encounter errors like this:
+
+```
+ERROR: (psycopg2.errors.InvalidTextRepresentation) invalid input value for enum emailstatus: "SENT"
+LINE 3: ...mestamp AND communication_service.emails.status = 'SENT' AND...
+```
+
+### Cause
+
+This error occurs when using the enum *variant name* (e.g., `SENT`) in database queries instead of the enum's *string value* (e.g., `gesendet`). SQLAlchemy stores the string value in the database, not the enum name.
+
+In the Python code, the `EmailStatus` enum is defined with German values:
+
+```python
+class EmailStatus(str, Enum):
+    """Enumeration for email status values."""
+
+    DRAFT = "entwurf"
+    QUEUED = "in_warteschlange"
+    SENDING = "wird_gesendet"
+    SENT = "gesendet"        # Note the German string value
+    FAILED = "fehlgeschlagen"
+```
+
+### Solution
+
+Always use the enum's `.value` property when constructing database queries that filter by enum fields:
+
+**Incorrect:**
+```python
+unanswered_emails = db.query(Email).filter(
+    Email.sent_at <= seven_days_ago,
+    Email.status == 'SENT',  # Wrong - uses the enum name
+    Email.response_received.is_(False)
+).all()
+```
+
+**Correct:**
+```python
+unanswered_emails = db.query(Email).filter(
+    Email.sent_at <= seven_days_ago,
+    cast(Email.status, String) == EmailStatus.SENT.value,  # Correct - uses enum value
+    Email.response_received.is_(False)
+).all()
+```
+
+### Best Practices for Database Enum Handling
+
+1. **Always Use Enum Values**: 
+   - When filtering by enum fields, always use `EnumClass.VARIANT.value`
+   - Cast the database column to a string with `cast(Column, String)` when needed
+
+2. **Consistent Query Patterns**:
+   - Use the same pattern everywhere in your codebase
+   - Create helper functions for common query patterns
+
+3. **Database Migrations**:
+   - Be careful with enum changes that might affect stored values
+   - When changing enum values, create a migration to update existing records
+
+4. **Parameterized Queries**:
+   - Use query parameters rather than string concatenation
+   - For example: `filter(cast(Email.status, String) == EmailStatus.SENT.value)`
+
+### Implementation Examples
+
+#### Example 1: Proper Enum Filtering
+
+```python
+# Import the cast function for type casting
+from sqlalchemy import cast, String
+
+# Then in your query:
+seven_days_ago = datetime.utcnow() - timedelta(days=7)
+unanswered_emails = db.query(Email).filter(
+    Email.sent_at <= seven_days_ago,
+    cast(Email.status, String) == EmailStatus.SENT.value,
+    Email.response_received.is_(False)
+).all()
+```
+
+#### Example 2: Helper Function for Consistent Queries
+
+```python
+def filter_by_enum_status(query, model_class, status_field, enum_value):
+    """Filter a query by an enum status value.
+    
+    Args:
+        query: SQLAlchemy query object
+        model_class: Model class being queried
+        status_field: Name of the status field
+        enum_value: Enum value to filter by
+        
+    Returns:
+        Updated query with the filter applied
+    """
+    from sqlalchemy import cast, String
+    
+    field = getattr(model_class, status_field)
+    return query.filter(cast(field, String) == enum_value.value)
+
+# Using the helper:
+query = db.query(Email)
+query = filter_by_enum_status(query, Email, 'status', EmailStatus.SENT)
+unanswered_emails = query.filter(
+    Email.sent_at <= seven_days_ago,
+    Email.response_received.is_(False)
+).all()
+```
+
+#### Example 3: Creating a Custom Comparator Class
+
+For more advanced usage, you could create a custom comparator class:
+
+```python
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy import type_coerce, String
+
+class EnumComparator(Comparator):
+    def __eq__(self, other):
+        if isinstance(other, Enum):
+            other = other.value
+        return cast(self.expr, String).__eq__(other)
+
+class MyModel(Base):
+    # ...
+    status = Column(SQLAlchemyEnum(MyEnum))
+    
+    @hybrid_property
+    def status_str(self):
+        return self.status.value if self.status else None
+        
+    @status_str.comparator
+    def status_str(cls):
+        return EnumComparator(cls.status)
+
+# Then use it like:
+query = db.query(MyModel).filter(MyModel.status_str == MyEnum.VALUE)
+```
+
+This approach is more complex but can make querying enums more intuitive across your codebase.
