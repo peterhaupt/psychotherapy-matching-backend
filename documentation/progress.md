@@ -14,7 +14,9 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 | Kafka Integration for Patient Service | ✅ Complete | [Details](05_kafka_integration_testing.md) |
 | Therapist Service | ✅ Complete | [Details](06_therapist_service.md) |
 | Matching Service | ✅ Complete | [Details](07_matching_service.md) |
-| Communication Service | 🔄 In Progress | [Details](08_communication_service.md) |
+| Communication Service - Email System | ✅ Complete | [Details](08_communication_service.md) |
+| Communication Service - Phone Call System | ✅ Complete | [Details](08_communication_service.md) |
+| Communication Service - Email Batching | 🔄 In Progress | - |
 | Geocoding Service | 🔄 Planned | - |
 | Web Scraping Service | 🔄 Planned | - |
 | Web Interface | 🔄 Planned | - |
@@ -64,49 +66,40 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 - Kafka event handling for patient and therapist updates
 - Integration with Patient and Therapist services
 
-### Communication Service 🔄
+### Communication Service - Email System ✅
 - Email model implemented with status tracking
-- Basic REST API endpoints for email management
-- Initial Kafka event integration
+- REST API endpoints for email management
 - Email sending functionality with SMTP
-- HTML email templates implemented:
+- HTML email templates with responsive design:
   - Base template with common structure and styling
   - Initial contact template for first therapist outreach
   - Batch request template for multiple patient requests
   - Follow-up template for reminder communications
   - Confirmation template for accepted patients
 - Enhanced template renderer with HTML and plain text support
-- Fixed SQLAlchemy enum handling issues
+
+### Communication Service - Phone Call System ✅
+- Phone call database models implemented
+- Phone call batch model for grouping placement requests
+- Phone call scheduling API endpoints
+- Scheduling algorithm based on therapist availability
+- Logic for scheduling follow-up calls after unanswered emails
+- Automated 7-day follow-up rule implementation
+- Robust Kafka producer with retry and queueing capabilities
 
 ## Current Focus
-- Completing the Communication Service implementation
-  - Updating Therapist model with potential availability fields
-  - Creating model for phone call scheduling 
-  - Implementing email batching logic with 7-day frequency limit
-  - Enhancing email queue processing with batching capabilities
-  - Adding phone call scheduling algorithm with 5-minute intervals
-  - Implementing phone call rescheduling for failed attempts
-  - Adding automatic scheduling of calls 7 days after unanswered emails
-  - Creating phone call prioritization based on therapist potential availability
+
+### Communication Service - Email Batching (In Progress)
+- Implementing email batching with 7-day frequency limitation
+- Adding functionality to group multiple patients in one email
+- Implementing priority queue for patients based on registration date
 
 ## Next Steps
 
-### 1. Complete Communication Service
-- Update Therapist model with new fields:
-  - Add `potentially_available` (Boolean)
-  - Add `potentially_available_notes` (Text)
-  - Define JSON structure for `telefonische_erreichbarkeit`
-- Create Phone Call scheduling table
-- Implement email batching system
-  - Enforce frequency limits (max 1 email per therapist per week)
-  - Group patients by therapist
-  - Prioritize by patient registration date
-- Develop phone call scheduling algorithm
-  - Schedule calls during therapist's available hours
-  - Enforce 4-week cooling period after rejections
-  - Prioritize "potentially available" therapists
-  - Include rescheduling logic for failed attempts
-- Implement integration tests
+### 1. Complete Email Batching System
+- Create EmailBatch model and table to replace JSONB approach
+- Implement logic to enforce maximum 1 email per therapist per week
+- Add email response tracking and follow-up scheduling
 
 ### 2. Develop Geocoding Service
 - Create OpenStreetMap API integration
@@ -151,47 +144,34 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 **Challenge**: SQLAlchemy wasn't correctly translating between Python enum names and database values.
 **Solution**: Implemented type casting in queries to ensure proper conversion between enum names and values.
 
-### Email Template System ✓
-**Challenge**: Need for standardized, reusable email templates.
-**Solution**: Implemented a Jinja2-based template system with inheritance and responsive design.
+### PostgreSQL Enum Type Creation ✓
+**Challenge**: Migrations failed due to duplicate enum type errors.
+**Solution**: Modified the migration script to use String columns instead of Enum types to avoid conflicts.
 
-### Email Batching Logic 🔄
-**Challenge**: Need to implement batching of patient requests to the same therapist.
-**Solution**: Designing system to track last contact date and group patients by therapist with priority based on registration date.
+### Kafka Connection Reliability ✓
+**Challenge**: Services failing when Kafka is not yet available at startup.
+**Solution**: Implemented a robust Kafka producer with retry logic, exponential backoff, and message queueing.
 
-### Phone Call Scheduling 🔄
-**Challenge**: Creating an algorithm to schedule calls in therapist's available time slots.
-**Solution**: Developing a system to parse therapist availability JSON and schedule calls in 5-minute increments.
+### Missing Dependencies ✓
+**Challenge**: Services failing due to missing Python packages.
+**Solution**: Updated requirements.txt with necessary dependencies and rebuilt Docker containers.
 
 ## Upcoming Milestones
 
-1. **Week 1 (Current)**: Complete communication service implementation - Email batching and phone call scheduling
+1. **Week 1 (Current)**: Complete email batching and response tracking
 2. **Week 2**: Implement basic geocoding service
 3. **Week 3**: Add web scraping service 
 4. **Week 4**: Implement web interface
 
-## Resource Allocation
-
-- Environment Setup: 1 day ✓
-- Database Configuration: 1 day ✓
-- Patient Service: 2 days ✓
-- Kafka Configuration: 1 day ✓
-- Kafka Integration: 1 day ✓
-- Therapist Service: 2 days ✓
-- Matching Service: 3 days ✓
-- Communication Service: 3 days (1.5 days completed, 1.5 days remaining)
-- Geocoding Service: 2 days (planned)
-- Web Scraping Service: 3 days (planned)
-- Web Interface: 5 days (planned)
-
 ## Technical Debt Tracking
 
-- Improve test coverage for patient service
+- Improve test coverage for all services
 - Enhance error handling for database operations
 - Add comprehensive logging
 - Implement health check endpoints
 - Add distance calculation to matching algorithm (requires geocoding service)
 - Refactor email status enum handling for better maintainability
+- Consider updating the String-based status fields to use proper enum types
 
 ## Documentation Status
 
@@ -204,10 +184,9 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 | Kafka Integration Testing | ✅ Complete | April 28, 2025 |
 | Therapist Service | ✅ Complete | April 29, 2025 |
 | Matching Service | ✅ Complete | May 02, 2025 |
-| Communication Service | 🔄 Updated | May 06, 2025 |
-| Implementation Plan | ✅ Updated | May 06, 2025 |
-| Communication Service Architecture | 🆕 New | May 06, 2025 |
-| Database Schema Updates | 🆕 New | May 06, 2025 |
-| Future Enhancements | 🆕 New | May 06, 2025 |
+| Communication Service | 🔄 Updated | May 07, 2025 |
+| Communication Service Architecture | 🔄 Updated | May 07, 2025 |
+| Database Schema Updates | 🔄 Updated | May 07, 2025 |
+| Implementation Progress | ✅ Updated | May 07, 2025 |
 | API Documentation | 🔄 Planned | - |
 | Deployment Guide | 🔄 Planned | - |

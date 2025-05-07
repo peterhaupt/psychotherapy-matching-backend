@@ -3,6 +3,11 @@ from flask import Flask
 from flask_restful import Api
 
 from api.emails import EmailResource, EmailListResource
+from api.phone_calls import (
+    PhoneCallResource, 
+    PhoneCallListResource, 
+    PhoneCallBatchResource
+)
 from events.consumers import start_consumers
 
 
@@ -28,9 +33,14 @@ def create_app():
     # Initialize RESTful API
     api = Api(app)
 
-    # Register API endpoints
+    # Register API endpoints for emails
     api.add_resource(EmailListResource, '/api/emails')
     api.add_resource(EmailResource, '/api/emails/<int:email_id>')
+    
+    # Register API endpoints for phone calls
+    api.add_resource(PhoneCallListResource, '/api/phone-calls')
+    api.add_resource(PhoneCallResource, '/api/phone-calls/<int:call_id>')
+    api.add_resource(PhoneCallBatchResource, '/api/phone-call-batches/<int:batch_id>')
 
     # Start Kafka consumers
     start_consumers()
