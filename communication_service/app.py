@@ -2,7 +2,10 @@
 from flask import Flask
 from flask_restful import Api
 
-from api.emails import EmailResource, EmailListResource
+from api.emails import (
+    EmailResource, EmailListResource,
+    EmailResponseResource, EmailBatchListResource, EmailBatchResource
+)
 from api.phone_calls import (
     PhoneCallResource, 
     PhoneCallListResource, 
@@ -36,6 +39,9 @@ def create_app():
     # Register API endpoints for emails
     api.add_resource(EmailListResource, '/api/emails')
     api.add_resource(EmailResource, '/api/emails/<int:email_id>')
+    api.add_resource(EmailResponseResource, '/api/emails/<int:email_id>/response')
+    api.add_resource(EmailBatchListResource, '/api/emails/<int:email_id>/batches')
+    api.add_resource(EmailBatchResource, '/api/email-batches/<int:batch_id>')
     
     # Register API endpoints for phone calls
     api.add_resource(PhoneCallListResource, '/api/phone-calls')

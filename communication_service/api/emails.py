@@ -5,6 +5,7 @@ from flask_restful import Resource, fields, marshal_with, reqparse
 from sqlalchemy.exc import SQLAlchemyError
 
 from models.email import Email, EmailStatus
+from models.email_batch import EmailBatch
 from shared.utils.database import SessionLocal
 from events.producers import publish_email_created, publish_email_sent
 from utils.email_sender import send_email
@@ -20,6 +21,21 @@ email_fields = {
     'status': fields.String,
     'created_at': fields.DateTime,
     'sent_at': fields.DateTime,
+    'response_received': fields.Boolean,
+    'response_date': fields.DateTime,
+    'batch_id': fields.String,
+}
+
+# Output fields for email batch information
+email_batch_fields = {
+    'id': fields.Integer,
+    'email_id': fields.Integer,
+    'placement_request_id': fields.Integer,
+    'priority': fields.Integer,
+    'included': fields.Boolean,
+    'response_outcome': fields.String,
+    'response_notes': fields.String,
+    'created_at': fields.DateTime,
 }
 
 
@@ -39,6 +55,43 @@ class EmailResource(Resource):
             return {'message': f'Database error: {str(e)}'}, 500
         finally:
             db.close()
+            
+    @marshal_with(email_fields)
+    def put(self, email_id):
+        """Update an email."""
+        parser = reqparse.RequestParser()
+        parser.add_argument('status', type=str)
+        parser.add_argument('response_received', type=bool)
+        parser.add_argument('response_date', type=str)
+        parser.add_argument('response_content', type=str)
+        parser.add_argument('follow_up_required', type=bool)
+        parser.add_argument('follow_up_notes', type=str)
+        
+        args = parser.parse_args()
+        
+        db = SessionLocal()
+        try:
+            email = db.query(Email).filter(Email.id == email_id).first()
+            if not email:
+                return {'message': 'Email not found'}, 404
+                
+            # Update email fields
+            for key, value in args.items():
+                if value is not None:
+                    if key == 'status' and value:
+                        email.status = EmailStatus(value)
+                    elif key == 'response_date' and value:
+                        email.response_date = datetime.fromisoformat(value)
+                    else:
+                        setattr(email, key, value)
+            
+            db.commit()
+            return email
+        except SQLAlchemyError as e:
+            db.rollback()
+            return {'message': f'Database error: {str(e)}'}, 500
+        finally:
+            db.close()
 
 
 class EmailListResource(Resource):
@@ -50,6 +103,8 @@ class EmailListResource(Resource):
         # Parse query parameters for filtering
         therapist_id = request.args.get('therapist_id', type=int)
         status = request.args.get('status')
+        response_received = request.args.get('response_received', type=bool)
+        batch_id = request.args.get('batch_id')
         
         db = SessionLocal()
         try:
@@ -60,6 +115,10 @@ class EmailListResource(Resource):
                 query = query.filter(Email.therapist_id == therapist_id)
             if status:
                 query = query.filter(Email.status == EmailStatus(status))
+            if response_received is not None:
+                query = query.filter(Email.response_received == response_received)
+            if batch_id:
+                query = query.filter(Email.batch_id == batch_id)
             
             # Get results
             emails = query.all()
@@ -91,6 +150,7 @@ class EmailListResource(Resource):
         parser.add_argument('sender_name', type=str)
         parser.add_argument('status', type=str)
         parser.add_argument('placement_request_ids', type=list)
+        parser.add_argument('batch_id', type=str)
         
         args = parser.parse_args()
         
@@ -106,7 +166,8 @@ class EmailListResource(Resource):
                 recipient_name=args['recipient_name'],
                 sender_email=args.get('sender_email', 'therapieplatz@peterhaupt.de'),
                 sender_name=args.get('sender_name', 'Boona Therapieplatz-Vermittlung'),
-                placement_request_ids=args.get('placement_request_ids')
+                placement_request_ids=args.get('placement_request_ids'),
+                batch_id=args.get('batch_id')
             )
             
             # Set status if provided, otherwise use default (DRAFT)
@@ -118,6 +179,18 @@ class EmailListResource(Resource):
                     email.queued_at = datetime.utcnow()
             
             db.add(email)
+            db.flush()  # Get ID without committing
+            
+            # Create email batches if placement_request_ids are provided
+            placement_request_ids = args.get('placement_request_ids', [])
+            for i, pr_id in enumerate(placement_request_ids):
+                batch = EmailBatch(
+                    email_id=email.id,
+                    placement_request_id=pr_id,
+                    priority=i + 1  # Priority based on order
+                )
+                db.add(batch)
+            
             db.commit()
             db.refresh(email)
             
@@ -133,6 +206,212 @@ class EmailListResource(Resource):
                 send_email(email.id)
             
             return email, 201
+        except SQLAlchemyError as e:
+            db.rollback()
+            return {'message': f'Database error: {str(e)}'}, 500
+        finally:
+            db.close()
+
+
+class EmailResponseResource(Resource):
+    """REST resource for tracking email responses."""
+    
+    @marshal_with(email_fields)
+    def get(self, email_id):
+        """Get response information for a specific email."""
+        db = SessionLocal()
+        try:
+            email = db.query(Email).filter(Email.id == email_id).first()
+            if not email:
+                return {'message': 'Email not found'}, 404
+            return email
+        except SQLAlchemyError as e:
+            return {'message': f'Database error: {str(e)}'}, 500
+        finally:
+            db.close()
+    
+    @marshal_with(email_fields)
+    def post(self, email_id):
+        """Record a response for an email."""
+        parser = reqparse.RequestParser()
+        parser.add_argument('response_received', type=bool, required=True,
+                           help='Response received status is required')
+        parser.add_argument('response_content', type=str)
+        parser.add_argument('follow_up_required', type=bool)
+        parser.add_argument('follow_up_notes', type=str)
+        
+        # Optional arguments for updating batches
+        parser.add_argument('batch_responses', type=list)
+        
+        args = parser.parse_args()
+        
+        db = SessionLocal()
+        try:
+            email = db.query(Email).filter(Email.id == email_id).first()
+            if not email:
+                return {'message': 'Email not found'}, 404
+            
+            # Update email with response information
+            email.response_received = args['response_received']
+            if args['response_received']:
+                email.response_date = datetime.utcnow()
+                email.response_content = args.get('response_content', '')
+            email.follow_up_required = args.get('follow_up_required', False)
+            email.follow_up_notes = args.get('follow_up_notes', '')
+            
+            # Update individual batch responses if provided
+            batch_responses = args.get('batch_responses', [])
+            for batch_response in batch_responses:
+                if 'placement_request_id' in batch_response:
+                    pr_id = batch_response['placement_request_id']
+                    batch = db.query(EmailBatch).filter(
+                        EmailBatch.email_id == email_id,
+                        EmailBatch.placement_request_id == pr_id
+                    ).first()
+                    
+                    if batch:
+                        outcome = batch_response.get('outcome')
+                        notes = batch_response.get('notes')
+                        
+                        if outcome:
+                            batch.response_outcome = outcome
+                        if notes:
+                            batch.response_notes = notes
+            
+            db.commit()
+            return email
+        except SQLAlchemyError as e:
+            db.rollback()
+            return {'message': f'Database error: {str(e)}'}, 500
+        finally:
+            db.close()
+
+
+class EmailBatchListResource(Resource):
+    """REST resource for email batch collection operations."""
+    
+    @marshal_with(email_batch_fields)
+    def get(self, email_id):
+        """Get all batches for a specific email."""
+        db = SessionLocal()
+        try:
+            batches = db.query(EmailBatch).filter(
+                EmailBatch.email_id == email_id
+            ).all()
+            
+            if not batches:
+                return []
+                
+            return batches
+        except SQLAlchemyError as e:
+            return {'message': f'Database error: {str(e)}'}, 500
+        finally:
+            db.close()
+            
+    @marshal_with(email_batch_fields)
+    def post(self, email_id):
+        """Add a placement request to an email batch."""
+        parser = reqparse.RequestParser()
+        parser.add_argument('placement_request_id', type=int, required=True,
+                           help='Placement request ID is required')
+        parser.add_argument('priority', type=int)
+        
+        args = parser.parse_args()
+        
+        db = SessionLocal()
+        try:
+            # Check if email exists
+            email = db.query(Email).filter(Email.id == email_id).first()
+            if not email:
+                return {'message': 'Email not found'}, 404
+                
+            # Check if batch already exists
+            existing_batch = db.query(EmailBatch).filter(
+                EmailBatch.email_id == email_id,
+                EmailBatch.placement_request_id == args['placement_request_id']
+            ).first()
+            
+            if existing_batch:
+                return {'message': 'This placement request is already in the batch'}, 400
+                
+            # Create new batch
+            batch = EmailBatch(
+                email_id=email_id,
+                placement_request_id=args['placement_request_id'],
+                priority=args.get('priority', 1)
+            )
+            
+            db.add(batch)
+            db.commit()
+            db.refresh(batch)
+            
+            return batch, 201
+        except SQLAlchemyError as e:
+            db.rollback()
+            return {'message': f'Database error: {str(e)}'}, 500
+        finally:
+            db.close()
+
+
+class EmailBatchResource(Resource):
+    """REST resource for individual email batch operations."""
+    
+    @marshal_with(email_batch_fields)
+    def get(self, batch_id):
+        """Get a specific email batch."""
+        db = SessionLocal()
+        try:
+            batch = db.query(EmailBatch).filter(EmailBatch.id == batch_id).first()
+            if not batch:
+                return {'message': 'Email batch not found'}, 404
+            return batch
+        except SQLAlchemyError as e:
+            return {'message': f'Database error: {str(e)}'}, 500
+        finally:
+            db.close()
+    
+    @marshal_with(email_batch_fields)
+    def put(self, batch_id):
+        """Update a specific email batch."""
+        parser = reqparse.RequestParser()
+        parser.add_argument('priority', type=int)
+        parser.add_argument('included', type=bool)
+        parser.add_argument('response_outcome', type=str)
+        parser.add_argument('response_notes', type=str)
+        
+        args = parser.parse_args()
+        
+        db = SessionLocal()
+        try:
+            batch = db.query(EmailBatch).filter(EmailBatch.id == batch_id).first()
+            if not batch:
+                return {'message': 'Email batch not found'}, 404
+                
+            # Update batch fields
+            for key, value in args.items():
+                if value is not None:
+                    setattr(batch, key, value)
+            
+            db.commit()
+            return batch
+        except SQLAlchemyError as e:
+            db.rollback()
+            return {'message': f'Database error: {str(e)}'}, 500
+        finally:
+            db.close()
+    
+    def delete(self, batch_id):
+        """Remove a placement request from an email batch."""
+        db = SessionLocal()
+        try:
+            batch = db.query(EmailBatch).filter(EmailBatch.id == batch_id).first()
+            if not batch:
+                return {'message': 'Email batch not found'}, 404
+                
+            db.delete(batch)
+            db.commit()
+            
+            return {'message': 'Email batch deleted successfully'}, 200
         except SQLAlchemyError as e:
             db.rollback()
             return {'message': f'Database error: {str(e)}'}, 500

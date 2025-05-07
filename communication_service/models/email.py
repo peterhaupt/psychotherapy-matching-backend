@@ -3,7 +3,7 @@ from datetime import datetime
 from enum import Enum
 
 from sqlalchemy import (
-    Column, DateTime, Enum as SQLAlchemyEnum,
+    Boolean, Column, DateTime, Enum as SQLAlchemyEnum,
     Integer, String, Text
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -39,8 +39,18 @@ class Email(Base):
     sender_email = Column(String(255), nullable=False)
     sender_name = Column(String(255), nullable=False)
     
-    # Placement requests associated with this email
+    # Placement requests associated with this email (will be replaced by batches)
     placement_request_ids = Column(JSONB)
+    
+    # Batch identifier
+    batch_id = Column(String(50))
+    
+    # Response tracking
+    response_received = Column(Boolean, default=False)
+    response_date = Column(DateTime)
+    response_content = Column(Text)
+    follow_up_required = Column(Boolean, default=False)
+    follow_up_notes = Column(Text)
     
     # Status information
     status = Column(
