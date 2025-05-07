@@ -7,6 +7,7 @@ This document details the implementation of the Communication Service for the Ps
 The Communication Service has been implemented with these components:
 
 - **Email Model**: Database storage for emails with status tracking and response monitoring
+- **Email Batch System**: Complete implementation of email batching for grouping multiple patient requests
 - **Phone Call System**: Complete implementation of phone call scheduling and management
 - **API Endpoints**: REST endpoints for email and phone call operations
 - **Kafka Integration**: Robust event producers and consumers with resilience features
@@ -64,6 +65,55 @@ class Email(Base):
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, onupdate=datetime.utcnow)
+```
+
+### Email Batch Model (`communication_service/models/email_batch.py`)
+
+The newly implemented Email Batch model establishes the relationship between emails and placement requests, supporting the batching of multiple requests into a single email:
+
+```python
+class EmailBatch(Base):
+    """Email batch database model.
+    
+    This model represents the relationship between emails and placement requests,
+    allowing multiple placement requests to be grouped into a single email.
+    """
+
+    __tablename__ = "email_batches"
+    __table_args__ = {"schema": "communication_service"}
+
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # Relationships
+    email_id = Column(
+        Integer,
+        ForeignKey("communication_service.emails.id", ondelete="CASCADE"),
+        nullable=False
+    )
+    placement_request_id = Column(
+        Integer,
+        ForeignKey("matching_service.placement_requests.id", ondelete="CASCADE"),
+        nullable=False
+    )
+    
+    # Batch metadata
+    priority = Column(Integer, default=1)  # Higher numbers = higher priority
+    included = Column(Boolean, default=True)  # Flag to indicate if the request was included in the email
+    
+    # Response tracking
+    response_outcome = Column(String(50))  # e.g., "accepted", "rejected", "needs_follow_up"
+    response_notes = Column(Text)
+    
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, onupdate=datetime.utcnow)
+    
+    # Define relationships
+    email = relationship(
+        "Email",
+        backref="batches",
+        foreign_keys=[email_id]
+    )
 ```
 
 ### Phone Call Models (`communication_service/models/phone_call.py`)
@@ -154,6 +204,9 @@ def create_app():
     # Register API endpoints for emails
     api.add_resource(EmailListResource, '/api/emails')
     api.add_resource(EmailResource, '/api/emails/<int:email_id>')
+    api.add_resource(EmailResponseResource, '/api/emails/<int:email_id>/response')
+    api.add_resource(EmailBatchListResource, '/api/emails/<int:email_id>/batches')
+    api.add_resource(EmailBatchResource, '/api/email-batches/<int:batch_id>')
     
     # Register API endpoints for phone calls
     api.add_resource(PhoneCallListResource, '/api/phone-calls')
@@ -171,11 +224,32 @@ def create_app():
 #### Email Endpoints:
 - **EmailResource**: Operations on individual emails (GET, PUT)
 - **EmailListResource**: Collection operations (GET, POST)
+- **EmailResponseResource**: Operations for tracking email responses (GET, POST)
+- **EmailBatchListResource**: Operations for managing batches for a specific email (GET, POST)
+- **EmailBatchResource**: Operations on individual email batches (GET, PUT, DELETE)
 
 #### Phone Call Endpoints:
 - **PhoneCallResource**: Operations on individual phone calls (GET, PUT, DELETE)
 - **PhoneCallListResource**: Collection operations (GET, POST)
 - **PhoneCallBatchResource**: Operations on phone call batches (GET, PUT)
+
+## Email Batching System
+
+The email batching system provides a sophisticated way to group multiple patient requests into a single email to therapists.
+
+### Key Features:
+- **Frequency Limitation**: Enforces maximum one email per therapist per week
+- **Patient Grouping**: Groups multiple patients for a therapist into a single email
+- **Dynamic Templating**: Selects appropriate templates based on batch size
+- **Batch Tracking**: Tracks the included placement requests in each email
+- **Response Management**: Records responses at both email and individual batch level
+- **Prioritization**: Orders patients by registration date for batching
+
+### Implementation (`communication_service/utils/email_sender.py`):
+- **can_contact_therapist()**: Enforces the 7-day frequency limitation
+- **create_batch_email()**: Creates emails with multiple patient requests
+- **process_pending_requests()**: Identifies requests that need to be batched
+- **send_queued_emails()**: Processes the email queue with batch awareness
 
 ## Phone Call Scheduling System
 
@@ -196,7 +270,7 @@ The phone call scheduling system provides automated scheduling of calls based on
 
 ## Email Template System
 
-The service now uses a structured template system with Jinja2:
+The service uses a structured template system with Jinja2:
 
 ```
 communication_service/
@@ -226,24 +300,19 @@ A robust Kafka producer was implemented to handle connection issues and message 
 - **_process_queue()**: Background thread for sending queued messages
 - **send_event()**: Main method for sending events with fallback to queuing
 
-## Current Limitations
+## Event Handling
 
-- **Email Batching**: The frequency limitation (max 1 email per therapist per week) is implemented in the scheduler but requires additional testing
-- **Phone Call UI**: While the API is complete, a user interface for managing phone calls is still needed
-- **Integration Tests**: Comprehensive testing of the phone call scheduling with actual therapist data is needed
+The service consumes matching events to track changes in placement requests:
 
-## Next Steps
+### Implementation (`communication_service/events/consumers.py`):
+- **handle_matching_event()**: Processes events from the matching service
+- **process_email_queue()**: Regularly checks for emails that need to be sent
+- **check_unanswered_emails()**: Identifies emails that need follow-up calls
+- **schedule_daily_batch_processing()**: Runs the daily batch email processing
 
-1. **Complete Email Batching Logic**
-   - Test frequency limits
-   - Add priority-based processing for different communication types
+## Database Integration
 
-2. **Integration Testing**
-   - Develop comprehensive tests for email and phone call endpoints
-   - Test scheduling with actual therapist data
-
-3. **User Interface**
-   - Develop a simple interface for viewing and managing calls
-
-4. **Analytics and Reporting**
-   - Add reporting capabilities for tracking communication effectiveness
+The email batching system is supported by the database schema through these migrations:
+- `5dfc91e6b6f9_create_communication_tables.py`: Created the initial email table
+- `7bfc93a7c8e9_create_phone_call_tables.py`: Added the phone call tables
+- `8bfc94a7d8f9_add_email_batch_table.py`: Added the email batch table and necessary fields to the email table
