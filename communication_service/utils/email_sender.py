@@ -15,6 +15,7 @@ from models.email import Email, EmailStatus
 from models.email_batch import EmailBatch
 from models.phone_call import PhoneCall
 from utils.template_renderer import render_template
+from utils.phone_call_scheduler import schedule_call_for_email
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -81,7 +82,7 @@ def can_contact_therapist(therapist_id: int) -> bool:
         recent_email = db.query(Email).filter(
             Email.therapist_id == therapist_id,
             Email.sent_at >= seven_days_ago,
-            Email.status == EmailStatus.SENT
+            cast(Email.status, String) == EmailStatus.SENT.value
         ).first()
         
         # Check for any scheduled phone calls to this therapist in the next 7 days
@@ -148,6 +149,7 @@ def create_batch_email(
             placement_request_ids = placement_request_ids[:MAX_PATIENTS_PER_EMAIL]
     
     db = SessionLocal()
+    
     try:
         # Get therapist data
         therapist_result = db.execute(
@@ -522,6 +524,40 @@ def send_queued_emails(limit=10):
         return sent_count
     except Exception as e:
         logger.error(f"Error sending queued emails: {str(e)}", exc_info=True)
+        return 0
+    finally:
+        db.close()
+
+
+def check_unanswered_emails():
+    """Check for emails without responses after 7 days and schedule phone calls."""
+    logger.info("Checking for unanswered emails older than 7 days")
+    
+    db = SessionLocal()
+    try:
+        # Find emails sent more than 7 days ago without a response
+        seven_days_ago = datetime.utcnow() - timedelta(days=7)
+        
+        # Use casting to compare status as string value
+        unanswered_emails = db.query(Email).filter(
+            Email.sent_at <= seven_days_ago,
+            cast(Email.status, String) == EmailStatus.SENT.value,
+            Email.response_received.is_(False)
+        ).all()
+        
+        logger.info(f"Found {len(unanswered_emails)} unanswered emails older than 7 days")
+        
+        scheduled_count = 0
+        for email in unanswered_emails:
+            call_id = schedule_call_for_email(email.id)
+            if call_id:
+                scheduled_count += 1
+                
+        logger.info(f"Scheduled {scheduled_count} follow-up calls")
+        return scheduled_count
+        
+    except Exception as e:
+        logger.error(f"Error checking unanswered emails: {str(e)}")
         return 0
     finally:
         db.close()
