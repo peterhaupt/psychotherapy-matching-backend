@@ -231,58 +231,102 @@ class EmailResponseResource(Resource):
             db.close()
     
     @marshal_with(email_fields)
-    def post(self, email_id):
-        """Record a response for an email."""
+    def post(self):
+        """Create a new email."""
         parser = reqparse.RequestParser()
-        parser.add_argument('response_received', type=bool, required=True,
-                           help='Response received status is required')
-        parser.add_argument('response_content', type=str)
-        parser.add_argument('follow_up_required', type=bool)
-        parser.add_argument('follow_up_notes', type=str)
+        # Required fields
+        parser.add_argument('therapist_id', type=int, required=True,
+                        help='Therapist ID is required')
+        parser.add_argument('subject', type=str, required=True,
+                        help='Subject is required')
+        parser.add_argument('body_html', type=str, required=True,
+                        help='HTML body is required')
+        parser.add_argument('recipient_email', type=str, required=True,
+                        help='Recipient email is required')
+        parser.add_argument('recipient_name', type=str, required=True,
+                        help='Recipient name is required')
         
-        # Optional arguments for updating batches
-        parser.add_argument('batch_responses', type=list)
+        # Optional fields
+        parser.add_argument('body_text', type=str)
+        parser.add_argument('sender_email', type=str)
+        parser.add_argument('sender_name', type=str)
+        parser.add_argument('status', type=str)
+        parser.add_argument('placement_request_ids', type=list)
+        parser.add_argument('batch_id', type=str)
         
         args = parser.parse_args()
         
         db = SessionLocal()
         try:
-            email = db.query(Email).filter(Email.id == email_id).first()
-            if not email:
-                return {'message': 'Email not found'}, 404
+            logging.debug(f"Creating email for therapist_id={args['therapist_id']}")
+            # Create new email
+            email = Email(
+                therapist_id=args['therapist_id'],
+                subject=args['subject'],
+                body_html=args['body_html'],
+                body_text=args.get('body_text', ''),
+                recipient_email=args['recipient_email'],
+                recipient_name=args['recipient_name'],
+                sender_email=args.get('sender_email', 'therapieplatz@peterhaupt.de'),
+                sender_name=args.get('sender_name', 'Boona Therapieplatz-Vermittlung'),
+                placement_request_ids=args.get('placement_request_ids'),
+                batch_id=args.get('batch_id')
+            )
             
-            # Update email with response information
-            email.response_received = args['response_received']
-            if args['response_received']:
-                email.response_date = datetime.utcnow()
-                email.response_content = args.get('response_content', '')
-            email.follow_up_required = args.get('follow_up_required', False)
-            email.follow_up_notes = args.get('follow_up_notes', '')
+            # Set status if provided, otherwise use default (DRAFT)
+            if args.get('status'):
+                logging.debug(f"Setting custom status: {args.get('status')}")
+                email.status = EmailStatus(args['status'])
+                
+                # If status is QUEUED, set the queued_at timestamp
+                if email.status == EmailStatus.QUEUED:
+                    email.queued_at = datetime.utcnow()
             
-            # Update individual batch responses if provided
-            batch_responses = args.get('batch_responses', [])
-            for batch_response in batch_responses:
-                if 'placement_request_id' in batch_response:
-                    pr_id = batch_response['placement_request_id']
-                    batch = db.query(EmailBatch).filter(
-                        EmailBatch.email_id == email_id,
-                        EmailBatch.placement_request_id == pr_id
-                    ).first()
-                    
-                    if batch:
-                        outcome = batch_response.get('outcome')
-                        notes = batch_response.get('notes')
-                        
-                        if outcome:
-                            batch.response_outcome = outcome
-                        if notes:
-                            batch.response_notes = notes
+            db.add(email)
+            db.flush()  # Get ID without committing
+            logging.debug(f"Email created with ID: {email.id}")
+            
+            # Create email batches if placement_request_ids are provided
+            placement_request_ids = args.get('placement_request_ids', [])
+            for i, pr_id in enumerate(placement_request_ids):
+                batch = EmailBatch(
+                    email_id=email.id,
+                    placement_request_id=pr_id,
+                    priority=i + 1  # Priority based on order
+                )
+                db.add(batch)
+                logging.debug(f"Added batch for placement_request_id={pr_id}")
             
             db.commit()
-            return email
+            db.refresh(email)
+            logging.debug(f"Database transaction committed")
+            
+            # Publish event for email creation
+            logging.debug(f"About to publish email_created event for email_id={email.id}")
+            try:
+                result = publish_email_created(email.id, {
+                    'therapist_id': email.therapist_id,
+                    'subject': email.subject,
+                    'status': email.status.value
+                })
+                logging.debug(f"Event published, result={result}")
+            except Exception as e:
+                logging.error(f"Error publishing email_created event: {e}", exc_info=True)
+            
+            # If status is QUEUED, try to send it immediately
+            if email.status == EmailStatus.QUEUED:
+                logging.debug(f"Email is queued, attempting to send immediately")
+                send_email(email.id)
+            
+            return email, 201
         except SQLAlchemyError as e:
             db.rollback()
+            logging.error(f"Database error creating email: {str(e)}", exc_info=True)
             return {'message': f'Database error: {str(e)}'}, 500
+        except Exception as e:
+            db.rollback()
+            logging.error(f"Unexpected error creating email: {str(e)}", exc_info=True)
+            return {'message': f'Error: {str(e)}'}, 500
         finally:
             db.close()
 

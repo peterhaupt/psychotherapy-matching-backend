@@ -2,14 +2,31 @@
 import logging
 from typing import Dict, List, Optional, Any
 
-# Import our robust producer instead of the shared one
-from events.robust_producer import RobustKafkaProducer
+# Add this block to test the import
+try:
+    from shared.kafka.robust_producer import RobustKafkaProducer
+    print("Successfully imported RobustKafkaProducer from shared module")
+except ImportError as e:
+    print(f"ERROR IMPORTING ROBUST PRODUCER: {e}")
+    # Fallback to the old implementation to help diagnose
+    try:
+        from events.robust_producer import RobustKafkaProducer
+        print("Fell back to local robust_producer implementation")
+    except ImportError:
+        print("Local robust_producer also not available!")
 
 # Initialize logging
 logger = logging.getLogger(__name__)
 
 # Initialize Kafka producer with robust implementation
-producer = RobustKafkaProducer(service_name="communication-service")
+try:
+    print("About to create RobustKafkaProducer instance")
+    producer = RobustKafkaProducer(service_name="communication-service")
+    print(f"Successfully created producer: {producer}")
+except Exception as e:
+    print(f"ERROR CREATING PRODUCER: {str(e)}")
+    import traceback
+    traceback.print_exc()
 
 # Topic for communication events
 COMMUNICATION_TOPIC = "communication-events"
@@ -25,15 +42,22 @@ def publish_email_created(email_id: int, email_data: Dict[str, Any]) -> bool:
     Returns:
         bool: True if publishing was successful, False otherwise
     """
-    return producer.send_event(
-        topic=COMMUNICATION_TOPIC,
-        event_type="communication.email_created",
-        payload={
-            "email_id": email_id,
-            "email_data": email_data
-        },
-        key=str(email_id)
-    )
+    logger.debug(f"Publishing email_created event for email_id={email_id}")
+    try:
+        result = producer.send_event(
+            topic=COMMUNICATION_TOPIC,
+            event_type="communication.email_created",
+            payload={
+                "email_id": email_id,
+                "email_data": email_data
+            },
+            key=str(email_id)
+        )
+        logger.debug(f"Published email_created event, result={result}")
+        return result
+    except Exception as e:
+        logger.error(f"Error publishing email_created event: {e}", exc_info=True)
+        return False
 
 
 def publish_email_sent(email_id: int, email_data: Dict[str, Any]) -> bool:
@@ -46,15 +70,22 @@ def publish_email_sent(email_id: int, email_data: Dict[str, Any]) -> bool:
     Returns:
         bool: True if publishing was successful, False otherwise
     """
-    return producer.send_event(
-        topic=COMMUNICATION_TOPIC,
-        event_type="communication.email_sent",
-        payload={
-            "email_id": email_id,
-            "email_data": email_data
-        },
-        key=str(email_id)
-    )
+    logger.debug(f"Publishing email_sent event for email_id={email_id}")
+    try:
+        result = producer.send_event(
+            topic=COMMUNICATION_TOPIC,
+            event_type="communication.email_sent",
+            payload={
+                "email_id": email_id,
+                "email_data": email_data
+            },
+            key=str(email_id)
+        )
+        logger.debug(f"Published email_sent event, result={result}")
+        return result
+    except Exception as e:
+        logger.error(f"Error publishing email_sent event: {e}", exc_info=True)
+        return False
 
 
 def publish_phone_call_scheduled(call_id: int, call_data: Dict[str, Any]) -> bool:
@@ -67,15 +98,22 @@ def publish_phone_call_scheduled(call_id: int, call_data: Dict[str, Any]) -> boo
     Returns:
         bool: True if publishing was successful, False otherwise
     """
-    return producer.send_event(
-        topic=COMMUNICATION_TOPIC,
-        event_type="communication.call_scheduled",
-        payload={
-            "call_id": call_id,
-            "call_data": call_data
-        },
-        key=str(call_id)
-    )
+    logger.debug(f"Publishing call_scheduled event for call_id={call_id}")
+    try:
+        result = producer.send_event(
+            topic=COMMUNICATION_TOPIC,
+            event_type="communication.call_scheduled",
+            payload={
+                "call_id": call_id,
+                "call_data": call_data
+            },
+            key=str(call_id)
+        )
+        logger.debug(f"Published call_scheduled event, result={result}")
+        return result
+    except Exception as e:
+        logger.error(f"Error publishing call_scheduled event: {e}", exc_info=True)
+        return False
 
 
 def publish_phone_call_completed(
@@ -93,6 +131,7 @@ def publish_phone_call_completed(
     Returns:
         bool: True if publishing was successful, False otherwise
     """
+    logger.debug(f"Publishing call_completed event for call_id={call_id}")
     payload = {
         "call_id": call_id,
         "call_data": call_data
@@ -100,10 +139,16 @@ def publish_phone_call_completed(
     
     if outcome:
         payload["outcome"] = outcome
-        
-    return producer.send_event(
-        topic=COMMUNICATION_TOPIC,
-        event_type="communication.call_completed",
-        payload=payload,
-        key=str(call_id)
-    )
+    
+    try:
+        result = producer.send_event(
+            topic=COMMUNICATION_TOPIC,
+            event_type="communication.call_completed",
+            payload=payload,
+            key=str(call_id)
+        )
+        logger.debug(f"Published call_completed event, result={result}")
+        return result
+    except Exception as e:
+        logger.error(f"Error publishing call_completed event: {e}", exc_info=True)
+        return False
