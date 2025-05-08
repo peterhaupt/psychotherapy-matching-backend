@@ -1,5 +1,93 @@
 # Common Errors in the Therapy Matching Platform
 
+## Kafka Connection Issues
+
+### Error Description
+
+When starting services, you might see the following error in the logs:
+
+```
+Failed to connect to Kafka: NoBrokersAvailable
+```
+
+### Cause
+
+This error occurs when services start before Kafka is fully initialized and ready to accept connections. In a containerized environment, Docker might start containers in the correct order, but the Kafka service inside its container needs additional time to initialize.
+
+### Solution
+
+This issue has been addressed with two complementary approaches:
+
+1. **Application-level resilience**: The `RobustKafkaProducer` handles connection failures gracefully, queuing messages until Kafka becomes available. The error in the logs is expected and doesn't indicate a problem as long as services continue running.
+
+2. **Container orchestration**: Docker Compose health checks ensure services wait for dependencies to be fully ready:
+
+```yaml
+# In docker-compose.yml
+kafka:
+  # ... existing config ...
+  healthcheck:
+    test: ["CMD-SHELL", "kafka-topics --bootstrap-server kafka:9092 --list || exit 1"]
+    interval: 10s
+    timeout: 20s
+    retries: 5
+    start_period: 30s
+
+therapist-service:
+  # ... existing config ...
+  depends_on:
+    kafka:
+      condition: service_healthy
+```
+
+### Best Practices
+
+1. **Always use the RobustKafkaProducer**:
+   - Non-blocking initialization allows services to start regardless of Kafka status
+   - Message queuing ensures no events are lost
+   - Automatic reconnection handles transient failures
+
+2. **Configure service dependencies properly**:
+   - Use `condition: service_healthy` instead of simple `depends_on`
+   - Add appropriate health checks to critical services
+   - Allow sufficient time for service initialization with `start_period`
+
+3. **Understand startup logs**:
+   - Initial "Failed to connect" messages are normal and handled by the RobustKafkaProducer
+   - Check subsequent logs for successful connections
+   - Verify message delivery once Kafka is available
+
+## PgBouncer Health Check Issues
+
+### Error Description
+
+When using health checks with PgBouncer, you might see:
+
+```
+dependency failed to start: container boona_mvp-pgbouncer-1 is unhealthy
+```
+
+### Cause
+
+Standard network-based health checks using `nc` (netcat) fail because the tool is not available in the PgBouncer container, or the port check approach is not appropriate for this container.
+
+### Solution
+
+Use a socket-based health check that verifies the Unix socket file exists:
+
+```yaml
+pgbouncer:
+  # ... existing config ...
+  healthcheck:
+    test: ["CMD", "/bin/sh", "-c", "test -S /tmp/.s.PGSQL.6432 || exit 1"]
+    interval: 5s
+    timeout: 5s
+    retries: 3
+    start_period: 10s
+```
+
+This checks for the existence of the socket file that PgBouncer creates when it's properly initialized.
+
 ## Enum Value Mismatch in API Requests
 
 ### Error Description

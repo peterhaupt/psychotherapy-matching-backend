@@ -10,24 +10,38 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./docker/postgres:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U boona"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   pgbouncer:
     image: edoburu/pgbouncer:latest
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     ports:
       - "6432:6432"
     volumes:
       - ./docker/pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini
       - ./docker/pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "/bin/sh", "-c", "test -S /tmp/.s.PGSQL.6432 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   # Patient service configuration
   patient-service:
     build: ./patient_service
     depends_on:
-      - pgbouncer
-      - kafka
+      pgbouncer:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
     ports:
       - "8001:8001"
     volumes:
@@ -44,8 +58,10 @@ services:
   therapist-service:
     build: ./therapist_service
     depends_on:
-      - pgbouncer
-      - kafka
+      pgbouncer:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
     ports:
       - "8002:8002"
     volumes:
@@ -62,8 +78,10 @@ services:
   matching-service:
     build: ./matching_service
     depends_on:
-      - pgbouncer
-      - kafka
+      pgbouncer:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
     ports:
       - "8003:8003"
     volumes:
@@ -80,8 +98,10 @@ services:
   communication-service:
     build: ./communication_service
     depends_on:
-      - pgbouncer
-      - kafka
+      pgbouncer:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
     ports:
       - "8004:8004"
     volumes:
@@ -105,11 +125,18 @@ services:
       - zookeeper-data:/var/lib/zookeeper/data
       - zookeeper-logs:/var/lib/zookeeper/log
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "echo mntr | nc localhost 2181"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   kafka:
     image: confluentinc/cp-kafka:latest
     depends_on:
-      - zookeeper
+      zookeeper:
+        condition: service_healthy
     ports:
       - "9092:9092"
     environment:
@@ -123,14 +150,21 @@ services:
     volumes:
       - kafka-data:/var/lib/kafka/data
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server kafka:9092 --list || exit 1"]
+      interval: 10s
+      timeout: 20s
+      retries: 5
+      start_period: 30s
     
   kafka-setup:
     image: confluentinc/cp-kafka:latest
     depends_on:
-      - kafka
+      kafka:
+        condition: service_healthy
     volumes:
       - ./docker/kafka:/scripts
-    command: ["bash", "-c", "sleep 10 && /scripts/create-topics.sh"]
+    command: ["bash", "-c", "/scripts/create-topics.sh"]
     restart: "no"
 
 volumes:

@@ -10,7 +10,7 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 | Environment Setup | ✅ Complete | [Details](01_environment_setup.md) |
 | Database Configuration | ✅ Complete | [Details](02_database_configuration.md) |
 | Patient Service | ✅ Complete | [Details](03_patient_service.md) |
-| Kafka Configuration | ✅ Complete | [Details](04_kafka_configuration.md) |
+| Kafka Configuration | ✅ Complete with Healthchecks | [Details](04_kafka_configuration.md) |
 | Robust Kafka Producer | ✅ Complete | [Details](kafka_robust_producer.md) |
 | Kafka Integration for Patient Service | ✅ Complete | [Details](05_kafka_integration_testing.md) |
 | Therapist Service | ✅ Complete | [Details](06_therapist_service.md) |
@@ -18,6 +18,7 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 | Communication Service - Email System | ✅ Complete | [Details](08_communication_service.md) |
 | Communication Service - Phone Call System | ✅ Complete | [Details](08_communication_service.md) |
 | Communication Service - Email Batching | ✅ Complete | [Details](08_communication_service.md) |
+| Communication Service - RobustKafkaProducer | 🔄 Planned | TO DO: Update to use shared implementation |
 | Geocoding Service | 🔄 Planned | - |
 | Web Scraping Service | 🔄 Planned | - |
 | Web Interface | 🔄 Planned | - |
@@ -47,6 +48,7 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 - Topic creation script
 - Shared utilities for producers and consumers
 - Standardized event schema
+- Health check implementation for proper service startup order
 
 ### Robust Kafka Producer ✅
 - Non-blocking service initialization when Kafka unavailable
@@ -54,7 +56,7 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 - Message queuing during Kafka outages
 - Background thread for reconnection and queue processing
 - Thread-safe implementation
-- Applied across all services
+- Applied to Patient, Therapist, and Matching services
 
 ### Kafka Integration for Patient Service ✅
 - Event producers implemented for patient operations
@@ -94,7 +96,7 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 - Scheduling algorithm based on therapist availability
 - Logic for scheduling follow-up calls after unanswered emails
 - Automated 7-day follow-up rule implementation
-- Robust Kafka producer with retry and queueing capabilities
+- Robust Kafka producer implementation (custom version, needs standardization)
 
 ### Communication Service - Email Batching ✅
 - Email batch model and relationships implemented
@@ -106,6 +108,16 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 - Automatic template selection based on batch size
 
 ## Current Focus
+
+### Docker Compose Health Checks ✅
+- Health checks implemented for Postgres, Zookeeper, and Kafka services
+- Service startup order improved through conditional dependencies
+- Socket-based health check for PgBouncer
+- Elimination of initial Kafka connection errors
+
+### Communication Service Standardization 🔄
+- TO DO: Update Communication Service to use shared RobustKafkaProducer implementation
+- Review duplicate code between services and standardize where appropriate
 
 ### Geocoding Service (In Planning)
 - Researching OpenStreetMap API integration
@@ -163,11 +175,17 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 
 ### Kafka Connection Reliability ✓
 **Challenge**: Services failing when Kafka is not yet available at startup.
-**Solution**: Implemented a robust Kafka producer with retry logic, exponential backoff, and message queueing.
+**Solution**: 
+1. Implemented a robust Kafka producer with retry logic, exponential backoff, and message queueing
+2. Added health checks to Docker Compose configuration to ensure services start in the correct order
 
 ### Email Batching Implementation ✓
 **Challenge**: Needed to group multiple patient requests into a single email while respecting frequency limits.
 **Solution**: Implemented dedicated EmailBatch model with proper relationships and batch processing logic.
+
+### PgBouncer Healthcheck ✓
+**Challenge**: Standard network-based health checks failed for PgBouncer container.
+**Solution**: Created a socket-based health check that verifies the PostgreSQL socket file exists.
 
 ### Missing Dependencies ✓
 **Challenge**: Services failing due to missing Python packages.
@@ -178,10 +196,10 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 - Improve test coverage for all services
 - Enhance error handling for database operations
 - Add comprehensive logging
-- Implement health check endpoints
 - Add distance calculation to matching algorithm (requires geocoding service)
 - Refactor email status enum handling for better maintainability
 - Consider updating the String-based status fields to use proper enum types
+- Standardize the Communication Service RobustKafkaProducer implementation
 
 ## Documentation Status
 
@@ -190,8 +208,8 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 | Environment Setup | ✅ Complete | April 28, 2025 |
 | Database Configuration | ✅ Complete | April 28, 2025 |
 | Patient Service | ✅ Complete | April 28, 2025 |
-| Kafka Configuration | ✅ Complete | April 28, 2025 |
-| Kafka Robust Producer | ✅ Complete | May 08, 2025 |
+| Kafka Configuration | ✅ Updated | May 08, 2025 |
+| Kafka Robust Producer | ✅ Updated | May 08, 2025 |
 | Kafka Integration Testing | ✅ Complete | April 28, 2025 |
 | Therapist Service | ✅ Complete | April 29, 2025 |
 | Matching Service | ✅ Complete | May 02, 2025 |
@@ -199,5 +217,6 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 | Communication Service Architecture | ✅ Updated | May 07, 2025 |
 | Database Schema Updates | ✅ Updated | May 07, 2025 |
 | Implementation Progress | ✅ Updated | May 08, 2025 |
+| Common Errors | ✅ Updated | May 08, 2025 |
 | API Documentation | 🔄 Planned | - |
 | Deployment Guide | 🔄 Planned | - |

@@ -21,11 +21,18 @@ zookeeper:
     - zookeeper-data:/var/lib/zookeeper/data
     - zookeeper-logs:/var/lib/zookeeper/log
   restart: unless-stopped
+  healthcheck:
+    test: ["CMD-SHELL", "echo mntr | nc localhost 2181"]
+    interval: 5s
+    timeout: 5s
+    retries: 3
+    start_period: 10s
 
 kafka:
   image: confluentinc/cp-kafka:latest
   depends_on:
-    - zookeeper
+    zookeeper:
+      condition: service_healthy
   ports:
     - "9092:9092"
   environment:
@@ -39,6 +46,12 @@ kafka:
   volumes:
     - kafka-data:/var/lib/kafka/data
   restart: unless-stopped
+  healthcheck:
+    test: ["CMD-SHELL", "kafka-topics --bootstrap-server kafka:9092 --list || exit 1"]
+    interval: 10s
+    timeout: 20s
+    retries: 5
+    start_period: 30s
 ```
 
 Additional volumes are defined:
@@ -48,6 +61,18 @@ volumes:
   zookeeper-logs:
   kafka-data:
 ```
+
+### Startup Dependencies with Healthchecks
+
+To ensure proper service initialization, we use Docker Compose healthchecks:
+
+1. **Zookeeper**: Checks its management port with a simple monitoring command
+2. **Kafka**: Waits for Zookeeper to be healthy, then verifies it can list topics
+3. **Services**: All microservices wait for Kafka to be healthy before starting
+
+This approach, combined with the RobustKafkaProducer, provides two layers of protection:
+- **Container-level**: Healthchecks ensure proper startup order
+- **Application-level**: RobustKafkaProducer handles transient failures
 
 ## Kafka Topic Configuration
 
@@ -59,10 +84,11 @@ A dedicated service is added to initialize Kafka topics when the platform starts
 kafka-setup:
   image: confluentinc/cp-kafka:latest
   depends_on:
-    - kafka
+    kafka:
+      condition: service_healthy
   volumes:
     - ./docker/kafka:/scripts
-  command: ["bash", "-c", "sleep 10 && /scripts/create-topics.sh"]
+  command: ["bash", "-c", "/scripts/create-topics.sh"]
   restart: "no"
 ```
 

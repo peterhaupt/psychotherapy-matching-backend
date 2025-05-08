@@ -219,7 +219,7 @@ def send_event(self, topic, event_type, payload, key=None):
 
 ## Integration
 
-The robust producer has been integrated into all services that require Kafka connectivity:
+The robust producer has been integrated into these services:
 
 ### 1. Patient Service
 ```python
@@ -242,12 +242,10 @@ from shared.kafka.robust_producer import RobustKafkaProducer
 producer = RobustKafkaProducer(service_name="matching-service")
 ```
 
-### 4. Communication Service
-```python
-# communication_service/events/producers.py
-from shared.kafka.robust_producer import RobustKafkaProducer
-producer = RobustKafkaProducer(service_name="communication-service")
-```
+### 4. Communication Service - TO DO
+The communication service currently has its own implementation of a robust producer 
+in `communication_service/events/robust_producer.py`. A future task is to update this 
+service to use the shared implementation for consistency across all services.
 
 ## Benefits
 
@@ -318,3 +316,6 @@ Potential future improvements to the robust producer include:
 3. **Priority Queuing**
    - Support message prioritization to ensure critical events are sent first
    - Implement configurable queue policies
+
+4. **Standardization Across All Services**
+   - Update the Communication Service to use the shared RobustKafkaProducer
