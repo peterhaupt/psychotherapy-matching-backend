@@ -82,7 +82,7 @@ def can_contact_therapist(therapist_id: int) -> bool:
         recent_email = db.query(Email).filter(
             Email.therapist_id == therapist_id,
             Email.sent_at >= seven_days_ago,
-            cast(Email.status, String) == EmailStatus.SENT.value
+            cast(Email.status, String) == EmailStatus.SENT.value  # Use the value "gesendet"
         ).first()
         
         # Check for any scheduled phone calls to this therapist in the next 7 days
@@ -284,10 +284,11 @@ Boona Therapieplatz-Vermittlung
             recipient_name=recipient_name,
             sender_email=smtp_settings['sender'],
             sender_name=smtp_settings['sender_name'],
-            status=EmailStatus.DRAFT,
-            batch_id=batch_id,
             placement_request_ids=placement_request_ids  # Temporary until fully migrated
         )
+        
+        # Set status explicitly using the enum value to avoid SQLAlchemy issues
+        email.status = EmailStatus.DRAFT.value  # "entwurf"
         
         db.add(email)
         db.flush()  # Get ID without committing
@@ -330,8 +331,8 @@ def send_email(email_id):
             logger.error(f"Email with ID {email_id} not found")
             return False
         
-        # Update status to SENDING
-        email.status = EmailStatus.SENDING
+        # Update status to SENDING - use the enum value
+        email.status = EmailStatus.SENDING.value  # "wird_gesendet"
         db.commit()
         
         # Create the email message
@@ -374,8 +375,8 @@ def send_email(email_id):
             # Close the connection
             server.quit()
             
-            # Update the email status
-            email.status = EmailStatus.SENT
+            # Update the email status - use the enum value
+            email.status = EmailStatus.SENT.value  # "gesendet"
             email.sent_at = datetime.utcnow()
             db.commit()
             
@@ -383,8 +384,8 @@ def send_email(email_id):
             return True
             
         except Exception as e:
-            # Update the email status
-            email.status = EmailStatus.FAILED
+            # Update the email status - use the enum value
+            email.status = EmailStatus.FAILED.value  # "fehlgeschlagen"
             email.error_message = str(e)
             email.retry_count += 1
             db.commit()
@@ -461,9 +462,9 @@ def process_pending_requests():
             )
             
             if email_id:
-                # Queue the email for sending
+                # Queue the email for sending - use the enum value
                 email = db.query(Email).get(email_id)
-                email.status = EmailStatus.QUEUED
+                email.status = EmailStatus.QUEUED.value  # "in_warteschlange"
                 email.queued_at = datetime.utcnow()
                 db.commit()
                 
@@ -500,7 +501,7 @@ def send_queued_emails(limit=10):
         
         # Create a query that casts the status column to string and compares with the enum value
         query = db.query(Email).filter(
-            cast(Email.status, String) == EmailStatus.QUEUED.value
+            cast(Email.status, String) == EmailStatus.QUEUED.value  # "in_warteschlange"
         )
         
         # Log the actual SQL being generated
@@ -541,7 +542,7 @@ def check_unanswered_emails():
         # Use casting to compare status as string value
         unanswered_emails = db.query(Email).filter(
             Email.sent_at <= seven_days_ago,
-            cast(Email.status, String) == EmailStatus.SENT.value,
+            cast(Email.status, String) == EmailStatus.SENT.value,  # "gesendet"
             Email.response_received.is_(False)
         ).all()
         

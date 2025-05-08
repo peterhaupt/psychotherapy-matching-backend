@@ -2,29 +2,17 @@
 import logging
 from typing import Dict, List, Optional, Any
 
-# Add this block to test the import
-try:
-    from shared.kafka.robust_producer import RobustKafkaProducer
-    print("Successfully imported RobustKafkaProducer from shared module")
-except ImportError as e:
-    print(f"ERROR IMPORTING ROBUST PRODUCER: {e}")
-    # Fallback to the old implementation to help diagnose
-    try:
-        from events.robust_producer import RobustKafkaProducer
-        print("Fell back to local robust_producer implementation")
-    except ImportError:
-        print("Local robust_producer also not available!")
+from shared.kafka.robust_producer import RobustKafkaProducer
 
 # Initialize logging
 logger = logging.getLogger(__name__)
 
 # Initialize Kafka producer with robust implementation
 try:
-    print("About to create RobustKafkaProducer instance")
     producer = RobustKafkaProducer(service_name="communication-service")
-    print(f"Successfully created producer: {producer}")
+    logger.info("Successfully created shared RobustKafkaProducer")
 except Exception as e:
-    print(f"ERROR CREATING PRODUCER: {str(e)}")
+    logger.error(f"ERROR CREATING PRODUCER: {str(e)}")
     import traceback
     traceback.print_exc()
 

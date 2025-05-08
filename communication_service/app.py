@@ -74,8 +74,9 @@ def create_app():
                 sender_name="Boona Therapieplatz-Vermittlung",
             )
             
-            # Use the enum value explicitly - "entwurf" instead of DRAFT
-            email.status = EmailStatus("entwurf")
+            # Set the status using the enum VALUE directly, not the enum instance
+            # This ensures SQLAlchemy uses 'entwurf' instead of 'DRAFT'
+            email.status = "entwurf"  # EmailStatus.DRAFT.value
             
             db.add(email)
             db.commit()
@@ -85,7 +86,7 @@ def create_app():
                 'email_id': email.id,
                 'therapist_id': email.therapist_id,
                 'subject': email.subject,
-                'status': email.status.value if email.status else None
+                'status': email.status.value if hasattr(email.status, 'value') else email.status
             }
             
             return jsonify(result), 201
