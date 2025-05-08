@@ -2,13 +2,13 @@
 import logging
 from typing import Dict, Any
 
-from shared.kafka import KafkaProducer
+from shared.kafka.robust_producer import RobustKafkaProducer
 
 # Initialize logging
 logger = logging.getLogger(__name__)
 
 # Initialize Kafka producer
-producer = KafkaProducer(service_name="patient-service")
+producer = RobustKafkaProducer(service_name="patient-service")
 
 # Topic for patient events
 PATIENT_TOPIC = "patient-events"

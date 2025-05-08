@@ -1,7 +1,7 @@
 # Kafka Configuration
 
 ## Summary
-This document details the implementation of Kafka messaging infrastructure for the Psychotherapy Matching Platform. It covers Kafka and Zookeeper setup, topic configuration, shared utilities for event production and consumption, and standardized event schemas to enable asynchronous communication between microservices.
+This document details the implementation of Kafka messaging infrastructure for the Psychotherapy Matching Platform. It covers Kafka and Zookeeper setup, topic configuration, shared utilities for event production and consumption, standardized event schemas, and resilient messaging patterns to enable asynchronous communication between microservices.
 
 ## Kafka and Zookeeper Infrastructure
 
@@ -167,70 +167,51 @@ class EventSchema:
         return event
 ```
 
-### Kafka Producer (`shared/kafka/producer.py`)
+### Robust Kafka Producer (`shared/kafka/robust_producer.py`)
 
-A wrapper around the Kafka producer with standardized event handling:
+A resilient wrapper around the Kafka producer with advanced failure handling:
 
 ```python
-class KafkaProducer:
-    """Wrapper for Kafka producer with standardized event handling."""
+class RobustKafkaProducer:
+    """Wrapper for Kafka producer with resilience capabilities."""
 
     def __init__(
         self,
         bootstrap_servers: str = "kafka:9092",
         service_name: str = "unknown-service"
     ):
-        """Initialize the Kafka producer."""
-        self.producer = BaseKafkaProducer(
-            bootstrap_servers=bootstrap_servers,
-            value_serializer=lambda v: json.dumps(v).encode('utf-8')
-        )
+        """Initialize the robust Kafka producer."""
+        self.bootstrap_servers = bootstrap_servers
         self.service_name = service_name
         self.logger = logging.getLogger(__name__)
-
-    def send_event(
-        self,
-        topic: str,
-        event_type: str,
-        payload: Dict[str, Any],
-        key: Optional[str] = None
-    ) -> bool:
-        """Send an event to Kafka using the standard event schema."""
-        event = EventSchema(
-            event_type=event_type,
-            payload=payload,
-            producer=self.service_name
+        self.producer = None
+        self.connected = False
+        self.message_queue = []
+        self.queue_lock = Lock()
+        
+        # Try to connect without blocking startup
+        self._connect()
+        
+        # Start background thread for reconnection and queue processing
+        self.queue_processor = Thread(
+            target=self._process_queue,
+            daemon=True
         )
-
-        try:
-            # Convert key to bytes if provided
-            key_bytes = key.encode('utf-8') if key else None
-            
-            # Send and get the future
-            future = self.producer.send(
-                topic,
-                value=event.to_dict(),
-                key=key_bytes
-            )
-            
-            # Wait for the send to complete
-            future.get(timeout=10)
-            self.logger.info(
-                f"Event {event_type} sent to topic {topic}",
-                extra={"event_id": event.event_id}
-            )
-            return True
-        except KafkaError as e:
-            self.logger.error(
-                f"Failed to send event {event_type} to topic {topic}: {str(e)}",
-                extra={"event_id": event.event_id}
-            )
-            return False
-
-    def close(self):
-        """Close the Kafka producer."""
-        self.producer.close()
+        self.queue_processor.start()
 ```
+
+Key features of the robust producer:
+- **Non-blocking initialization**: Services continue starting even when Kafka is unavailable
+- **Connection retry**: Exponential backoff retry logic for connecting to Kafka
+- **Message queuing**: Local storage of messages when Kafka is unavailable
+- **Background processing**: Thread for sending queued messages when connection is restored
+- **Error handling**: Proper handling of various error conditions
+
+Implementation details:
+1. **Connection management**: Handles connection attempts with retry logic
+2. **Message queueing**: Stores events in memory when Kafka is unavailable
+3. **Background processing**: Dedicated thread for reconnection and sending queued messages
+4. **Standard event schema**: Maintains the same schema for all messages
 
 ### Kafka Consumer (`shared/kafka/consumer.py`)
 
@@ -339,8 +320,8 @@ Events that represent commands to be processed:
 ### Producing Events
 
 ```python
-# Initialize a producer in a service
-producer = KafkaProducer(service_name="patient-service")
+# Initialize a robust producer in a service
+producer = RobustKafkaProducer(service_name="patient-service")
 
 # Send an event when a patient is created
 def create_patient(data):
@@ -376,3 +357,124 @@ consumer = KafkaConsumer(
 # Define an event handler
 def handle_patient_event(event: EventSchema):
     if event.event_type == "patient.created":
+        # Process the new patient event
+        patient_id = event.payload.get("patient_id")
+        process_new_patient(patient_id)
+    elif event.event_type == "patient.updated":
+        # Process the patient update
+        update_matching_data(event.payload)
+
+# Start processing events in a separate thread
+import threading
+thread = threading.Thread(
+    target=consumer.process_events,
+    args=(handle_patient_event, ["patient.created", "patient.updated"]),
+    daemon=True
+)
+thread.start()
+```
+
+## Resilience Patterns
+
+The platform implements several resilience patterns for Kafka messaging:
+
+### Service Startup Independent of Kafka
+
+Services can start and function even when Kafka is temporarily unavailable:
+
+```python
+# In service initialization
+try:
+    # Robust producer handles connection failures gracefully
+    producer = RobustKafkaProducer(service_name="service-name")
+    logger.info("Connected to Kafka")
+except Exception as e:
+    logger.error(f"Error initializing Kafka producer: {str(e)}")
+    # Service continues to operate, with events being queued
+```
+
+### Message Queuing During Outages
+
+Messages are queued locally when Kafka is unavailable:
+
+```python
+# Producer handles queueing automatically
+producer.send_event(
+    topic="topic-name",
+    event_type="event.type",
+    payload={"key": "value"}
+)  # Will be queued if Kafka is down
+```
+
+### Automatic Reconnection
+
+Services automatically attempt to reconnect to Kafka:
+
+```python
+# RobustKafkaProducer implements reconnection logic
+def _process_queue(self):
+    """Background thread to process message queue."""
+    retry_delay = 1  # Start with 1 second
+    
+    while True:
+        # Try to reconnect if disconnected
+        if not self.connected:
+            if self._connect():
+                retry_delay = 1  # Reset on success
+            else:
+                # Exponential backoff
+                retry_delay = min(retry_delay * 2, 30)
+                time.sleep(retry_delay)
+        
+        # Rest of queue processing
+        # ...
+```
+
+### Consumer Error Handling
+
+Consumers implement proper error handling for failed message processing:
+
+```python
+try:
+    # Process the event
+    handler(event)
+    
+    # Commit offset after successful processing
+    self.consumer.commit()
+except Exception as e:
+    self.logger.error(f"Error processing event: {str(e)}")
+    # Error is contained, processing continues with next message
+```
+
+## Integration Testing
+
+The platform includes Docker-based testing tools for Kafka integration:
+
+```python
+# docker-kafka-test.py
+def main():
+    """Run the Kafka integration test using Docker."""
+    parser = ArgumentParser(description="Test Kafka integration")
+    parser.add_argument(
+        '--topic',
+        default='patient-events',
+        help='Kafka topic to listen to (default: patient-events)'
+    )
+    
+    args = parser.parse_args()
+    
+    # Build the docker-compose exec command
+    docker_cmd = (
+        f"docker-compose exec -T kafka "
+        f"kafka-console-consumer "
+        f"--bootstrap-server kafka:9092 "
+        f"--topic {args.topic} "
+        f"--from-beginning "
+        f"--timeout-ms {args.timeout * 1000}"
+    )
+    
+    # Display the command for the user to execute
+    print(docker_cmd)
+```
+
+This approach resolves network issues with direct Kafka connections from the host machine by running the consumer inside the Docker network.

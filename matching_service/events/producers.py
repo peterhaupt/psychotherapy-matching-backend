@@ -2,13 +2,13 @@
 import logging
 from typing import Dict, Any, Optional
 
-from shared.kafka import KafkaProducer
+from shared.kafka.robust_producer import RobustKafkaProducer
 
 # Initialize logging
 logger = logging.getLogger(__name__)
 
 # Initialize Kafka producer
-producer = KafkaProducer(service_name="matching-service")
+producer = RobustKafkaProducer(service_name="matching-service")
 
 # Topic for matching events
 MATCHING_TOPIC = "matching-events"

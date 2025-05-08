@@ -27,6 +27,7 @@ services:
     build: ./patient_service
     depends_on:
       - pgbouncer
+      - kafka
     ports:
       - "8001:8001"
     volumes:
@@ -44,6 +45,7 @@ services:
     build: ./therapist_service
     depends_on:
       - pgbouncer
+      - kafka
     ports:
       - "8002:8002"
     volumes:
