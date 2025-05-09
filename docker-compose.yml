@@ -11,7 +11,7 @@ services:
       - postgres-data:/var/lib/postgresql/data
       - ./docker/postgres:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U boona"]
+      test: ["CMD-SHELL", "pg_isready -U boona -d therapy_platform"]
       interval: 5s
       timeout: 5s
       retries: 5
