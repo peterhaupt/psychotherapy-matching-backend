@@ -51,23 +51,7 @@ This document outlines specific changes needed to the current codebase based on 
    follow_up_notes = Column(Text)
    ```
 
-2. Replace JSONB `placement_request_ids` with a proper relationship:
-   ```python
-   # Remove the existing JSONB field
-   # placement_request_ids = Column(JSONB)
-   
-   # Add relationship
-   batches = relationship(
-       "EmailBatch",
-       back_populates="email",
-       cascade="all, delete-orphan"
-   )
-   placement_requests = relationship(
-       "PlacementRequest",
-       secondary="communication_service.email_batches",
-       back_populates="emails"
-   )
-   ```
+2. Replace JSONB `placement_request_ids` with a proper relationship.
 
 3. Create an EmailBatch model and table to properly track email batches.
 
@@ -78,29 +62,9 @@ This document outlines specific changes needed to the current codebase based on 
 - `send_queued_emails` processes emails from the queue
 
 **Required Changes**:
-1. Enhance `send_queued_emails` to implement batching logic:
-   ```python
-   def send_queued_emails(limit=10):
-       """Send queued emails with batching logic."""
-       # Check frequency limit (7 days)
-       # Group by therapist
-       # Prioritize by patient registration date
-       # Generate batch emails
-   ```
-
-2. Add functions to check therapist contact frequency:
-   ```python
-   def can_contact_therapist(therapist_id):
-       """Check if a therapist can be contacted based on 7-day rule."""
-       # Implementation
-   ```
-
-3. Implement batch email generation:
-   ```python
-   def create_batch_email(therapist_id, placement_request_ids, priority_order=None):
-       """Create a batch email for multiple placement requests."""
-       # Implementation
-   ```
+1. Enhance `send_queued_emails` to implement batching logic
+2. Add functions to check therapist contact frequency
+3. Implement batch email generation
 
 ## 3. New Components to Add
 
@@ -110,39 +74,10 @@ This document outlines specific changes needed to the current codebase based on 
 - No existing phone call functionality
 
 **Required Additions**:
-1. Create PhoneCall model:
-   ```python
-   class PhoneCall(Base):
-       """Phone call database model."""
-       __tablename__ = "phone_calls"
-       __table_args__ = {"schema": "communication_service"}
-       
-       # Fields as defined in database_schema_updates.md
-   ```
-
-2. Create PhoneCallBatch model:
-   ```python
-   class PhoneCallBatch(Base):
-       """Phone call batch database model."""
-       __tablename__ = "phone_call_batches"
-       __table_args__ = {"schema": "communication_service"}
-       
-       # Fields as defined in database_schema_updates.md
-   ```
-
-3. Implement phone call scheduling algorithm:
-   ```python
-   def schedule_phone_calls():
-       """Schedule phone calls for placement requests with no email response."""
-       # Implementation
-   ```
-
-4. Implement rescheduling logic for failed calls:
-   ```python
-   def reschedule_failed_call(phone_call_id):
-       """Reschedule a failed phone call."""
-       # Implementation
-   ```
+1. Create PhoneCall model
+2. Create PhoneCallBatch model
+3. Implement phone call scheduling algorithm
+4. Implement rescheduling logic for failed calls
 
 ## 4. Kafka Event Handlers
 
@@ -153,27 +88,9 @@ This document outlines specific changes needed to the current codebase based on 
 - No handling for scheduling follow-up communications
 
 **Required Changes**:
-1. Enhance `handle_matching_event` to track email responses:
-   ```python
-   def handle_matching_event(event: EventSchema) -> None:
-       """Handle events from the matching service."""
-       # Add handling for placement request status changes
-       # Schedule follow-up communications when needed
-   ```
-
-2. Add scheduled task for processing emails without responses:
-   ```python
-   def process_unanswered_emails():
-       """Schedule phone calls for emails without responses after 7 days."""
-       # Implementation
-   ```
-
-3. Add scheduled task for executing batching:
-   ```python
-   def execute_email_batching():
-       """Process email batches on a daily schedule."""
-       # Implementation
-   ```
+1. Enhance `handle_matching_event` to track email responses
+2. Add scheduled task for processing emails without responses
+3. Add scheduled task for executing batching
 
 ## 5. API Changes
 
@@ -183,31 +100,8 @@ This document outlines specific changes needed to the current codebase based on 
 - Basic CRUD endpoints for emails
 
 **Required Changes**:
-1. Add endpoints for tracking email responses:
-   ```python
-   class EmailResponseResource(Resource):
-       """REST resource for tracking email responses."""
-       # Implementation
-   ```
-
-2. Add endpoints for managing phone calls:
-   ```python
-   class PhoneCallResource(Resource):
-       """REST resource for phone call operations."""
-       # Implementation
-       
-   class PhoneCallListResource(Resource):
-       """REST resource for phone call collection operations."""
-       # Implementation
-   ```
-
-3. Register new endpoints in app.py:
-   ```python
-   # Add to create_app function
-   api.add_resource(EmailResponseResource, '/api/emails/<int:email_id>/response')
-   api.add_resource(PhoneCallListResource, '/api/phone-calls')
-   api.add_resource(PhoneCallResource, '/api/phone-calls/<int:call_id>')
-   ```
+1. Add endpoints for tracking email responses
+2. Add endpoints for managing phone calls
 
 ## 6. Database Migration
 

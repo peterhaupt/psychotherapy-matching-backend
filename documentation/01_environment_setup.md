@@ -26,20 +26,9 @@ VS Code: Version 1.99.3 (Universal)
 ## Python Environment Configuration
 
 1. Python 3.11.11 installed via pyenv
-2. Virtual environment created:
-   ```bash
-   pyenv virtualenv 3.11.11 boona_MVP
-   ```
-3. `.python-version` file created to automatically activate environment:
-   ```bash
-   echo boona_MVP > .python-version
-   ```
-4. VS Code configured to use the pyenv virtual environment via settings.json:
-   ```json
-   {
-       "python.defaultInterpreterPath": "~/.pyenv/versions/boona_MVP/bin/python"
-   }
-   ```
+2. Virtual environment created using pyenv virtualenv
+3. `.python-version` file created to automatically activate environment
+4. VS Code configured to use the pyenv virtual environment via settings.json
 
 ## Version Control Configuration
 

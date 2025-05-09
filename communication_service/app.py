@@ -76,7 +76,7 @@ def create_app():
             
             # Set the status using the enum VALUE directly, not the enum instance
             # This ensures SQLAlchemy uses 'entwurf' instead of 'DRAFT'
-            email.status = "entwurf"  # EmailStatus.DRAFT.value
+            email.status = EmailStatus.DRAFT
             
             db.add(email)
             db.commit()
