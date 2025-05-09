@@ -1,5 +1,7 @@
 # Anforderungsspezifikation: Psychotherapie-Vermittlungsplattform
 
+[English: This document describes the business requirements for the Psychotherapy Matching Platform. The requirements are maintained in German to ensure precise communication with German-speaking stakeholders and to correctly represent domain-specific terminology. For English translations of key terms, please refer to TERMINOLOGY.md at the project root.]
+
 ## 1. Projektübersicht
 
 Die Psychotherapie-Vermittlungsplattform ist ein Softwaresystem zur effizienten Vermittlung von Psychotherapieplätzen für Patienten in Deutschland. Die Plattform vereinfacht und beschleunigt den Vermittlungsprozess durch automatisierte Kommunikation mit Therapeuten und strukturierte Patientendatenverwaltung.
@@ -33,9 +35,9 @@ Die minimale lokale Version soll als Grundlage für ein erweiterbares System die
 | Letzter Kontakt per E-Mail | Datum | |
 | Letzter Kontakt per Telefon | Datum | |
 | Letztes persönliches Gespräch | Datum | |
-| Freie Einzeltherapieplätze ab Datum | Datum | |
-| Freie Gruppentherapieplätze ab Datum | Datum | |
-| Gesperrt | Boolean | Ob der Therapeut aktuell für neue Anfragen gesperrt ist |
+| Freie Einzeltherapieplätze ab | Datum | |
+| Freie Gruppentherapieplätze ab | Datum | |
+| Status | Enum | aktiv, gesperrt, inaktiv |
 | Sperrgrund | Text | Grund für die Sperrung |
 | Sperrdatum | Datum | Zeitpunkt der Sperrung |
 | Potenziell Verfügbar | Boolean | Kennzeichnung, ob der Therapeut potenziell verfügbare Plätze haben könnte |
@@ -112,6 +114,10 @@ Die minimale lokale Version soll als Grundlage für ein erweiterbares System die
 | Inhalt | Text | |
 | Platzanfragen | Liste | Referenzen auf die enthaltenen Platzanfragen |
 | Sendedatum | Datum | |
+| Status | Enum | Entwurf, In Warteschlange, Wird gesendet, Gesendet, Fehlgeschlagen |
+| Batch-ID | Text | Eindeutige Kennung für Stapelverarbeitung |
+| Antwort erhalten | Boolean | |
+| Antwortdatum | Datum | |
 
 ### 2.5 Telefonat
 
