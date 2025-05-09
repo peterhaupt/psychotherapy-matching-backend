@@ -3,12 +3,27 @@ from datetime import datetime
 from flask import request
 from flask_restful import Resource, fields, marshal_with, reqparse
 from sqlalchemy.exc import SQLAlchemyError
+import logging
 
 from models.email import Email, EmailStatus
 from models.email_batch import EmailBatch
 from shared.utils.database import SessionLocal
 from events.producers import publish_email_created, publish_email_sent
 from utils.email_sender import send_email
+
+
+# Custom field to properly handle enum values
+class EnumField(fields.String):
+    """Field that correctly marshals Enum types."""
+    def format(self, value):
+        """Format the enum value."""
+        if value is None:
+            return None
+        # If it's an enum with value attribute, return that
+        if hasattr(value, 'value'):
+            return value.value
+        # Otherwise convert to string
+        return str(value)
 
 
 # Output fields definition for email responses
@@ -18,7 +33,7 @@ email_fields = {
     'subject': fields.String,
     'recipient_email': fields.String,
     'recipient_name': fields.String,
-    'status': fields.String,
+    'status': EnumField,  # Use custom field for enum
     'created_at': fields.DateTime,
     'sent_at': fields.DateTime,
     'response_received': fields.Boolean,
@@ -79,7 +94,20 @@ class EmailResource(Resource):
             for key, value in args.items():
                 if value is not None:
                     if key == 'status' and value:
-                        email.status = EmailStatus(value)
+                        try:
+                            email.status = EmailStatus(value)
+                        except ValueError:
+                            # Try case-insensitive matching
+                            status_map = {
+                                'DRAFT': EmailStatus.DRAFT,
+                                'QUEUED': EmailStatus.QUEUED,
+                                'SENDING': EmailStatus.SENDING,
+                                'SENT': EmailStatus.SENT,
+                                'FAILED': EmailStatus.FAILED
+                            }
+                            value_upper = value.upper()
+                            if value_upper in status_map:
+                                email.status = status_map[value_upper]
                     elif key == 'response_date' and value:
                         email.response_date = datetime.fromisoformat(value)
                     else:
@@ -114,7 +142,21 @@ class EmailListResource(Resource):
             if therapist_id:
                 query = query.filter(Email.therapist_id == therapist_id)
             if status:
-                query = query.filter(Email.status == EmailStatus(status))
+                try:
+                    # Try direct enum conversion
+                    query = query.filter(Email.status == EmailStatus(status))
+                except ValueError:
+                    # Try case-insensitive matching
+                    status_upper = status.upper()
+                    status_map = {
+                        'DRAFT': EmailStatus.DRAFT,
+                        'QUEUED': EmailStatus.QUEUED,
+                        'SENDING': EmailStatus.SENDING,
+                        'SENT': EmailStatus.SENT,
+                        'FAILED': EmailStatus.FAILED
+                    }
+                    if status_upper in status_map:
+                        query = query.filter(Email.status == status_map[status_upper])
             if response_received is not None:
                 query = query.filter(Email.response_received == response_received)
             if batch_id:
@@ -156,6 +198,7 @@ class EmailListResource(Resource):
         
         db = SessionLocal()
         try:
+            logging.info(f"Creating email for therapist_id={args['therapist_id']}")
             # Create new email
             email = Email(
                 therapist_id=args['therapist_id'],
@@ -170,117 +213,8 @@ class EmailListResource(Resource):
                 batch_id=args.get('batch_id')
             )
             
-            # Set status if provided, otherwise use default (DRAFT)
-            if args.get('status'):
-                email.status = EmailStatus(args['status'])
-                
-                # If status is QUEUED, set the queued_at timestamp
-                if email.status == EmailStatus.QUEUED:
-                    email.queued_at = datetime.utcnow()
-            
-            db.add(email)
-            db.flush()  # Get ID without committing
-            
-            # Create email batches if placement_request_ids are provided
-            placement_request_ids = args.get('placement_request_ids', [])
-            for i, pr_id in enumerate(placement_request_ids):
-                batch = EmailBatch(
-                    email_id=email.id,
-                    placement_request_id=pr_id,
-                    priority=i + 1  # Priority based on order
-                )
-                db.add(batch)
-            
-            db.commit()
-            db.refresh(email)
-            
-            # Publish event for email creation
-            publish_email_created(email.id, {
-                'therapist_id': email.therapist_id,
-                'subject': email.subject,
-                'status': email.status.value
-            })
-            
-            # If status is QUEUED, try to send it immediately
-            if email.status == EmailStatus.QUEUED:
-                send_email(email.id)
-            
-            return email, 201
-        except SQLAlchemyError as e:
-            db.rollback()
-            return {'message': f'Database error: {str(e)}'}, 500
-        finally:
-            db.close()
-
-
-class EmailResponseResource(Resource):
-    """REST resource for tracking email responses."""
-    
-    @marshal_with(email_fields)
-    def get(self, email_id):
-        """Get response information for a specific email."""
-        db = SessionLocal()
-        try:
-            email = db.query(Email).filter(Email.id == email_id).first()
-            if not email:
-                return {'message': 'Email not found'}, 404
-            return email
-        except SQLAlchemyError as e:
-            return {'message': f'Database error: {str(e)}'}, 500
-        finally:
-            db.close()
-    
-    @marshal_with(email_fields)
-    def post(self):
-        """Create a new email."""
-        parser = reqparse.RequestParser()
-        # Required fields
-        parser.add_argument('therapist_id', type=int, required=True,
-                        help='Therapist ID is required')
-        parser.add_argument('subject', type=str, required=True,
-                        help='Subject is required')
-        parser.add_argument('body_html', type=str, required=True,
-                        help='HTML body is required')
-        parser.add_argument('recipient_email', type=str, required=True,
-                        help='Recipient email is required')
-        parser.add_argument('recipient_name', type=str, required=True,
-                        help='Recipient name is required')
-        
-        # Optional fields
-        parser.add_argument('body_text', type=str)
-        parser.add_argument('sender_email', type=str)
-        parser.add_argument('sender_name', type=str)
-        parser.add_argument('status', type=str)
-        parser.add_argument('placement_request_ids', type=list)
-        parser.add_argument('batch_id', type=str)
-        
-        args = parser.parse_args()
-        
-        db = SessionLocal()
-        try:
-            logging.debug(f"Creating email for therapist_id={args['therapist_id']}")
-            # Create new email
-            email = Email(
-                therapist_id=args['therapist_id'],
-                subject=args['subject'],
-                body_html=args['body_html'],
-                body_text=args.get('body_text', ''),
-                recipient_email=args['recipient_email'],
-                recipient_name=args['recipient_name'],
-                sender_email=args.get('sender_email', 'therapieplatz@peterhaupt.de'),
-                sender_name=args.get('sender_name', 'Boona Therapieplatz-Vermittlung'),
-                placement_request_ids=args.get('placement_request_ids'),
-                batch_id=args.get('batch_id')
-            )
-            
-            # Set status if provided, otherwise use default (DRAFT)
-            if args.get('status'):
-                logging.debug(f"Setting custom status: {args.get('status')}")
-                email.status = EmailStatus(args['status'])
-                
-                # If status is QUEUED, set the queued_at timestamp
-                if email.status == EmailStatus.QUEUED:
-                    email.queued_at = datetime.utcnow()
+            # Let the status be set by the default in the model
+            # This ensures we get the expected enum with German values
             
             db.add(email)
             db.flush()  # Get ID without committing
@@ -301,22 +235,20 @@ class EmailResponseResource(Resource):
             db.refresh(email)
             logging.debug(f"Database transaction committed")
             
+            # Get status value safely for the event
+            status_value = email.status.value if hasattr(email.status, 'value') else str(email.status)
+            
             # Publish event for email creation
             logging.debug(f"About to publish email_created event for email_id={email.id}")
             try:
                 result = publish_email_created(email.id, {
                     'therapist_id': email.therapist_id,
                     'subject': email.subject,
-                    'status': email.status.value
+                    'status': status_value
                 })
                 logging.debug(f"Event published, result={result}")
             except Exception as e:
                 logging.error(f"Error publishing email_created event: {e}", exc_info=True)
-            
-            # If status is QUEUED, try to send it immediately
-            if email.status == EmailStatus.QUEUED:
-                logging.debug(f"Email is queued, attempting to send immediately")
-                send_email(email.id)
             
             return email, 201
         except SQLAlchemyError as e:

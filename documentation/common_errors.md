@@ -129,13 +129,23 @@ curl -X PUT http://localhost:8003/api/placement-requests/1 \
 When querying database records using Enum fields, you might encounter errors like this:
 
 ```
-ERROR: (psycopg2.errors.InvalidTextRepresentation) invalid input value for enum emailstatus: "SENT"
-LINE 3: ...mestamp AND communication_service.emails.status = 'SENT' AND...
+ERROR: (psycopg2.errors.InvalidTextRepresentation) invalid input value for enum emailstatus: "DRAFT"
+LINE 3: ...mestamp AND communication_service.emails.status = 'DRAFT' AND...
 ```
 
 ### Cause
 
-This error occurs when using the enum *variant name* (e.g., `SENT`) in database queries instead of the enum's *string value* (e.g., `gesendet`). SQLAlchemy stores the string value in the database, not the enum name.
+This error occurs when there's a mismatch between enum handling in SQLAlchemy and PostgreSQL:
+
+1. **Python Code**: Enum classes define values (e.g., `DRAFT = "entwurf"`)
+2. **Database**: PostgreSQL expects specific enum values (either `DRAFT` or `entwurf`)
+3. **SQLAlchemy**: May convert between Python enum objects and database values incorrectly
+
+#### Issues That Can Cause The Mismatch
+
+1. **Inconsistent migration scripts**: If some migrations define enum types with English names and others with German values
+2. **Direct usage of enum objects**: Using `EmailStatus.DRAFT` directly instead of `EmailStatus.DRAFT.value`
+3. **String casting**: Different behavior when casting to strings vs. accessing the value property
 
 ### Solution
 
@@ -145,7 +155,7 @@ Always use the enum's `.value` property when constructing database queries that 
 ```python
 unanswered_emails = db.query(Email).filter(
     Email.sent_at <= seven_days_ago,
-    Email.status == 'SENT',  # Wrong - uses the enum name
+    Email.status == EmailStatus.SENT,  # Wrong - uses the enum object
     Email.response_received.is_(False)
 ).all()
 ```
@@ -154,24 +164,111 @@ unanswered_emails = db.query(Email).filter(
 ```python
 unanswered_emails = db.query(Email).filter(
     Email.sent_at <= seven_days_ago,
-    cast(Email.status, String) == EmailStatus.SENT.value,  # Correct - uses enum value
+    Email.status == EmailStatus.SENT.value,  # Correct for string comparisons
+    # OR cast the database column
+    cast(Email.status, String) == EmailStatus.SENT.value,  # When comparing as strings
     Email.response_received.is_(False)
 ).all()
 ```
 
+For object assignment, use the enum object directly (SQLAlchemy will handle conversion):
+
+```python
+email.status = EmailStatus.DRAFT  # Correct for property assignment
+```
+
+### Database Schema Consistency Check
+
+To verify how enum values are stored in the database:
+
+```sql
+SELECT n.nspname as enum_schema,  
+       t.typname as enum_name,  
+       e.enumlabel as enum_value
+FROM pg_type t 
+JOIN pg_enum e ON t.oid = e.enumtypid  
+JOIN pg_catalog.pg_namespace n ON n.oid = t.typnamespace
+ORDER BY enum_schema, enum_name, e.enumsortorder;
+```
+
+### Fixing Inconsistent Enum Storage
+
+If you find inconsistencies in how enum values are stored, create a migration to standardize them:
+
+```python
+def upgrade() -> None:
+    """Update enum values to be consistent."""
+    # Example: Update from German to English values
+    op.execute("ALTER TYPE emailstatus RENAME TO emailstatus_old")
+    op.execute("CREATE TYPE emailstatus AS ENUM ('DRAFT', 'QUEUED', 'SENDING', 'SENT', 'FAILED')")
+    
+    # Create a mapping between old and new values
+    mapping = """
+    CASE status::text
+        WHEN 'entwurf' THEN 'DRAFT'::emailstatus
+        WHEN 'in_warteschlange' THEN 'QUEUED'::emailstatus
+        ...
+    END
+    """
+    
+    op.execute(f"ALTER TABLE communication_service.emails ALTER COLUMN status TYPE emailstatus USING {mapping}")
+    op.execute("DROP TYPE emailstatus_old")
+```
+
 ### Best Practices for Database Enum Handling
 
-1. **Always Use Enum Values**: 
-   - When filtering by enum fields, always use `EnumClass.VARIANT.value`
-   - Cast the database column to a string with `cast(Column, String)` when needed
+1. **Consistent Migration Strategy**: 
+   - Use the same approach for all enum types
+   - Store either all enum names or all enum values in the database
+   - Document your convention
 
-2. **Consistent Query Patterns**:
-   - Use the same pattern everywhere in your codebase
-   - Create helper functions for common query patterns
+2. **Explicit Type Casting**:
+   - When filtering by enum columns, always use explicit casting for consistent behavior
+   - Use `cast(Column, String)` when comparing string values
 
-3. **Database Migrations**:
-   - Be careful with enum changes that might affect stored values
-   - When changing enum values, create a migration to update existing records
+3. **Migration Testing**:
+   - Test migrations thoroughly in development before applying to production
+   - Verify enum values in the database after migrations
 
-4. **Parameterized Queries**:
-   - Use query parameters rather than string concatenation
+4. **Schema Consistency Checks**:
+   - Periodically verify enum definitions in the database match expected values
+   - Add schema validation tests to your CI pipeline
+
+5. **Defensive Coding**:
+   - Add debug logging for enum values in critical operations
+   - Handle potential enum conversion errors gracefully
+
+## PostgreSQL Connection Issues
+
+### Error Description
+
+You may see errors like this in PostgreSQL logs:
+
+```
+FATAL: database "boona" does not exist
+```
+
+### Cause
+
+This typically happens when a connection attempt doesn't specify a database name. PostgreSQL defaults to using a database with the same name as the user.
+
+### Solution
+
+1. **Check healthcheck configurations**:
+   - Ensure database healthchecks specify a database name with `-d`
+   - Example: `pg_isready -U boona -d therapy_platform`
+
+2. **Verify connection strings**:
+   - All database connection strings should explicitly include the database name
+   - Both direct PostgreSQL and PgBouncer connections
+
+3. **Create default database**:
+   - If necessary, create a database with the same name as the user
+   - `CREATE DATABASE boona OWNER boona;`
+
+### Best Practices
+
+1. **Always specify database name** in connection strings and health checks
+2. **Use consistent connection parameters** across all services
+3. **Check PostgreSQL logs** for connection errors
+4. **Consider using dedicated health check users** with appropriate permissions
