@@ -18,7 +18,7 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 | Communication Service - Email System | ✅ Complete | [Details](08_communication_service.md) |
 | Communication Service - Phone Call System | ✅ Complete | [Details](08_communication_service.md) |
 | Communication Service - Email Batching | ✅ Complete | [Details](08_communication_service.md) |
-| Communication Service - RobustKafkaProducer | 🔄 Planned | TO DO: Update to use shared implementation |
+| Communication Service - Default Value Handling | 🔄 Issues Identified | Need to fix default value application in email creation |
 | Geocoding Service | 🔄 Planned | - |
 | Web Scraping Service | 🔄 Planned | - |
 | Web Interface | 🔄 Planned | - |
@@ -56,7 +56,7 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 - Message queuing during Kafka outages
 - Background thread for reconnection and queue processing
 - Thread-safe implementation
-- Applied to Patient, Therapist, and Matching services
+- Applied to all services including Communication Service
 
 ### Kafka Integration for Patient Service ✅
 - Event producers implemented for patient operations
@@ -86,8 +86,7 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
   - Initial contact template for first contact with therapist
   - Batch request template for multiple patient requests
   - Follow-up template for reminder communications
-  - Confirmation template for accepted patients
-- Enhanced template renderer with HTML and plain text support
+  - Confirmation template for confirmed patients
 
 ### Communication Service - Phone Call System ✅
 - Phone call database models implemented
@@ -96,7 +95,6 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 - Scheduling algorithm based on therapist availability
 - Logic for scheduling follow-up calls after unanswered emails
 - Automated 7-day follow-up rule implementation
-- Robust Kafka producer implementation (custom version, needs standardization)
 
 ### Communication Service - Email Batching ✅
 - Email batch model and relationships implemented
@@ -109,15 +107,16 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 
 ## Current Focus
 
+### Communication Service Issues 🔄
+- **Default Value Handling**: Fix issue with default values (sender_email, sender_name) not being applied correctly in email creation
+- **Placement Request IDs Handling**: Add null checking before iterating over placement_request_ids
+- **API Refinement**: API endpoint optimization (removed EmailResponseResource)
+
 ### Docker Compose Health Checks ✅
 - Health checks implemented for Postgres, Zookeeper, and Kafka services
 - Service startup order improved through conditional dependencies
 - Socket-based health check for PgBouncer
 - Elimination of initial Kafka connection errors
-
-### Communication Service Standardization 🔄
-- TO DO: Update Communication Service to use shared RobustKafkaProducer implementation
-- Review duplicate code between services and standardize where appropriate
 
 ### Geocoding Service (In Planning)
 - Researching OpenStreetMap API integration
@@ -126,18 +125,23 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 
 ## Next Steps
 
-### 1. Develop Geocoding Service
+### 1. Address Communication Service Issues
+- Fix default value handling
+- Improve error handling
+- Add comprehensive testing
+
+### 2. Develop Geocoding Service
 - Create OpenStreetMap API integration
 - Implement distance calculation
 - Create caching mechanism for geocoding results
 
-### 2. Implement Web Scraping Service
+### 3. Implement Web Scraping Service
 - Implement 116117.de scraper
 - Create data normalization process
 - Set up scheduling for periodic scraping
 - Implement change detection
 
-### 3. Develop Web Interface
+### 4. Develop Web Interface
 - Build basic frontend with Bootstrap
 - Create data entry forms
 - Implement dashboard views
@@ -191,6 +195,10 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 **Challenge**: Services failing due to missing Python packages.
 **Solution**: Updated requirements.txt with necessary dependencies and rebuilt Docker containers.
 
+### Default Value Handling 🔄
+**Challenge**: Default values for sender_email and sender_name not being applied in email creation.
+**Solution**: Temporary workaround by explicitly providing these values in API requests. Proper fix needed.
+
 ## Technical Debt Tracking
 
 - Improve test coverage for all services
@@ -199,4 +207,4 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 - Add distance calculation to matching algorithm (requires geocoding service)
 - Refactor email status enum handling for better maintainability
 - Consider updating the String-based status fields to use proper enum types
-- Standardize the Communication Service RobustKafkaProducer implementation
+- Fix default value handling in Communication Service

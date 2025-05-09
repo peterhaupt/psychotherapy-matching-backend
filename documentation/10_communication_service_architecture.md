@@ -185,8 +185,8 @@ A resilient Kafka producer was implemented to handle connection failures and ens
 - **Purpose**: Ensure no messages are lost during outages
 - **Functions**:
   - In-memory queue for temporary outages
-  - Disk-based storage for longer outages
-  - Unique message IDs for tracking and de-duplication
+  - At-least-once delivery semantics
+  - Message persistency
 
 #### 3. Background Processing
 - **Purpose**: Deliver messages without blocking application
@@ -194,13 +194,6 @@ A resilient Kafka producer was implemented to handle connection failures and ens
   - Dedicated thread for message delivery
   - Automatic retry of failed deliveries
   - Priority-based message processing
-
-#### 4. Status Monitoring
-- **Purpose**: Track message delivery status
-- **Functions**:
-  - Logging of send attempts and results
-  - Status tracking for queued messages
-  - Metrics for queue length and processing time
 
 This robust messaging implementation ensures that:
 - The service can start even if Kafka is temporarily down
@@ -214,18 +207,21 @@ The Communication Service exposes these API endpoints:
 
 ### Email Endpoints:
 - `GET /api/emails`: Get all emails (with optional filters)
-- `GET /api/emails/<id>`: Get a specific email
 - `POST /api/emails`: Create a new email
-- `PUT /api/emails/<id>`: Update an email
+- `GET /api/emails/<id>`: Get a specific email
+- `PUT /api/emails/<id>`: Update an email (including response tracking)
+- `GET /api/emails/<id>/batches`: Get all batches for a specific email
+- `POST /api/emails/<id>/batches`: Add a placement request to an email batch
+- `GET /api/email-batches/<id>`: Get a specific email batch
+- `PUT /api/email-batches/<id>`: Update a specific email batch
+- `DELETE /api/email-batches/<id>`: Delete a specific email batch
 
 ### Phone Call Endpoints:
 - `GET /api/phone-calls`: Get all phone calls (with optional filters)
-- `GET /api/phone-calls/<id>`: Get a specific phone call
 - `POST /api/phone-calls`: Create a new phone call (with automatic scheduling)
+- `GET /api/phone-calls/<id>`: Get a specific phone call
 - `PUT /api/phone-calls/<id>`: Update a phone call
 - `DELETE /api/phone-calls/<id>`: Delete a phone call
-
-### Phone Call Batch Endpoints:
 - `GET /api/phone-call-batches/<id>`: Get a specific phone call batch
 - `PUT /api/phone-call-batches/<id>`: Update a phone call batch
 
@@ -241,3 +237,37 @@ The Communication Service exposes these API endpoints:
 - Retrieves therapist details and availability information
 - Uses the `potentially_available` flag for prioritization
 - Accesses the `telefonische_erreichbarkeit` JSON structure for scheduling
+
+## Known Issues and Technical Debt
+
+### Default Values in Email Creation
+The service has an issue with default values not being correctly applied during email creation:
+
+1. **Configuration Problem**: Email sender defaults from Flask app config are not being applied 
+2. **Workaround**: Must explicitly provide `sender_email` and `sender_name` in all API requests
+3. **Impact**: Database insertion failures with `NOT NULL` constraint violations 
+4. **Root Cause**: App configuration settings not being correctly passed to the email creation process
+
+### Placement Request IDs Handling
+The service fails when creating emails without explicitly providing an empty array for placement_request_ids:
+
+1. **Problem**: Default empty list not applied correctly: `args.get('placement_request_ids', [])`
+2. **Error**: `TypeError: 'NoneType' object is not iterable`
+3. **Workaround**: Always include `"placement_request_ids": []` in API requests
+4. **Fix Needed**: Add null checking before list iteration
+
+<!-- Note: This section was removed as the Communication Service is already using the shared RobustKafkaProducer implementation. -->
+
+## Future Improvements
+
+1. **Code Refactoring**:
+   - Fix default value handling issues
+   - Add comprehensive error handling
+   - Implement service layer pattern
+
+2. **Feature Enhancements**:
+   - Enhanced response tracking
+   - Advanced template customization
+   - Improved batch prioritization
+   - Better integration with calendar systems
+   - Intelligent call time selection based on success rates

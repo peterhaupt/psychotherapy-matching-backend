@@ -38,7 +38,6 @@ Two models handle phone call scheduling and batch processing:
 #### Email Endpoints:
 - **EmailResource**: Operations on individual emails (GET, PUT)
 - **EmailListResource**: Collection operations (GET, POST)
-- **EmailResponseResource**: Operations for tracking email responses (GET, POST)
 - **EmailBatchListResource**: Operations for managing batches for a specific email (GET, POST)
 - **EmailBatchResource**: Operations on individual email batches (GET, PUT, DELETE)
 
@@ -108,3 +107,50 @@ The service consumes matching events to track changes in placement requests:
 - `process_email_queue()`: Regularly checks for emails that need to be sent
 - `check_unanswered_emails()`: Identifies emails that need follow-up calls
 - `schedule_daily_batch_processing()`: Runs the daily batch email processing
+
+## Known Issues
+
+### Default Values Not Applied
+
+When creating emails through the API, default values for `sender_email` and `sender_name` are not being correctly applied:
+
+```python
+sender_email=args.get('sender_email', 'therapieplatz@peterhaupt.de'),
+sender_name=args.get('sender_name', 'Boona Therapieplatz-Vermittlung'),
+```
+
+This results in database insertion failures with `NOT NULL` constraint violations. Until this issue is fixed, always include `sender_email` and `sender_name` fields in API requests:
+
+```json
+{
+  "sender_email": "therapieplatz@peterhaupt.de",
+  "sender_name": "Boona Therapieplatz-Vermittlung"
+}
+```
+
+### Placement Request IDs Handling
+
+The service fails to handle null `placement_request_ids` properly in email creation, resulting in:
+```
+TypeError: 'NoneType' object is not iterable
+```
+
+As a workaround, always include an empty array for this field:
+```json
+{
+  "placement_request_ids": []
+}
+```
+
+## Future Enhancements
+
+### Code Improvements
+- Fix default value handling for email creation
+- Improve error handling and validation
+- Refactor to use a service layer pattern
+
+### Functional Enhancements
+- Enhanced email response tracking
+- Advanced batch prioritization
+- Automated email content generation
+- Integration with calendar systems for call scheduling
