@@ -1,6 +1,6 @@
 """Email API endpoints implementation."""
 from datetime import datetime
-from flask import request
+from flask import request, current_app
 from flask_restful import Resource, fields, marshal_with, reqparse
 from sqlalchemy.exc import SQLAlchemyError
 import logging
@@ -9,7 +9,8 @@ from models.email import Email, EmailStatus
 from models.email_batch import EmailBatch
 from shared.utils.database import SessionLocal
 from events.producers import publish_email_created, publish_email_sent
-from utils.email_sender import send_email
+from utils.email_sender import send_email, get_smtp_settings
+import config
 
 
 # Custom field to properly handle enum values
@@ -199,6 +200,10 @@ class EmailListResource(Resource):
         db = SessionLocal()
         try:
             logging.info(f"Creating email for therapist_id={args['therapist_id']}")
+            
+            # Get email settings from centralized configuration
+            smtp_settings = get_smtp_settings()
+            
             # Create new email
             email = Email(
                 therapist_id=args['therapist_id'],
@@ -207,9 +212,9 @@ class EmailListResource(Resource):
                 body_text=args.get('body_text', ''),
                 recipient_email=args['recipient_email'],
                 recipient_name=args['recipient_name'],
-                sender_email=args.get('sender_email', 'therapieplatz@peterhaupt.de'),
-                sender_name=args.get('sender_name', 'Boona Therapieplatz-Vermittlung'),
-                placement_request_ids=args.get('placement_request_ids'),
+                sender_email=args.get('sender_email', smtp_settings['sender']),
+                sender_name=args.get('sender_name', smtp_settings['sender_name']),
+                placement_request_ids=args.get('placement_request_ids', []),  # Default to empty list to prevent None errors
                 batch_id=args.get('batch_id')
             )
             
@@ -221,7 +226,7 @@ class EmailListResource(Resource):
             logging.debug(f"Email created with ID: {email.id}")
             
             # Create email batches if placement_request_ids are provided
-            placement_request_ids = args.get('placement_request_ids', [])
+            placement_request_ids = args.get('placement_request_ids', []) or []  # Default to empty list
             for i, pr_id in enumerate(placement_request_ids):
                 batch = EmailBatch(
                     email_id=email.id,

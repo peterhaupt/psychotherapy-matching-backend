@@ -12,6 +12,7 @@ from api.phone_calls import (
     PhoneCallBatchResource
 )
 from events.consumers import start_consumers
+import config
 
 
 def create_app():
@@ -19,19 +20,17 @@ def create_app():
     app = Flask(__name__)
 
     # Configure database connection
-    app.config["SQLALCHEMY_DATABASE_URI"] = (
-        "postgresql://boona:boona_password@pgbouncer:6432/therapy_platform"
-    )
+    app.config["SQLALCHEMY_DATABASE_URI"] = config.DATABASE_URI
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     
-    # Configure email settings - using your local SMTP gateway
-    app.config["SMTP_HOST"] = "127.0.0.1"
-    app.config["SMTP_PORT"] = 1025
-    app.config["SMTP_USERNAME"] = "therapieplatz@peterhaupt.de"
-    app.config["SMTP_PASSWORD"] = "***REMOVED_EXPOSED_PASSWORD***"
-    app.config["SMTP_USE_TLS"] = True
-    app.config["EMAIL_SENDER"] = "therapieplatz@peterhaupt.de"
-    app.config["EMAIL_SENDER_NAME"] = "Boona Therapieplatz-Vermittlung"
+    # Configure email settings from config file
+    app.config["SMTP_HOST"] = config.SMTP_HOST
+    app.config["SMTP_PORT"] = config.SMTP_PORT
+    app.config["SMTP_USERNAME"] = config.SMTP_USERNAME
+    app.config["SMTP_PASSWORD"] = config.SMTP_PASSWORD
+    app.config["SMTP_USE_TLS"] = config.SMTP_USE_TLS
+    app.config["EMAIL_SENDER"] = config.EMAIL_SENDER
+    app.config["EMAIL_SENDER_NAME"] = config.EMAIL_SENDER_NAME
 
     # Initialize RESTful API
     api = Api(app)
@@ -55,4 +54,4 @@ def create_app():
 
 if __name__ == "__main__":
     app = create_app()
-    app.run(host="0.0.0.0", port=8004, debug=True)
+    app.run(host="0.0.0.0", port=8004, debug=config.DEBUG)

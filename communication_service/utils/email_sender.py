@@ -16,18 +16,10 @@ from models.email_batch import EmailBatch
 from models.phone_call import PhoneCall
 from utils.template_renderer import render_template
 from utils.phone_call_scheduler import schedule_call_for_email
+import config
 
 # Configure logging
 logger = logging.getLogger(__name__)
-
-# Default SMTP settings (will be overridden by app config if available)
-DEFAULT_SMTP_HOST = "127.0.0.1"
-DEFAULT_SMTP_PORT = 1025
-DEFAULT_SMTP_USERNAME = "therapieplatz@peterhaupt.de"
-DEFAULT_SMTP_PASSWORD = "***REMOVED_EXPOSED_PASSWORD***"
-DEFAULT_SMTP_USE_TLS = True
-DEFAULT_SENDER = "therapieplatz@peterhaupt.de"
-DEFAULT_SENDER_NAME = "Boona Therapieplatz-Vermittlung"
 
 # Constants for email batching
 MAX_PATIENTS_PER_EMAIL = 5  # Maximum number of patients to include in a single email
@@ -43,24 +35,24 @@ def get_smtp_settings():
     try:
         # Try to get settings from Flask app config
         return {
-            'host': current_app.config.get('SMTP_HOST', DEFAULT_SMTP_HOST),
-            'port': current_app.config.get('SMTP_PORT', DEFAULT_SMTP_PORT),
-            'username': current_app.config.get('SMTP_USERNAME', DEFAULT_SMTP_USERNAME),
-            'password': current_app.config.get('SMTP_PASSWORD', DEFAULT_SMTP_PASSWORD),
-            'use_tls': current_app.config.get('SMTP_USE_TLS', DEFAULT_SMTP_USE_TLS),
-            'sender': current_app.config.get('EMAIL_SENDER', DEFAULT_SENDER),
-            'sender_name': current_app.config.get('EMAIL_SENDER_NAME', DEFAULT_SENDER_NAME),
+            'host': current_app.config.get('SMTP_HOST', config.SMTP_HOST),
+            'port': current_app.config.get('SMTP_PORT', config.SMTP_PORT),
+            'username': current_app.config.get('SMTP_USERNAME', config.SMTP_USERNAME),
+            'password': current_app.config.get('SMTP_PASSWORD', config.SMTP_PASSWORD),
+            'use_tls': current_app.config.get('SMTP_USE_TLS', config.SMTP_USE_TLS),
+            'sender': current_app.config.get('EMAIL_SENDER', config.EMAIL_SENDER),
+            'sender_name': current_app.config.get('EMAIL_SENDER_NAME', config.EMAIL_SENDER_NAME),
         }
     except RuntimeError:
-        # Not running in Flask app context, use defaults
+        # Not running in Flask app context, use defaults from config file
         return {
-            'host': DEFAULT_SMTP_HOST,
-            'port': DEFAULT_SMTP_PORT,
-            'username': DEFAULT_SMTP_USERNAME,
-            'password': DEFAULT_SMTP_PASSWORD,
-            'use_tls': DEFAULT_SMTP_USE_TLS,
-            'sender': DEFAULT_SENDER,
-            'sender_name': DEFAULT_SENDER_NAME,
+            'host': config.SMTP_HOST,
+            'port': config.SMTP_PORT,
+            'username': config.SMTP_USERNAME,
+            'password': config.SMTP_PASSWORD,
+            'use_tls': config.SMTP_USE_TLS,
+            'sender': config.EMAIL_SENDER,
+            'sender_name': config.EMAIL_SENDER_NAME,
         }
 
 
