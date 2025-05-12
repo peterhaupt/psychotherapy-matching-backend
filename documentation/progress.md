@@ -18,7 +18,7 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 | Communication Service - Email System | ✅ Complete | [Details](08_communication_service.md) |
 | Communication Service - Phone Call System | ✅ Complete | [Details](08_communication_service.md) |
 | Communication Service - Email Batching | ✅ Complete | [Details](08_communication_service.md) |
-| Communication Service - Default Value Handling | 🔄 Issues Identified | Need to fix default value application in email creation |
+| Communication Service - Default Value Handling | ✅ Fixed | Issue with Flask-RESTful parser handling None values for defaults has been fixed |
 | Geocoding Service | 🔄 Planned | - |
 | Web Scraping Service | 🔄 Planned | - |
 | Web Interface | 🔄 Planned | - |
@@ -105,12 +105,13 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 - Patient prioritization by registration date
 - Automatic template selection based on batch size
 
-## Current Focus
+### Communication Service - Default Value Handling ✅
+- Fixed issue with Flask-RESTful parser handling of None values
+- Updated code to use `or` operator for proper default value application
+- Added debugging logs to verify correct behavior
+- Documented the issue and solution in common_errors.md
 
-### Communication Service Issues 🔄
-- **Default Value Handling**: Fix issue with default values (sender_email, sender_name) not being applied correctly in email creation
-- **Placement Request IDs Handling**: Add null checking before iterating over placement_request_ids
-- **API Refinement**: API endpoint optimization (removed EmailResponseResource)
+## Current Focus
 
 ### Docker Compose Health Checks ✅
 - Health checks implemented for Postgres, Zookeeper, and Kafka services
@@ -125,23 +126,18 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 
 ## Next Steps
 
-### 1. Address Communication Service Issues
-- Fix default value handling
-- Improve error handling
-- Add comprehensive testing
-
-### 2. Develop Geocoding Service
+### 1. Develop Geocoding Service
 - Create OpenStreetMap API integration
 - Implement distance calculation
 - Create caching mechanism for geocoding results
 
-### 3. Implement Web Scraping Service
+### 2. Implement Web Scraping Service
 - Implement 116117.de scraper
 - Create data normalization process
 - Set up scheduling for periodic scraping
 - Implement change detection
 
-### 4. Develop Web Interface
+### 3. Develop Web Interface
 - Build basic frontend with Bootstrap
 - Create data entry forms
 - Implement dashboard views
@@ -195,9 +191,9 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 **Challenge**: Services failing due to missing Python packages.
 **Solution**: Updated requirements.txt with necessary dependencies and rebuilt Docker containers.
 
-### Default Value Handling 🔄
+### Default Value Handling in Flask-RESTful ✓
 **Challenge**: Default values for sender_email and sender_name not being applied in email creation.
-**Solution**: Temporary workaround by explicitly providing these values in API requests. Proper fix needed.
+**Solution**: Modified code to use the `or` operator instead of relying on `get()` default parameter. This properly handles the case where RequestParser adds keys with `None` values.
 
 ## Technical Debt Tracking
 
@@ -207,4 +203,3 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 - Add distance calculation to matching algorithm (requires geocoding service)
 - Refactor email status enum handling for better maintainability
 - Consider updating the String-based status fields to use proper enum types
-- Fix default value handling in Communication Service

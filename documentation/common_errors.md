@@ -272,3 +272,64 @@ This typically happens when a connection attempt doesn't specify a database name
 2. **Use consistent connection parameters** across all services
 3. **Check PostgreSQL logs** for connection errors
 4. **Consider using dedicated health check users** with appropriate permissions
+
+## Flask-RESTful RequestParser Default Value Handling
+
+### Error Description
+
+When using Flask-RESTful's `reqparse.RequestParser` with default values for optional fields, the defaults may not be applied as expected, resulting in errors like:
+
+```
+sqlalchemy.exc.IntegrityError: (psycopg2.errors.NotNullViolation) 
+null value in column "sender_email" of relation "emails" violates not-null constraint
+```
+
+### Cause
+
+The Flask-RESTful `RequestParser` adds all defined arguments to the result dictionary, even when they're not provided in the request. For parameters not included in the request, it adds them with a value of `None` rather than omitting them entirely.
+
+When using the `.get(key, default)` method on the result dictionary, the default value is only used if the key doesn't exist at all - not if it exists with a value of `None`.
+
+```python
+# This won't use the default if 'sender_email' exists with a value of None
+sender_email = args.get('sender_email', smtp_settings['sender'])
+```
+
+### Solution
+
+Use the Python `or` operator instead of relying solely on `get()`'s default parameter:
+
+```python
+# This will use smtp_settings['sender'] if args.get('sender_email') is None
+sender_email = args.get('sender_email') or smtp_settings['sender']
+```
+
+Another approach is to explicitly check for None:
+
+```python
+sender_email = args.get('sender_email')
+if sender_email is None:
+    sender_email = smtp_settings['sender']
+```
+
+### Best Practices for Default Value Handling
+
+1. **Understand RequestParser behavior**:
+   - Be aware that defined but unspecified arguments get `None` values
+   - Don't rely on `get()`'s default parameter alone
+
+2. **Use explicit None checks**:
+   - Use the `or` operator for simple defaults
+   - Use explicit if-checks for more complex logic
+
+3. **Consider adding validation**:
+   - Add validation to ensure required values are properly set before database operations
+   - Log warning messages when defaults are applied
+
+4. **Add debug logging**:
+   - Log values at critical points to catch issues early
+   - Check object attributes before database operations
+
+5. **Test edge cases**:
+   - Test API endpoints with missing optional fields
+   - Verify default values are correctly applied

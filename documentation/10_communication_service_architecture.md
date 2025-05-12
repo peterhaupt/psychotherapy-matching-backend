@@ -168,6 +168,61 @@ The `telefonische_erreichbarkeit` field in the Therapist model uses a JSON struc
 }
 ```
 
+## Email Flow
+
+### End-to-End Process
+
+The email communication process follows this flow:
+
+```
+┌────────────────────────┐     ┌────────────────────────┐    ┌────────────────────────┐
+│                        │     │                        │    │                        │
+│ 1. Creation            │────►│ 2. Batching            │───►│ 3. Sending             │
+│                        │     │                        │    │                        │
+│ - API or batch process │     │ - Group by therapist   │    │ - Fetch QUEUED emails  │
+│ - Default handling     │     │ - 7-day frequency rule │    │ - SMTP connection      │
+│ - Status: DRAFT        │     │ - Status: QUEUED       │    │ - Status: SENT/FAILED  │
+└────────────────────────┘     └────────────────────────┘    └──────────┬─────────────┘
+                                                                         │
+                                                                         ▼
+┌────────────────────────┐     ┌────────────────────────┐    ┌────────────────────────┐
+│                        │     │                        │    │                        │
+│ 6. Phone Call          │◄────│ 5. Response Tracking   │◄───│ 4. Event Publishing    │
+│                        │     │                        │    │                        │
+│ - Schedule calls       │     │ - Manual input         │    │ - email.sent event     │
+│ - 7-day followup       │     │ - Update response flag │    │ - Event consumers      │
+│ - Batch calls          │     │ - Process feedback     │    │ - Matching updates     │
+└────────────────────────┘     └────────────────────────┘    └────────────────────────┘
+```
+
+### Configuration and Settings
+
+The service uses a centralized configuration approach for all email-related settings:
+
+1. **Configuration File (`config.py`)**:
+   - Defines all settings with environment variable overrides
+   - Default SMTP settings
+   - Default sender information
+   - Application-level settings
+
+2. **Flask App Configuration**:
+   - Loads settings from config.py
+   - Makes them available via `current_app.config`
+
+3. **Utility Functions**:
+   - `get_smtp_settings()` provides consistent access to settings
+   - Handles both in-app and out-of-app contexts
+
+### Default Value Handling
+
+The service implements proper handling of default values in the API:
+
+- **RequestParser Behavior**: Flask-RESTful's RequestParser adds defined arguments to the result dictionary with value `None` when they're not in the request
+- **Solution**: Use `or` operator for NULL handling: `args.get('sender_email') or smtp_settings['sender']`
+- **Collections**: Handle NULL for collection fields: `args.get('placement_request_ids') or []`
+
+This approach ensures that proper defaults are always applied, preventing NULL values from reaching the database.
+
 ## Resilience Patterns
 
 ### Robust Kafka Producer
@@ -238,32 +293,37 @@ The Communication Service exposes these API endpoints:
 - Uses the `potentially_available` flag for prioritization
 - Accesses the `telefonische_erreichbarkeit` JSON structure for scheduling
 
-## Known Issues and Technical Debt
+## Best Practices
 
-### Default Values in Email Creation
-The service has an issue with default values not being correctly applied during email creation:
+1. **Configuration Management**:
+   - Use centralized configuration with environment overrides
+   - Apply consistent default handling throughout the codebase
+   - Document all configuration parameters
 
-1. **Configuration Problem**: Email sender defaults from Flask app config are not being applied 
-2. **Workaround**: Must explicitly provide `sender_email` and `sender_name` in all API requests
-3. **Impact**: Database insertion failures with `NOT NULL` constraint violations 
-4. **Root Cause**: App configuration settings not being correctly passed to the email creation process
+2. **API Implementation**:
+   - Follow RESTful design principles
+   - Implement proper validation
+   - Handle NULL values explicitly using `or` operator
+   - Return appropriate HTTP status codes
 
-### Placement Request IDs Handling
-The service fails when creating emails without explicitly providing an empty array for placement_request_ids:
+3. **Database Operations**:
+   - Use proper session management
+   - Implement comprehensive error handling
+   - Roll back transactions on error
+   - Use appropriate indexes
 
-1. **Problem**: Default empty list not applied correctly: `args.get('placement_request_ids', [])`
-2. **Error**: `TypeError: 'NoneType' object is not iterable`
-3. **Workaround**: Always include `"placement_request_ids": []` in API requests
-4. **Fix Needed**: Add null checking before list iteration
-
-<!-- Note: This section was removed as the Communication Service is already using the shared RobustKafkaProducer implementation. -->
+4. **Event Processing**:
+   - Use the RobustKafkaProducer for resilience
+   - Implement idempotent event handlers
+   - Use consistent event schema
+   - Process events asynchronously
 
 ## Future Improvements
 
 1. **Code Refactoring**:
-   - Fix default value handling issues
    - Add comprehensive error handling
    - Implement service layer pattern
+   - Improve code organization and documentation
 
 2. **Feature Enhancements**:
    - Enhanced response tracking

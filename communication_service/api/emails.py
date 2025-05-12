@@ -10,7 +10,6 @@ from models.email_batch import EmailBatch
 from shared.utils.database import SessionLocal
 from events.producers import publish_email_created, publish_email_sent
 from utils.email_sender import send_email, get_smtp_settings
-import config
 
 
 # Custom field to properly handle enum values
@@ -212,15 +211,13 @@ class EmailListResource(Resource):
                 body_text=args.get('body_text', ''),
                 recipient_email=args['recipient_email'],
                 recipient_name=args['recipient_name'],
-                sender_email=args.get('sender_email', smtp_settings['sender']),
-                sender_name=args.get('sender_name', smtp_settings['sender_name']),
-                placement_request_ids=args.get('placement_request_ids', []),  # Default to empty list to prevent None errors
+                sender_email=args.get('sender_email') or smtp_settings['sender'],  # Use 'or' instead of get's default
+                sender_name=args.get('sender_name') or smtp_settings['sender_name'],  # Use 'or' instead of get's default
+                placement_request_ids=args.get('placement_request_ids') or [],  # Handle None with 'or'
                 batch_id=args.get('batch_id')
             )
-            
             # Let the status be set by the default in the model
             # This ensures we get the expected enum with German values
-            
             db.add(email)
             db.flush()  # Get ID without committing
             logging.debug(f"Email created with ID: {email.id}")

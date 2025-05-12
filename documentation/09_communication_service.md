@@ -108,44 +108,86 @@ The service consumes matching events to track changes in placement requests:
 - `check_unanswered_emails()`: Identifies emails that need follow-up calls
 - `schedule_daily_batch_processing()`: Runs the daily batch email processing
 
-## Known Issues
+## Email Flow Process
 
-### Default Values Not Applied
+The Communication Service processes emails through these stages:
 
-When creating emails through the API, default values for `sender_email` and `sender_name` are not being correctly applied:
+1. **Email Creation**
+   - **Trigger**: Via API call or internal process (like batch creation)
+   - **Process**:
+     - Parse request arguments
+     - Apply default values for missing fields with proper null handling
+     - Create Email database entity and associated EmailBatch records
+   - **Status**: Set to DRAFT initially
+   - **Event**: Publishes `email.created` event
+
+2. **Email Batching**
+   - **Trigger**: Daily scheduled process (1 AM)
+   - **Process**: 
+     - Group placement requests by therapist
+     - Apply 7-day contact frequency rule
+     - Generate appropriate email content
+   - **Status**: Changes to QUEUED
+
+3. **Email Sending**
+   - **Trigger**: Periodic queued email processing
+   - **Process**:
+     - Create MIME message with HTML and plain text
+     - Connect to SMTP server and send
+     - Update status to SENT or FAILED
+   - **Event**: Publishes `email.sent` event on success
+
+4. **Follow-up Processing**
+   - **Trigger**: Daily check for unanswered emails (7 days old)
+   - **Process**:
+     - Schedule follow-up phone calls for unanswered emails
+   - **Action**: Creates PhoneCall records for follow-up
+
+## Centralized Configuration
+
+The service uses a centralized configuration approach in `config.py`:
+- **Environment Variables**: All settings can be overridden via environment
+- **Default Values**: Sensible defaults for development
+- **Application Settings**: Database, SMTP, and other service settings
+- **Email Defaults**: Default sender information
+
+The configuration is used consistently throughout the service:
+- In the Flask app via `app.config`
+- In the `get_smtp_settings()` utility function
+- Directly in components when needed
+
+## Previously Known Issues (Now Fixed)
+
+### Default Value Handling in RequestParser ✓
+
+**Issue**: When creating emails through the API, default values for `sender_email` and `sender_name` were not correctly applied when these fields were omitted from the request.
+
+**Root Cause**: Flask-RESTful's RequestParser adds defined arguments to the result dictionary with a value of `None` when they're not provided in the request. The `.get(key, default)` method only uses its default value when the key doesn't exist in the dictionary, not when it exists with a value of `None`.
+
+**Solution**: Modified the email creation code to use the Python `or` operator for default values:
 
 ```python
-sender_email=args.get('sender_email', 'therapieplatz@peterhaupt.de'),
-sender_name=args.get('sender_name', 'Boona Therapieplatz-Vermittlung'),
+# Changed from this:
+sender_email=args.get('sender_email', smtp_settings['sender'])
+
+# To this:
+sender_email=args.get('sender_email') or smtp_settings['sender']
 ```
 
-This results in database insertion failures with `NOT NULL` constraint violations. Until this issue is fixed, always include `sender_email` and `sender_name` fields in API requests:
+This properly handles both missing keys and keys with `None` values.
 
-```json
-{
-  "sender_email": "therapieplatz@peterhaupt.de",
-  "sender_name": "Boona Therapieplatz-Vermittlung"
-}
-```
+### Placement Request IDs Handling ✓
 
-### Placement Request IDs Handling
+**Issue**: The service failed to handle null `placement_request_ids` properly in email creation.
 
-The service fails to handle null `placement_request_ids` properly in email creation, resulting in:
-```
-TypeError: 'NoneType' object is not iterable
-```
-
-As a workaround, always include an empty array for this field:
-```json
-{
-  "placement_request_ids": []
-}
+**Solution**: Updated the code to use the `or` operator for proper null handling:
+```python
+placement_request_ids=args.get('placement_request_ids') or []
 ```
 
 ## Future Enhancements
 
 ### Code Improvements
-- Fix default value handling for email creation
 - Improve error handling and validation
 - Refactor to use a service layer pattern
 
