@@ -114,6 +114,29 @@ services:
       - PYTHONPATH=/app
     restart: unless-stopped
 
+  # Geocoding-service configuration
+  geocoding-service:
+    build: ./geocoding_service
+    depends_on:
+      pgbouncer:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8005:8005"
+    volumes:
+      - ./geocoding_service:/app
+      - ./shared:/app/shared
+    environment:
+      - DATABASE_URI=postgresql://boona:boona_password@pgbouncer:6432/therapy_platform
+      - FLASK_APP=app.py
+      - FLASK_ENV=development
+      - PYTHONPATH=/app
+      - OSM_API_URL=https://nominatim.openstreetmap.org
+      - OSM_USER_AGENT=BoonaTherapyPlatform/1.0
+      - OSM_RATE_LIMIT=1.0
+    restart: unless-stopped
+
   zookeeper:
     image: confluentinc/cp-zookeeper:latest
     environment:
