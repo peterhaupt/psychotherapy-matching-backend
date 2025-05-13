@@ -8,7 +8,7 @@ from argparse import ArgumentParser
 # Add the project root to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from matching_service.algorithms.matcher import (
+from algorithms.matcher import (
     find_matching_therapists,
     create_placement_requests,
     calculate_distance

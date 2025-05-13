@@ -333,3 +333,107 @@ if sender_email is None:
 5. **Test edge cases**:
    - Test API endpoints with missing optional fields
    - Verify default values are correctly applied
+
+## Docker Volume Mounting and Import Paths
+
+### Error Description
+
+You might encounter import errors when running scripts or tests inside Docker containers:
+
+```
+ModuleNotFoundError: No module named 'matching_service'
+```
+
+### Cause
+
+This error occurs when the Python module import paths don't align with the directory structure inside the Docker container. In Docker Compose configurations, the way volumes are mounted affects how Python imports need to be structured:
+
+- If you mount a directory to `/app`, the files inside that directory will be available directly at the `/app` level
+- If you expect a module structure like `matching_service.algorithms.matcher`, but your files are actually at `/app/algorithms/matcher`, Python won't be able to find the module
+
+### Solution
+
+You have two primary options to fix this:
+
+**Option 1: Adjust import statements** to match the container's directory structure:
+```python
+# Change this:
+from matching_service.algorithms.matcher import calculate_distance
+
+# To this:
+from algorithms.matcher import calculate_distance
+```
+
+**Option 2: Modify volume mounting** in docker-compose.yml to create the expected directory structure:
+```yaml
+volumes:
+  - .:/app  # Mount entire project at /app so matching_service is at /app/matching_service
+  # Instead of: 
+  # - ./matching_service:/app
+```
+
+### Best Practices
+
+1. **Consistent Volume Mounting Strategy**:
+   - Choose one approach and use it consistently across services
+   - Document the expected import patterns
+
+2. **Add Project Root to Python Path**:
+   - In Dockerfiles or entrypoint scripts, add project root to Python path
+   - Example: `ENV PYTHONPATH=$PYTHONPATH:/app`
+
+3. **Testing Inside Containers**:
+   - Run tests using Docker commands (`docker-compose exec`) to ensure consistent environment
+   - Ensure tests use the same import patterns as the application
+
+4. **Package Organization**:
+   - Use proper Python packaging with setup.py/pyproject.toml
+   - Consider using absolute imports with properly installed packages
+
+## Missing Dependencies in Requirements Files
+
+### Error Description
+
+When running code inside Docker containers, you might see errors about missing modules:
+
+```
+ModuleNotFoundError: No module named 'requests'
+```
+
+### Cause
+
+This happens when a Python package that your code depends on is not listed in the service's requirements.txt file. When the Docker image is built, only the packages listed in requirements.txt are installed.
+
+### Solution
+
+**Option 1: Temporary fix** (install directly in container):
+```bash
+docker-compose exec service-name pip install missing-package
+```
+
+**Option 2: Permanent fix** (update requirements.txt):
+1. Add the missing dependency to the service's requirements.txt file
+2. Rebuild the Docker image:
+```bash
+docker-compose build service-name
+docker-compose up -d service-name
+```
+
+### Best Practices
+
+1. **Keep Requirements Files Updated**:
+   - Add new dependencies to requirements.txt immediately when they're first used
+   - Use specific versions to ensure reproducibility (e.g., `requests==2.31.0`)
+   - Consider using tools like pip-compile to manage dependencies
+
+2. **Separate Development Dependencies**:
+   - Use requirements-dev.txt for test/development packages
+   - Keep production requirements minimal
+
+3. **Dependency Checking**:
+   - Periodically audit code for imported packages not in requirements
+   - Use tools like pipreqs to generate requirements from imports
+
+4. **Service-Specific Requirements**:
+   - Maintain separate requirements.txt for each service
+   - Only include dependencies actually needed by that service
