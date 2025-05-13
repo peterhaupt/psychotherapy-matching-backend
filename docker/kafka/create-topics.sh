@@ -25,6 +25,9 @@ kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists \
 kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists \
   --topic communication-events --partitions 3 --replication-factor 1
 
+kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists \
+  --topic geocoding-events --partitions 3 --replication-factor 1
+
 # Command topics
 kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists \
   --topic email-commands --partitions 3 --replication-factor 1

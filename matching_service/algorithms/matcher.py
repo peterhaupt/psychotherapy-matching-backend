@@ -1,7 +1,7 @@
 """Matching algorithm implementation for the Matching Service."""
 import logging
 import requests
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 
 from shared.utils.database import SessionLocal
 from models.placement_request import PlacementRequest, PlacementRequestStatus
@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 # Service URLs
 PATIENT_SERVICE_URL = "http://patient-service:8001"
 THERAPIST_SERVICE_URL = "http://therapist-service:8002"
+GEOCODING_SERVICE_URL = "http://geocoding-service:8005"
 
 
 def get_patient_data(patient_id: int) -> Optional[Dict[str, Any]]:
@@ -80,6 +81,151 @@ def get_all_therapists(
         return []
 
 
+def calculate_distance(
+    origin: Tuple[float, float] or str,
+    destination: Tuple[float, float] or str,
+    travel_mode: str = "car"
+) -> Dict[str, Any]:
+    """Calculate distance between two points using the Geocoding Service.
+    
+    Args:
+        origin: Origin coordinates (lat, lon) or address
+        destination: Destination coordinates (lat, lon) or address
+        travel_mode: Mode of transport (car or transit)
+        
+    Returns:
+        Dict with distance information
+    """
+    params = {}
+    
+    # Process origin
+    if isinstance(origin, tuple):
+        params['origin_lat'] = origin[0]
+        params['origin_lon'] = origin[1]
+    else:
+        params['origin'] = origin
+        
+    # Process destination
+    if isinstance(destination, tuple):
+        params['destination_lat'] = destination[0]
+        params['destination_lon'] = destination[1]
+    else:
+        params['destination'] = destination
+        
+    # Add travel mode
+    params['travel_mode'] = travel_mode
+    
+    try:
+        response = requests.get(
+            f"{GEOCODING_SERVICE_URL}/api/calculate-distance",
+            params=params
+        )
+        
+        if response.status_code == 200:
+            return response.json()
+        else:
+            logger.warning(
+                f"Distance calculation failed with status {response.status_code}: "
+                f"{response.text}"
+            )
+            # Return default values on failure
+            return {
+                "distance_km": float('inf'),
+                "travel_time_minutes": float('inf'),
+                "status": "error",
+                "source": "fallback",
+                "error": "Failed to calculate distance"
+            }
+    except Exception as e:
+        logger.error(f"Error calculating distance: {str(e)}")
+        # Return default values on exception
+        return {
+            "distance_km": float('inf'),
+            "travel_time_minutes": float('inf'),
+            "status": "error",
+            "source": "fallback",
+            "error": str(e)
+        }
+
+
+def find_nearby_therapists(
+    patient_location: Dict[str, Any],
+    therapists: List[Dict[str, Any]],
+    max_distance_km: float,
+    travel_mode: str = "car"
+) -> List[Dict[str, Any]]:
+    """Find therapists within a specific distance of a patient.
+    
+    Args:
+        patient_location: Patient location data (address or coordinates)
+        therapists: List of therapists to filter
+        max_distance_km: Maximum distance in kilometers
+        travel_mode: Mode of transport
+        
+    Returns:
+        List of therapists with distance information
+    """
+    # Prepare request data
+    patient_address = None
+    patient_coords = None
+    
+    # Extract patient location
+    if 'strasse' in patient_location and 'plz' in patient_location and 'ort' in patient_location:
+        patient_address = (
+            f"{patient_location['strasse']}, "
+            f"{patient_location['plz']} {patient_location['ort']}"
+        )
+    
+    # If we don't have a valid address, return empty list
+    if not patient_address:
+        logger.warning(f"Could not determine patient location")
+        return []
+    
+    # Prepare therapist data for the request
+    therapist_data = []
+    for therapist in therapists:
+        # Only include therapists with location data
+        if 'strasse' in therapist and 'plz' in therapist and 'ort' in therapist:
+            therapist_data.append({
+                'id': therapist['id'],
+                'strasse': therapist['strasse'],
+                'plz': therapist['plz'],
+                'ort': therapist['ort']
+            })
+    
+    # If no therapists have location data, return empty list
+    if not therapist_data:
+        logger.warning("No therapists with valid location data")
+        return []
+        
+    # Call the Geocoding Service to find nearby therapists
+    try:
+        data = {
+            'patient_address': patient_address,
+            'max_distance_km': max_distance_km,
+            'travel_mode': travel_mode,
+            'therapists': therapist_data
+        }
+        
+        response = requests.post(
+            f"{GEOCODING_SERVICE_URL}/api/find-therapists",
+            json=data
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            # Return the therapists with distance information
+            return result.get('therapists', [])
+        else:
+            logger.warning(
+                f"Failed to find nearby therapists: {response.status_code} - {response.text}"
+            )
+            return []
+    except Exception as e:
+        logger.error(f"Error finding nearby therapists: {str(e)}")
+        return []
+
+
 def find_matching_therapists(
     patient_id: int,
     max_distance: Optional[float] = None,
@@ -105,7 +251,10 @@ def find_matching_therapists(
     
     # Use patient preferences if not explicitly provided
     gender_preference = gender_preference or patient.get('bevorzugtes_therapeutengeschlecht')
-    max_distance = max_distance or patient.get('raeumliche_verfuegbarkeit', {}).get('max_km')
+    if max_distance is None:
+        # Extract max distance from patient data
+        patient_location_prefs = patient.get('raeumliche_verfuegbarkeit', {}) or {}
+        max_distance = patient_location_prefs.get('max_km', 30.0)
     
     # Get list of excluded therapists
     excluded_ids = excluded_therapist_ids or []
@@ -115,8 +264,8 @@ def find_matching_therapists(
     # Get all active therapists
     therapists = get_all_therapists(status="ACTIVE")
     
-    # Apply filters
-    matches = []
+    # Apply initial filters before distance calculation
+    filtered_therapists = []
     for therapist in therapists:
         # Skip excluded therapists
         if therapist['id'] in excluded_ids:
@@ -130,13 +279,29 @@ def find_matching_therapists(
             if gender_preference == "FEMALE" and therapist_gender != "Weiblich":
                 continue
         
-        # Distance calculation would happen here
-        # For now, we'll assume all therapists are within range
-        # TODO: Implement geocoding service integration
+        # Add to filtered list
+        filtered_therapists.append(therapist)
+    
+    # Get patient travel mode preference (default to car)
+    travel_mode = "car"
+    if patient.get('verkehrsmittel', '').lower() == 'öpnv':
+        travel_mode = "transit"
+    
+    # Calculate distances and apply distance filter
+    nearby_therapists = find_nearby_therapists(
+        patient_location=patient,
+        therapists=filtered_therapists,
+        max_distance_km=max_distance,
+        travel_mode=travel_mode
+    )
+    
+    # Check for existing placement requests
+    db = SessionLocal()
+    try:
+        final_matches = []
         
-        # Check if a placement request already exists
-        db = SessionLocal()
-        try:
+        for therapist in nearby_therapists:
+            # Check if a placement request already exists
             existing_request = db.query(PlacementRequest).filter(
                 PlacementRequest.patient_id == patient_id,
                 PlacementRequest.therapist_id == therapist['id'],
@@ -147,22 +312,24 @@ def find_matching_therapists(
                 # Skip if already matched
                 continue
                 
-            # Add to matches
-            matches.append({
-                'therapist_id': therapist['id'],
-                'therapist_name': f"{therapist.get('vorname')} {therapist.get('nachname')}",
-                'therapist_data': therapist,
-                # Placeholder for actual distance - would come from geocoding service
-                'distance': 0
-            })
+            # Get full therapist data
+            therapist_data = get_therapist_data(therapist['id'])
             
-        finally:
-            db.close()
-    
-    # Sort by distance (would be more meaningful with actual distances)
-    matches.sort(key=lambda x: x['distance'])
-    
-    return matches
+            # Create match result with distance info
+            match = {
+                'therapist_id': therapist['id'],
+                'therapist_name': f"{therapist_data.get('vorname')} {therapist_data.get('nachname')}",
+                'therapist_data': therapist_data,
+                'distance_km': therapist['distance_km'],
+                'travel_time_minutes': therapist['travel_time_minutes'],
+                'travel_mode': therapist['travel_mode']
+            }
+            
+            final_matches.append(match)
+        
+        return final_matches
+    finally:
+        db.close()
 
 
 def create_placement_requests(

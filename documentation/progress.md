@@ -1,3 +1,5 @@
+"""Update to the progress.md file to reflect the implementation of the Geocoding Service."""
+
 # Psychotherapy Matching Platform - Implementation Progress
 
 ## Overview
@@ -18,8 +20,8 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 | Communication Service - Email System | ✅ Complete | [Details](08_communication_service.md) |
 | Communication Service - Phone Call System | ✅ Complete | [Details](08_communication_service.md) |
 | Communication Service - Email Batching | ✅ Complete | [Details](08_communication_service.md) |
-| Communication Service - Default Value Handling | ✅ Fixed | Issue with Flask-RESTful parser handling None values for defaults has been fixed |
-| Geocoding Service | 🔄 Planned | - |
+| Communication Service - Default Value Handling | ✅ Fixed | Issue with Flask-RESTful parser handling None values has been fixed |
+| Geocoding Service | ✅ Complete | [Details](12_geocoding_service.md) |
 | Web Scraping Service | 🔄 Planned | - |
 | Web Interface | 🔄 Planned | - |
 
@@ -76,17 +78,13 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 - API endpoints for matching operations
 - Kafka event handling for patient and therapist updates
 - Integration with Patient and Therapist services
+- Integration with Geocoding Service for distance-based matching
 
 ### Communication Service - Email System ✅
 - Email model implemented with status tracking
 - REST API endpoints for email management
 - Email sending functionality with SMTP
-- HTML email templates with responsive design:
-  - Base template with common structure and styling
-  - Initial contact template for first contact with therapist
-  - Batch request template for multiple patient requests
-  - Follow-up template for reminder communications
-  - Confirmation template for confirmed patients
+- HTML email templates with responsive design
 
 ### Communication Service - Phone Call System ✅
 - Phone call database models implemented
@@ -111,33 +109,39 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 - Added debugging logs to verify correct behavior
 - Documented the issue and solution in common_errors.md
 
+### Geocoding Service ✅
+- OpenStreetMap integration for address geocoding
+- Distance calculation with multiple methods (routing and direct)
+- Multi-level caching system (in-memory and database)
+- REST API endpoints for geocoding operations
+- API endpoint for finding therapists within a distance
+- Kafka event integration for asynchronous distance calculations
+- Proper rate limiting for external API calls
+- Integration with Matching Service for distance-based therapist filtering
+
 ## Current Focus
 
 ### Docker Compose Health Checks ✅
-- Health checks implemented for Postgres, Zookeeper, and Kafka services
+- Health checks implemented for all services
 - Service startup order improved through conditional dependencies
 - Socket-based health check for PgBouncer
 - Elimination of initial Kafka connection errors
 
-### Geocoding Service (In Planning)
-- Researching OpenStreetMap API integration
-- Designing distance calculation algorithms
-- Planning caching strategy for geocoding results
+### Web Scraping Service (In Planning)
+- Researching scraping approach for 116117.de
+- Designing data extraction and normalization
+- Planning scheduling for periodic scraping
+- Developing change detection mechanism
 
 ## Next Steps
 
-### 1. Develop Geocoding Service
-- Create OpenStreetMap API integration
-- Implement distance calculation
-- Create caching mechanism for geocoding results
-
-### 2. Implement Web Scraping Service
-- Implement 116117.de scraper
-- Create data normalization process
+### 1. Implement Web Scraping Service
+- Create scraper for 116117.de
+- Implement data normalization process
 - Set up scheduling for periodic scraping
 - Implement change detection
 
-### 3. Develop Web Interface
+### 2. Develop Web Interface
 - Build basic frontend with Bootstrap
 - Create data entry forms
 - Implement dashboard views
@@ -193,13 +197,22 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 
 ### Default Value Handling in Flask-RESTful ✓
 **Challenge**: Default values for sender_email and sender_name not being applied in email creation.
-**Solution**: Modified code to use the `or` operator instead of relying on `get()` default parameter. This properly handles the case where RequestParser adds keys with `None` values.
+**Solution**: Modified code to use the `or` operator instead of relying on `get()` default parameter.
+
+### API Parameter Location in Flask-RESTful ✓
+**Challenge**: GET requests with URL parameters failing in the Geocoding Service.
+**Solution**: Added `location='args'` to RequestParser parameters to look for them in the query string.
+
+### Distance Calculation Integration ✓
+**Challenge**: Integrating the Geocoding Service into the Matching Service for distance-based filtering.
+**Solution**: Added utility functions in the Matching Service to communicate with the Geocoding Service and enhanced the matching algorithm to use distance as a filter.
 
 ## Technical Debt Tracking
 
 - Improve test coverage for all services
 - Enhance error handling for database operations
 - Add comprehensive logging
-- Add distance calculation to matching algorithm (requires geocoding service)
 - Refactor email status enum handling for better maintainability
 - Consider updating the String-based status fields to use proper enum types
+- Implement proper error handling for geocoding API calls
+- Add more sophisticated caching strategies for geocoding results
