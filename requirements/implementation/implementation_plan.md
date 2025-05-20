@@ -2,7 +2,7 @@
 
 This document outlines the phased implementation approach for developing the Psychotherapy Matching Platform, prioritizing core functionality while building a solid foundation for future expansion.
 
-## Phase 1: Foundation
+## Phase 1: Foundation (Completed)
 
 ### Environment Setup
 - Docker and Docker Compose installation
@@ -37,89 +37,96 @@ This document outlines the phased implementation approach for developing the Psy
    - Template system setup
    - Basic sending capabilities
 
-### Database Development
-- Schema creation for each service
-- Migration system with Alembic
-- Database utility functions
-- Connection pooling configuration
+5. **Geocoding Service**
+   - OpenStreetMap integration
+   - Distance calculation
+   - Caching system
+   - API endpoints
 
-## Phase 2: Core Functionality
+6. **Web Scraping Service**
+   - Separate repository implementation
+   - Data extraction from 116117.de
+   - Therapist data normalization
+   - JSON file export
 
-### Enhanced Matching
-- Full implementation of matching criteria
-- Distance-based filtering integration
-- Time availability matching
-- Batch creation of placement requests
+## Phase 2: Integration & Enhancement (Current)
 
-### Communication Enhancements
-- Email batching implementation
-- 7-day contact frequency limitation
-- Phone call scheduling based on therapist availability
-- Follow-up call scheduling
+### Scraper Integration
+- File-based integration pattern
+- Cloud storage configuration
+- Import process implementation
+- API endpoints for import management
+- Testing framework
+- Monitoring setup
 
-### Integration with External Services
-- OpenStreetMap integration for geocoding
-- Distance calculation implementation
-- Travel time estimation
-- Email sending and tracking
-
-### Shared Infrastructure
-- RobustKafkaProducer implementation
-- Event standardization
-- Error handling patterns
-- Service health checks
-
-## Phase 3: Process Implementation
-
-### Email Management Process
-- Email template expansion
-- Batch processing of email sending
-- Manual response tracking
-- Priority-based batching
-
-### Phone Call Management
-- Scheduling based on therapist availability
-- Call batch processing
-- Failed call handling
-- 4-week cooling period implementation
-
-### Therapist Data Management
-- 116117.de data scraping preparation
-- Therapist data validation
-- Data normalization processes
-- Change tracking
-
-### Patient Status Tracking
-- Full patient lifecycle management
-- Status transition logic
-- Response handling
-- Success tracking
-
-## Phase 4: Refinement
-
-### System Hardening
-- Comprehensive error handling
-- Edge case management
-- Performance optimization
-- Security enhancements
-
-### Testing
-- Unit test expansion
-- Integration testing
-- System testing with realistic data
+### Testing Enhancement
+- Unit testing expansion
+- Integration test implementation
+- System test scenarios
 - Performance testing
 
-### Documentation
-- Code documentation completion
+### Documentation Updates
 - API documentation
-- Process documentation
-- Deployment documentation
+- Integration details
+- Operational runbooks
+- User guides
 
-### Monitoring
-- Logging enhancements
+## Phase 3: Web Interface (Planned)
+
+### Frontend Development
+- UI design mockups
+- Core application structure
+- React/Bootstrap implementation
+- Component library development
+
+### User Management
+- Authentication system
+- Authorization model
+- User profiles
+- Session management
+
+### Application Workflows
+- Patient intake process
+- Therapist management
+- Matching workflow
+- Communication tracking
+- Reporting dashboards
+
+## Phase 4: System Hardening (Planned)
+
+### Performance Optimization
+- Database query optimization
+- Caching implementation
+- Resource allocation tuning
+- Load testing
+
+### Security Enhancement
+- Data encryption
+- Access control refinement
+- Secure API endpoints
+- Security testing
+
+### Monitoring & Alerting
+- Centralized logging
 - Performance metrics
-- Error tracking
-- Usage statistics
+- Automated alerts
+- Health checks
+
+## Phase 5: Advanced Features (Future)
+
+### Machine Learning
+- Match success prediction
+- Optimization algorithms
+- Recommendation engine
+
+### Additional Integrations
+- Health record systems
+- Insurance provider APIs
+- Billing systems
+
+### Mobile Applications
+- Patient-facing app
+- Therapist-facing app
 
 ## Implementation Priorities
 
@@ -128,32 +135,25 @@ This document outlines the phased implementation approach for developing the Psy
    - Basic matching algorithm
    - Email sending capability
    - Phone call scheduling
+   - Distance-based matching
+   - Therapist data scraping
 
-2. **Should Have (Phase 2)**
+2. **Should Have (Phase 2-3)**
    - Full matching algorithm with all criteria
    - Batch email processing
    - Contact frequency management
-   - OpenStreetMap integration
+   - Web interface
+   - Reporting capabilities
+   - Full test coverage
 
-3. **Could Have (Phase 3)**
-   - Advanced therapist data scraping
-   - Enhanced reporting
-   - Advanced prioritization
-   - Response analytics
-
-4. **Won't Have (Future)**
-   - Public API
-   - Multi-language support
+3. **Could Have (Phase 4-5)**
+   - Advanced data visualization
    - Machine learning enhancements
-   - Mobile application
+   - Mobile applications
+   - Advanced API integrations
 
-## Service Development Sequence
-
-1. Patient Service
-2. Therapist Service
-3. Matching Service
-4. Communication Service
-5. Geocoding Service
-6. Scraping Service
-
-This sequence allows for incremental testing and ensures each service has its dependencies available when needed.
+4. **Won't Have (Initial Scope)**
+   - Patient self-service portal
+   - Real-time chat
+   - Automated translation services
+   - Billing system integration

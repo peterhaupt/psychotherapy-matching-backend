@@ -1,5 +1,3 @@
-"""Update to the progress.md file to reflect the implementation of the Geocoding Service."""
-
 # Psychotherapy Matching Platform - Implementation Progress
 
 ## Overview
@@ -13,16 +11,17 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 | Database Configuration | ✅ Complete | [Details](02_database_configuration.md) |
 | Patient Service | ✅ Complete | [Details](03_patient_service.md) |
 | Kafka Configuration | ✅ Complete with Healthchecks | [Details](04_kafka_configuration.md) |
-| Robust Kafka Producer | ✅ Complete | [Details](kafka_robust_producer.md) |
+| Robust Kafka Producer | ✅ Complete | [Details](06_kafka_robust_producer.md) |
 | Kafka Integration for Patient Service | ✅ Complete | [Details](05_kafka_integration_testing.md) |
-| Therapist Service | ✅ Complete | [Details](06_therapist_service.md) |
-| Matching Service | ✅ Complete | [Details](07_matching_service.md) |
-| Communication Service - Email System | ✅ Complete | [Details](08_communication_service.md) |
-| Communication Service - Phone Call System | ✅ Complete | [Details](08_communication_service.md) |
-| Communication Service - Email Batching | ✅ Complete | [Details](08_communication_service.md) |
+| Therapist Service | ✅ Complete | [Details](07_therapist_service.md) |
+| Matching Service | ✅ Complete | [Details](08_matching_service.md) |
+| Communication Service - Email System | ✅ Complete | [Details](09_communication_service.md) |
+| Communication Service - Phone Call System | ✅ Complete | [Details](09_communication_service.md) |
+| Communication Service - Email Batching | ✅ Complete | [Details](09_communication_service.md) |
 | Communication Service - Default Value Handling | ✅ Fixed | Issue with Flask-RESTful parser handling None values has been fixed |
 | Geocoding Service | ✅ Complete | [Details](12_geocoding_service.md) |
-| Web Scraping Service | 🔄 Planned | - |
+| Web Scraping Service | ✅ Complete | Developed in [separate repository](https://github.com/peterhaupt/curavani_scraping) |
+| Scraper Integration | 🔄 In Progress | [Details](13_scraper_integration.md) |
 | Web Interface | 🔄 Planned | - |
 
 ## Completed Components
@@ -119,6 +118,23 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 - Proper rate limiting for external API calls
 - Integration with Matching Service for distance-based therapist filtering
 
+### Web Scraping Service ✅
+- Developed in separate repository: [curavani_scraping](https://github.com/peterhaupt/curavani_scraping)
+- Data extraction from 116117.de
+- Therapist data normalization
+- Rate-limited scraping with exponential backoff
+- Robust error handling
+- Change detection for incremental updates
+- JSON file generation with standardized schema
+- Cloud storage integration for file exports
+
+### Scraper Integration 🔄
+- File-based integration pattern established
+- JSON schema defined for data exchange
+- Import process implementation in progress
+- API endpoints for import management created
+- Testing framework for end-to-end validation in development
+
 ## Current Focus
 
 ### Docker Compose Health Checks ✅
@@ -127,25 +143,37 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 - Socket-based health check for PgBouncer
 - Elimination of initial Kafka connection errors
 
-### Web Scraping Service (In Planning)
-- Researching scraping approach for 116117.de
-- Designing data extraction and normalization
-- Planning scheduling for periodic scraping
-- Developing change detection mechanism
+### Web Scraping Integration (In Progress)
+- Completing the import process for therapist data
+- Testing the end-to-end data flow
+- Implementing validation and error handling
+- Creating monitoring for the import process
+
+### Web Interface (Planned)
+- Designing UI mockups
+- Planning frontend architecture
+- Selecting appropriate frontend framework
+- Implementing core screens and workflows
 
 ## Next Steps
 
-### 1. Implement Web Scraping Service
-- Create scraper for 116117.de
-- Implement data normalization process
-- Set up scheduling for periodic scraping
-- Implement change detection
+### 1. Complete Scraper Integration
+- Finish implementation of import process
+- Create comprehensive testing suite
+- Document operational procedures
+- Deploy monitoring and alerts
 
 ### 2. Develop Web Interface
 - Build basic frontend with Bootstrap
 - Create data entry forms
 - Implement dashboard views
 - Add user authentication
+
+### 3. Enhance Testing Coverage
+- Expand unit tests for all services
+- Develop integration test suite
+- Create end-to-end test scenarios
+- Implement performance testing
 
 ## Challenges and Solutions
 
@@ -207,6 +235,10 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 **Challenge**: Integrating the Geocoding Service into the Matching Service for distance-based filtering.
 **Solution**: Added utility functions in the Matching Service to communicate with the Geocoding Service and enhanced the matching algorithm to use distance as a filter.
 
+### Scraper Integration Data Flow ⚠️
+**Challenge**: Ensuring data consistency between scraped therapist data and the database.
+**Solution**: Implementing a robust import process with validation, error handling, and reconciliation between external and internal IDs.
+
 ## Technical Debt Tracking
 
 - Improve test coverage for all services
@@ -216,3 +248,4 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 - Consider updating the String-based status fields to use proper enum types
 - Implement proper error handling for geocoding API calls
 - Add more sophisticated caching strategies for geocoding results
+- Complete the import process for scraped therapist data
