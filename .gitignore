@@ -210,3 +210,11 @@ config/local/
 
 # ignore .DS_Store files in all folders
 .DS_Store
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Keep the example file
+!.env.example
