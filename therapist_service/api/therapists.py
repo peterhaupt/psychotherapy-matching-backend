@@ -5,6 +5,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from models.therapist import Therapist, TherapistStatus
 from shared.utils.database import SessionLocal
+from shared.api.base_resource import PaginatedListResource
 from events.producers import (
     publish_therapist_created,
     publish_therapist_updated,
@@ -136,12 +137,12 @@ class TherapistResource(Resource):
             db.close()
 
 
-class TherapistListResource(Resource):
+class TherapistListResource(PaginatedListResource):
     """REST resource for therapist collection operations."""
 
     @marshal_with(therapist_fields)
     def get(self):
-        """Get a list of therapists with optional filtering."""
+        """Get a list of therapists with optional filtering and pagination."""
         # Parse query parameters for filtering
         status = request.args.get('status')
         
@@ -152,6 +153,9 @@ class TherapistListResource(Resource):
             # Apply filters if provided
             if status:
                 query = query.filter(Therapist.status == TherapistStatus(status))
+            
+            # Apply pagination
+            query = self.paginate_query(query)
             
             # Get results
             therapists = query.all()

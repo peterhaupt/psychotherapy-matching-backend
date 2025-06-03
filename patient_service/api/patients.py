@@ -5,6 +5,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from models.patient import Patient, PatientStatus
 from shared.utils.database import SessionLocal
+from shared.api.base_resource import PaginatedListResource
 from events.producers import (
     publish_patient_created,
     publish_patient_updated,
@@ -117,12 +118,12 @@ class PatientResource(Resource):
             db.close()
 
 
-class PatientListResource(Resource):
+class PatientListResource(PaginatedListResource):
     """REST resource for patient collection operations."""
 
     @marshal_with(patient_fields)
     def get(self):
-        """Get a list of patients with optional filtering."""
+        """Get a list of patients with optional filtering and pagination."""
         # Parse query parameters for filtering
         status = request.args.get('status')
         
@@ -133,6 +134,9 @@ class PatientListResource(Resource):
             # Apply filters if provided
             if status:
                 query = query.filter(Patient.status == PatientStatus(status))
+            
+            # Apply pagination
+            query = self.paginate_query(query)
             
             # Get results
             patients = query.all()
