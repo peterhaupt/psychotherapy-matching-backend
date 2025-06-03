@@ -9,10 +9,13 @@ from haversine import Unit
 from shared.utils.database import SessionLocal
 from models.geocache import DistanceCache
 from utils.osm import get_route, geocode_address
-import config
+from shared.config import get_config
 
 # Initialize logging
 logger = logging.getLogger(__name__)
+
+# Get configuration
+config = get_config()
 
 
 def calculate_haversine_distance(

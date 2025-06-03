@@ -1,6 +1,6 @@
 """Shared Kafka utilities for the therapy platform."""
-from .producer import KafkaProducer
 from .consumer import KafkaConsumer
 from .schemas import EventSchema
+from .robust_producer import RobustKafkaProducer
 
-__all__ = ['KafkaProducer', 'KafkaConsumer', 'EventSchema']
+__all__ = ['KafkaConsumer', 'EventSchema', 'RobustKafkaProducer']

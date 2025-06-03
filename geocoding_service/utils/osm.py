@@ -10,10 +10,13 @@ from cachetools import TTLCache
 
 from shared.utils.database import SessionLocal
 from models.geocache import GeoCache
-import config
+from shared.config import get_config
 
 # Initialize logging
 logger = logging.getLogger(__name__)
+
+# Get configuration
+config = get_config()
 
 # In-memory cache for very frequent requests
 # This complements the database cache

@@ -7,6 +7,7 @@ from kafka import KafkaConsumer as BaseKafkaConsumer
 from kafka.errors import KafkaError
 
 from .schemas import EventSchema
+from shared.config import get_config
 
 
 class KafkaConsumer:
@@ -16,7 +17,7 @@ class KafkaConsumer:
         self,
         topics: List[str],
         group_id: str,
-        bootstrap_servers: str = "kafka:9092",
+        bootstrap_servers: str = None,
         auto_offset_reset: str = "earliest"
     ):
         """Initialize the Kafka consumer.
@@ -24,9 +25,15 @@ class KafkaConsumer:
         Args:
             topics: List of Kafka topics to subscribe to
             group_id: Consumer group ID
-            bootstrap_servers: Kafka bootstrap servers address
+            bootstrap_servers: Kafka bootstrap servers address (optional - uses config if not provided)
             auto_offset_reset: Offset reset strategy
         """
+        # Get configuration
+        config = get_config()
+        
+        # Use provided bootstrap_servers or fall back to config
+        bootstrap_servers = bootstrap_servers or config.KAFKA_BOOTSTRAP_SERVERS
+        
         self.topics = topics
         self.group_id = group_id
         self.logger = logging.getLogger(__name__)

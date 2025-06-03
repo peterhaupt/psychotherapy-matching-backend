@@ -8,17 +8,22 @@ from kafka import KafkaProducer as BaseKafkaProducer
 from kafka.errors import KafkaError
 
 from shared.kafka.schemas import EventSchema
+from shared.config import get_config
 
 class RobustKafkaProducer:
     """Kafka producer with connection retry and message queuing."""
     
     def __init__(
         self,
-        bootstrap_servers = "kafka:9092",
+        bootstrap_servers = None,
         service_name = "unknown-service"
     ):
         """Initialize the robust Kafka producer."""
-        self.bootstrap_servers = bootstrap_servers
+        # Get configuration
+        config = get_config()
+        
+        # Use provided bootstrap_servers or fall back to config
+        self.bootstrap_servers = bootstrap_servers or config.KAFKA_BOOTSTRAP_SERVERS
         self.service_name = service_name
         self.logger = logging.getLogger(__name__)
         self.producer = None

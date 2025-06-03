@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # PostgreSQL Database
   postgres:
@@ -20,9 +18,10 @@ services:
       timeout: 5s
       retries: 5
 
-  # PgBouncer Connection Pooler
+# PgBouncer Connection Pooler
   pgbouncer:
     image: pgbouncer/pgbouncer:latest
+    platform: linux/amd64
     container_name: pgbouncer
     environment:
       DATABASES_HOST: ${DB_HOST}
@@ -30,13 +29,15 @@ services:
       DATABASES_USER: ${DB_USER}
       DATABASES_PASSWORD: ${DB_PASSWORD}
       DATABASES_DBNAME: ${DB_NAME}
-      PGBOUNCER_ADMIN_USER: ${PGBOUNCER_ADMIN_USER}
-      PGBOUNCER_ADMIN_PASSWORD: ${PGBOUNCER_ADMIN_PASSWORD}
+      PGBOUNCER_POOL_MODE: session
+      PGBOUNCER_MAX_CLIENT_CONN: 1000
+      PGBOUNCER_DEFAULT_POOL_SIZE: 25
+      PGBOUNCER_ADMIN_USERS: ${PGBOUNCER_ADMIN_USER}
+      PGBOUNCER_AUTH_TYPE: md5
+      PGBOUNCER_AUTH_USER: ${DB_USER}
+      PGBOUNCER_AUTH_QUERY: "SELECT usename, passwd FROM pg_shadow WHERE usename=$1"
     ports:
       - "${PGBOUNCER_PORT}:6432"
-    volumes:
-      - ./docker/pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini
-      - ./docker/pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt
     depends_on:
       postgres:
         condition: service_healthy
@@ -164,28 +165,6 @@ services:
       - pgbouncer
       - kafka
     command: python app.py
-
-  # Frontend Application
-  frontend:
-    build: ./frontend
-    container_name: frontend
-    environment:
-      REACT_APP_USE_MOCK_DATA: ${REACT_APP_USE_MOCK_DATA}
-      REACT_APP_PATIENT_API: ${REACT_APP_PATIENT_API}
-      REACT_APP_THERAPIST_API: ${REACT_APP_THERAPIST_API}
-      REACT_APP_MATCHING_API: ${REACT_APP_MATCHING_API}
-      REACT_APP_COMMUNICATION_API: ${REACT_APP_COMMUNICATION_API}
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    depends_on:
-      - patient_service
-      - therapist_service
-      - matching_service
-      - communication_service
-    command: npm start
 
 volumes:
   postgres_data:
