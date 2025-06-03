@@ -20,6 +20,7 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 | Communication Service - Email Batching | ✅ Complete | [Details](09_communication_service.md) |
 | Communication Service - Default Value Handling | ✅ Fixed | Issue with Flask-RESTful parser handling None values has been fixed |
 | Geocoding Service | ✅ Complete | [Details](12_geocoding_service.md) |
+| Centralized Configuration | ✅ Complete | [Details](15_configuration_management.md) |
 | Web Scraping Service | ✅ Complete | Developed in [separate repository](https://github.com/peterhaupt/curavani_scraping) |
 | Scraper Integration | 🔄 In Progress | [Details](13_scraper_integration.md) |
 | Web Interface | 🔄 Planned | - |
@@ -34,15 +35,17 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 
 ### Database Configuration ✅
 - PostgreSQL container setup
-- PgBouncer for connection pooling
+- PgBouncer for connection pooling (using Bitnami image for cross-platform support)
 - Service schemas created
 - Alembic migrations configured
+- Centralized database configuration
 
 ### Patient Service ✅
 - Patient model implemented with all required fields
 - CRUD API endpoints created
 - Error handling and validation
 - Docker configuration
+- Integration with centralized configuration
 
 ### Kafka Configuration ✅
 - Zookeeper and Kafka containers
@@ -50,6 +53,7 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 - Shared utilities for producers and consumers
 - Standardized event schema
 - Health check implementation for proper service startup order
+- Centralized Kafka configuration
 
 ### Robust Kafka Producer ✅
 - Non-blocking service initialization when Kafka unavailable
@@ -70,6 +74,7 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 - CRUD API endpoints created for therapist management
 - Kafka event producers for therapist events
 - Docker configuration and integration
+- Integration with centralized configuration
 
 ### Matching Service ✅
 - Placement request model implemented
@@ -78,12 +83,14 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 - Kafka event handling for patient and therapist updates
 - Integration with Patient and Therapist services
 - Integration with Geocoding Service for distance-based matching
+- Uses centralized service URLs
 
 ### Communication Service - Email System ✅
 - Email model implemented with status tracking
 - REST API endpoints for email management
 - Email sending functionality with SMTP
 - HTML email templates with responsive design
+- Integration with centralized SMTP configuration
 
 ### Communication Service - Phone Call System ✅
 - Phone call database models implemented
@@ -117,6 +124,17 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 - Kafka event integration for asynchronous distance calculations
 - Proper rate limiting for external API calls
 - Integration with Matching Service for distance-based therapist filtering
+- Centralized configuration for all settings
+
+### Centralized Configuration ✅
+- Created `shared/config/settings.py` with all configuration
+- Environment-based configuration (Development, Production, Test)
+- Configuration validation for production
+- Helper methods for database URIs and service URLs
+- SMTP settings management
+- All services updated to use centralized configuration
+- Support for `.env` file with `python-dotenv`
+- Comprehensive documentation
 
 ### Web Scraping Service ✅
 - Developed in separate repository: [curavani_scraping](https://github.com/peterhaupt/curavani_scraping)
@@ -137,11 +155,12 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 
 ## Current Focus
 
-### Docker Compose Health Checks ✅
-- Health checks implemented for all services
-- Service startup order improved through conditional dependencies
-- Socket-based health check for PgBouncer
-- Elimination of initial Kafka connection errors
+### Centralized Configuration ✅
+- All configuration moved to `shared/config/settings.py`
+- Environment variable support for all settings
+- Configuration classes for different environments
+- Helper methods for common operations
+- Documentation updated to reflect changes
 
 ### Web Scraping Integration (In Progress)
 - Completing the import process for therapist data
@@ -164,7 +183,7 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 - Deploy monitoring and alerts
 
 ### 2. Develop Web Interface
-- Build basic frontend with Bootstrap
+- Build basic frontend with Bootstrap/React
 - Create data entry forms
 - Implement dashboard views
 - Add user authentication
@@ -176,6 +195,14 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 - Implement performance testing
 
 ## Challenges and Solutions
+
+### PgBouncer Platform Compatibility ✓
+**Challenge**: Original PgBouncer image had issues with ARM64/Apple Silicon.
+**Solution**: Switched to Bitnami PgBouncer image with native cross-platform support.
+
+### Configuration Management ✓
+**Challenge**: Configuration was scattered across services with hardcoded values.
+**Solution**: Implemented centralized configuration in `shared/config/settings.py` with environment variable support.
 
 ### Import Path Issues ✓
 **Challenge**: Python module imports were failing due to directory naming.
@@ -195,7 +222,7 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 
 ### Service Communication ✓
 **Challenge**: Microservices needed to communicate with each other.
-**Solution**: Combined REST API calls for direct queries with Kafka events for asynchronous operations.
+**Solution**: Combined REST API calls for direct queries with Kafka events for asynchronous operations, using centralized service URLs.
 
 ### SQLAlchemy Enum Handling ✓
 **Challenge**: SQLAlchemy wasn't correctly translating between Python enum names and database values.
@@ -241,11 +268,14 @@ This document tracks the overall implementation progress of the Psychotherapy Ma
 
 ## Technical Debt Tracking
 
-- Improve test coverage for all services
-- Enhance error handling for database operations
-- Add comprehensive logging
-- Refactor email status enum handling for better maintainability
-- Consider updating the String-based status fields to use proper enum types
-- Implement proper error handling for geocoding API calls
-- Add more sophisticated caching strategies for geocoding results
+- ~~Improve test coverage for all services~~
+- ~~Enhance error handling for database operations~~
+- ~~Add comprehensive logging~~
+- ~~Refactor email status enum handling for better maintainability~~
+- ~~Consider updating the String-based status fields to use proper enum types~~
+- ~~Implement proper error handling for geocoding API calls~~
+- ~~Add more sophisticated caching strategies for geocoding results~~
 - Complete the import process for scraped therapist data
+- Add integration tests for centralized configuration
+- Implement configuration hot-reloading capability
+- Add configuration versioning support

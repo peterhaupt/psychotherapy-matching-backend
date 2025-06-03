@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Communication Service is responsible for managing all interaction with therapists, including email communication and phone call scheduling. This document describes the architecture of the service, with specific focus on the email batching system, phone call scheduling components, and resilience patterns.
+The Communication Service is responsible for managing all interaction with therapists, including email communication and phone call scheduling. This document describes the architecture of the service, with specific focus on the email batching system, phone call scheduling components, resilience patterns, and centralized configuration.
 
 ## System Architecture
 
@@ -26,6 +26,9 @@ The Communication Service is responsible for managing all interaction with thera
 │  │ Engine         │   │ Producer       │   │ Status Management  │    │
 │  │                │   │                │   │                    │    │
 │  └────────────────┘   └────────────────┘   └────────────────────┘    │
+│                                                                      │
+│                          Centralized Configuration                   │
+│                      (shared/config/settings.py)                     │
 │                                                                      │
 └──────────────────────────────────────┬───────────────────────────────┘
                                        │
@@ -180,7 +183,7 @@ The email communication process follows this flow:
 │ 1. Creation            │────►│ 2. Batching            │───►│ 3. Sending             │
 │                        │     │                        │    │                        │
 │ - API or batch process │     │ - Group by therapist   │    │ - Fetch QUEUED emails  │
-│ - Default handling     │     │ - 7-day frequency rule │    │ - SMTP connection      │
+│ - Apply config defaults│     │ - 7-day frequency rule │    │ - Use centralized SMTP │
 │ - Status: DRAFT        │     │ - Status: QUEUED       │    │ - Status: SENT/FAILED  │
 └────────────────────────┘     └────────────────────────┘    └──────────┬─────────────┘
                                                                          │
@@ -195,66 +198,111 @@ The email communication process follows this flow:
 └────────────────────────┘     └────────────────────────┘    └────────────────────────┘
 ```
 
-### Configuration and Settings
+## Centralized Configuration and Settings
 
-The service uses a centralized configuration approach for all email-related settings:
+All service configuration is centralized in `shared/config/settings.py`:
 
-1. **Configuration File (`config.py`)**:
-   - Defines all settings with environment variable overrides
-   - Default SMTP settings
+### Configuration Access
+
+```python
+from shared.config import get_config
+
+config = get_config()
+
+# Get SMTP settings
+smtp_settings = config.get_smtp_settings()
+
+# Get service URLs
+matching_url = config.get_service_url("matching", internal=True)
+therapist_url = config.get_service_url("therapist", internal=True)
+```
+
+### Environment-Based Configuration
+
+The service supports multiple environments:
+
+1. **Development** (default):
+   - Debug mode enabled
+   - Local SMTP server (port 1025)
+   - Verbose logging
+
+2. **Production**:
+   - Debug mode disabled
+   - Real SMTP server with TLS
+   - Secure defaults enforced
+   - Configuration validation
+
+3. **Testing**:
+   - Separate test configuration
+   - Mock SMTP server
+   - Isolated test database
+
+### Configuration Categories
+
+1. **SMTP Configuration**:
+   - Host, port, authentication
+   - TLS settings
    - Default sender information
-   - Application-level settings
 
-2. **Flask App Configuration**:
-   - Loads settings from config.py
-   - Makes them available via `current_app.config`
+2. **Service Integration**:
+   - Internal service URLs
+   - API endpoints
+   - Timeout settings
 
-3. **Utility Functions**:
-   - `get_smtp_settings()` provides consistent access to settings
-   - Handles both in-app and out-of-app contexts
+3. **Feature Flags**:
+   - `ENABLE_EMAIL_SENDING`
+   - `ENABLE_PHONE_SCHEDULING`
+
+4. **Operational Settings**:
+   - Batch processing schedules
+   - Retry configurations
+   - Rate limiting
 
 ### Default Value Handling
 
-The service implements proper handling of default values in the API:
+The service implements proper default value handling:
 
-- **RequestParser Behavior**: Flask-RESTful's RequestParser adds defined arguments to the result dictionary with value `None` when they're not in the request
-- **Solution**: Use `or` operator for NULL handling: `args.get('sender_email') or smtp_settings['sender']`
-- **Collections**: Handle NULL for collection fields: `args.get('placement_request_ids') or []`
+```python
+# Using the 'or' operator for NULL handling
+sender_email = args.get('sender_email') or smtp_settings['sender']
+placement_request_ids = args.get('placement_request_ids') or []
+```
 
-This approach ensures that proper defaults are always applied, preventing NULL values from reaching the database.
+This ensures proper defaults are applied even when Flask-RESTful's RequestParser adds `None` values.
 
 ## Resilience Patterns
 
 ### Robust Kafka Producer
 
-A resilient Kafka producer was implemented to handle connection failures and ensure message delivery:
+The service uses the shared RobustKafkaProducer with automatic configuration:
 
-#### 1. Connection Resilience
-- **Purpose**: Maintain reliable connection to Kafka
-- **Functions**:
-  - Exponential backoff retries for Kafka connection
-  - Graceful handling of broker unavailability
-  - Configurable timeout and retry parameters
+```python
+from shared.kafka.robust_producer import RobustKafkaProducer
 
-#### 2. Message Persistence
-- **Purpose**: Ensure no messages are lost during outages
-- **Functions**:
-  - In-memory queue for temporary outages
-  - At-least-once delivery semantics
-  - Message persistency
+# Configuration loaded automatically from shared.config
+producer = RobustKafkaProducer(service_name="communication-service")
+```
 
-#### 3. Background Processing
-- **Purpose**: Deliver messages without blocking application
-- **Functions**:
-  - Dedicated thread for message delivery
-  - Automatic retry of failed deliveries
-  - Priority-based message processing
+Features:
+- Automatic connection configuration
+- Message queuing during outages
+- Exponential backoff reconnection
+- Background message processing
 
-This robust messaging implementation ensures that:
-- The service can start even if Kafka is temporarily down
-- Messages are never lost if Kafka becomes unavailable
-- Failed messages are automatically retried
-- The service is resilient to network issues
+### SMTP Error Handling
+
+Email sending includes comprehensive error handling:
+- Connection failures are logged
+- Failed emails are marked with status
+- Retry logic for transient failures
+- Graceful degradation
+
+### Database Transaction Management
+
+All database operations use proper transaction management:
+- Session management with try/finally blocks
+- Rollback on errors
+- Consistent error responses
 
 ## REST API Endpoints
 
@@ -289,16 +337,25 @@ The Communication Service exposes these API endpoints:
 - Publishes `communication.call_scheduled` events when calls are scheduled
 
 ### Therapist Service Integration
-- Retrieves therapist details and availability information
+- Retrieves therapist details using centralized service URLs
 - Uses the `potentially_available` flag for prioritization
 - Accesses the `telefonische_erreichbarkeit` JSON structure for scheduling
+
+### Configuration Integration
+All service interactions use centralized configuration:
+```python
+config = get_config()
+therapist_url = config.get_service_url("therapist", internal=True)
+response = requests.get(f"{therapist_url}/api/therapists/{therapist_id}")
+```
 
 ## Best Practices
 
 1. **Configuration Management**:
-   - Use centralized configuration with environment overrides
-   - Apply consistent default handling throughout the codebase
-   - Document all configuration parameters
+   - Always use `shared.config` for all settings
+   - Never hardcode URLs, credentials, or settings
+   - Use environment variables for deployment-specific values
+   - Validate configuration in production mode
 
 2. **API Implementation**:
    - Follow RESTful design principles
@@ -313,21 +370,32 @@ The Communication Service exposes these API endpoints:
    - Use appropriate indexes
 
 4. **Event Processing**:
-   - Use the RobustKafkaProducer for resilience
+   - Use the shared RobustKafkaProducer
    - Implement idempotent event handlers
    - Use consistent event schema
    - Process events asynchronously
 
+5. **Service Communication**:
+   - Use centralized service URL configuration
+   - Implement proper timeout handling
+   - Add retry logic for transient failures
+   - Log all external service calls
+
 ## Future Improvements
 
-1. **Code Refactoring**:
-   - Add comprehensive error handling
-   - Implement service layer pattern
-   - Improve code organization and documentation
+1. **Configuration Enhancements**:
+   - Add configuration validation on startup
+   - Implement configuration hot-reloading
+   - Add configuration versioning
 
-2. **Feature Enhancements**:
-   - Enhanced response tracking
-   - Advanced template customization
-   - Improved batch prioritization
-   - Better integration with calendar systems
-   - Intelligent call time selection based on success rates
+2. **Service Enhancements**:
+   - Add circuit breaker for external services
+   - Implement request caching
+   - Add metrics collection
+   - Enhance error reporting
+
+3. **Feature Additions**:
+   - Email template versioning
+   - A/B testing for email content
+   - Advanced scheduling algorithms
+   - Real-time communication dashboard

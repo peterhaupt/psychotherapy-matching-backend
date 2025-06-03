@@ -13,6 +13,7 @@ The Communication Service has been implemented with these components:
 - **Kafka Integration**: Robust event producers and consumers with resilience features
 - **Email Sending Functionality**: Integrated SMTP client for email delivery
 - **Template System**: Enhanced Jinja2-based HTML template system
+- **Centralized Configuration**: All settings managed through shared configuration
 
 ## Models Implementation
 
@@ -92,107 +93,174 @@ The service uses a structured template system with Jinja2 in `communication_serv
 - `follow_up.html`: Template for follow-up communications
 - `confirmation.html`: Template for confirming accepted patients
 
+## Centralized Configuration
+
+All Communication Service settings are managed through `shared/config/settings.py`:
+
+```python
+from shared.config import get_config
+
+config = get_config()
+
+# SMTP settings
+smtp_settings = config.get_smtp_settings()
+# Returns dict with: host, port, username, password, use_tls, sender, sender_name
+```
+
+### Environment Variables
+Email/SMTP settings in `.env`:
+- `SMTP_HOST`: SMTP server hostname (default: localhost)
+- `SMTP_PORT`: SMTP server port (default: 1025 for development)
+- `SMTP_USERNAME`: SMTP authentication username
+- `SMTP_PASSWORD`: SMTP authentication password
+- `SMTP_USE_TLS`: Enable TLS encryption (default: false)
+- `EMAIL_SENDER`: Default sender email address
+- `EMAIL_SENDER_NAME`: Default sender name
+
+### Configuration Usage
+The service uses configuration in multiple ways:
+
+1. **Flask App Configuration** (in `app.py`):
+```python
+config = get_config()
+smtp_settings = config.get_smtp_settings()
+app.config["SMTP_HOST"] = smtp_settings["host"]
+app.config["SMTP_PORT"] = smtp_settings["port"]
+# ... etc
+```
+
+2. **Email Sending Utilities**:
+```python
+def get_smtp_settings():
+    """Get SMTP settings from app config or use defaults."""
+    try:
+        # Try Flask app context first
+        return {
+            'host': current_app.config.get('SMTP_HOST', config.SMTP_HOST),
+            # ... etc
+        }
+    except RuntimeError:
+        # Fall back to centralized config
+        return config.get_smtp_settings()
+```
+
 ## Resilient Kafka Integration
 
-A robust Kafka producer handles connection issues and message persistence. Key features include:
-- **Connection Retries**: Exponential backoff retry logic for connecting to Kafka
-- **Message Persistence**: Local storage of messages when Kafka is unavailable
-- **Background Processing**: Thread for sending queued messages when connection is restored
-- **Error Handling**: Proper handling of various error conditions
+The service uses the shared RobustKafkaProducer with centralized configuration:
+
+```python
+from shared.kafka.robust_producer import RobustKafkaProducer
+
+# Automatically uses configuration from shared.config
+producer = RobustKafkaProducer(service_name="communication-service")
+```
+
+Key features:
+- Connection configuration loaded automatically
+- Message persistence during Kafka outages
+- Automatic reconnection with exponential backoff
+- Background message queue processing
 
 ## Event Handling
 
-The service consumes matching events to track changes in placement requests:
+The service consumes and produces events using centralized Kafka configuration:
+
+### Consumed Events:
 - `handle_matching_event()`: Processes events from the matching service
 - `process_email_queue()`: Regularly checks for emails that need to be sent
 - `check_unanswered_emails()`: Identifies emails that need follow-up calls
 - `schedule_daily_batch_processing()`: Runs the daily batch email processing
+
+### Published Events:
+- `communication.email_created`: When a new email is created
+- `communication.email_sent`: When an email is successfully sent
+- `communication.call_scheduled`: When a phone call is scheduled
+- `communication.call_completed`: When a phone call is completed
 
 ## Email Flow Process
 
 The Communication Service processes emails through these stages:
 
 1. **Email Creation**
-   - **Trigger**: Via API call or internal process (like batch creation)
-   - **Process**:
-     - Parse request arguments
-     - Apply default values for missing fields with proper null handling
-     - Create Email database entity and associated EmailBatch records
-   - **Status**: Set to DRAFT initially
-   - **Event**: Publishes `email.created` event
+   - Parse request arguments
+   - Apply default values from centralized config
+   - Create Email and EmailBatch records
+   - Publish `email.created` event
 
 2. **Email Batching**
-   - **Trigger**: Daily scheduled process (1 AM)
-   - **Process**: 
-     - Group placement requests by therapist
-     - Apply 7-day contact frequency rule
-     - Generate appropriate email content
-   - **Status**: Changes to QUEUED
+   - Daily scheduled process (1 AM)
+   - Group placement requests by therapist
+   - Apply 7-day contact frequency rule
+   - Generate appropriate email content
 
 3. **Email Sending**
-   - **Trigger**: Periodic queued email processing
-   - **Process**:
-     - Create MIME message with HTML and plain text
-     - Connect to SMTP server and send
-     - Update status to SENT or FAILED
-   - **Event**: Publishes `email.sent` event on success
+   - Use SMTP settings from centralized config
+   - Create MIME message with HTML and plain text
+   - Connect to SMTP server and send
+   - Update status and publish events
 
 4. **Follow-up Processing**
-   - **Trigger**: Daily check for unanswered emails (7 days old)
-   - **Process**:
-     - Schedule follow-up phone calls for unanswered emails
-   - **Action**: Creates PhoneCall records for follow-up
+   - Daily check for unanswered emails (7 days old)
+   - Schedule follow-up phone calls automatically
 
-## Centralized Configuration
+## Testing Email Functionality
 
-The service uses a centralized configuration approach in `config.py`:
-- **Environment Variables**: All settings can be overridden via environment
-- **Default Values**: Sensible defaults for development
-- **Application Settings**: Database, SMTP, and other service settings
-- **Email Defaults**: Default sender information
+For local development, you can use a mail catcher:
 
-The configuration is used consistently throughout the service:
-- In the Flask app via `app.config`
-- In the `get_smtp_settings()` utility function
-- Directly in components when needed
+```bash
+# Using MailHog (recommended)
+docker run -d -p 1025:1025 -p 8025:8025 mailhog/mailhog
+
+# Or using Python's built-in SMTP debugging server
+python -m smtpd -n -c DebuggingServer localhost:1025
+```
+
+Then set in your `.env`:
+```
+SMTP_HOST=localhost
+SMTP_PORT=1025
+SMTP_USE_TLS=false
+```
+
+## Best Practices
+
+1. **Use Centralized Configuration**: Always use `shared.config` for settings
+2. **Environment Variables**: Never hardcode SMTP credentials
+3. **Default Value Handling**: Use the `or` operator for proper null handling
+4. **Error Handling**: Implement proper SMTP error handling
+5. **Testing**: Use mail catchers for local development
+6. **Templates**: Keep email templates simple and responsive
 
 ## Previously Known Issues (Now Fixed)
 
 ### Default Value Handling in RequestParser ✓
 
-**Issue**: When creating emails through the API, default values for `sender_email` and `sender_name` were not correctly applied when these fields were omitted from the request.
+**Issue**: Flask-RESTful's RequestParser adds `None` for undefined arguments, preventing `.get()` defaults from working.
 
-**Root Cause**: Flask-RESTful's RequestParser adds defined arguments to the result dictionary with a value of `None` when they're not provided in the request. The `.get(key, default)` method only uses its default value when the key doesn't exist in the dictionary, not when it exists with a value of `None`.
-
-**Solution**: Modified the email creation code to use the Python `or` operator for default values:
-
+**Solution**: Use the `or` operator:
 ```python
-# Changed from this:
-sender_email=args.get('sender_email', smtp_settings['sender'])
-
-# To this:
-sender_email=args.get('sender_email') or smtp_settings['sender']
+sender_email = args.get('sender_email') or smtp_settings['sender']
 ```
-
-This properly handles both missing keys and keys with `None` values.
 
 ### Placement Request IDs Handling ✓
 
-**Issue**: The service failed to handle null `placement_request_ids` properly in email creation.
+**Issue**: Null `placement_request_ids` not handled properly.
 
-**Solution**: Updated the code to use the `or` operator for proper null handling:
+**Solution**: Use the `or` operator:
 ```python
-placement_request_ids=args.get('placement_request_ids') or []
+placement_request_ids = args.get('placement_request_ids') or []
 ```
 
 ## Future Enhancements
 
 ### Code Improvements
-- Improve error handling and validation
-- Refactor to use a service layer pattern
+- Service layer pattern implementation
+- Enhanced validation middleware
+- Async email sending
 
 ### Functional Enhancements
-- Enhanced email response tracking
-- Advanced batch prioritization
-- Automated email content generation
-- Integration with calendar systems for call scheduling
+- Email open/click tracking
+- Advanced template customization
+- SMS notification support
+- Calendar integration for scheduling
+- Real-time communication dashboard

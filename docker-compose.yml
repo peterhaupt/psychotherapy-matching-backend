@@ -18,29 +18,48 @@ services:
       timeout: 5s
       retries: 5
 
-# PgBouncer Connection Pooler
+  # PgBouncer Connection Pooler
   pgbouncer:
-    image: pgbouncer/pgbouncer:latest
-    platform: linux/amd64
+    image: bitnami/pgbouncer:latest
     container_name: pgbouncer
     environment:
-      DATABASES_HOST: ${DB_HOST}
-      DATABASES_PORT: ${DB_PORT}
-      DATABASES_USER: ${DB_USER}
-      DATABASES_PASSWORD: ${DB_PASSWORD}
-      DATABASES_DBNAME: ${DB_NAME}
-      PGBOUNCER_POOL_MODE: session
-      PGBOUNCER_MAX_CLIENT_CONN: 1000
-      PGBOUNCER_DEFAULT_POOL_SIZE: 25
-      PGBOUNCER_ADMIN_USERS: ${PGBOUNCER_ADMIN_USER}
+      # Database connection settings
+      POSTGRESQL_HOST: ${DB_HOST}
+      POSTGRESQL_PORT: ${DB_PORT}
+      POSTGRESQL_DATABASE: ${DB_NAME}
+      POSTGRESQL_USERNAME: ${DB_USER}
+      POSTGRESQL_PASSWORD: ${DB_PASSWORD}
+      # PgBouncer specific settings
+      PGBOUNCER_DATABASE: ${DB_NAME}
+      PGBOUNCER_PORT: 6432
+      PGBOUNCER_BIND_ADDRESS: 0.0.0.0
       PGBOUNCER_AUTH_TYPE: md5
       PGBOUNCER_AUTH_USER: ${DB_USER}
       PGBOUNCER_AUTH_QUERY: "SELECT usename, passwd FROM pg_shadow WHERE usename=$1"
+      PGBOUNCER_POOL_MODE: session
+      PGBOUNCER_MAX_CLIENT_CONN: 1000
+      PGBOUNCER_DEFAULT_POOL_SIZE: 25
+      PGBOUNCER_IGNORE_STARTUP_PARAMETERS: "extra_float_digits"
+      # Create the databases.ini and users.ini files
+      PGBOUNCER_DSN_${DB_NAME}: "host=${DB_HOST} port=${DB_PORT} dbname=${DB_NAME}"
+      # Set userlist
+      PGBOUNCER_USERLIST: "${DB_USER}:${DB_PASSWORD}"
+      # Admin user
+      PGBOUNCER_ADMIN_USERS: ${DB_USER}
+      # Stats user
+      PGBOUNCER_STATS_USERS: ${DB_USER}
+      # Extra settings for better compatibility
+      PGBOUNCER_EXTRA_FLAGS: "--verbose"
     ports:
       - "${PGBOUNCER_PORT}:6432"
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "localhost", "-p", "6432", "-U", "${DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # Kafka Message Broker
   zookeeper:
