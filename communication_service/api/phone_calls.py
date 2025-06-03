@@ -5,6 +5,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from models.phone_call import PhoneCall, PhoneCallStatus, PhoneCallBatch
 from shared.utils.database import SessionLocal
+from shared.api.base_resource import PaginatedListResource
 from utils.phone_call_scheduler import find_available_slot
 
 # Output fields definition for phone call responses
@@ -115,12 +116,12 @@ class PhoneCallResource(Resource):
             db.close()
 
 
-class PhoneCallListResource(Resource):
+class PhoneCallListResource(PaginatedListResource):
     """REST resource for phone call collection operations."""
 
     @marshal_with(phone_call_fields)
     def get(self):
-        """Get a list of phone calls with optional filtering."""
+        """Get a list of phone calls with optional filtering and pagination."""
         # Parse query parameters for filtering
         therapist_id = request.args.get('therapist_id', type=int)
         status = request.args.get('status')
@@ -137,6 +138,9 @@ class PhoneCallListResource(Resource):
                 query = query.filter(PhoneCall.status == status)
             if scheduled_date:
                 query = query.filter(PhoneCall.scheduled_date == scheduled_date)
+            
+            # Apply pagination
+            query = self.paginate_query(query)
             
             # Get results
             phone_calls = query.all()

@@ -7,6 +7,22 @@
 - Communication Service: `http://localhost:8004`
 - Geocoding Service: `http://localhost:8005`
 
+## Pagination
+
+All list endpoints support pagination with the following query parameters:
+
+| Parameter | Type | Default | Max | Description |
+|-----------|------|---------|-----|-------------|
+| `page` | integer | 1 | - | Page number (1-based) |
+| `limit` | integer | 20 | 100 | Number of items per page |
+
+Example: `GET /api/patients?page=2&limit=50`
+
+Response format for paginated endpoints:
+- Returns an array of items for the requested page
+- Total count is not included in the response (to be added in future version)
+- If page exceeds available data, returns empty array
+
 ## Important Enums (Use these exact values in API calls)
 
 ### PatientStatus
@@ -75,6 +91,8 @@ const TherapistGenderPreference = {
 ### GET /api/patients
 Query parameters:
 - `status` (optional): Filter by patient status
+- `page` (optional): Page number for pagination (default: 1)
+- `limit` (optional): Items per page (default: 20, max: 100)
 
 ### POST /api/patients
 Required fields:
@@ -131,6 +149,8 @@ No body required
 ### GET /api/therapists
 Query parameters:
 - `status` (optional): Filter by therapist status
+- `page` (optional): Page number for pagination (default: 1)
+- `limit` (optional): Items per page (default: 20, max: 100)
 
 ### POST /api/therapists
 Required fields:
@@ -184,6 +204,8 @@ Query parameters:
 - `patient_id` (optional): Filter by patient
 - `therapist_id` (optional): Filter by therapist
 - `status` (optional): Filter by status
+- `page` (optional): Page number for pagination (default: 1)
+- `limit` (optional): Items per page (default: 20, max: 100)
 
 ### POST /api/placement-requests
 Required fields:
@@ -232,6 +254,8 @@ Query parameters:
 - `status` (optional): Filter by status
 - `response_received` (optional): Filter by response status
 - `batch_id` (optional): Filter by batch ID
+- `page` (optional): Page number for pagination (default: 1)
+- `limit` (optional): Items per page (default: 20, max: 100)
 
 #### POST /api/emails
 Required fields:
@@ -280,6 +304,8 @@ Query parameters:
 - `therapist_id` (optional): Filter by therapist
 - `status` (optional): Filter by status
 - `scheduled_date` (optional): Filter by date
+- `page` (optional): Page number for pagination (default: 1)
+- `limit` (optional): Items per page (default: 20, max: 100)
 
 #### POST /api/phone-calls
 Required fields:

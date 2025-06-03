@@ -5,6 +5,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from models.placement_request import PlacementRequest, PlacementRequestStatus
 from shared.utils.database import SessionLocal
+from shared.api.base_resource import PaginatedListResource
 from events.producers import (
     publish_match_created,
     publish_match_status_changed
@@ -118,12 +119,12 @@ class PlacementRequestResource(Resource):
             db.close()
 
 
-class PlacementRequestListResource(Resource):
+class PlacementRequestListResource(PaginatedListResource):
     """REST resource for placement request collection operations."""
 
     @marshal_with(placement_request_fields)
     def get(self):
-        """Get a list of placement requests with optional filtering."""
+        """Get a list of placement requests with optional filtering and pagination."""
         # Parse query parameters for filtering
         patient_id = request.args.get('patient_id', type=int)
         therapist_id = request.args.get('therapist_id', type=int)
@@ -142,6 +143,9 @@ class PlacementRequestListResource(Resource):
                 query = query.filter(
                     PlacementRequest.status == PlacementRequestStatus(status)
                 )
+            
+            # Apply pagination
+            query = self.paginate_query(query)
             
             # Get results
             requests = query.all()

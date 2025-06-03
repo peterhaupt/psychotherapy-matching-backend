@@ -8,6 +8,7 @@ import logging
 from models.email import Email, EmailStatus
 from models.email_batch import EmailBatch
 from shared.utils.database import SessionLocal
+from shared.api.base_resource import PaginatedListResource
 from events.producers import publish_email_created, publish_email_sent
 from utils.email_sender import send_email, get_smtp_settings
 
@@ -122,12 +123,12 @@ class EmailResource(Resource):
             db.close()
 
 
-class EmailListResource(Resource):
+class EmailListResource(PaginatedListResource):
     """REST resource for email collection operations."""
 
     @marshal_with(email_fields)
     def get(self):
-        """Get a list of emails with optional filtering."""
+        """Get a list of emails with optional filtering and pagination."""
         # Parse query parameters for filtering
         therapist_id = request.args.get('therapist_id', type=int)
         status = request.args.get('status')
@@ -161,6 +162,9 @@ class EmailListResource(Resource):
                 query = query.filter(Email.response_received == response_received)
             if batch_id:
                 query = query.filter(Email.batch_id == batch_id)
+            
+            # Apply pagination
+            query = self.paginate_query(query)
             
             # Get results
             emails = query.all()
