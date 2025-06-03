@@ -207,3 +207,6 @@ config/local/
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
+
+# ignore .DS_Store files in all folders
+.DS_Store
