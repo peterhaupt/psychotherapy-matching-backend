@@ -12,25 +12,32 @@ from api.phone_calls import (
     PhoneCallBatchResource
 )
 from events.consumers import start_consumers
-import config
+from shared.config import get_config
 
 
 def create_app():
     """Create and configure the Flask application."""
     app = Flask(__name__)
+    
+    # Get configuration
+    config = get_config()
 
     # Configure database connection
-    app.config["SQLALCHEMY_DATABASE_URI"] = config.DATABASE_URI
+    app.config["SQLALCHEMY_DATABASE_URI"] = config.get_database_uri()
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     
-    # Configure email settings from config file
-    app.config["SMTP_HOST"] = config.SMTP_HOST
-    app.config["SMTP_PORT"] = config.SMTP_PORT
-    app.config["SMTP_USERNAME"] = config.SMTP_USERNAME
-    app.config["SMTP_PASSWORD"] = config.SMTP_PASSWORD
-    app.config["SMTP_USE_TLS"] = config.SMTP_USE_TLS
-    app.config["EMAIL_SENDER"] = config.EMAIL_SENDER
-    app.config["EMAIL_SENDER_NAME"] = config.EMAIL_SENDER_NAME
+    # Configure email settings from centralized config
+    smtp_settings = config.get_smtp_settings()
+    app.config["SMTP_HOST"] = smtp_settings["host"]
+    app.config["SMTP_PORT"] = smtp_settings["port"]
+    app.config["SMTP_USERNAME"] = smtp_settings["username"]
+    app.config["SMTP_PASSWORD"] = smtp_settings["password"]
+    app.config["SMTP_USE_TLS"] = smtp_settings["use_tls"]
+    app.config["EMAIL_SENDER"] = smtp_settings["sender"]
+    app.config["EMAIL_SENDER_NAME"] = smtp_settings["sender_name"]
+    
+    # Configure logging
+    app.logger.setLevel(config.LOG_LEVEL)
 
     # Initialize RESTful API
     api = Api(app)
@@ -53,5 +60,10 @@ def create_app():
 
 
 if __name__ == "__main__":
+    config = get_config()
     app = create_app()
-    app.run(host="0.0.0.0", port=8004, debug=config.DEBUG)
+    app.run(
+        host="0.0.0.0", 
+        port=config.COMMUNICATION_SERVICE_PORT, 
+        debug=config.FLASK_DEBUG
+    )

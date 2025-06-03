@@ -2,8 +2,13 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-DATABASE_URL = \
-    "postgresql://boona:boona_password@pgbouncer:6432/therapy_platform"
+from shared.config import get_config
+
+# Get configuration
+config = get_config()
+
+# Use the centralized database URI
+DATABASE_URL = config.get_database_uri()
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

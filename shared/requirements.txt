@@ -1,0 +1,5 @@
+# Shared dependencies for all services
+python-dotenv==1.0.1
+SQLAlchemy==2.0.40
+psycopg2-binary==2.9.10
+kafka-python==2.1.5

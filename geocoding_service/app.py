@@ -10,11 +10,14 @@ from api.geocoding import (
     TherapistSearchResource
 )
 from events.consumers import start_consumers
-import config
+from shared.config import get_config
+
+# Get configuration
+config = get_config()
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO if not config.DEBUG else logging.DEBUG,
+    level=logging.INFO if not config.FLASK_DEBUG else logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 
@@ -26,13 +29,16 @@ def create_app():
     app = Flask(__name__)
 
     # Configure database connection
-    app.config["SQLALCHEMY_DATABASE_URI"] = config.DATABASE_URI
+    app.config["SQLALCHEMY_DATABASE_URI"] = config.get_database_uri()
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     
     # Configure OpenStreetMap settings
     app.config["OSM_API_URL"] = config.OSM_API_URL
     app.config["OSM_USER_AGENT"] = config.OSM_USER_AGENT
     app.config["CACHE_TTL_SECONDS"] = config.CACHE_TTL_SECONDS
+    
+    # Configure logging
+    app.logger.setLevel(config.LOG_LEVEL)
 
     # Initialize RESTful API
     api = Api(app)
@@ -51,4 +57,8 @@ def create_app():
 
 if __name__ == "__main__":
     app = create_app()
-    app.run(host="0.0.0.0", port=config.SERVICE_PORT, debug=config.DEBUG)
+    app.run(
+        host="0.0.0.0", 
+        port=config.GEOCODING_SERVICE_PORT, 
+        debug=config.FLASK_DEBUG
+    )
