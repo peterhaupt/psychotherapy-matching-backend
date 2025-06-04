@@ -1,6 +1,7 @@
 """Main application file for the Communication Service."""
 from flask import Flask
 from flask_restful import Api
+from flask_cors import CORS
 
 from api.emails import (
     EmailResource, EmailListResource,
@@ -21,6 +22,9 @@ def create_app():
     
     # Get configuration
     config = get_config()
+
+    # Configure CORS using centralized settings
+    CORS(app, **config.get_cors_settings())
 
     # Configure database connection
     app.config["SQLALCHEMY_DATABASE_URI"] = config.get_database_uri()

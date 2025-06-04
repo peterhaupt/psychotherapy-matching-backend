@@ -1,5 +1,6 @@
 Flask==3.1.0
 Flask-RESTful==0.3.10
+flask-cors==4.0.0
 SQLAlchemy==2.0.40
 psycopg2-binary==2.9.10
 flask-sqlalchemy==3.1.1

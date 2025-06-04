@@ -5,7 +5,7 @@ across the microservices architecture. It reads from environment variables
 with sensible defaults for development.
 """
 import os
-from typing import Optional
+from typing import Optional, List
 
 # Try to load .env file if python-dotenv is available
 try:
@@ -51,6 +51,15 @@ class Config:
     FLASK_ENV: str = os.environ.get("FLASK_ENV", "development")
     FLASK_DEBUG: bool = os.environ.get("FLASK_DEBUG", "true").lower() == "true"
     LOG_LEVEL: str = os.environ.get("LOG_LEVEL", "INFO")
+    
+    # CORS Configuration
+    CORS_ALLOWED_ORIGINS: List[str] = os.environ.get(
+        "CORS_ALLOWED_ORIGINS", 
+        "http://localhost:3000"
+    ).split(",")
+    CORS_ALLOWED_METHODS: List[str] = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    CORS_ALLOWED_HEADERS: List[str] = ["Content-Type", "Authorization"]
+    CORS_SUPPORTS_CREDENTIALS: bool = os.environ.get("CORS_SUPPORTS_CREDENTIALS", "true").lower() == "true"
     
     # Email Configuration (for Communication Service)
     SMTP_HOST: str = os.environ.get("SMTP_HOST", "localhost")
@@ -172,6 +181,20 @@ class Config:
             "use_tls": cls.SMTP_USE_TLS,
             "sender": cls.EMAIL_SENDER,
             "sender_name": cls.EMAIL_SENDER_NAME
+        }
+    
+    @classmethod
+    def get_cors_settings(cls) -> dict:
+        """Get CORS settings as a dictionary.
+        
+        Returns:
+            Dictionary with CORS configuration
+        """
+        return {
+            "origins": cls.CORS_ALLOWED_ORIGINS,
+            "methods": cls.CORS_ALLOWED_METHODS,
+            "allow_headers": cls.CORS_ALLOWED_HEADERS,
+            "supports_credentials": cls.CORS_SUPPORTS_CREDENTIALS
         }
 
 

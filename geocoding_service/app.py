@@ -2,6 +2,7 @@
 import logging
 from flask import Flask
 from flask_restful import Api
+from flask_cors import CORS
 
 from api.geocoding import (
     GeocodingResource,
@@ -27,6 +28,9 @@ logger = logging.getLogger(__name__)
 def create_app():
     """Create and configure the Flask application."""
     app = Flask(__name__)
+
+    # Configure CORS using centralized settings
+    CORS(app, **config.get_cors_settings())
 
     # Configure database connection
     app.config["SQLALCHEMY_DATABASE_URI"] = config.get_database_uri()
