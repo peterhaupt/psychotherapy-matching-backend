@@ -1,99 +1,66 @@
 # Matching Service
 
-## Summary
-This document details the implementation of the Matching Service, the third microservice developed for the Psychotherapy Matching Platform. The service handles the matching algorithm between patients and therapists, including placement request management, matching criteria, and status tracking.
+## Overview
+The Matching Service handles the matching algorithm between patients and therapists, including placement request management and status tracking. The service is fully implemented with all business requirements.
 
-## Models Implementation
+## Implementation
 
-### Placement Request Model
-The Placement Request model is implemented in `matching_service/models/placement_request.py` and serves as the core data structure representing a potential match between a patient and therapist. It includes:
-
-- References to patient and therapist
-- Status tracking for the request
-- Contact history fields
-- Response tracking
-- Priority information
-- Notes and additional metadata
-
-### Status Enumeration
-The `PlacementRequestStatus` enum defines the lifecycle of a placement request:
-- OPEN: Initial state, match identified but not yet processed
-- IN_PROGRESS: Being actively worked on (communication sent)
-- REJECTED: Therapist has declined the placement
-- ACCEPTED: Therapist has accepted the patient
-
-## API Implementation
-
-### Flask Application
-The main Flask application is configured in `matching_service/app.py` with RESTful API endpoints and Kafka consumers.
+### Models
+- **PlacementRequest** (`models/placement_request.py`): Core data structure for patient-therapist matches
+- **PlacementRequestStatus**: Enum tracking request lifecycle (open → in_progress → rejected/accepted)
 
 ### API Endpoints
-Implemented in `matching_service/api/matching.py`:
+See `api/matching.py` for implementation:
 
-#### PlacementRequestResource
-Handles individual placement request operations:
-- `GET /api/placement-requests/<id>`: Retrieve a specific placement request
-- `PUT /api/placement-requests/<id>`: Update an existing placement request
-- `DELETE /api/placement-requests/<id>`: Delete a placement request
+#### Placement Requests
+- `GET /api/placement-requests` - List with filtering by patient/therapist/status
+- `POST /api/placement-requests` - Create new placement request
+- `GET /api/placement-requests/{id}` - Get specific request
+- `PUT /api/placement-requests/{id}` - Update request status
+- `DELETE /api/placement-requests/{id}` - Delete request
 
-#### PlacementRequestListResource
-Handles collection operations:
-- `GET /api/placement-requests`: Retrieve all placement requests with optional filtering
-- `POST /api/placement-requests`: Create a new placement request
+### Matching Algorithm
+Implementation in `algorithms/matcher.py`:
 
-## Matching Algorithm
+1. **find_matching_therapists(patient_id)**
+   - Retrieves patient data and preferences
+   - Filters therapists by: status (active only), gender preference, exclusion list
+   - Calculates distances using Geocoding Service
+   - Filters by patient's maximum distance preference
+   - Excludes therapists with existing placement requests
+   - Returns sorted list by distance
 
-The service includes a matching algorithm implementation in the `matching_service/algorithms/matcher.py` file, which provides key functions:
+2. **create_placement_requests(patient_id, therapist_ids, notes)**
+   - Creates placement requests in bulk
+   - Publishes creation events
+   - Returns list of created request IDs
 
-### Finding Matching Therapists
-The `find_matching_therapists()` function identifies suitable therapists for a patient based on multiple criteria:
-- Patient location and therapist location (distance calculation)
-- Patient gender preferences
-- Excluded therapists list
-- Therapist availability
-- Previous placement requests (to avoid duplicates)
+### Service Integration
+- **Patient Service**: Retrieves patient data and preferences
+- **Therapist Service**: Fetches active therapists
+- **Geocoding Service**: Calculates distances based on patient's travel mode (car/transit)
 
-### Creating Placement Requests
-The `create_placement_requests()` function handles creating multiple placement requests at once for efficient batch processing.
+### Event Management
 
-## Event Management
+#### Published Events
+- `match.created`: New placement request created
+- `match.status_changed`: Request status updated
 
-### Event Producers
-The service implements Kafka producers for different matching events in `matching_service/events/producers.py`:
-1. `match.created`: When a new placement request is created
-2. `match.status_changed`: When a placement request's status changes
+#### Consumed Events  
+- `patient.deleted`: Cancels all open requests for deleted patient
+- `therapist.blocked`: Rejects all open requests for blocked therapist
 
-### Event Consumers
-The service consumes events from both the Patient and Therapist services in `matching_service/events/consumers.py`:
-- Reacting to patient deletion (canceling all their placement requests)
-- Reacting to therapist blocking (suspending placement requests)
-- Updating placement requests when patients or therapists change
+## Configuration
+All service URLs configured via `shared/config/settings.py`. No hardcoded endpoints.
 
-## Service Integration
+## Key Business Rules
+- Distance calculated using patient's specified travel mode (`verkehrsmittel`)
+- Gender preferences respected (including "Egal" = any)
+- Excluded therapists filtered out
+- No duplicate placement requests created
+- Only active therapists considered
 
-### Communication with Other Services
-The matching service integrates with the Patient and Therapist services through:
-1. REST API Calls: For direct data retrieval
-2. Kafka Events: For asynchronous updates and notifications
-
-## Docker Configuration
-The Matching Service is containerized for consistent deployment. Configuration can be found in `matching_service/Dockerfile` and the service section in `docker-compose.yml`.
-
-## Database Migration
-A migration script creates the placement request table in the `matching_service` schema. This is managed through the project's Alembic configuration.
-
-## Dependencies
-All dependencies are listed in `matching_service/requirements.txt`.
-
-## Testing
-
-### Algorithm Testing
-A test script is provided in `matching_service/tests/test_matching.py` for testing the matching algorithm with real data from the database.
-
-## Future Enhancements
-
-1. **Integration with Geocoding Service**: The current implementation includes placeholders for distance calculation that will be replaced with actual calculations once the Geocoding service is implemented.
-
-2. **Advanced Matching Criteria**: The matching algorithm can be enhanced with additional criteria.
-
-3. **Machine Learning Integration**: Future versions could incorporate machine learning for optimizing matching success rates based on historical data.
+## Error Handling
+- Graceful degradation when external services unavailable
+- Proper HTTP status codes returned
+- Database transactions with rollback on errors
