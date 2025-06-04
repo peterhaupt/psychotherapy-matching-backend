@@ -17,10 +17,43 @@ from shared.utils.database import Base  # noqa: E402
 from patient_service.models.patient import Patient  # noqa: F401, E402
 from therapist_service.models.therapist import Therapist  # noqa: F401, E402
 from matching_service.models.placement_request import PlacementRequest  # noqa: F401, E402
+from communication_service.models.email import Email  # noqa: F401, E402
+from communication_service.models.email_batch import EmailBatch  # noqa: F401, E402
+from communication_service.models.phone_call import PhoneCall, PhoneCallBatch  # noqa: F401, E402
+from geocoding_service.models.geocache import GeoCache, DistanceCache  # noqa: F401, E402
+
+# Try to load environment variables
+try:
+    from dotenv import load_dotenv
+    # Load .env file from project root (two levels up from alembic/)
+    env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env')
+    if os.path.exists(env_path):
+        load_dotenv(env_path)
+        print(f"Loaded environment variables from: {env_path}")
+    else:
+        print(f"Warning: .env file not found at {env_path}")
+        print(f"Using system environment variables.")
+except ImportError:
+    print("Warning: python-dotenv not installed. Using system environment variables.")
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
+
+# Override the sqlalchemy.url with environment variables
+db_user = os.environ.get('DB_USER', 'your_db_user')
+db_password = os.environ.get('DB_PASSWORD', 'your_secure_password')
+db_name = os.environ.get('DB_NAME', 'therapy_platform')
+db_host = 'localhost'  # Always use localhost when running migrations from host
+db_port = os.environ.get('PGBOUNCER_PORT', '6432')
+
+# Build the database URL
+database_url = f'postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}'
+
+# Set the URL in the config
+config.set_main_option('sqlalchemy.url', database_url)
+
+print(f"Using database connection: postgresql://{db_user}:****@{db_host}:{db_port}/{db_name}")
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
