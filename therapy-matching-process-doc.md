@@ -2,11 +2,11 @@
 
 ## Executive Summary
 
-This document outlines the business processes for the Psychotherapy Matching Platform (Curavani), which operates in the German public healthcare market. The platform's core value proposition is to become therapists' preferred channel for patient placement by:
+This document outlines the business processes for the Psychotherapy Matching Platform (Curavani), which operates in the German public healthcare market. The platform's core value proposition is:
 
-1. **For Patients**: Dramatically reducing waiting times for therapy spots
-2. **For Therapists**: Eliminating administrative burden through pre-qualified, bundled patient requests
-3. **For Curavani**: Becoming the trusted intermediary that therapists prefer over random patient inquiries
+1. **For Patients**: Get therapy spots within **weeks** (not months) - this is what they pay for
+2. **For Therapists**: Eliminate administrative burden through pre-qualified, bundled patient requests
+3. **For Curavani**: Must become therapists' preferred channel to access sufficient spots to deliver this speed
 
 ## Business Context: German Public Healthcare Market
 
@@ -38,19 +38,19 @@ This document outlines the business processes for the Psychotherapy Matching Pla
 1. **Insurance-ready patients**: All formal requirements pre-checked
 2. **Bundled communication**: One email/call instead of 5-6 separate patient contacts
 3. **Preference matching**:
-   - Specific diagnoses (e.g., only depression)
+   - Preferred diagnoses (e.g., primarily depression)
    - Age groups (e.g., only elderly)
    - Gender (e.g., only women)
    - Group therapy openness (better insurance reimbursement)
-4. **Availability matching**: Patients pre-filtered for therapist's working hours
+4. **Availability information**: Patient schedules included for therapist self-assessment
 
-## Key Terminology (Refined)
+## Key Terminology
 
 ### Patient Search (Platzsuche)
 - **Definition**: The ongoing process of finding a therapy spot for a patient
-- **Duration**: Weeks to months until successful placement
+- **Duration**: Weeks until successful placement (target benchmark)
 - **Success**: Patient agrees to therapist after 1-2 initial sessions
-- **Contains**: Patient data, preferences, search history, rejection tracking
+- **Contains**: Search history, therapist exclusions, contact tracking
 
 ### Therapist Inquiry (Therapeutenanfrage)
 - **Definition**: A bundled request to ONE therapist containing multiple patient options
@@ -71,125 +71,202 @@ This document outlines the business processes for the Psychotherapy Matching Pla
 5. Weekly availability ≥20 hours confirmed
 6. Detailed availability schedule captured (hourly for each day)
 
-**Data captured**:
+**Data captured in Patient record**:
 - Demographics (including age)
 - Diagnosis details
 - Insurance information
 - Previous therapy history
 - Availability matrix (e.g., Mon 9-13, Tue 14-18, etc.)
+- **Maximum travel distance** (in km)
+- **Travel mode preference** (car/public transport)
 - Preferences (therapist gender, group therapy openness)
-- Exclusions (specific therapists to avoid)
 
 ### 2. Therapist Profiling
 
 **Information gathering** (via phone/personal contact):
-- Accepted diagnoses
+- Preferred diagnoses
 - Age preferences
 - Gender preferences
 - Group vs. individual therapy preference
-- Working hours (detailed weekly schedule)
-- Geographic coverage
+- Working hours (detailed weekly schedule when available)
 - Special requirements
+- Phone availability windows (1-3 hours per week typically)
 
 **Continuous updates**:
 - Preferences learned from acceptance/rejection patterns
 - Schedule changes tracked over time
 - "Potentially available" status maintained
 
-### 3. Bundle Creation (Per Therapist)
+### 3. Optimized Bundle Creation Workflow
 
-**NOT regional accumulation, but therapist-specific bundling**:
+#### 3.1 Patient Search (Platzsuche) Management
+**Purpose**: Define patient-specific search parameters and track progress
 
-Example scenario with 20 patients needing spots:
-- **Therapist A** (prefers group therapy, 10km radius):
-  - Bundle: 5 patients, all open for group therapy, all within 10km
-- **Therapist B** (only female patients, any diagnosis):
-  - Bundle: 6 patients (3 from Therapist A's bundle + 3 new), all female
+**Actions**:
+- Create Platzsuche for new patient
+- **Manage exclusions**: Add/remove specific therapists patient doesn't want
+- **Request contacts**: "Request 25 additional therapist contacts"
 
-**Bundle composition factors**:
-1. Therapist's stated preferences (primary)
-2. Geographic proximity
-3. Availability compatibility
-4. Diagnosis match
-5. Patient wait time (fairness)
+**Display (Read-only)**:
+- Total therapists requested: 45
+- Total therapists contacted: 25
+- Pending requests: 20
+- List of contacted therapists (with date, response status)
 
-### 4. Contact Management
+#### 3.2 Therapist Inquiry (Therapeutenanfrage) Optimization
+**Purpose**: Globally optimize which therapists to contact and how to bundle patients
+
+**Process**:
+1. **Collect requests** from all active Platzsuche:
+   - Patient A: needs 25 more contacts
+   - Patient B: needs 15 more contacts
+   - Patient C: needs 20 more contacts
+
+2. **Find eligible therapists** for each patient:
+   - Within patient's maximum travel distance
+   - Not in patient's exclusion list
+   - Not contacted too recently (30-day limit)
+   - Match preferences where known
+
+3. **Create optimal bundles**:
+   - System proposes bundles maximizing acceptance likelihood
+   - Staff reviews proposed bundles
+   - Can send immediately or wait for better bundling opportunities
+
+4. **Track fulfillment**:
+   - Update each Platzsuche with contacts made
+   - Monitor response rates
+
+### 4. Bundle Composition Priorities
+
+The system prioritizes bundle composition factors as follows:
+
+1. **Availability Compatibility** (HIGHEST PRIORITY)
+   - Initially assume therapists work all week (unknown schedules)
+   - Include patient availability in emails for therapist self-assessment
+   - As we learn therapist schedules, improve matching
+
+2. **Therapist Preferences** 
+   - Preferred diagnoses
+   - Age preferences
+   - Gender preferences
+   - Group therapy preference
+
+3. **Patient Waiting Time**
+   - Prioritize patients who have been waiting longer
+   - Ensure fairness in the queue
+
+4. **Geographic Proximity**
+   - While all patients in bundle must be within travel distance
+   - Prefer shorter distances when possible
+
+### 5. Contact Management
 
 **Initial contact**:
 - Email with bundled patient summaries
-- Clear, structured format
+- Clear, structured format showing:
+  - Patient diagnosis
+  - Age and gender
+  - Availability schedule
+  - Travel distance to therapist
+  - Group therapy openness
 - All pre-qualification confirmed
 
 **Follow-up** (if no response after 7 days):
-- Phone call scheduled
+- Phone call scheduled within therapist's availability window (1-3 hours/week)
 - Same bundle discussed
 - Outcome documented
 
 **Contact frequency limit**:
-- Maximum 1 contact per therapist per month (across all patients)
-- Tracked globally in system
+- Maximum 1 contact per therapist per month (system-wide)
+- Tracked globally across all patients
 
-### 5. Response Processing
+### 6. Response Processing
 
 **Response types**:
 1. **Acceptance** (most common: 1-2 patients from bundle):
    - Schedule initial sessions
    - Track which specific patients accepted
-   - Other patients return to pool
-   
+   - Other patients remain active in their Platzsuche
+
 2. **Rejection** (all patients):
    - Document reason if given
    - Track rejection per patient-therapist pair
-   - Patients return to pool for next bundle
+   - Patients remain active for future bundles
 
 3. **Partial acceptance**:
    - Process accepted patients
-   - Return others to pool with rejection noted
+   - Non-accepted patients continue search
 
 4. **No response**:
    - Trigger phone follow-up after 7 days
 
-### 6. Manual Interventions
+### 7. Parallel Processing
+
+- **Multiple therapists contacted simultaneously** for each patient
+- A patient can appear in multiple bundles sent to different therapists
+- First acceptance wins
+- Other pending requests cancelled upon successful placement
+
+### 8. Manual Interventions
 
 **"Changed mind" scenario**:
-- Therapist rejects bundle but later calls with sudden opening
-- Staff manually selects appropriate patient
+- Therapist initially rejects but later calls with sudden opening
+- Staff manually selects appropriate patient from active searches
 - Assignment made outside normal bundle process
 - System tracks these manual placements
 
-**Schedule updates**:
-- Both patient and therapist schedules can be updated
-- Changes trigger re-evaluation of compatibility
+**Dynamic exclusions**:
+- Patient has bad experience with therapist during initial sessions
+- Add therapist to exclusion list in Platzsuche
+- Prevents future contact for this patient
 
-### 7. Success Tracking
+### 9. Success Tracking
 
 **Placement success defined as**:
 - Patient attends initial 1-2 sessions
 - Patient agrees to continue with therapist
 - Formal therapy begins
 
-**If patient doesn't agree**:
-- Search continues
-- Previous therapist marked as "tried"
-- New bundles created excluding this therapist
+**If patient doesn't continue**:
+- Add therapist to exclusion list
+- Continue search with new therapist contacts
+- Track as "attempted placement"
 
 ## Data Model Requirements
 
-### Patient Search (Platzsuche)
+### Patient (Enhanced)
+```
+- id
+- ... (existing fields)
+- max_travel_distance_km: integer
+- travel_mode: car|public_transport
+- availability_schedule: JSON
+```
+
+### Platzsuche (Patient Search)
 ```
 - id
 - patient_id (FK)
 - status: active|in_sessions|successful|abandoned
 - created_at
 - success_date
-- total_inquiries_sent
-- total_therapists_contacted
-- rejection_count
-- manual_placement: boolean
-- current_availability_schedule: JSON
+- excluded_therapists: [therapist_id, ...]
+- total_requested_contacts: integer
+- total_fulfilled_contacts: integer
 ```
 
-### Therapist Inquiry (Therapeutenanfrage)
+### PlatzucheContactRequest
+```
+- id
+- platzsuche_id (FK)
+- requested_count: integer
+- requested_date: datetime
+- fulfilled_count: integer
+- status: pending|partial|complete
+```
+
+### Therapeutenanfrage (Therapist Inquiry)
 ```
 - id
 - therapist_id (FK)
@@ -197,105 +274,76 @@ Example scenario with 20 patients needing spots:
 - sent_method: email|phone
 - response_date
 - response_type: accepted|rejected|no_response|partial
-- included_patients: [patient_id, ...]
-- accepted_patients: [patient_id, ...]
-- rejected_patients: [patient_id, ...]
+- bundle_size: integer
 - staff_notes
 ```
 
-### Patient-Therapist Rejection Tracking
+### TherapeutAnfragePatient (Bundle Composition)
 ```
+- therapeutenanfrage_id (FK)
+- platzsuche_id (FK)
 - patient_id (FK)
-- therapist_id (FK)
-- rejection_date
-- rejection_reason
-- bundle_id (FK to Therapist Inquiry)
+- status: pending|accepted|rejected
+- counted_towards_request: boolean
 ```
 
 ### Therapist Preferences
 ```
 - therapist_id (FK)
-- accepted_diagnoses: [ICD-10 codes]
+- preferred_diagnoses: [ICD-10 codes]
 - age_min
 - age_max
 - gender_preference: male|female|any
 - group_therapy_preference: boolean
-- working_hours: JSON schedule
+- phone_availability: JSON (day -> time slots)
+- working_hours: JSON (when known)
+- last_contact_date
 - last_updated
 - notes
-```
-
-### Patient Availability
-```
-- patient_id (FK)
-- monday: [time_slots]
-- tuesday: [time_slots]
-- ...
-- sunday: [time_slots]
-- last_updated
-- total_hours_per_week
 ```
 
 ## Operational Parameters
 
 ### Configurable Settings
-- **Bundle size**: 3-6 patients (per therapist preference)
+- **Bundle size**: 3-6 patients (configurable per system)
 - **Response wait time**: 7 days before phone follow-up
-- **Contact frequency**: 30 days minimum between contacts
-- **Minimum availability**: 20 hours/week for patients
+- **Contact frequency**: 30 days minimum between contacts to same therapist
+- **Minimum patient availability**: 20 hours/week
 - **Success measurement**: After 2 initial sessions
 
 ### Manual Override Capabilities
-- Emergency placement for urgent cases
 - Direct assignment when therapist calls with opening
 - Bundle size exceptions
 - Contact frequency exceptions (documented)
+- Exclusion list management
 
-## Implementation Priorities
+## Implementation Notes
 
-### Phase 1: Core Refinements
-1. **Detailed availability tracking**:
-   - Hourly schedules for patients and therapists
-   - Compatibility matching algorithm
-   
-2. **Therapist preference management**:
-   - Structured preference storage
-   - Learning from acceptance patterns
-   
-3. **Individual rejection tracking**:
-   - Track patient-therapist rejection pairs
-   - Prevent re-sending rejected patients
+### Optimization Algorithm
+The algorithm for how Therapeutenanfrage selects optimal therapists from the pool of requests needs to be discussed and specified in detail in a separate session. Key considerations will include:
+- Maximizing bundle quality
+- Balancing fairness across patients
+- Respecting all constraints
+- Learning from historical acceptance patterns
 
-4. **Manual placement workflow**:
-   - UI for "changed mind" scenarios
-   - Audit trail for manual assignments
+### User Interface Requirements
 
-### Phase 2: Optimization
-1. **Smart bundling algorithm**:
-   - Optimize bundle composition for acceptance
-   - A/B testing different strategies
-   
-2. **Availability matching**:
-   - Automatic compatibility scoring
-   - Visual schedule overlap display
+**Platzsuche Interface**:
+- Simple request mechanism: "Request X additional contacts"
+- Clear exclusion list management
+- Read-only view of contact history
+- Progress indicators
 
-3. **Success prediction**:
-   - ML model for acceptance likelihood
-   - Optimal bundle size per therapist
-
-### Phase 3: Advanced Features
-1. **Group therapy formation**:
-   - Identify potential groups from patient pool
-   - Propose complete groups to therapists
-   
-2. **Dynamic scheduling**:
-   - Real-time availability updates
-   - Automated rescheduling suggestions
+**Therapeutenanfrage Interface**:
+- Bundle preview and editing
+- Batch operations for efficiency
+- Clear constraint visualization
+- Response tracking dashboard
 
 ## Key Business Metrics
 
 ### Success Metrics
-- **Placement speed**: Days from registration to successful placement
+- **Placement speed**: Days from registration to successful placement (target: weeks, not months)
 - **Therapist acceptance rate**: % of patients accepted from bundles
 - **Patient show rate**: % attending initial sessions
 - **Therapist retention**: % preferring Curavani over direct inquiries
@@ -303,7 +351,8 @@ Example scenario with 20 patients needing spots:
 ### Operational Metrics
 - **Bundle efficiency**: Average accepts per bundle
 - **Response rate**: % of therapists responding within 7 days
-- **Manual intervention rate**: % of placements requiring manual work
+- **Contact fulfillment**: % of requested contacts successfully made
+- **Optimization effectiveness**: Actual vs. optimal bundle composition
 
 ## Competitive Advantage
 
@@ -313,11 +362,13 @@ Curavani succeeds by solving both sides' core problems:
 - Zero effort patient acquisition
 - Pre-qualified, insurance-ready patients
 - Preference-matched bundles
+- Clear availability information
 - No time wasted on unmotivated patients
 
 **For Patients**:
-- Faster placement through pooled demand
-- Higher acceptance rates (pre-matching)
+- Placement within weeks, not months
+- Higher acceptance rates through intelligent matching
 - Professional advocacy and follow-up
+- No need to contact dozens of therapists individually
 
-This creates a virtuous cycle where therapists prefer Curavani patients, leading to more available spots and faster placements.
+This creates a virtuous cycle where therapists prefer Curavani patients, leading to more available spots and faster placements, justifying the private payment model.
