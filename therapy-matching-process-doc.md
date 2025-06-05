@@ -2,180 +2,176 @@
 
 ## Executive Summary
 
-This document outlines the business processes for the Psychotherapy Matching Platform, incorporating refined terminology and process flows. The platform manages **Patient Searches** (Platzsuche) - long-running processes to find therapy spots for patients - and **Therapist Inquiries** (Therapeutenanfrage) - specific requests sent to therapists asking if they can treat one or more patients.
+This document outlines the business processes for the Psychotherapy Matching Platform (Curavani), which operates in the German public healthcare market. The platform's core value proposition is to become therapists' preferred channel for patient placement by:
 
-## Key Terminology
+1. **For Patients**: Dramatically reducing waiting times for therapy spots
+2. **For Therapists**: Eliminating administrative burden through pre-qualified, bundled patient requests
+3. **For Curavani**: Becoming the trusted intermediary that therapists prefer over random patient inquiries
+
+## Business Context: German Public Healthcare Market
+
+### Therapist Pain Points
+1. **Unclarified patient availability** - Coordinating sessions becomes extremely difficult
+2. **Insufficient weekly availability** - Patients with only few hours/week are hard to schedule
+3. **Missing insurance information** - Unclear coverage status
+4. **Missing diagnosis** - No proper ICD-10 diagnosis from psychotherapeutic consultation
+5. **2-year rule violations** - Insurance complications if less than 2 years since last therapy
+6. **Missing patient age** - Important for therapist specialization
+7. **Verbose, unfocused problem descriptions** - Time-wasting communication
+8. **Unreliable patients** - Last-minute cancellations or no-shows
+
+### Current Therapist Behavior
+- Work "first come, first served" when spots open
+- Avoid waiting lists (too much effort for 6-12 month wait times)
+- Many patients lose interest after 6 months waiting
+
+## Curavani's Value Proposition
+
+### Patient Pre-Qualification
+1. **Financial commitment**: Patients pay Curavani privately (not insurance-covered) = motivation filter
+2. **Recent diagnosis verification**: Confirmed ICD-10 diagnosis from psychotherapeutic consultation
+3. **Availability check**: Minimum 20 hours/week availability required
+4. **2-year rule compliance**: Verify last therapy ended 2+ years ago
+5. **Additional profiling**: Therapy goals and motivation assessment (if therapists want it)
+
+### Therapist Benefits
+1. **Insurance-ready patients**: All formal requirements pre-checked
+2. **Bundled communication**: One email/call instead of 5-6 separate patient contacts
+3. **Preference matching**:
+   - Specific diagnoses (e.g., only depression)
+   - Age groups (e.g., only elderly)
+   - Gender (e.g., only women)
+   - Group therapy openness (better insurance reimbursement)
+4. **Availability matching**: Patients pre-filtered for therapist's working hours
+
+## Key Terminology (Refined)
 
 ### Patient Search (Platzsuche)
 - **Definition**: The ongoing process of finding a therapy spot for a patient
-- **Lifecycle**: Starts when patient registers, ends when they successfully find a therapist
-- **Constraint**: One active search per patient at a time
 - **Duration**: Weeks to months until successful placement
-- **Contains**: Patient preferences, exclusions, search status, history
+- **Success**: Patient agrees to therapist after 1-2 initial sessions
+- **Contains**: Patient data, preferences, search history, rejection tracking
 
 ### Therapist Inquiry (Therapeutenanfrage)
-- **Definition**: A specific request sent to a therapist asking if they can treat one or more patients
-- **Content**: Multiple patients bundled together (minimum configurable, starting with 3)
-- **Lifecycle**: Created, sent, awaiting response, responded
-- **Duration**: Days to weeks
-- **Response Types**: Accepted (for specific patients), rejected, no response
+- **Definition**: A bundled request to ONE therapist containing multiple patient options
+- **Size**: 3-6 patients per bundle (configurable)
+- **Purpose**: Give therapist choice while minimizing their effort
+- **Response time**: Expected within 1 week
+- **Typical outcome**: Therapist accepts 1-2 patients from bundle
 
-## Current Implementation Status
+## Process Flow
 
-### What Exists
-- ✅ Microservice architecture with Patient, Therapist, Matching, Communication, and Geocoding services
-- ✅ Basic matching algorithm that filters by distance, gender preference, and exclusions
-- ✅ Email batching system (groups up to 5 patients per email)
-- ✅ Automatic phone call scheduling (7 days after unanswered emails)
-- ✅ Contact frequency limits (currently 1 week, needs change to 1 month)
-- ✅ `potentially_available` field on therapists
-- ✅ Daily scraping from 116117.de for therapist data
+### 1. Patient Onboarding & Validation
 
-### Key Gaps
-- ❌ No distinction between Patient Search and Therapist Inquiry entities
-- ❌ No regional accumulation logic (3-day wait for bundling)
-- ❌ No wave-based outreach management
-- ❌ Contact frequency is 1 week instead of 1 month
-- ❌ No tracking of unanswered inquiry thresholds
-- ❌ No visibility into search statistics per patient
+**Pre-qualification checks**:
+1. Payment received (private payment)
+2. Recent diagnosis verified (ICD-10)
+3. Insurance eligibility confirmed
+4. 2-year rule compliance checked
+5. Weekly availability ≥20 hours confirmed
+6. Detailed availability schedule captured (hourly for each day)
 
-## Process Flow: Patient Search Management
+**Data captured**:
+- Demographics (including age)
+- Diagnosis details
+- Insurance information
+- Previous therapy history
+- Availability matrix (e.g., Mon 9-13, Tue 14-18, etc.)
+- Preferences (therapist gender, group therapy openness)
+- Exclusions (specific therapists to avoid)
 
-### 1. Patient Search Creation (Platzsuche Erstellung)
+### 2. Therapist Profiling
 
-**When Created:**
-- Patient registers and needs therapy placement
-- Previous search was closed (successful or abandoned)
+**Information gathering** (via phone/personal contact):
+- Accepted diagnoses
+- Age preferences
+- Gender preferences
+- Group vs. individual therapy preference
+- Working hours (detailed weekly schedule)
+- Geographic coverage
+- Special requirements
 
-**What's Captured:**
-1. **Core Preferences** (from patient model):
-   - Gender preference (`bevorzugtes_therapeutengeschlecht`)
-   - Open for group therapy (`offen_fuer_gruppentherapie`)
-   - Maximum travel distance (`raeumliche_verfuegbarkeit`)
-   - Travel mode - car or public transit (`verkehrsmittel`)
+**Continuous updates**:
+- Preferences learned from acceptance/rejection patterns
+- Schedule changes tracked over time
+- "Potentially available" status maintained
 
-2. **Manual Exclusions** (added during search creation):
-   - Specific therapist exclusions (bad experiences, family relations)
-   - Stored in `ausgeschlossene_therapeuten`
+### 3. Bundle Creation (Per Therapist)
 
-3. **Search Metadata**:
-   - Creation date
-   - Current status
-   - Statistics (therapists contacted, responses received)
+**NOT regional accumulation, but therapist-specific bundling**:
 
-### 2. Regional Accumulation (Regionale Sammlung)
+Example scenario with 20 patients needing spots:
+- **Therapist A** (prefers group therapy, 10km radius):
+  - Bundle: 5 patients, all open for group therapy, all within 10km
+- **Therapist B** (only female patients, any diagnosis):
+  - Bundle: 6 patients (3 from Therapist A's bundle + 3 new), all female
 
-**Purpose**: Bundle multiple patient searches before contacting therapists
+**Bundle composition factors**:
+1. Therapist's stated preferences (primary)
+2. Geographic proximity
+3. Availability compatibility
+4. Diagnosis match
+5. Patient wait time (fairness)
 
-**Process:**
-1. **Region Definition**: Patients are grouped by geographic proximity
-   - "Same region" = overlapping potential therapist pools
-   - Based on patient locations and their max travel distances
+### 4. Contact Management
 
-2. **Accumulation Period**: 
-   - Wait up to 3 days to collect patients in same region
-   - Configurable minimum bundle size (initially 3 patients)
-   - Can be overridden for urgent cases
+**Initial contact**:
+- Email with bundled patient summaries
+- Clear, structured format
+- All pre-qualification confirmed
 
-3. **Bundle Creation**:
-   - Group patient searches that share potential therapists
-   - Prepare for wave-based outreach
+**Follow-up** (if no response after 7 days):
+- Phone call scheduled
+- Same bundle discussed
+- Outcome documented
 
-### 3. Wave-Based Therapist Selection (Wellenbasierte Therapeutenauswahl)
+**Contact frequency limit**:
+- Maximum 1 contact per therapist per month (across all patients)
+- Tracked globally in system
 
-**Purpose**: Avoid blocking entire regions while maximizing success chances
+### 5. Response Processing
 
-**Wave Strategy:**
-1. **Initial Pool**: Identify all eligible therapists for the patient bundle
-   - Filter by distance, gender preference, exclusions
-   - Check monthly contact limit (not contacted in last 30 days)
+**Response types**:
+1. **Acceptance** (most common: 1-2 patients from bundle):
+   - Schedule initial sessions
+   - Track which specific patients accepted
+   - Other patients return to pool
+   
+2. **Rejection** (all patients):
+   - Document reason if given
+   - Track rejection per patient-therapist pair
+   - Patients return to pool for next bundle
 
-2. **Prioritization**:
-   - First: `potentially_available = true` therapists
-   - Then: Sort by distance (closest first)
-   - Consider other factors (TBD in future discussion)
+3. **Partial acceptance**:
+   - Process accepted patients
+   - Return others to pool with rejection noted
 
-3. **Wave Size**: 
-   - Select subset (e.g., 20 out of 100 eligible)
-   - Configurable per region/situation
-   - Ensures other patients can still access therapists in region
+4. **No response**:
+   - Trigger phone follow-up after 7 days
 
-4. **Wave Triggers**:
-   - First wave: Sent after accumulation period
-   - Next waves: Triggered when unanswered inquiries drop below threshold
-   - Configurable threshold (e.g., 5 pending inquiries)
+### 6. Manual Interventions
 
-### 4. Therapist Inquiry Creation (Therapeutenanfrage Erstellung)
+**"Changed mind" scenario**:
+- Therapist rejects bundle but later calls with sudden opening
+- Staff manually selects appropriate patient
+- Assignment made outside normal bundle process
+- System tracks these manual placements
 
-**For Each Selected Therapist:**
-1. Create single Therapist Inquiry containing:
-   - Multiple patient searches (up to 5)
-   - Inquiry metadata (date, wave number)
-   - Expected response tracking
+**Schedule updates**:
+- Both patient and therapist schedules can be updated
+- Changes trigger re-evaluation of compatibility
 
-2. **Contact Rules**:
-   - Global limit: One contact per therapist per month
-   - Applies across all patients and inquiries
-   - Prevents therapist spam
+### 7. Success Tracking
 
-### 5. Communication Process (Kommunikationsprozess)
+**Placement success defined as**:
+- Patient attends initial 1-2 sessions
+- Patient agrees to continue with therapist
+- Formal therapy begins
 
-**Handled by Communication Service:**
-
-1. **Email Phase**:
-   - Send bundled inquiry email
-   - Template includes multiple patient summaries
-   - Track send date and delivery
-
-2. **Follow-up Phase** (if no response):
-   - After 7 days: Schedule phone call
-   - Phone call covers same patient bundle
-   - Document call outcome
-
-3. **Response Types**:
-   - **Global Rejection**: "No capacity for any patients"
-   - **Selective Acceptance**: "Can see patients 2 and 4"
-   - **Information Request**: "Need more details about patient 3"
-   - **No Response**: Triggers follow-up
-
-### 6. Response Processing (Antwortverarbeitung)
-
-**Per Therapist Inquiry:**
-1. Record response for each included patient
-2. Update Patient Search statistics
-3. Handle accepted patients:
-   - Schedule patient-therapist meeting
-   - Mark search as "pending meeting"
-4. Handle rejections:
-   - Update statistics
-   - Patient remains in pool for next wave
-
-### 7. Wave Management (Wellenverwaltung)
-
-**Continuous Process:**
-1. Monitor active inquiries per patient bundle
-2. When below threshold (e.g., < 5 pending):
-   - Select next wave of therapists
-   - Create new inquiries
-   - Respect monthly contact limits
-
-3. **Statistics Tracking**:
-   - "Contacted 30/100 potential therapists"
-   - "15 rejected, 10 no response, 5 pending"
-   - Visible at Patient Search level
-
-### 8. Search Completion (Platzsuche Abschluss)
-
-**Successful Completion:**
-1. Therapist accepts patient
-2. Patient-therapist meeting successful
-3. Patient Search marked "completed"
-4. Historical data retained
-
-**Abandonment:**
-- Patient no longer needs placement
-- Search marked "abandoned"
-- Reason documented
+**If patient doesn't agree**:
+- Search continues
+- Previous therapist marked as "tried"
+- New bundles created excluding this therapist
 
 ## Data Model Requirements
 
@@ -183,133 +179,145 @@ This document outlines the business processes for the Psychotherapy Matching Pla
 ```
 - id
 - patient_id (FK)
-- status: active|pending_meeting|completed|abandoned
+- status: active|in_sessions|successful|abandoned
 - created_at
-- completed_at
-- total_therapists_available
+- success_date
+- total_inquiries_sent
 - total_therapists_contacted
-- total_accepted
-- total_rejected
-- total_no_response
-- current_wave
-- notes
+- rejection_count
+- manual_placement: boolean
+- current_availability_schedule: JSON
 ```
 
 ### Therapist Inquiry (Therapeutenanfrage)
 ```
 - id
 - therapist_id (FK)
-- wave_number
 - sent_date
+- sent_method: email|phone
 - response_date
-- response_type: accepted|rejected|no_response|partial_acceptance
-- communication_method: email|phone
-- included_patient_searches: [patient_search_id, ...]
-- individual_responses: {patient_search_id: accepted|rejected|pending}
+- response_type: accepted|rejected|no_response|partial
+- included_patients: [patient_id, ...]
+- accepted_patients: [patient_id, ...]
+- rejected_patients: [patient_id, ...]
+- staff_notes
 ```
 
-### Regional Bundle (Regionales Bündel)
+### Patient-Therapist Rejection Tracking
 ```
-- id
-- region_identifier
-- created_at
-- patient_searches: [patient_search_id, ...]
-- status: accumulating|ready|processing
-- target_size
-- current_size
+- patient_id (FK)
+- therapist_id (FK)
+- rejection_date
+- rejection_reason
+- bundle_id (FK to Therapist Inquiry)
 ```
 
-## Configuration Parameters
+### Therapist Preferences
+```
+- therapist_id (FK)
+- accepted_diagnoses: [ICD-10 codes]
+- age_min
+- age_max
+- gender_preference: male|female|any
+- group_therapy_preference: boolean
+- working_hours: JSON schedule
+- last_updated
+- notes
+```
 
-### Global Settings
-- **Minimum Bundle Size**: 3 patients (configurable)
-- **Accumulation Wait Time**: 3 days (configurable)
-- **Wave Size**: 20 therapists (configurable)
-- **Pending Inquiry Threshold**: 5 (configurable)
-- **Contact Frequency Limit**: 30 days (configurable)
-- **Email to Phone Delay**: 7 days (existing)
+### Patient Availability
+```
+- patient_id (FK)
+- monday: [time_slots]
+- tuesday: [time_slots]
+- ...
+- sunday: [time_slots]
+- last_updated
+- total_hours_per_week
+```
 
-### Per-Region Overrides
-- Can adjust bundle size based on patient density
-- Can modify wave size based on therapist availability
-- Emergency overrides for urgent cases
+## Operational Parameters
+
+### Configurable Settings
+- **Bundle size**: 3-6 patients (per therapist preference)
+- **Response wait time**: 7 days before phone follow-up
+- **Contact frequency**: 30 days minimum between contacts
+- **Minimum availability**: 20 hours/week for patients
+- **Success measurement**: After 2 initial sessions
+
+### Manual Override Capabilities
+- Emergency placement for urgent cases
+- Direct assignment when therapist calls with opening
+- Bundle size exceptions
+- Contact frequency exceptions (documented)
 
 ## Implementation Priorities
 
-### Phase 1: Core Process Changes
-1. **Implement Patient Search entity**
-   - Track overall search progress
-   - Maintain statistics
+### Phase 1: Core Refinements
+1. **Detailed availability tracking**:
+   - Hourly schedules for patients and therapists
+   - Compatibility matching algorithm
+   
+2. **Therapist preference management**:
+   - Structured preference storage
+   - Learning from acceptance patterns
+   
+3. **Individual rejection tracking**:
+   - Track patient-therapist rejection pairs
+   - Prevent re-sending rejected patients
 
-2. **Implement Therapist Inquiry entity**
-   - Replace/extend current PlacementRequest
-   - Support bundled patients
+4. **Manual placement workflow**:
+   - UI for "changed mind" scenarios
+   - Audit trail for manual assignments
 
-3. **Regional Accumulation Logic**
-   - Geographic proximity calculation
-   - Configurable wait times and thresholds
+### Phase 2: Optimization
+1. **Smart bundling algorithm**:
+   - Optimize bundle composition for acceptance
+   - A/B testing different strategies
+   
+2. **Availability matching**:
+   - Automatic compatibility scoring
+   - Visual schedule overlap display
 
-4. **Wave Management**
-   - Therapist pool filtering
-   - Wave selection algorithm
-   - Trigger monitoring
+3. **Success prediction**:
+   - ML model for acceptance likelihood
+   - Optimal bundle size per therapist
 
-5. **Update Contact Frequency**
-   - Change from 1 week to 1 month
-   - Global therapist tracking
+### Phase 3: Advanced Features
+1. **Group therapy formation**:
+   - Identify potential groups from patient pool
+   - Propose complete groups to therapists
+   
+2. **Dynamic scheduling**:
+   - Real-time availability updates
+   - Automated rescheduling suggestions
 
-### Phase 2: Enhanced Features
-1. Response tracking and statistics
-2. Detailed status visibility
-3. Manual override capabilities
-4. Advanced prioritization factors
+## Key Business Metrics
 
-### Phase 3: Optimization
-1. Machine learning for success prediction
-2. Dynamic threshold adjustment
-3. Regional pattern analysis
+### Success Metrics
+- **Placement speed**: Days from registration to successful placement
+- **Therapist acceptance rate**: % of patients accepted from bundles
+- **Patient show rate**: % attending initial sessions
+- **Therapist retention**: % preferring Curavani over direct inquiries
 
-## Open Questions for Future Discussion
+### Operational Metrics
+- **Bundle efficiency**: Average accepts per bundle
+- **Response rate**: % of therapists responding within 7 days
+- **Manual intervention rate**: % of placements requiring manual work
 
-1. **Prioritization Factors**: Beyond `potentially_available` and distance, what additional factors should influence therapist selection order?
+## Competitive Advantage
 
-2. **Regional Boundaries**: Should regions be fixed (PLZ-based) or dynamic (based on current patient clusters)?
+Curavani succeeds by solving both sides' core problems:
 
-3. **Urgent Cases**: How do we define and handle urgent patient cases that can't wait for accumulation?
+**For Therapists**:
+- Zero effort patient acquisition
+- Pre-qualified, insurance-ready patients
+- Preference-matched bundles
+- No time wasted on unmotivated patients
 
-4. **Partial Responses**: How do we handle therapists who accept some but not all patients in a bundle?
+**For Patients**:
+- Faster placement through pooled demand
+- Higher acceptance rates (pre-matching)
+- Professional advocacy and follow-up
 
-5. **Quality Metrics**: What KPIs should we track to optimize the matching process?
-
-## API Changes Required
-
-### New Endpoints Needed
-```
-# Patient Search Management
-POST   /api/patient-searches
-GET    /api/patient-searches/{id}
-PUT    /api/patient-searches/{id}/status
-GET    /api/patient-searches/{id}/statistics
-
-# Regional Bundle Management  
-GET    /api/regional-bundles/pending
-POST   /api/regional-bundles/{id}/trigger-wave
-
-# Therapist Inquiry Management
-POST   /api/therapist-inquiries/bulk
-GET    /api/therapist-inquiries?patient_search_id=X
-PUT    /api/therapist-inquiries/{id}/response
-
-# Wave Management
-GET    /api/waves/next-candidates?bundle_id=X
-POST   /api/waves/create
-```
-
-### Modified Endpoints
-- Deprecate current `/api/placement-requests` in favor of new structure
-- Update `/api/therapists` to include last contact date
-- Enhance `/api/patients/{id}/available-therapists` with wave information
-
-## Conclusion
-
-The refined process clearly separates the long-running Patient Search (Platzsuche) from the short-lived Therapist Inquiries (Therapeutenanfrage). This enables better tracking, intelligent bundling, and respectful therapist communication while maximizing the chances of successful placements. The wave-based approach prevents regional blocking while the accumulation strategy ensures efficient use of therapist goodwill.
+This creates a virtuous cycle where therapists prefer Curavani patients, leading to more available spots and faster placements.
