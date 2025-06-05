@@ -2,7 +2,23 @@
 
 ## Executive Summary
 
-This document outlines the business processes for the Psychotherapy Matching Platform, clarifying the gap between current implementation and actual business needs. The platform will support two distinct workflows: manual therapist outreach (current) and therapist self-service (future).
+This document outlines the business processes for the Psychotherapy Matching Platform, incorporating refined terminology and process flows. The platform manages **Patient Searches** (Platzsuche) - long-running processes to find therapy spots for patients - and **Therapist Inquiries** (Therapeutenanfrage) - specific requests sent to therapists asking if they can treat one or more patients.
+
+## Key Terminology
+
+### Patient Search (Platzsuche)
+- **Definition**: The ongoing process of finding a therapy spot for a patient
+- **Lifecycle**: Starts when patient registers, ends when they successfully find a therapist
+- **Constraint**: One active search per patient at a time
+- **Duration**: Weeks to months until successful placement
+- **Contains**: Patient preferences, exclusions, search status, history
+
+### Therapist Inquiry (Therapeutenanfrage)
+- **Definition**: A specific request sent to a therapist asking if they can treat one or more patients
+- **Content**: Multiple patients bundled together (minimum configurable, starting with 3)
+- **Lifecycle**: Created, sent, awaiting response, responded
+- **Duration**: Days to weeks
+- **Response Types**: Accepted (for specific patients), rejected, no response
 
 ## Current Implementation Status
 
@@ -11,246 +27,289 @@ This document outlines the business processes for the Psychotherapy Matching Pla
 - ✅ Basic matching algorithm that filters by distance, gender preference, and exclusions
 - ✅ Email batching system (groups up to 5 patients per email)
 - ✅ Automatic phone call scheduling (7 days after unanswered emails)
-- ✅ Contact frequency limits (1 email/week, 4-week cooldown after rejection)
-- ✅ `potentially_available` field on therapists (but not used in sorting)
+- ✅ Contact frequency limits (currently 1 week, needs change to 1 month)
+- ✅ `potentially_available` field on therapists
 - ✅ Daily scraping from 116117.de for therapist data
 
 ### Key Gaps
-- ❌ No API endpoint to get filtered/sorted therapist list for manual selection
-- ❌ No bulk placement request creation
-- ❌ Matching algorithm doesn't sort by `potentially_available` status
-- ❌ No batch/campaign tracking for outreach rounds
-- ❌ PlacementRequestStatus doesn't align with actual workflow
-- ❌ No visibility into workload (active emails, pending calls)
+- ❌ No distinction between Patient Search and Therapist Inquiry entities
+- ❌ No regional accumulation logic (3-day wait for bundling)
+- ❌ No wave-based outreach management
+- ❌ Contact frequency is 1 week instead of 1 month
+- ❌ No tracking of unanswered inquiry thresholds
+- ❌ No visibility into search statistics per patient
 
-## Process 1: Manual Therapy Spot Search (Current Focus)
+## Process Flow: Patient Search Management
 
-### 1.1 Find Suitable Therapists
+### 1. Patient Search Creation (Platzsuche Erstellung)
 
-**What Should Happen:**
-1. System filters ALL therapists based on:
-   - Distance from patient (using patient's `verkehrsmittel` - car or public transit)
+**When Created:**
+- Patient registers and needs therapy placement
+- Previous search was closed (successful or abandoned)
+
+**What's Captured:**
+1. **Core Preferences** (from patient model):
    - Gender preference (`bevorzugtes_therapeutengeschlecht`)
-   - Patient's exclusion list (`ausgeschlossene_therapeuten`)
-   - Therapist active status (not blocked/inactive)
+   - Open for group therapy (`offen_fuer_gruppentherapie`)
+   - Maximum travel distance (`raeumliche_verfuegbarkeit`)
+   - Travel mode - car or public transit (`verkehrsmittel`)
 
-2. System sorts results by:
-   - **First**: `potentially_available = true` (therapists more likely to have spots)
-   - **Then**: Distance (closest first)
+2. **Manual Exclusions** (added during search creation):
+   - Specific therapist exclusions (bad experiences, family relations)
+   - Stored in `ausgeschlossene_therapeuten`
 
-**Current Reality:**
-- Algorithm exists but lacks proper API endpoint
-- Doesn't sort by `potentially_available`
-- Returns all matches at once (no pagination/filtering)
+3. **Search Metadata**:
+   - Creation date
+   - Current status
+   - Statistics (therapists contacted, responses received)
 
-### 1.2 Manual Therapist Selection
+### 2. Regional Accumulation (Regionale Sammlung)
 
-**What Should Happen:**
-1. Staff reviews sorted list (potentially 100+ therapists)
-2. Manually selects subset (e.g., 25) for first contact round
-3. System creates placement requests for selected therapists
-4. Tracks which "round" of outreach this is
+**Purpose**: Bundle multiple patient searches before contacting therapists
 
-**Current Reality:**
-- Must create placement requests one by one
-- No concept of outreach "rounds" or "campaigns"
-- No way to track which therapists haven't been contacted yet
+**Process:**
+1. **Region Definition**: Patients are grouped by geographic proximity
+   - "Same region" = overlapping potential therapist pools
+   - Based on patient locations and their max travel distances
 
-### 1.3 Batch Communication
+2. **Accumulation Period**: 
+   - Wait up to 3 days to collect patients in same region
+   - Configurable minimum bundle size (initially 3 patients)
+   - Can be overridden for urgent cases
 
-**Existing Process (Works Well):**
-1. Daily batch job (1 AM) groups placement requests by therapist
-2. Creates emails with up to 5 patients per email
-3. Respects 7-day contact frequency limit
-4. Sends emails throughout the day
-5. After 7 days without response, schedules phone call
+3. **Bundle Creation**:
+   - Group patient searches that share potential therapists
+   - Prepare for wave-based outreach
 
-**Enhancement Needed:**
-- Dashboard showing current workload (pending emails, scheduled calls)
-- Better tracking of which outreach round each contact belongs to
+### 3. Wave-Based Therapist Selection (Wellenbasierte Therapeutenauswahl)
 
-### 1.4 Response Handling
+**Purpose**: Avoid blocking entire regions while maximizing success chances
 
-**Current Process:**
-1. Email responses manually entered into system
-2. Phone calls made at scheduled times, outcomes recorded
-3. Placement request status updated:
-   - `angenommen` (accepted) → Schedule patient-therapist meeting
-   - `abgelehnt` (rejected) → 4-week cooldown period
+**Wave Strategy:**
+1. **Initial Pool**: Identify all eligible therapists for the patient bundle
+   - Filter by distance, gender preference, exclusions
+   - Check monthly contact limit (not contacted in last 30 days)
 
-### 1.5 Patient-Therapist Meeting
+2. **Prioritization**:
+   - First: `potentially_available = true` therapists
+   - Then: Sort by distance (closest first)
+   - Consider other factors (TBD in future discussion)
 
-**Not Currently in System:**
-- Patient and therapist meet in person
-- Determine if they can work together
-- Outcome: either successful match or need to continue search
+3. **Wave Size**: 
+   - Select subset (e.g., 20 out of 100 eligible)
+   - Configurable per region/situation
+   - Ensures other patients can still access therapists in region
 
-### 1.6 Next Round Selection
+4. **Wave Triggers**:
+   - First wave: Sent after accumulation period
+   - Next waves: Triggered when unanswered inquiries drop below threshold
+   - Configurable threshold (e.g., 5 pending inquiries)
 
-**What Should Happen:**
-1. After handling responses from first round
-2. Return to filtered therapist list
-3. Select next batch (e.g., 35 more)
-4. Repeat process
+### 4. Therapist Inquiry Creation (Therapeutenanfrage Erstellung)
 
-**Current Reality:**
-- No way to track who's been contacted
-- Must manually track outside the system
+**For Each Selected Therapist:**
+1. Create single Therapist Inquiry containing:
+   - Multiple patient searches (up to 5)
+   - Inquiry metadata (date, wave number)
+   - Expected response tracking
 
-## Process 2: Therapist Self-Service Portal (Future)
+2. **Contact Rules**:
+   - Global limit: One contact per therapist per month
+   - Applies across all patients and inquiries
+   - Prevents therapist spam
 
-### 2.1 Therapist Groups
+### 5. Communication Process (Kommunikationsprozess)
 
-**Group A: Manual Contact (Current)**
-- Continue existing email/phone process
-- No direct system access
-- All communication through staff
+**Handled by Communication Service:**
 
-**Group B: Portal Access (Future)**
-- Direct login to therapist portal
-- Can view anonymized patient profiles
-- Can offer spots or decline patients
-- Reduces manual workload significantly
+1. **Email Phase**:
+   - Send bundled inquiry email
+   - Template includes multiple patient summaries
+   - Track send date and delivery
 
-### 2.2 Portal Workflow (Conceptual)
+2. **Follow-up Phase** (if no response):
+   - After 7 days: Schedule phone call
+   - Phone call covers same patient bundle
+   - Document call outcome
 
-1. **Therapist Login**
-   - Secure authentication
-   - Dashboard showing matched patients
+3. **Response Types**:
+   - **Global Rejection**: "No capacity for any patients"
+   - **Selective Acceptance**: "Can see patients 2 and 4"
+   - **Information Request**: "Need more details about patient 3"
+   - **No Response**: Triggers follow-up
 
-2. **Patient Viewing**
-   - See relevant patient information (anonymized)
-   - Filter by their own criteria
-   - Sort by match quality
+### 6. Response Processing (Antwortverarbeitung)
 
-3. **Spot Offering**
-   - "Offer Spot" button → Notifies patient
-   - "Not Suitable" button → Patient removed from their list
-   - Include availability times for initial meeting
+**Per Therapist Inquiry:**
+1. Record response for each included patient
+2. Update Patient Search statistics
+3. Handle accepted patients:
+   - Schedule patient-therapist meeting
+   - Mark search as "pending meeting"
+4. Handle rejections:
+   - Update statistics
+   - Patient remains in pool for next wave
 
-4. **Direct Communication**
-   - Initial contact through platform
-   - Schedule first meeting
-   - Exchange necessary information
+### 7. Wave Management (Wellenverwaltung)
 
-## Data Model Clarifications
+**Continuous Process:**
+1. Monitor active inquiries per patient bundle
+2. When below threshold (e.g., < 5 pending):
+   - Select next wave of therapists
+   - Create new inquiries
+   - Respect monthly contact limits
 
-### Current PlacementRequestStatus
+3. **Statistics Tracking**:
+   - "Contacted 30/100 potential therapists"
+   - "15 rejected, 10 no response, 5 pending"
+   - Visible at Patient Search level
+
+### 8. Search Completion (Platzsuche Abschluss)
+
+**Successful Completion:**
+1. Therapist accepts patient
+2. Patient-therapist meeting successful
+3. Patient Search marked "completed"
+4. Historical data retained
+
+**Abandonment:**
+- Patient no longer needs placement
+- Search marked "abandoned"
+- Reason documented
+
+## Data Model Requirements
+
+### Patient Search (Platzsuche)
 ```
-OPEN: "offen"                    // Initial creation
-IN_PROGRESS: "in_bearbeitung"    // Being processed
-REJECTED: "abgelehnt"            // Therapist declined
-ACCEPTED: "angenommen"           // Therapist accepted
+- id
+- patient_id (FK)
+- status: active|pending_meeting|completed|abandoned
+- created_at
+- completed_at
+- total_therapists_available
+- total_therapists_contacted
+- total_accepted
+- total_rejected
+- total_no_response
+- current_wave
+- notes
 ```
 
-### What's Actually Needed
+### Therapist Inquiry (Therapeutenanfrage)
+```
+- id
+- therapist_id (FK)
+- wave_number
+- sent_date
+- response_date
+- response_type: accepted|rejected|no_response|partial_acceptance
+- communication_method: email|phone
+- included_patient_searches: [patient_search_id, ...]
+- individual_responses: {patient_search_id: accepted|rejected|pending}
+```
 
-**Therapist Contact Status** (per patient):
-- `not_selected` - Available for selection
-- `selected` - Selected for outreach but not contacted
-- `email_sent` - Email sent, awaiting response
-- `phone_scheduled` - No email response, call scheduled
-- `responded` - Therapist has responded
-- `in_cooldown` - In 4-week waiting period
-- `meeting_scheduled` - Patient-therapist meeting planned
-- `matched` - Successful placement
-- `excluded` - Therapist excluded by patient
+### Regional Bundle (Regionales Bündel)
+```
+- id
+- region_identifier
+- created_at
+- patient_searches: [patient_search_id, ...]
+- status: accumulating|ready|processing
+- target_size
+- current_size
+```
 
-**Outreach Campaign Tracking**:
-- Campaign/Round ID
-- Date created
-- Number of therapists selected
-- Response rate
-- Status (active/completed)
+## Configuration Parameters
+
+### Global Settings
+- **Minimum Bundle Size**: 3 patients (configurable)
+- **Accumulation Wait Time**: 3 days (configurable)
+- **Wave Size**: 20 therapists (configurable)
+- **Pending Inquiry Threshold**: 5 (configurable)
+- **Contact Frequency Limit**: 30 days (configurable)
+- **Email to Phone Delay**: 7 days (existing)
+
+### Per-Region Overrides
+- Can adjust bundle size based on patient density
+- Can modify wave size based on therapist availability
+- Emergency overrides for urgent cases
 
 ## Implementation Priorities
 
-### Phase 1: Fix Current Workflow (Immediate)
-1. **Add Therapist List Endpoint**
-   ```
-   GET /api/patients/{id}/available-therapists
-   Response: Filtered, sorted list with contact status
-   ```
+### Phase 1: Core Process Changes
+1. **Implement Patient Search entity**
+   - Track overall search progress
+   - Maintain statistics
 
-2. **Add Bulk Contact Endpoint**
-   ```
-   POST /api/patients/{id}/contact-therapists
-   Body: { therapist_ids: [...], round_name: "..." }
-   ```
+2. **Implement Therapist Inquiry entity**
+   - Replace/extend current PlacementRequest
+   - Support bundled patients
 
-3. **Update Matching Algorithm**
-   - Sort by `potentially_available` first
-   - Include contact history in response
+3. **Regional Accumulation Logic**
+   - Geographic proximity calculation
+   - Configurable wait times and thresholds
 
-4. **Add Workload Dashboard Data**
-   ```
-   GET /api/communication/workload
-   Response: { pending_emails: X, scheduled_calls: Y, awaiting_responses: Z }
-   ```
+4. **Wave Management**
+   - Therapist pool filtering
+   - Wave selection algorithm
+   - Trigger monitoring
 
-### Phase 2: Enhanced Tracking (Next Sprint)
-1. Campaign/round management
-2. Better status tracking per therapist
-3. Response rate analytics
-4. Meeting outcome tracking
+5. **Update Contact Frequency**
+   - Change from 1 week to 1 month
+   - Global therapist tracking
 
-### Phase 3: Therapist Portal (Future)
-1. Authentication system
-2. Therapist dashboard
-3. Patient profile viewing (anonymized)
-4. Spot offering workflow
-5. Communication features
+### Phase 2: Enhanced Features
+1. Response tracking and statistics
+2. Detailed status visibility
+3. Manual override capabilities
+4. Advanced prioritization factors
 
-## Technical Recommendations
+### Phase 3: Optimization
+1. Machine learning for success prediction
+2. Dynamic threshold adjustment
+3. Regional pattern analysis
 
-### API Changes Needed
-1. Expose existing matching algorithm via REST endpoint
-2. Add bulk operations for placement requests
-3. Include contact history in therapist data
-4. Add campaign/round concept to data model
+## Open Questions for Future Discussion
 
-### Database Changes Needed
-1. Add `outreach_campaigns` table
-2. Add `therapist_contact_status` view/table
-3. Track meeting outcomes
-4. Add portal access flags to therapist model
+1. **Prioritization Factors**: Beyond `potentially_available` and distance, what additional factors should influence therapist selection order?
 
-### Business Logic Changes
-1. Modify matching algorithm to sort by `potentially_available`
-2. Add pagination to therapist results
-3. Track which round each placement request belongs to
-4. Calculate workload metrics
+2. **Regional Boundaries**: Should regions be fixed (PLZ-based) or dynamic (based on current patient clusters)?
 
-## Questions for Tomorrow's Discussion
+3. **Urgent Cases**: How do we define and handle urgent patient cases that can't wait for accumulation?
 
-1. **Potentially Available Sources**: What are the "different sources" that indicate a therapist might have availability?
+4. **Partial Responses**: How do we handle therapists who accept some but not all patients in a bundle?
 
-2. **Meeting Outcomes**: Should the system track patient-therapist meetings and their outcomes?
+5. **Quality Metrics**: What KPIs should we track to optimize the matching process?
 
-3. **Workload Limits**: What's the maximum number of active emails/calls staff can handle at once?
+## API Changes Required
 
-4. **Portal Timing**: When should we start planning for the therapist portal?
+### New Endpoints Needed
+```
+# Patient Search Management
+POST   /api/patient-searches
+GET    /api/patient-searches/{id}
+PUT    /api/patient-searches/{id}/status
+GET    /api/patient-searches/{id}/statistics
 
-5. **Selection Criteria**: Beyond `potentially_available` and distance, what factors do staff consider when manually selecting therapists?
+# Regional Bundle Management  
+GET    /api/regional-bundles/pending
+POST   /api/regional-bundles/{id}/trigger-wave
 
-6. **Response Time**: Besides the 7-day email-to-phone rule, are there other time-based business rules?
+# Therapist Inquiry Management
+POST   /api/therapist-inquiries/bulk
+GET    /api/therapist-inquiries?patient_search_id=X
+PUT    /api/therapist-inquiries/{id}/response
 
-7. **Exclusion Management**: Can patients add to their exclusion list after failed meetings?
+# Wave Management
+GET    /api/waves/next-candidates?bundle_id=X
+POST   /api/waves/create
+```
 
-## Appendix: Current API Endpoints
-
-### Relevant Existing Endpoints
-- `GET /api/therapists` - List all therapists (with pagination)
-- `GET /api/patients/{id}` - Get patient details including preferences
-- `POST /api/placement-requests` - Create single placement request
-- `GET /api/placement-requests?patient_id=X` - Get requests for a patient
-
-### Missing Endpoints
-- `GET /api/patients/{id}/available-therapists` - Get filtered/sorted therapists
-- `POST /api/placement-requests/bulk` - Create multiple requests
-- `GET /api/outreach-campaigns` - Track contact rounds
-- `GET /api/communication/workload` - Monitor active workload
+### Modified Endpoints
+- Deprecate current `/api/placement-requests` in favor of new structure
+- Update `/api/therapists` to include last contact date
+- Enhance `/api/patients/{id}/available-therapists` with wave information
 
 ## Conclusion
 
-The current implementation has solid technical foundations but doesn't match the actual business workflow. The system treats placement requests as individual transactions, while the business needs batch selection and campaign-based outreach. Fixing this mismatch should be the immediate priority before building the future therapist portal.
+The refined process clearly separates the long-running Patient Search (Platzsuche) from the short-lived Therapist Inquiries (Therapeutenanfrage). This enables better tracking, intelligent bundling, and respectful therapist communication while maximizing the chances of successful placements. The wave-based approach prevents regional blocking while the accumulation strategy ensures efficient use of therapist goodwill.
