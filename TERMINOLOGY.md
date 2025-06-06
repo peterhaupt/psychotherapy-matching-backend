@@ -139,7 +139,7 @@ This document standardizes terminology used throughout the Psychotherapy Matchin
 | Single Therapy Places | Einzeltherapieplätze |
 | Group Therapy Places | Gruppentherapieplätze |
 | Potentially Available | Potenziell Verfügbar |
-| Next Contactable Date | Nächstes Kontaktdatum |
+| Next Contactable Date | Nächster Kontakt Möglich |
 | Last Contact Date | Letztes Kontaktdatum |
 | Preferred Diagnoses | Bevorzugte Diagnosen |
 | Age Preferences | Altersbereiche |
@@ -203,3 +203,20 @@ This document standardizes terminology used throughout the Psychotherapy Matchin
 | Parallel Search Effectiveness | Effektivität der parallelen Suche |
 | Acceptance Rate | Annahmerate |
 | Rejection Rate | Ablehnungsquote |
+
+## Database Field Naming Convention
+
+**Important:** All database fields use German names to maintain consistency:
+
+| English Concept | German Database Field |
+|----------------|----------------------|
+| Next Contactable Date | naechster_kontakt_moeglich |
+| Preferred Diagnoses | bevorzugte_diagnosen |
+| Age Min/Max | alter_min / alter_max |
+| Gender Preference | geschlechtspraeferenz |
+| Working Hours | arbeitszeiten |
+| Phone Availability | telefonische_erreichbarkeit |
+| Spatial Availability | raeumliche_verfuegbarkeit |
+| Time Availability | zeitliche_verfuegbarkeit |
+| Excluded Therapists | ausgeschlossene_therapeuten |
+| Preferred Therapist Gender | bevorzugtes_therapeutengeschlecht |

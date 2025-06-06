@@ -28,66 +28,61 @@ This document tracks the implementation progress of the Psychotherapy Matching P
 
 ## Current Sprint: Bundle-Based Matching System
 
-### What's Already Implemented
-- ✅ Basic placement request model (1-to-1 matching)
-- ✅ Status tracking for requests
-- ✅ Event publishing for status changes
-- ✅ Integration with other services
+### Week 1: Database Schema Updates ✅ COMPLETED
 
-### What's Being Built Now
-- 🔄 Bundle creation algorithm (3-6 patients per therapist)
-- 🔄 Progressive filtering based on constraints and preferences
-- 🔄 Cooling period management (4-week contact frequency)
-- 🔄 Parallel search support (patients in multiple bundles)
-- 🔄 Conflict resolution (handling multiple acceptances)
+**What Was Accomplished:**
+- ✅ Created migration `acfc96c9f0g0_add_bundle_system_tables.py`
+- ✅ Added bundle system tables (platzsuche, therapeutenanfrage, therapeut_anfrage_patient)
+- ✅ Extended therapist table with new fields
+- ✅ Created indexes for performance
+- ✅ Applied migration to database
 
-### Why This Matters
-The current "matching service" only handles simple 1-to-1 requests. The business requirements specify a sophisticated bundle-based system that:
-- Groups multiple patients per therapist contact
-- Enforces contact frequency limits
-- Enables parallel searching
-- Maximizes placement speed
+**Important Decision:** All field names use German terminology for consistency with the existing codebase.
 
-## Technical Achievements
+### Week 2: Bundle Algorithm Implementation 🔄 IN PROGRESS
 
-### Architecture Patterns
-- ✅ Microservice architecture with clear boundaries
-- ✅ Event-driven communication via Kafka
-- ✅ Centralized configuration management
-- ✅ Robust error handling and retry logic
-- ✅ Comprehensive API design
+**Current Task:**
+- 🔄 Creating migration to rename English field names to German
+- 📋 Update Therapist model with new fields
+- 📋 Create new bundle-related models
+- 📋 Implement bundle creation algorithm
+- 📋 Add progressive filtering logic
+- 📋 Create conflict resolution system
 
-### Development Practices
-- ✅ Docker containerization for all services
-- ✅ Database migrations with Alembic
-- ✅ Consistent code structure across services
-- ✅ Shared utilities for common functionality
-- ✅ API documentation
+### Week 3: Testing & Refinement 📋 PLANNED
 
-### Testing Infrastructure
-- ✅ Unit test framework
-- ✅ Integration test setup
-- ✅ Database schema validation tests
-- 🔄 Bundle algorithm testing (in progress)
+**Upcoming Tasks:**
+- Unit tests for bundle algorithm
+- Integration tests for complete flow
+- Performance testing with realistic data
+- Test data generation scripts
 
-## Upcoming Milestones
+## Technical Decisions
 
-### Next 3 Weeks: Complete Bundle Matching
-- Week 1: Database schema updates
-- Week 2: Algorithm implementation
-- Week 3: Testing and refinement
+### Naming Convention: German Field Names
+**Decision:** All database fields and model attributes use German names to maintain consistency with the existing codebase.
 
-### Next Quarter: Production Readiness
-1. Web interface development
-2. Security implementation
-3. Performance optimization
-4. Deployment preparation
+**Examples:**
+- ✅ `vorname`, `nachname`, `strasse` (existing pattern)
+- ✅ `naechster_kontakt_moeglich`, `bevorzugte_diagnosen` (new fields)
+- ❌ `next_contactable_date`, `preferred_diagnoses` (to be renamed)
+
+**Rationale:** The entire existing system uses German field names. Mixing languages would create confusion and maintenance issues.
+
+### Patient Travel Fields
+**Decision:** Keep existing JSONB fields instead of adding new specific fields.
+
+**Current Implementation:**
+- `raeumliche_verfuegbarkeit` (JSONB) - Stores max distance and travel time
+- `verkehrsmittel` (String) - Auto or ÖPNV
+
+This provides flexibility without schema changes.
 
 ## Key Metrics to Track
 
 ### System Capabilities
 - **Current**: Can create individual placement requests
-- **Target**: Process 100+ patient searches simultaneously
+- **Target**: Process 100+ patient searches simultaneously with bundles
 - **Current**: Manual email sending
 - **Target**: Automated bundle-based communications
 
@@ -100,6 +95,7 @@ The current "matching service" only handles simple 1-to-1 requests. The business
 
 ### Current Limitations
 - Basic matching doesn't implement business rules
+- English field names in latest migration (being fixed)
 - No web interface for staff operations
 - Limited monitoring and analytics
 
@@ -121,7 +117,7 @@ A functional microservice platform that can:
 ### What's Being Built
 The core business logic that will:
 - Create intelligent patient bundles
-- Enforce cooling periods
+- Enforce cooling periods (Abkühlungsphase)
 - Manage parallel searches
 - Resolve conflicts automatically
 - Maximize placement efficiency
@@ -142,6 +138,8 @@ The core business logic that will:
 ├── ✅ geocoding_service/
 ├── ✅ shared/
 ├── ✅ migrations/
+│   ├── ✅ alembic/versions/acfc96c9f0g0_add_bundle_system_tables.py
+│   └── 🔄 alembic/versions/bcfc97d0f1h1_rename_therapist_fields_to_german.py
 ├── 📋 frontend/ (planned)
 └── ✅ documentation/
 ```
@@ -149,16 +147,18 @@ The core business logic that will:
 ## How to Contribute
 
 ### Current Priorities
-1. Complete bundle matching algorithm
-2. Write comprehensive tests
-3. Update API documentation
-4. Create sample data generators
+1. Complete German field name migration
+2. Update models with new fields
+3. Implement bundle matching algorithm
+4. Write comprehensive tests
+5. Update API documentation
 
 ### Getting Started
 1. Review `requirements/business/inhaltliche_anforderungen.md`
 2. Check current implementation in `matching_service/`
-3. See `implementation_plan.md` for technical details
+3. Follow German naming conventions
 4. Run tests: `pytest tests/`
 
 ---
-*Last Updated: Current Sprint - Bundle-Based Matching System*
+*Last Updated: Week 2 - Bundle Algorithm Implementation*
+*Current Focus: German Field Name Migration*

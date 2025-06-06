@@ -24,91 +24,82 @@ Phased implementation approach for the Psychotherapy Matching Platform.
 ### Overview
 Transform the current basic matching system into the bundle-based system described in business requirements.
 
-### Week 1: Database Schema Updates
+### Week 1: Database Schema Updates ✅ COMPLETED
 
-**New Tables:**
-```sql
--- Patient search tracking
-CREATE TABLE matching_service.platzsuche (
-    id SERIAL PRIMARY KEY,
-    patient_id INTEGER NOT NULL,
-    status VARCHAR(50) DEFAULT 'active',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    excluded_therapists JSONB DEFAULT '[]',
-    total_requested_contacts INTEGER DEFAULT 0
-);
+**Achievements:**
+- Created comprehensive migration for bundle system
+- Added new tables for patient search and bundle tracking
+- Extended therapist model with preferences
+- Applied migration to database
 
--- Bundle tracking
-CREATE TABLE matching_service.therapeutenanfrage (
-    id SERIAL PRIMARY KEY,
-    therapist_id INTEGER NOT NULL,
-    created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    sent_date TIMESTAMP,
-    response_type VARCHAR(50),
-    bundle_size INTEGER,
-    accepted_count INTEGER DEFAULT 0
-);
+**Important Decision:** All database fields use German names for consistency
 
--- Bundle composition
-CREATE TABLE matching_service.therapeut_anfrage_patient (
-    id SERIAL PRIMARY KEY,
-    therapeutenanfrage_id INTEGER NOT NULL,
-    platzsuche_id INTEGER NOT NULL,
-    patient_id INTEGER NOT NULL,
-    position_in_bundle INTEGER,
-    status VARCHAR(50) DEFAULT 'pending'
-);
-```
+### Week 2: Bundle Algorithm Implementation 🔄 CURRENT
 
-**Column Additions:**
-```sql
--- Patient enhancements
-ALTER TABLE patient_service.patients ADD COLUMN 
-    max_travel_distance_km INTEGER DEFAULT 30,
-    travel_mode VARCHAR(50) DEFAULT 'Auto',
-    availability_schedule JSONB;
+**Day 1-2: Model Updates**
+1. ✅ Rename English fields to German:
+   ```sql
+   -- Migration bcfc97d0f1h1
+   next_contactable_date → naechster_kontakt_moeglich
+   preferred_diagnoses → bevorzugte_diagnosen
+   age_min → alter_min
+   age_max → alter_max
+   gender_preference → geschlechtspraeferenz
+   working_hours → arbeitszeiten
+   ```
 
--- Therapist enhancements
-ALTER TABLE therapist_service.therapists ADD COLUMN
-    next_contactable_date DATE,
-    preferred_diagnoses JSONB,
-    age_min INTEGER,
-    age_max INTEGER,
-    gender_preference VARCHAR(50),
-    working_hours JSONB;
-```
-
-### Week 2: Bundle Algorithm Implementation
-
-**Core Components:**
-
-1. **Bundle Creation Service** (`matching_service/algorithms/bundle_creator.py`):
+2. 📋 Update Therapist model with new fields:
    ```python
-   def create_bundles_for_all_therapists():
-       # 1. Get all contactable therapists
-       # 2. For each therapist, apply progressive filtering
-       # 3. Create bundles of 3-6 patients
-       # 4. Update cooling periods
+   # therapist_service/models/therapist.py
+   naechster_kontakt_moeglich = Column(Date)
+   bevorzugte_diagnosen = Column(JSONB)
+   alter_min = Column(Integer)
+   alter_max = Column(Integer)
+   geschlechtspraeferenz = Column(String(50))
+   arbeitszeiten = Column(JSONB)
    ```
 
-2. **Progressive Filtering** (`matching_service/algorithms/filters.py`):
-   - Hard constraints (distance, exclusions, gender)
-   - Soft preferences (diagnosis, age, availability)
-   - Sorting by patient wait time
-
-3. **Conflict Resolution** (`matching_service/algorithms/conflict_resolver.py`):
-   - Handle multiple acceptances
-   - Reassign patients
-   - Notify affected therapists
-
-4. **API Updates** (modify existing endpoints):
-   ```
-   POST /api/placement-requests/bulk    # Create bundles
-   GET  /api/placement-requests/bundles # View bundles
-   PUT  /api/placement-requests/bundle-response # Record responses
+3. 📋 Create new bundle models:
+   ```python
+   # matching_service/models/bundle.py
+   class Platzsuche(Base):
+       # Patient search tracking
+   
+   class Therapeutenanfrage(Base):
+       # Therapist inquiry (bundle)
+   
+   class TherapeutAnfragePatient(Base):
+       # Bundle composition
    ```
 
-### Week 3: Testing & Refinement
+**Day 3-4: Core Algorithm**
+1. 📋 Bundle Creation Service (`matching_service/algorithms/bundle_creator.py`):
+   ```python
+   def erstelle_buendel_fuer_alle_therapeuten():
+       # 1. Hole kontaktierbare Therapeuten
+       # 2. Wende progressive Filterung an
+       # 3. Erstelle Bündel mit 3-6 Patienten
+       # 4. Aktualisiere Abkühlungszeiten
+   ```
+
+2. 📋 Progressive Filtering (`matching_service/algorithms/filters.py`):
+   - Harte Bedingungen (Entfernung, Ausschlüsse, Geschlecht)
+   - Weiche Präferenzen (Diagnose, Alter, Verfügbarkeit)
+   - Sortierung nach Wartezeit
+
+**Day 5: API & Integration**
+1. 📋 API Updates:
+   ```
+   POST /api/platzsuchen           # Neue Patientensuche starten
+   POST /api/therapeutenanfragen   # Bündel erstellen
+   PUT  /api/therapeutenanfragen/{id}/antwort # Antwort erfassen
+   ```
+
+2. 📋 Communication Service Integration:
+   - Bundle data passed correctly to email templates
+   - Response tracking updates bundle status
+
+### Week 3: Testing & Refinement 📋 PLANNED
 
 **Testing Strategy:**
 1. **Unit Tests**:
@@ -128,25 +119,54 @@ ALTER TABLE therapist_service.therapists ADD COLUMN
 **Test Data Generation:**
 ```python
 # scripts/generate_test_data.py
-- Create patients with varied preferences
-- Create therapists with different availability
-- Simulate various response patterns
+- Patienten mit verschiedenen Präferenzen
+- Therapeuten mit unterschiedlicher Verfügbarkeit
+- Simulation verschiedener Antwortmuster
 ```
 
 ### Success Criteria
-- [x] Database schema updated
+- ✅ Database schema updated with German field names
 - [ ] Bundle algorithm creates appropriate groups
-- [ ] Cooling periods enforced correctly
+- [ ] Abkühlungsphase correctly enforced
 - [ ] Email templates use bundle data
 - [ ] Tests pass with good coverage
 - [ ] Performance meets targets
 
+## German Naming Convention Guidelines
+
+### Database Fields
+- **Use German names** for all new fields
+- **Match existing patterns**: `vorname`, `nachname`, `strasse`
+- **Compound words**: Use underscores `telefonische_erreichbarkeit`
+- **Keep technical terms**: `id`, `status`, `created_at`
+
+### Model Attributes
+- Match database field names exactly
+- No translation layer between DB and models
+
+### API Endpoints
+- Can use English for REST conventions: `/api/therapists`
+- Request/response fields should match model fields (German)
+
+### Examples
+✅ Correct:
+```python
+bevorzugte_diagnosen = Column(JSONB)
+naechster_kontakt_moeglich = Column(Date)
+```
+
+❌ Incorrect:
+```python
+preferred_diagnoses = Column(JSONB)  # English
+next_contactable_date = Column(Date) # English
+```
+
 ## Phase 4: Web Interface (Planned - 4 weeks)
 
 ### Week 1-2: Core UI
-- Patient search dashboard
-- Bundle creation interface
-- Response recording
+- Patient search dashboard (Patientensuche)
+- Bundle creation interface (Bündelerstellung)
+- Response recording (Antworterfassung)
 
 ### Week 3-4: Advanced Features
 - Real-time updates
@@ -155,7 +175,8 @@ ALTER TABLE therapist_service.therapists ADD COLUMN
 
 ### Technical Stack
 - React with TypeScript
-- Material-UI or similar
+- Material-UI components
+- German UI labels
 - WebSocket for real-time updates
 
 ## Phase 5: Production Preparation (Planned - 2 weeks)
@@ -173,23 +194,16 @@ ALTER TABLE therapist_service.therapists ADD COLUMN
 - Security audit
 
 ### Documentation
-- API documentation
+- API documentation (with German field names)
 - Deployment guide
-- User manual
+- User manual (German)
 
-## Phase 6: Advanced Features (Future)
+## Key Decisions for Development
 
-### Machine Learning
-- Success prediction models
-- Preference learning from acceptance patterns
-- Optimal bundle size prediction
-
-### Integrations
-- Insurance system APIs
-- Hospital referral systems
-- Mobile applications
-
-## Key Decisions for Early Development
+### Naming Conventions
+- ✅ **German field names** throughout the system
+- ✅ **Consistent with existing codebase**
+- ✅ **No mixing of languages in database schema**
 
 ### What We're NOT Doing Yet:
 - ❌ API versioning (no existing clients)
@@ -198,45 +212,35 @@ ALTER TABLE therapist_service.therapists ADD COLUMN
 - ❌ Backward compatibility (greenfield project)
 
 ### What We ARE Doing:
+- ✅ Consistent German naming
 - ✅ Direct implementation of new features
 - ✅ Comprehensive testing with mock data
 - ✅ Clear separation of basic vs bundle matching
-- ✅ Focus on core business logic first
 
 ## Development Workflow
 
-1. **Branch Strategy**:
-   - `main`: Stable code
-   - `feature/bundle-matching`: Current work
-   - Direct commits during early development
+1. **Current Sprint**:
+   - Apply German field renaming migration
+   - Update models with new fields
+   - Implement bundle algorithm
+   - Test with realistic German data
 
 2. **Database Changes**:
-   - Create migrations
+   - Create migrations with German names
    - Test locally
-   - Reset database as needed
+   - Document all fields in German
 
-3. **Testing Approach**:
-   - Write tests alongside features
-   - Use mock data extensively
-   - Manual testing with realistic scenarios
-
-## Risks & Mitigation
-
-### Technical Risks
-- **Algorithm complexity**: Start simple, iterate based on results
-- **Performance**: Profile early, optimize as needed
-- **Data quality**: Validate all inputs, handle edge cases
-
-### Business Risks
-- **Requirements clarity**: Regular reviews of bundle logic
-- **User acceptance**: Early demos with stakeholders
+3. **Code Style**:
+   - Comments in English (for international team)
+   - Field names in German (domain consistency)
+   - Variable names in English (programming convention)
 
 ## Definition of Done
 
 A feature is complete when:
-- [ ] Code is written and reviewed
+- [ ] Code uses German field names consistently
 - [ ] Unit tests pass
 - [ ] Integration tests pass
-- [ ] Documentation updated
+- [ ] Documentation updated (with German terminology)
 - [ ] Manual testing completed
 - [ ] Performance acceptable

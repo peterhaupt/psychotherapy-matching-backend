@@ -21,6 +21,39 @@
 - Document all configuration parameters and their purpose
 - Keep sensitive information (passwords, API keys) in environment variables
 
+## Naming Conventions
+
+### Database and Model Fields
+- **USE GERMAN NAMES FOR ALL DATABASE FIELDS** to maintain consistency with existing codebase
+- Match existing patterns: `vorname`, `nachname`, `strasse`, `plz`, `ort`
+- Use underscores for compound German words: `telefonische_erreichbarkeit`, `naechster_kontakt_moeglich`
+- Keep technical/system fields in English: `id`, `created_at`, `updated_at`
+- Model attributes must match database field names exactly (no translation layer)
+
+### Code and Variables
+- Use English for variable names, function names, and comments
+- API endpoint paths can use English REST conventions
+- Class names follow English Python conventions
+
+### Examples
+✅ Correct:
+```python
+# Model field (German)
+bevorzugte_diagnosen = Column(JSONB)
+
+# Variable name (English)
+preferred_diagnoses_list = therapist.bevorzugte_diagnosen
+```
+
+❌ Incorrect:
+```python
+# Model field (English - wrong!)
+preferred_diagnoses = Column(JSONB)
+
+# Mixing languages in same context
+bevorzugteDiagnoses = []  # Don't mix!
+```
+
 ## Error Handling
 - First explain an error completely - only fix after analysis is approved
 - Never guess what an error might be - always properly analyze until certain
@@ -59,3 +92,4 @@
 - Ignoring project documentation or requirements
 - Duplicating configuration values across the codebase
 - Using magic numbers or hardcoded strings in application code
+- **Mixing German and English field names in database schemas**

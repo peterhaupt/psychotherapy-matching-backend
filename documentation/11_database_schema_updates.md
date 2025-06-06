@@ -1,146 +1,176 @@
-# Database Schema Updates for Communication Service
+# Database Schema Updates for Communication Service and Bundle System
 
-This document describes the database schema changes required to implement the communication service's email batching and phone call scheduling functionality.
+This document describes the database schema changes required to implement the communication service's email batching, phone call scheduling functionality, and the bundle-based matching system.
+
+## Naming Convention
+**Important:** All field names in the database use German terminology to maintain consistency with the existing codebase. This decision was made to avoid confusion from mixing English and German field names.
 
 ## Overview of Changes
 
-The following updates to the database schema are needed:
+### Phase 1: Communication Service ✅ COMPLETED
 
 1. **Therapist Model Updates**:
-   - Add potentially available flag
-   - Add field for notes about potential availability
-   - Define JSON structure for telephone availability times
+   - `potentially_available` → Boolean flag
+   - `potentially_available_notes` → Text notes
+   - `telefonische_erreichbarkeit` → JSONB structure (already existed)
 
-2. **New Tables**:
-   - Phone Call table
-   - Phone Call Batch table
+2. **New Tables Created**:
+   - `communication_service.phone_calls` → Phone call tracking
+   - `communication_service.phone_call_batches` → Bundle calls with placement requests
+   - `communication_service.email_batches` → Bundle emails with placement requests
 
-3. **Updates to Existing Tables** (Future):
-   - Add additional fields to Email table
-   - Add relationship fields to Placement Request table
+3. **Email Table Updates**:
+   - Added response tracking fields
+   - Added batch management fields
+
+### Phase 2: Bundle System 🔄 IN PROGRESS
+
+1. **Therapist Table Extensions** (Migration: `acfc96c9f0g0`):
+   - `next_contactable_date` → `naechster_kontakt_moeglich` (Date)
+   - `preferred_diagnoses` → `bevorzugte_diagnosen` (JSONB)
+   - `age_min` → `alter_min` (Integer)
+   - `age_max` → `alter_max` (Integer)
+   - `gender_preference` → `geschlechtspraeferenz` (String)
+   - `working_hours` → `arbeitszeiten` (JSONB)
+
+2. **New Bundle Tables**:
+   - `matching_service.platzsuche` → Patient search tracking
+   - `matching_service.therapeutenanfrage` → Therapist inquiry (bundle)
+   - `matching_service.therapeut_anfrage_patient` → Bundle composition
 
 ## Detailed Schema Changes
 
-### 1. Therapist Table Updates
-
-The `therapists` table requires the following new fields:
+### 1. Updated Therapist Table
 
 ```sql
--- Add to the existing therapists table
+-- Already implemented fields (German names)
 ALTER TABLE therapist_service.therapists
 ADD COLUMN potentially_available BOOLEAN DEFAULT FALSE,
 ADD COLUMN potentially_available_notes TEXT;
+
+-- New bundle-related fields (being renamed to German)
+ALTER TABLE therapist_service.therapists
+ADD COLUMN naechster_kontakt_moeglich DATE,
+ADD COLUMN bevorzugte_diagnosen JSONB,
+ADD COLUMN alter_min INTEGER,
+ADD COLUMN alter_max INTEGER,
+ADD COLUMN geschlechtspraeferenz VARCHAR(50),
+ADD COLUMN arbeitszeiten JSONB;
 ```
 
-The `telefonische_erreichbarkeit` field already exists as a JSONB column, but we need to establish a standard format for it:
-
+The `telefonische_erreichbarkeit` field structure:
 ```json
 {
-  "monday": [
+  "montag": [
     {"start": "09:00", "end": "12:00"},
     {"start": "14:00", "end": "16:30"}
   ],
-  "wednesday": [
+  "mittwoch": [
     {"start": "10:00", "end": "14:00"}
   ],
-  "friday": [
+  "freitag": [
     {"start": "08:30", "end": "11:30"}
   ]
 }
 ```
 
-This structure will be enforced at the application level, not the database level.
+### 2. Patient Table (No Changes Needed)
 
-### 2. Phone Call Table
+The existing Patient model already has sufficient fields:
+- `raeumliche_verfuegbarkeit` (JSONB) → Can store `{"max_km": 30}`
+- `verkehrsmittel` (String) → Already handles "Auto" or "ÖPNV"
+- `zeitliche_verfuegbarkeit` (JSONB) → Detailed availability
 
-A new table for tracking scheduled and completed phone calls:
+No additional migration needed for patients.
 
+### 3. Bundle System Tables
+
+#### Platzsuche (Patient Search)
 ```sql
-CREATE TABLE communication_service.phone_calls (
+CREATE TABLE matching_service.platzsuche (
+    id SERIAL PRIMARY KEY,
+    patient_id INTEGER NOT NULL,
+    status VARCHAR(50) DEFAULT 'active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    excluded_therapists JSONB DEFAULT '[]',
+    total_requested_contacts INTEGER DEFAULT 0,
+    successful_match_date TIMESTAMP,
+    notes TEXT
+);
+```
+
+#### Therapeutenanfrage (Therapist Inquiry/Bundle)
+```sql
+CREATE TABLE matching_service.therapeutenanfrage (
     id SERIAL PRIMARY KEY,
     therapist_id INTEGER NOT NULL,
-    scheduled_date DATE NOT NULL,
-    scheduled_time TIME NOT NULL,
-    duration_minutes INTEGER DEFAULT 5,
-    actual_date DATE,
-    actual_time TIME,
-    status VARCHAR(50) DEFAULT 'scheduled',
-    outcome TEXT,
-    notes TEXT,
-    retry_after DATE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP
+    created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    sent_date TIMESTAMP,
+    response_date TIMESTAMP,
+    response_type VARCHAR(50),
+    bundle_size INTEGER,
+    accepted_count INTEGER DEFAULT 0,
+    rejected_count INTEGER DEFAULT 0,
+    no_response_count INTEGER DEFAULT 0,
+    notes TEXT
 );
-
-CREATE INDEX idx_phone_calls_therapist_id ON communication_service.phone_calls(therapist_id);
-CREATE INDEX idx_phone_calls_scheduled_date ON communication_service.phone_calls(scheduled_date);
-CREATE INDEX idx_phone_calls_status ON communication_service.phone_calls(status);
 ```
 
-### 3. Phone Call Batch Table
-
-A table to connect phone calls to placement requests:
-
+#### Therapeut Anfrage Patient (Bundle Composition)
 ```sql
-CREATE TABLE communication_service.phone_call_batches (
+CREATE TABLE matching_service.therapeut_anfrage_patient (
     id SERIAL PRIMARY KEY,
-    phone_call_id INTEGER NOT NULL,
-    placement_request_id INTEGER NOT NULL,
-    priority INTEGER DEFAULT 1,
-    discussed BOOLEAN DEFAULT FALSE,
-    outcome VARCHAR(50),
-    follow_up_required BOOLEAN DEFAULT FALSE,
-    follow_up_notes TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (phone_call_id, placement_request_id),
-    FOREIGN KEY (phone_call_id) REFERENCES communication_service.phone_calls(id) ON DELETE CASCADE,
-    FOREIGN KEY (placement_request_id) REFERENCES matching_service.placement_requests(id) ON DELETE CASCADE
+    therapeutenanfrage_id INTEGER NOT NULL,
+    platzsuche_id INTEGER NOT NULL,
+    patient_id INTEGER NOT NULL,
+    position_in_bundle INTEGER,
+    status VARCHAR(50) DEFAULT 'pending',
+    response_outcome VARCHAR(50),
+    response_notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
-CREATE INDEX idx_phone_call_batches_phone_call_id ON communication_service.phone_call_batches(phone_call_id);
-CREATE INDEX idx_phone_call_batches_placement_request_id ON communication_service.phone_call_batches(placement_request_id);
 ```
 
-## Migration Process
+## Migration Status
 
-Two migration scripts have been created to implement these schema changes:
-
-1. **6fbc92a7b7e9_add_potentially_available_fields_to_therapist.py**
-   - Adds potentially_available and potentially_available_notes to the therapist table
-
-2. **7bfc93a7c8e9_create_phone_call_tables.py**
-   - Creates phone_calls and phone_call_batches tables
-
-These migrations have been applied to the database using Alembic:
-
-```bash
-cd migrations
-alembic upgrade 6fbc92a7b7e9
-alembic upgrade 7bfc93a7c8e9
-```
+| Migration | Status | Description |
+|-----------|--------|-------------|
+| `6fbc92a7b7e9` | ✅ Applied | Add potentially available fields |
+| `7bfc93a7c8e9` | ✅ Applied | Create phone call tables |
+| `8bfc94a7d8f9` | ✅ Applied | Add email batch table |
+| `9cfc95b8e9f9` | ✅ Applied | Create geocoding tables |
+| `be3c0220ee8c` | ✅ Applied | Update EmailStatus enum to English |
+| `acfc96c9f0g0` | ✅ Applied | Add bundle system tables |
+| `bcfc97d0f1h1` | 🔄 Pending | Rename therapist fields to German |
 
 ## Implementation Notes
 
-### Phone Call Scheduling Logic
+### German Naming Conventions
 
-The phone call scheduling system uses the therapist's availability data to find suitable time slots:
+All new fields follow German naming patterns:
+- Use underscores for compound words: `naechster_kontakt_moeglich`
+- Match existing patterns: `telefonische_erreichbarkeit`
+- Keep technical terms simple: `status`, `id`
 
-1. The telefonische_erreichbarkeit field is parsed to extract day-based availability
-2. Time slots are checked against existing scheduled calls to avoid conflicts
-3. Calls are scheduled in 5-minute blocks
-4. Priority is given to therapists flagged as "potentially available"
+### Bundle System Logic
 
-### Therapist Availability Helper Methods
+The schema supports:
+1. **Cooling Period**: Tracked via `naechster_kontakt_moeglich` on therapist
+2. **Parallel Search**: Patient can be in multiple `therapeutenanfrage` bundles
+3. **Conflict Resolution**: `status` field in `therapeut_anfrage_patient` tracks outcomes
+4. **Progressive Filtering**: Preferences stored in therapist fields
 
-The Therapist model has been extended with helper methods to make working with the availability JSON structure easier:
+### Helper Methods in Models
 
-- `get_available_slots()`: Returns available time slots for a specific date or all slots
-- `is_available_at()`: Checks if a therapist is available at a specific date and time
+The Therapist model includes helper methods:
+- `get_available_slots()`: Parse `telefonische_erreichbarkeit`
+- `is_available_at()`: Check specific time availability
+- `get_next_available_slot()`: Find next open slot
 
-### Future Schema Changes
+## Next Steps
 
-In the next phase, we will implement:
-
-1. Email Batch table to better organize email communications
-2. Updates to the Email model to track responses and follow-ups
-3. Additional relationships between the email, phone call, and placement request models
+1. ✅ Apply migration to rename fields to German
+2. 📋 Update Therapist model with new German field names
+3. 📋 Create SQLAlchemy models for bundle tables
+4. 📋 Implement bundle algorithm using these schemas
