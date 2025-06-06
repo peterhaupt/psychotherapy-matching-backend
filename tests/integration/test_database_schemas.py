@@ -182,6 +182,8 @@ class TestDatabaseSchemas:
                                'Suche abgebrochen', 'Therapie abgebrochen']
             },
             'zeitliche_verfuegbarkeit': {'type': 'JSONB', 'nullable': True},
+            'raeumliche_verfuegbarkeit': {'type': 'JSONB', 'nullable': True},
+            'verkehrsmittel': {'type': 'VARCHAR', 'nullable': True},
             'created_at': {'type': 'DATE', 'nullable': True},
             'updated_at': {'type': 'DATE', 'nullable': True},
         }
@@ -256,6 +258,13 @@ class TestDatabaseSchemas:
             },
             'potentially_available': {'type': 'BOOLEAN', 'nullable': True},
             'potentially_available_notes': {'type': 'TEXT', 'nullable': True},
+            # New columns from bundle system migration
+            'next_contactable_date': {'type': 'DATE', 'nullable': True},
+            'preferred_diagnoses': {'type': 'JSONB', 'nullable': True},
+            'age_min': {'type': 'INTEGER', 'nullable': True},
+            'age_max': {'type': 'INTEGER', 'nullable': True},
+            'gender_preference': {'type': 'VARCHAR', 'nullable': True},
+            'working_hours': {'type': 'JSONB', 'nullable': True},
         }
         
         for col_name, expected in expected_columns.items():
@@ -283,16 +292,24 @@ class TestDatabaseSchemas:
                 # For non-enum columns, check type normally
                 assert str(col['type']).startswith(expected['type']), \
                     f"Column '{col_name}' has wrong type: {col['type']} (expected {expected['type']})"
+        
+        # Check index on next_contactable_date
+        indexes = db_inspector.get_indexes('therapists', schema=schema)
+        assert any(idx['column_names'] == ['next_contactable_date'] for idx in indexes), \
+            "Index on 'next_contactable_date' column not found"
     
     def test_matching_service_schema(self, db_inspector):
         """Test matching_service schema structure."""
         schema = 'matching_service'
         
-        # Check tables exist
+        # Check all tables exist
         tables = db_inspector.get_table_names(schema=schema)
-        assert 'placement_requests' in tables, f"Table 'placement_requests' not found in {schema}"
+        expected_tables = ['placement_requests', 'platzsuche', 'therapeutenanfrage', 'therapeut_anfrage_patient']
         
-        # Check placement_requests table structure
+        for table in expected_tables:
+            assert table in tables, f"Table '{table}' not found in {schema}"
+        
+        # Check placement_requests table structure (existing)
         columns = db_inspector.get_columns('placement_requests', schema=schema)
         column_dict = {col['name']: col for col in columns}
         
@@ -331,12 +348,87 @@ class TestDatabaseSchemas:
                             assert set(actual_values) == set(expected['enum_values']), \
                                 f"Column '{col_name}' has wrong enum values: {actual_values}"
         
-        # Check indexes for foreign keys
-        indexes = db_inspector.get_indexes('placement_requests', schema=schema)
+        # Check platzsuche table (new)
+        columns = db_inspector.get_columns('platzsuche', schema=schema)
+        column_dict = {col['name']: col for col in columns}
+        
+        platzsuche_columns = {
+            'id': {'type': 'INTEGER', 'nullable': False},
+            'patient_id': {'type': 'INTEGER', 'nullable': False},
+            'status': {'type': 'VARCHAR', 'nullable': False},
+            'created_at': {'type': 'TIMESTAMP', 'nullable': False},
+            'excluded_therapists': {'type': 'JSONB', 'nullable': False},
+            'total_requested_contacts': {'type': 'INTEGER', 'nullable': False},
+        }
+        
+        for col_name, expected in platzsuche_columns.items():
+            assert col_name in column_dict, f"Column '{col_name}' not found in platzsuche table"
+        
+        # Check foreign keys on platzsuche
+        fks = db_inspector.get_foreign_keys('platzsuche', schema=schema)
+        fk_columns = [fk['constrained_columns'][0] for fk in fks]
+        assert 'patient_id' in fk_columns, "Foreign key 'patient_id' not found in platzsuche"
+        
+        # Check therapeutenanfrage table (new)
+        columns = db_inspector.get_columns('therapeutenanfrage', schema=schema)
+        column_dict = {col['name']: col for col in columns}
+        
+        therapeutenanfrage_columns = {
+            'id': {'type': 'INTEGER', 'nullable': False},
+            'therapist_id': {'type': 'INTEGER', 'nullable': False},
+            'created_date': {'type': 'TIMESTAMP', 'nullable': False},
+            'sent_date': {'type': 'TIMESTAMP', 'nullable': True},
+            'response_type': {'type': 'VARCHAR', 'nullable': True},
+            'bundle_size': {'type': 'INTEGER', 'nullable': False},
+            'accepted_count': {'type': 'INTEGER', 'nullable': False},
+        }
+        
+        for col_name, expected in therapeutenanfrage_columns.items():
+            assert col_name in column_dict, f"Column '{col_name}' not found in therapeutenanfrage table"
+        
+        # Check foreign keys on therapeutenanfrage
+        fks = db_inspector.get_foreign_keys('therapeutenanfrage', schema=schema)
+        fk_columns = [fk['constrained_columns'][0] for fk in fks]
+        assert 'therapist_id' in fk_columns, "Foreign key 'therapist_id' not found in therapeutenanfrage"
+        
+        # Check therapeut_anfrage_patient table (new)
+        columns = db_inspector.get_columns('therapeut_anfrage_patient', schema=schema)
+        column_dict = {col['name']: col for col in columns}
+        
+        therapeut_anfrage_patient_columns = {
+            'id': {'type': 'INTEGER', 'nullable': False},
+            'therapeutenanfrage_id': {'type': 'INTEGER', 'nullable': False},
+            'platzsuche_id': {'type': 'INTEGER', 'nullable': False},
+            'patient_id': {'type': 'INTEGER', 'nullable': False},
+            'position_in_bundle': {'type': 'INTEGER', 'nullable': False},
+            'status': {'type': 'VARCHAR', 'nullable': False},
+        }
+        
+        for col_name, expected in therapeut_anfrage_patient_columns.items():
+            assert col_name in column_dict, f"Column '{col_name}' not found in therapeut_anfrage_patient table"
+        
+        # Check foreign keys on therapeut_anfrage_patient
+        fks = db_inspector.get_foreign_keys('therapeut_anfrage_patient', schema=schema)
+        fk_refs = {fk['constrained_columns'][0]: fk['referred_table'] for fk in fks}
+        assert 'therapeutenanfrage_id' in fk_refs and fk_refs['therapeutenanfrage_id'] == 'therapeutenanfrage', \
+            "Foreign key to therapeutenanfrage not found"
+        assert 'platzsuche_id' in fk_refs and fk_refs['platzsuche_id'] == 'platzsuche', \
+            "Foreign key to platzsuche not found"
+        assert 'patient_id' in fk_refs and fk_refs['patient_id'] == 'patients', \
+            "Foreign key to patients not found"
+        
+        # Check unique constraint
+        uniques = db_inspector.get_unique_constraints('therapeut_anfrage_patient', schema=schema)
+        expected_unique_cols = ['therapeutenanfrage_id', 'platzsuche_id']
+        assert any(set(u['column_names']) == set(expected_unique_cols) for u in uniques), \
+            "Unique constraint on (therapeutenanfrage_id, platzsuche_id) not found"
+        
+        # Check indexes
+        indexes = db_inspector.get_indexes('platzsuche', schema=schema)
         assert any(idx['column_names'] == ['patient_id'] for idx in indexes), \
-            "Index on 'patient_id' foreign key not found"
-        assert any(idx['column_names'] == ['therapist_id'] for idx in indexes), \
-            "Index on 'therapist_id' foreign key not found"
+            "Index on platzsuche.patient_id not found"
+        assert any(idx['column_names'] == ['status'] for idx in indexes), \
+            "Index on platzsuche.status not found"
     
     def test_communication_service_schema(self, db_inspector):
         """Test communication_service schema structure."""
@@ -469,6 +561,25 @@ class TestDatabaseSchemas:
         assert pr_fk['referred_schema'] == 'matching_service'
         assert pr_fk['referred_table'] == 'placement_requests'
         assert pr_fk['referred_columns'] == ['id']
+        
+        # Check bundle system foreign keys
+        # platzsuche -> patients
+        fks = db_inspector.get_foreign_keys('platzsuche', schema='matching_service')
+        patient_fk = next((fk for fk in fks if fk['constrained_columns'] == ['patient_id']), None)
+        assert patient_fk is not None, "Foreign key from platzsuche.patient_id not found"
+        assert patient_fk['referred_schema'] == 'patient_service'
+        assert patient_fk['referred_table'] == 'patients'
+        
+        # therapeutenanfrage -> therapists
+        fks = db_inspector.get_foreign_keys('therapeutenanfrage', schema='matching_service')
+        therapist_fk = next((fk for fk in fks if fk['constrained_columns'] == ['therapist_id']), None)
+        assert therapist_fk is not None, "Foreign key from therapeutenanfrage.therapist_id not found"
+        assert therapist_fk['referred_schema'] == 'therapist_service'
+        assert therapist_fk['referred_table'] == 'therapists'
+        
+        # therapeut_anfrage_patient -> multiple tables
+        fks = db_inspector.get_foreign_keys('therapeut_anfrage_patient', schema='matching_service')
+        assert len(fks) >= 3, "Expected at least 3 foreign keys on therapeut_anfrage_patient"
     
     def test_unique_constraints(self, db_inspector):
         """Test that unique constraints are properly set up."""
@@ -485,6 +596,12 @@ class TestDatabaseSchemas:
         assert any(set(u['column_names']) == set(['phone_call_id', 'placement_request_id']) 
                   for u in uniques), \
             "Unique constraint on (phone_call_id, placement_request_id) not found"
+        
+        # Check therapeut_anfrage_patient unique constraint
+        uniques = db_inspector.get_unique_constraints('therapeut_anfrage_patient', schema='matching_service')
+        expected_cols = ['therapeutenanfrage_id', 'platzsuche_id']
+        assert any(set(u['column_names']) == set(expected_cols) for u in uniques), \
+            "Unique constraint on (therapeutenanfrage_id, platzsuche_id) not found in therapeut_anfrage_patient"
 
 
 if __name__ == "__main__":
