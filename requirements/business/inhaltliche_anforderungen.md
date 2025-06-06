@@ -1,246 +1,109 @@
 # Anforderungsspezifikation: Psychotherapie-Vermittlungsplattform
 
-[English: This document describes the business requirements for the Psychotherapy Matching Platform. The requirements are maintained in German to ensure precise communication with German-speaking stakeholders and to correctly represent domain-specific terminology. For English translations of key terms, please refer to TERMINOLOGY.md at the project root.]
+[English: Business requirements for the bundle-based therapy matching platform. German terminology preserved for domain accuracy. See TERMINOLOGY.md for translations.]
 
 ## 1. Projektübersicht
 
-Die Psychotherapie-Vermittlungsplattform ist ein Softwaresystem zur effizienten Vermittlung von Psychotherapieplätzen für Patienten in Deutschland. Die Plattform vereinfacht und beschleunigt den Vermittlungsprozess durch automatisierte Kommunikation mit Therapeuten und strukturierte Patientendatenverwaltung.
+Curavani ist eine Vermittlungsplattform für Psychotherapieplätze im deutschen Gesundheitssystem mit dem Ziel, Patienten innerhalb von **Wochen** (nicht Monaten) einen Therapieplatz zu vermitteln.
 
-Die minimale lokale Version soll als Grundlage für ein erweiterbares System dienen, das später zu einer vollwertigen, in der Cloud gehosteten Plattform ausgebaut werden kann.
+**Kernwertversprechen:**
+- **Patienten**: Therapieplatz in Wochen durch parallele Suche
+- **Therapeuten**: Vorqualifizierte Patienten in effizienten Bündeln
+- **Curavani**: Bevorzugter Kanal für Therapeuten werden
 
-## 2. Datenmodell
+## 2. Geschäftskontext
 
-### 2.1 Therapeuten
+### Therapeuten-Probleme
+1. Ungeklärte Patientenverfügbarkeit (<20h/Woche)
+2. Fehlende Versicherungsinformationen
+3. Keine ICD-10 Diagnose
+4. Verletzung der 2-Jahres-Regel
+5. Unzuverlässige Patienten
 
-| Feld | Typ | Beschreibung |
-|------|-----|-------------|
-| Anrede | Text | z.B. Herr, Frau |
-| Titel | Text | z.B. Dr., Prof. |
-| Vorname | Text | |
-| Nachname | Text | |
-| Straße | Text | |
-| PLZ | Text | |
-| Ort | Text | |
-| Telefon | Text | |
-| Fax | Text | |
-| E-Mail | Text | |
-| Webseite | Text | |
-| Kassensitz | Boolean | |
-| Geschlecht | Text | Abgeleitet aus Anrede |
-| Telefonische Erreichbarkeit | Struktur | Zeiten, wann der Therapeut telefonisch erreichbar ist (strukturiert nach Wochentagen und Zeitfenstern) |
-| Fremdsprachen | Liste | |
-| Psychotherapieverfahren | Liste | z.B. Verhaltenstherapie, systemische Therapie, tiefenpsychologisch fundierte Therapie |
-| Zusatzqualifikationen | Text | |
-| Besondere Leistungsangebote | Text | |
-| Letzter Kontakt per E-Mail | Datum | |
-| Letzter Kontakt per Telefon | Datum | |
-| Letztes persönliches Gespräch | Datum | |
-| Freie Einzeltherapieplätze ab | Datum | |
-| Freie Gruppentherapieplätze ab | Datum | |
-| Status | Enum | aktiv, gesperrt, inaktiv |
-| Sperrgrund | Text | Grund für die Sperrung |
-| Sperrdatum | Datum | Zeitpunkt der Sperrung |
-| Potenziell Verfügbar | Boolean | Kennzeichnung, ob der Therapeut potenziell verfügbare Plätze haben könnte |
-| Potenziell Verfügbar Notizen | Text | Erläuterungen zur potenziellen Verfügbarkeit |
-
-### 2.2 Patienten
-
-| Feld | Typ | Beschreibung |
-|------|-----|-------------|
-| Anrede | Text | |
-| Vorname | Text | |
-| Nachname | Text | |
-| Straße | Text | |
-| PLZ | Text | |
-| Ort | Text | |
-| E-Mail | Text | |
-| Telefon | Text | |
-| Hausarzt | Text | |
-| Krankenkasse | Text | |
-| Krankenversicherungsnummer | Text | |
-| Geburtsdatum | Datum | |
-| Diagnose | Text | ICD-10 Diagnose |
-| Verträge unterschrieben | Boolean | |
-| Psychotherapeutische Sprechstunde | Boolean | |
-| Startdatum | Datum | Beginn der Platzsuche |
-| Erster Therapieplatz am | Datum | |
-| Funktionierender Therapieplatz am | Datum | |
-| Status | Enum | offen, auf der Suche, in Therapie, Therapie abgeschlossen, Suche abgebrochen, Therapie abgebrochen |
-| Empfehler der Unterstützung | Text | Wer hat den Patienten auf die Unterstützung hingewiesen |
-| Zeitliche Verfügbarkeit | Struktur | Wochentage und Uhrzeiten, strukturiert erfasst |
-| Räumliche Verfügbarkeit | Struktur | Maximale Entfernung/Fahrzeit |
-| Verkehrsmittel | Text | Auto oder ÖPNV für Entfernungsberechnung |
-| Offen für Gruppentherapie | Boolean | |
-| Offen für DIGA | Boolean | Digitale Gesundheitsanwendungen |
-| Letzter Kontakt | Datum | |
-| Psychotherapieerfahrung | Boolean | |
-| Stationäre Behandlung | Boolean | Für psychische Erkrankung |
-| Berufliche Situation | Text | |
-| Familienstand | Text | |
-| Aktuelle psychische Beschwerden | Text | |
-| Beschwerden seit | Datum | |
-| Bisherige Behandlungen | Text | Psychotherapeutisch oder psychiatrisch |
-| Relevante körperliche Erkrankungen | Text | |
-| Aktuelle Medikation | Text | |
-| Aktuelle Belastungsfaktoren | Text | |
-| Unterstützungssysteme | Text | |
-| Anlass für die Therapiesuche | Text | |
-| Erwartungen an die Therapie | Text | |
-| Therapieziele | Text | |
-| Frühere Therapieerfahrungen | Text | |
-| Ausgeschlossene Therapeuten | Liste | Therapeuten, die bei der Platzsuche nicht berücksichtigt werden sollen |
-| Bevorzugtes Therapeutengeschlecht | Enum | Männlich, Weiblich, Egal |
-
-### 2.3 Platzanfrage
-
-| Feld | Typ | Beschreibung |
-|------|-----|-------------|
-| Patient | Referenz | Verweis auf den Patienten |
-| Therapeut | Referenz | Verweis auf den Therapeuten |
-| Status | Enum | Offen, In Bearbeitung, Abgelehnt, Angenommen |
-| Erstellungsdatum | Datum | |
-| Kontaktdatum E-Mail | Datum | Wann wurde der Therapeut per E-Mail kontaktiert |
-| Kontaktdatum Telefon | Datum | Wann wurde der Therapeut telefonisch kontaktiert |
-| Antwort | Text | Inhalt der Antwort des Therapeuten |
-| Antwortdatum | Datum | |
-| Nächster Kontakt frühestens | Datum | Bei Ablehnung - wann darf der Therapeut für diesen Patienten wieder kontaktiert werden |
-
-### 2.4 E-Mail
-
-| Feld | Typ | Beschreibung |
-|------|-----|-------------|
-| Therapeut | Referenz | Verweis auf den Therapeuten |
-| Betreff | Text | |
-| Inhalt | Text | |
-| Platzanfragen | Liste | Referenzen auf die enthaltenen Platzanfragen |
-| Sendedatum | Datum | |
-| Status | Enum | Entwurf, In Warteschlange, Wird gesendet, Gesendet, Fehlgeschlagen |
-| Batch-ID | Text | Eindeutige Kennung für Stapelverarbeitung |
-| Antwort erhalten | Boolean | |
-| Antwortdatum | Datum | |
-
-### 2.5 Telefonat
-
-| Feld | Typ | Beschreibung |
-|------|-----|-------------|
-| Therapeut | Referenz | Verweis auf den Therapeuten |
-| Geplantes Datum | Datum | |
-| Geplante Uhrzeit | Uhrzeit | Zeit für den geplanten Anruf |
-| Dauer | Integer | Geplante Dauer in Minuten (standardmäßig 5 Minuten) |
-| Tatsächliches Datum | Datum | |
-| Platzanfragen | Liste | Referenzen auf die besprochenen Platzanfragen |
-| Notizen | Text | Ergebnis und Notizen zum Telefonat |
-| Status | Enum | Geplant, Durchgeführt, Fehlgeschlagen |
-| Bei Fehlschlag nächster Versuch | Datum | Wann soll bei einem fehlgeschlagenen Anruf der nächste Versuch stattfinden |
+### Curavani-Lösung: Patientenvorqualifizierung
+1. Private Zahlung = Motivationsfilter
+2. Aktuelle Diagnose verifiziert
+3. Mindestens 20h/Woche Verfügbarkeit
+4. 2-Jahres-Regel geprüft
+5. Detaillierter Verfügbarkeitsplan
 
 ## 3. Kernprozesse
 
-### 3.1 Vermittlungsprozess / Platzsuche-Management
+### 3.1 Platzsuche (Patient Search)
+- **Definition**: Fortlaufender Prozess zur Therapieplatzvermittlung
+- **Ziel**: Vermittlung in Wochen
+- **Inhalt**: Suchhistorie, Ausschlüsse, Kontaktverfolgung
 
-1. **Patientenanlage**
-   - Erfassung aller relevanten Patientendaten
-   - Prüfung der Vollständigkeit
+### 3.2 Therapeutenanfrage (Therapist Inquiry)
+- **Definition**: Gebündelte Anfrage mit 3-6 Patienten
+- **Zweck**: Therapeutenwahl bei minimalem Aufwand
+- **Antwortzeit**: 7 Tage
+- **Typisches Ergebnis**: 1-2 Annahmen pro Bündel
 
-2. **Voraussetzungsprüfung**
-   - Verträge müssen unterschrieben sein (wird außerhalb des Systems erledigt, muss aber dokumentiert werden)
-   - Diagnose muss vorhanden sein (ICD-10)
-   - Falls keine Diagnose: Patient muss erst eine psychotherapeutische Sprechstunde wahrnehmen
+### 3.3 Bündelerstellung
 
-3. **Therapeutensuche**
-   - Automatische Filterung nach folgenden Kriterien:
-     - Entfernung vom Wohnort des Patienten (berechnet mit OpenStreetMap)
-     - Verfügbarkeit des Therapeuten (nicht gesperrt)
-     - Übereinstimmung der zeitlichen Verfügbarkeit
-     - Geschlecht des Therapeuten (falls vom Patienten gewünscht)
-     - Ausschluss von durch den Patienten abgelehnten Therapeuten
-   - Manuelle Freigabe der Kontaktliste
+**Progressive Filterung:**
+1. **Harte Kriterien** (müssen erfüllt sein):
+   - Innerhalb Patientenentfernung
+   - Nicht auf Ausschlussliste
+   - Geschlechterpräferenz erfüllt
 
-4. **Therapeuten-Kontaktierung**
-   - E-Mail-Versand (wenn E-Mail-Adresse vorhanden)
-   - Planung von Telefonaten (wenn keine E-Mail oder keine Antwort innerhalb einer Woche)
-   - Dokumentation aller Kontaktversuche
+2. **Weiche Kriterien** (Priorisierung):
+   - Verfügbarkeitsüberschneidung
+   - Diagnosepräferenz
+   - Alterspräferenz
+   - Gruppentherapiepräferenz
 
-5. **Nachverfolgung**
-   - Aktualisierung des Patientenstatus bei erfolgreicher Vermittlung
-   - Bei Absagen: Dokumentation und neue Kontaktversuche zu anderen Therapeuten
-   - Bei ausbleibender Antwort: Nachfassen nach 1 Woche telefonisch
+3. **Sortierung**:
+   - Nach Patientenwartezeit
+   - Nach geografischer Nähe
 
-### 3.2 Therapeuten-Kontaktmanagement
+### 3.4 Abkühlungsphase
+- **Auslöser**: Jede Therapeutenantwort
+- **Dauer**: 4 Wochen
+- **Umfang**: Systemweit für alle Patienten
 
-#### 3.2.1 E-Mail-Management
-- **Frequenzbegrenzung**: Maximal eine E-Mail pro Therapeut pro Woche
-- **Sammel-E-Mails**: Bei mehreren Anfragen für einen Therapeuten werden diese in einer E-Mail zusammengefasst
-- **Verzögerte Anfragen**: Wenn ein Therapeut bereits in dieser Woche kontaktiert wurde, werden neue Anfragen auf die nächste Woche verschoben
-- **Dokumentation**: Alle versendeten E-Mails werden im System dokumentiert
-- **Antwortverarbeitung**: E-Mail-Antworten werden manuell im System erfasst
-- **Batchverarbeitung**: Patienten werden in Batches nach Wartezeit (Registrierungsdatum) priorisiert
+### 3.5 Parallele Verarbeitung
+- **Anforderung**: Patienten in mehreren Bündeln gleichzeitig
+- **Konfliktlösung**: Bei Mehrfachannahmen → erster Therapeut erhält Patient
 
-#### 3.2.2 Telefonmanagement
-- **Planung**: Telefonate werden gemäß der telefonischen Erreichbarkeit der Therapeuten geplant
-- **Frequenzbegrenzung**: Nach einer Ablehnung wird ein Therapeut für vier Wochen nicht wieder kontaktiert
-- **Sammeltelefonate**: Bei mehreren Anfragen für einen Therapeuten werden diese in einem Telefonat zusammengefasst
-- **Dokumentation**: Alle Telefonate werden im System dokumentiert
-- **Automatische Planung**: Telefonate werden automatisch 7 Tage nach E-Mail-Versand geplant, wenn keine Antwort erfolgt
-- **Zeitplanung**: Telefonate werden in 5-Minuten-Intervallen geplant
-- **Priorisierung**: Therapeuten mit dem Flag "Potenziell Verfügbar" werden bevorzugt kontaktiert
-- **Neuplanung**: Fehlgeschlagene Telefonate werden zum nächstmöglichen Zeitfenster des Therapeuten neu geplant
+## 4. Datenmodell (Zusammenfassung)
 
-### 3.3 Webscraping-Prozess
+### Erweiterte Entitäten
+- **Patient**: +max_travel_distance_km, travel_mode, availability_schedule
+- **Therapeut**: +next_contactable_date, preferred_diagnoses, age_min/max
 
-- **Quelle**: https://arztsuche.116117.de/
-- **Frequenz**: Tägliches Scraping
-- **Datenverarbeitung**:
-  - Neue Therapeuten werden dem System hinzugefügt
-  - Bestehende Therapeutendaten werden aktualisiert (E-Mail, telefonische Erreichbarkeit etc.)
-- **Manuelle Validierung**:
-  - Änderungen an bestehenden Therapeutendaten müssen manuell geprüft werden
-  - Neue Therapeuten müssen manuell validiert werden
+### Neue Entitäten
+- **Platzsuche**: patient_id, status, excluded_therapists
+- **PlatzucheContactRequest**: requested_count, requested_date
+- **Therapeutenanfrage**: therapist_id, bundle_size, response_type
+- **TherapeutAnfragePatient**: Verknüpfung Anfrage↔Patient
 
-## 4. Funktionale Anforderungen
+## 5. Funktionale Anforderungen
 
-### 4.1 E-Mail-Management
+### 5.1 Kontaktmanagement
+- **E-Mail**: Max. 1/Woche pro Therapeut, Bündelung mehrerer Patienten
+- **Telefon**: Nach 7 Tagen ohne E-Mail-Antwort, 5-Minuten-Slots
+- **Priorisierung**: "Potenziell verfügbare" Therapeuten zuerst
 
-- **Vorlagen**: Das System stellt standardisierte E-Mail-Vorlagen für verschiedene Szenarien bereit
-- **Versand**: E-Mails werden direkt aus dem System über einen lokalen SMTP-Server versendet
-- **Dokumentation**: Alle versendeten E-Mails werden mit Datum, Empfänger und Inhalt gespeichert
-- **Antworterfassung**: Manuelle Erfassung von E-Mail-Antworten im System
-- **Sammel-E-Mails**: Automatische Zusammenfassung mehrerer Anfragen in einer E-Mail
-- **Batch-Verarbeitung**: System gruppiert Patienten nach Therapeuten und hält die 7-Tage-Frequenzbegrenzung ein
-- **Priorisierung**: Patienten werden nach Wartezeit (Registrierungsdatum) priorisiert
+### 5.2 Manuelle Eingriffe
+- Direkte Zuweisung bei spontanen Öffnungen
+- Ausnahmen von Abkühlungsphase (dokumentiert)
+- Dynamische Ausschlusslisten-Verwaltung
 
-### 4.2 Telefonmanagement
+### 5.3 Webscraping
+- **Quelle**: arztsuche.116117.de
+- **Frequenz**: Täglich
+- **Integration**: Datei-basiert über Cloud Storage
 
-- **Planung**: Telefonate werden basierend auf den Erreichbarkeitszeiträumen der Therapeuten geplant
-- **Priorisierung**: Therapeuten ohne E-Mail oder ohne E-Mail-Antwort werden bevorzugt angerufen
-- **Bevorzugung**: "Potenziell verfügbare" Therapeuten werden zuerst kontaktiert
-- **Dokumentation**: Telefonate werden vor- und nachbereitet (Planung, Durchführung, Ergebnis)
-- **Sammeltelefonate**: Automatische Planung von Sammeltelefonaten für mehrere Patienten
-- **Automatische Planung**: Telefonate werden 7 Tage nach E-Mail ohne Antwort automatisch geplant
-- **Zeitintervalle**: Telefonate werden in 5-Minuten-Blöcken geplant
-- **Neuplanung**: Bei fehlgeschlagenen Anrufen wird automatisch ein neuer Termin zum nächstmöglichen Zeitpunkt geplant
-- **Sperrzeit**: Nach Ablehnung werden keine weiteren Telefonate für 4 Wochen mit diesem Therapeuten geplant
+## 6. Geschäftsmetriken
 
-### 4.3 Therapeutensperrung
+### Erfolgsmetriken
+- **Vermittlungsgeschwindigkeit**: Tage bis Erfolg (Ziel: <30)
+- **Annahmerate**: % angenommene Patienten/Bündel
+- **Konfliktrate**: % Mehrfachannahmen (positiv)
 
-- **Sperrfunktion**: Therapeuten können temporär für neue Anfragen gesperrt werden
-- **Sperrgrund**: Bei Sperrung muss ein Grund angegeben werden
-- **Transparenz**: Sperrungen werden mit Grund und Datum dokumentiert
-- **Automatische Sperrung**: Bei Absagen kann ein Therapeut automatisch für 4 Wochen für denselben Patienten gesperrt werden
-
-### 4.4 Entfernungsberechnung
-
-- **Methode**: OpenStreetMap API
-- **Kriterien**: 
-  - Für Patienten mit Auto: Fahrzeit mit dem Auto
-  - Für Patienten ohne Auto: Fahrzeit mit ÖPNV
-- **Filterung**: Automatischer Ausschluss von Therapeuten außerhalb des definierten Radius
-
-## 5. Besondere Regeln und Einschränkungen
-
-- **Kontaktfrequenz**: Ein Therapeut darf maximal einmal pro Woche per E-Mail und nach Ablehnung erst nach 4 Wochen telefonisch kontaktiert werden
-- **Datenschutz**: Sensible Patientendaten müssen besonders geschützt werden
-- **Erweiterbarkeit**: Das System muss modular und erweiterbar gestaltet sein
-- **Lokaler Betrieb**: Die erste Version läuft nur lokal, muss aber für Cloud-Deployment vorbereitet sein
-- **Manuelle Prozesse**: In der ersten Version werden viele Prozesse noch manuell durchgeführt (Eingabe von E-Mail-Antworten, Durchführung von Telefonaten)
-- **Therapeutenfilterung**: Patienten können Therapeuten von ihrer Suche ausschließen
-- **Geschlechterpräferenz**: Patienten können das Geschlecht ihrer Therapeuten auswählen
+### Operative Metriken
+- **Bündeleffizienz**: Ø Annahmen/Bündel
+- **Antwortrate**: % Antworten in 7 Tagen
+- **Abkühlungseinhaltung**: % korrekte Kontaktpausen

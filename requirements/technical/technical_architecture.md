@@ -1,237 +1,185 @@
 # Technical Architecture
 
-## Overview
+## System Overview
 
-The Psychotherapy Matching Platform is designed as a microservice-based system to facilitate matching patients with therapists in Germany. This document outlines the technical architecture, design principles, and implementation approach.
+Microservice architecture for bundle-based therapy matching with progressive filtering and parallel search capabilities.
 
-## 1. System Architecture
-
-### 1.1 High-Level Architecture
+## Architecture Diagram
 
 ```
-┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐
-│                    │     │                    │     │                    │
-│  Frontend          │────▶│   API Gateway      │────▶│  Microservices     │
-│                    │     │                    │     │                    │
-└────────────────────┘     └────────────────────┘     └────────────────────┘
-                                                               │
-                                                               │
-                                                               ▼
-┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐
-│                    │     │                    │     │                    │
-│  External Services │◀────│  Persistent        │◀────│  Message Queue     │
-│  - OpenStreetMap   │     │  Storage           │     │                    │
-│  - SMTP            │     │  - Database        │     │                    │
-│  - 116117.de       │     │  - File Storage    │     │                    │
-└────────────────────┘     └────────────────────┘     └────────────────────┘
+┌─────────────┐    ┌──────────────┐    ┌───────────────────────────┐
+│   Frontend  │───▶│  API Gateway │───▶│     Microservices         │
+└─────────────┘    └──────────────┘    │ - Patient Service         │
+                                       │ - Therapist Service       │
+                                       │ - Matching Service (v2)   │
+                                       │ - Communication Service   │
+                                       │ - Geocoding Service       │
+                                       └───────────┬───────────────┘
+                                                   │
+                   ┌───────────────────────────────┼───────────────┐
+                   │                               │               │
+            ┌──────▼──────┐         ┌──────────────▼─────┐   ┌─────▼──────┐
+            │ PostgreSQL  │         │      Kafka         │   │  External  │
+            │ (Schemas)   │         │ (Event Streaming) │   │  Services  │
+            └─────────────┘         └────────────────────┘   └────────────┘
 ```
 
-### 1.2 Design Principles
+## Technology Stack
 
-- **Domain-Driven Design**: Services organized around business domains
-- **Stateless Architecture**: Services operate without session state
-- **Database-Centered**: State maintained in database for resilience
-- **Modular & Extensible**: Components can be upgraded individually
-- **Security-First**: GDPR compliance built into the design
-
-## 2. Technology Stack
-
-- **Backend**: Python 3.11 with Flask
-- **Database**: PostgreSQL
-- **Containerization**: Docker and Docker Compose
+- **Backend**: Python 3.11, Flask, SQLAlchemy
+- **Database**: PostgreSQL with PgBouncer
 - **Messaging**: Kafka
-- **API**: REST with Flask-RESTful
-- **Geocoding**: OpenStreetMap API
-- **Email**: Python's SMTP library with local client
+- **Containerization**: Docker
+- **External**: OpenStreetMap, SMTP, 116117.de scraper
 
-## 3. Microservice Components
+## Service Architecture Updates
 
-### 3.1 Core Services
+### Matching Service v2
+**New Responsibilities:**
+- Bundle creation with progressive filtering
+- Cooling period management
+- Parallel search orchestration
+- Conflict resolution
+- Therapist preference learning
 
-#### Patient Service
-- Patient profile management
-- Medical information handling
-- Availability and preference tracking
-- Patient state management
+**Key Algorithms:**
+```python
+def create_bundle(patient_search):
+    # 1. Get eligible therapists (not in cooling)
+    # 2. Apply hard constraints (distance, exclusions)
+    # 3. Progressive filtering by preferences
+    # 4. Sort by patient wait time
+    # 5. Select 3-6 patients per therapist
+```
 
-#### Therapist Service
-- Therapist profile management
-- Availability tracking
-- Specialty and qualification handling
-- Contact history tracking
+### Communication Service Integration
+- Receives bundle composition from Matching Service
+- Sends individual emails (no bundle logic)
+- Tracks responses and notifies Matching Service
+- Matching Service updates cooling periods
 
-#### Matching Service
-- Implementation of matching algorithm
-- Placement request management
-- Matching history tracking
-- Prioritization handling
+## Data Model Updates
 
-#### Communication Service
-- Email template management
-- Email dispatch and tracking
-- Phone call scheduling
-- Communication history tracking
-- Batch processing
+### New Tables
+```sql
+-- Patient Search Management
+platzsuche (
+  id, patient_id, status, 
+  excluded_therapists[], total_requested_contacts
+)
 
-### 3.2 Supporting Services
+-- Therapist Inquiry Bundle
+therapeutenanfrage (
+  id, therapist_id, bundle_size,
+  response_type, accepted_count
+)
 
-#### Geocoding Service
-- Address validation
-- Distance calculation
-- Travel time estimation
-- Geocoding cache
+-- Bundle Composition
+therapeut_anfrage_patient (
+  therapeutenanfrage_id, platzsuche_id,
+  patient_id, position_in_bundle, status
+)
+```
 
-#### Data Acquisition Service (Scraping)
-- Web scraping from 116117.de
-- Data validation and normalization
-- Therapist data enrichment
+### Enhanced Models
+- **Patient**: +travel preferences, detailed availability
+- **Therapist**: +cooling dates, preferences, working hours
 
-## 4. Database Design
+## Event Architecture
 
-### 4.1 Schema Strategy
-
-Single PostgreSQL database with separate schemas:
-- `patient_service`
-- `therapist_service`
-- `matching_service`
-- `communication_service`
-- `geocoding_service`
-- `scraping_service`
-
-### 4.2 Schema Isolation
-
-- Each microservice accesses only its own schema
-- Cross-service data access via APIs, not direct DB access
-- Shared database for development simplicity
-- Designed for future separation if needed
-
-### 4.3 Connection Management
-
-- PgBouncer for connection pooling
-- Session management via shared utilities
-- Connection resilience patterns
-
-## 5. Communication Patterns
-
-### 5.1 Synchronous Communication
-
-REST APIs used for:
-- Direct queries
-- User-facing operations
-- Immediate feedback requirements
-- Simple CRUD operations
-
-### 5.2 Asynchronous Communication
-
-Kafka used for:
-- Event notifications
-- Inter-service workflow triggers
-- Background processes
-- Eventual consistency
-
-### 5.3 Event Schema
-
+### New Event Types
 ```json
 {
-  "eventId": "uuid",
-  "eventType": "service.action",
-  "version": "1.0",
-  "timestamp": "ISO-8601",
-  "producer": "service-name",
-  "payload": {}
+  "eventType": "bundle.created",
+  "payload": {
+    "bundle_id": "uuid",
+    "therapist_id": 123,
+    "patient_ids": [1,2,3]
+  }
 }
 ```
 
-## 6. Resilience Patterns
+**Bundle Events:**
+- `bundle.created`
+- `bundle.sent`
+- `bundle.response_received`
+- `search.updated`
+- `cooling.period_started`
 
-### 6.1 Database Resilience
+## API Design (v2)
 
-- Proper session management
-- Transaction boundaries
-- Error handling and rollbacks
-- Connection pooling
+### Endpoints
+```
+# Search Management
+POST   /api/v2/patient-searches
+GET    /api/v2/patient-searches/{id}
+POST   /api/v2/patient-searches/{id}/contact-requests
 
-### 6.2 Messaging Resilience
+# Bundle Operations  
+POST   /api/v2/bundles/create
+GET    /api/v2/bundles/{id}
+PUT    /api/v2/bundles/{id}/response
 
-- Robust Kafka producer with reconnection
-- Message queuing during outages
-- At-least-once delivery semantics
-- Message persistency
+# Analytics
+GET    /api/v2/analytics/bundle-efficiency
+GET    /api/v2/analytics/therapist-preferences
+```
 
-### 6.3 API Resilience
+## Feature Flag Architecture
 
-- Circuit breaker patterns
-- Request validation
-- Rate limiting
-- Appropriate error responses
+```python
+FEATURE_FLAGS = {
+    'bundle_matching': {
+        'enabled': True,
+        'rollout_percentage': 50,
+        'override_users': ['admin']
+    }
+}
+```
 
-## 7. Containerization
+## Performance Considerations
 
-### 7.1 Docker Configuration
+### Caching Strategy
+- Therapist eligibility cache (5 min TTL)
+- Distance calculation cache (30 days)
+- Bundle composition cache (1 hour)
 
-- One container per microservice
-- Shared volume for code during development
-- Environment variables for configuration
-- Health checks for service dependencies
+### Database Optimization
+- Indexes on search status, cooling dates
+- Materialized views for therapist preferences
+- Partitioning for historical data
 
-### 7.2 Container Orchestration
-
-- Docker Compose for local development
-- Service dependency management
-- Volume mapping for persistence
-- Network configuration
-
-## 8. Security Considerations
-
-### 8.1 Data Protection
+## Security & Compliance
 
 - GDPR-compliant data handling
-- Minimized data collection
-- Appropriate data retention policies
-- Secure data transmission
+- Audit logging for all bundle operations
+- Role-based access (staff vs admin)
+- Encrypted PII at rest
 
-### 8.2 Authentication & Authorization
+## Deployment Strategy
 
-- Role-based access control
-- Proper credential management
-- Session security
-- API security
+### Container Orchestration
+- Feature-flagged deployment
+- Blue-green deployment option
+- Database migration automation
+- Rollback capabilities
 
-## 9. External Integrations
+### Monitoring
+- Bundle creation performance
+- API response times
+- Cooling period violations
+- Success rate tracking
 
-### 9.1 OpenStreetMap Integration
+## Integration Points
 
-- Geocoding for addresses
-- Distance calculations
-- Travel time estimation
-- Results caching
+### Internal Services
+- Centralized configuration
+- Shared event schemas
+- Common database utilities
+- Unified error handling
 
-### 9.2 Email Integration
-
-- SMTP for email sending
-- Template-based email generation
-- Delivery tracking
-- Response handling
-
-### 9.3 Web Scraping
-
-- 116117.de data extraction
-- Rate limiting and respectful access
-- Data normalization
-- Change detection
-
-## 10. Deployment Strategy
-
-### 10.1 Development Environment
-
-- Local Docker Compose setup
-- Shared database instance
-- Volume mounts for live code updates
-- Development tools
-
-### 10.2 Future Production Environment
-
-- Cloud-ready service design
-- Kubernetes deployment options
-- Multi-region considerations
-- Scalability planning
+### External Systems
+- Cloud storage for scraper data
+- SMTP for communications
+- OpenStreetMap for geocoding
+- Future: Insurance APIs

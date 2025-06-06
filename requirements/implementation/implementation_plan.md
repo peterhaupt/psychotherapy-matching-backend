@@ -1,159 +1,142 @@
 # Implementation Plan
 
-This document outlines the phased implementation approach for developing the Psychotherapy Matching Platform, prioritizing core functionality while building a solid foundation for future expansion.
+Phased implementation approach for the Psychotherapy Matching Platform.
 
-## Phase 1: Foundation (Completed)
+## Phase 1: Foundation (✅ Completed)
 
-### Environment Setup
-- Docker and Docker Compose installation
-- Python environment configuration (Python 3.11)
-- Database setup (PostgreSQL with PgBouncer)
-- Kafka message queue configuration
-- Project structure and shared code implementation
-- Local SMTP setup for email testing
+### Achievements
+- Docker/PostgreSQL/Kafka infrastructure
+- Core microservices (Patient, Therapist, Matching, Communication, Geocoding)
+- Basic CRUD operations and event system
+- Web scraping service (separate repository)
 
-### Core Services Implementation
-1. **Patient Service**
-   - Patient model implementation
-   - CRUD REST API
-   - Status tracking
-   - Event publishing
+## Phase 2: Integration & Enhancement (✅ Completed)
 
-2. **Therapist Service**
-   - Therapist model implementation
-   - CRUD REST API
-   - Availability management
-   - Event publishing
-
-3. **Matching Service**
-   - Placement request model implementation
-   - Basic matching algorithm
-   - API endpoints for placements
-   - Event handling for patient/therapist changes
-
-4. **Communication Service**
-   - Email model implementation
-   - Phone call scheduling model
-   - Template system setup
-   - Basic sending capabilities
-
-5. **Geocoding Service**
-   - OpenStreetMap integration
-   - Distance calculation
-   - Caching system
-   - API endpoints
-
-6. **Web Scraping Service**
-   - Separate repository implementation
-   - Data extraction from 116117.de
-   - Therapist data normalization
-   - JSON file export
-
-## Phase 2: Integration & Enhancement (Current)
-
-### Scraper Integration
-- File-based integration pattern
-- Cloud storage configuration
-- Import process implementation
-- API endpoints for import management
+### Achievements
+- Scraper integration via cloud storage
+- Email batching and phone call scheduling
+- Centralized configuration
+- Comprehensive documentation
 - Testing framework
-- Monitoring setup
 
-### Testing Enhancement
-- Unit testing expansion
-- Integration test implementation
-- System test scenarios
+## Phase 3: Bundle-Based Matching System (🚧 Current - 4 weeks)
+
+### Week 1: Foundation
+**Database Schema Updates**
+- Create tables: platzsuche, therapeutenanfrage, bundle composition
+- Update patient/therapist models with new fields
+- Migration scripts with rollback capability
+
+**Model Implementation**
+- Platzsuche with exclusion management
+- Therapeutenanfrage with response handling
+- Bundle composition tracking
+
+### Week 2-3: Service Logic
+**Matching Service**
+- Bundle creation algorithm with progressive filtering
+- Cooling period enforcement
+- Parallel bundle support
+- Conflict resolution
+
+**Communication Service Integration**
+- Update for bundle-aware email sending
+- Response tracking enhancements
+- Maintain backward compatibility
+
+### Week 4: API & Testing
+**API Implementation**
+- Patient search endpoints
+- Bundle management endpoints
+- Staff operation endpoints
+- V2 API with feature flags
+
+**Testing**
+- Unit tests for algorithm
+- Integration tests for bundle flow
 - Performance testing
+- UAT with staff
 
-### Documentation Updates
-- API documentation
-- Integration details
-- Operational runbooks
-- User guides
+### Deployment Strategy
+- Feature flags for gradual rollout
+- Parallel operation with old system
+- Staff training materials
+- Monitoring dashboard
 
-## Phase 3: Web Interface (Planned)
+### Rollback Plan
+- Database rollback scripts ready
+- Feature flag disable capability
+- Old API endpoints maintained
 
-### Frontend Development
-- UI design mockups
-- Core application structure
-- React/Bootstrap implementation
-- Component library development
+## Phase 4: Web Interface (Planned - 4 weeks)
 
-### User Management
-- Authentication system
-- Authorization model
-- User profiles
-- Session management
+### Core Features
+- Patient search management UI
+- Bundle creation interface
+- Response recording
+- Cooling period visualization
+- Conflict resolution UI
 
-### Application Workflows
-- Patient intake process
-- Therapist management
-- Matching workflow
-- Communication tracking
-- Reporting dashboards
+### Technical Stack
+- React/TypeScript frontend
+- Material-UI components
+- State management (Redux/Context)
+- Real-time updates
 
-## Phase 4: System Hardening (Planned)
+## Phase 5: Production Readiness (Planned - 2 weeks)
 
-### Performance Optimization
-- Database query optimization
+### Performance
+- Query optimization
 - Caching implementation
-- Resource allocation tuning
 - Load testing
 
-### Security Enhancement
+### Security
+- Authentication/authorization
 - Data encryption
-- Access control refinement
-- Secure API endpoints
-- Security testing
+- Security audit
 
-### Monitoring & Alerting
-- Centralized logging
-- Performance metrics
-- Automated alerts
-- Health checks
+### Operations
+- Monitoring setup
+- Alert configuration
+- Backup procedures
+- Documentation completion
 
-## Phase 5: Advanced Features (Future)
+## Phase 6: Advanced Features (Future)
 
-### Machine Learning
-- Match success prediction
-- Optimization algorithms
-- Recommendation engine
+### Intelligence
+- ML-based matching optimization
+- Success prediction
+- Preference learning
 
-### Additional Integrations
-- Health record systems
-- Insurance provider APIs
-- Billing systems
+### Integration
+- Insurance system APIs
+- Hospital discharge systems
+- Mobile applications
 
-### Mobile Applications
-- Patient-facing app
-- Therapist-facing app
+## Success Criteria
 
-## Implementation Priorities
+### Phase 3 (Bundle System)
+- [ ] All models implemented
+- [ ] APIs returning correct data
+- [ ] Feature flags working
+- [ ] Staff can create bundles
+- [ ] Cooling periods enforced
+- [ ] Performance <2s for bundle creation
 
-1. **Must Have (MVP)**
-   - Patient and therapist data management
-   - Basic matching algorithm
-   - Email sending capability
-   - Phone call scheduling
-   - Distance-based matching
-   - Therapist data scraping
+### Overall MVP
+- [ ] Placement time <30 days average
+- [ ] >20% therapist acceptance rate
+- [ ] System handles 100+ concurrent searches
+- [ ] Staff productivity improved 50%
 
-2. **Should Have (Phase 2-3)**
-   - Full matching algorithm with all criteria
-   - Batch email processing
-   - Contact frequency management
-   - Web interface
-   - Reporting capabilities
-   - Full test coverage
+## Risk Mitigation
 
-3. **Could Have (Phase 4-5)**
-   - Advanced data visualization
-   - Machine learning enhancements
-   - Mobile applications
-   - Advanced API integrations
+### Technical Risks
+- **Algorithm performance**: Pre-calculate, use caching
+- **Data conflicts**: Proper locking, UI for resolution
+- **Migration failures**: Comprehensive rollback plan
 
-4. **Won't Have (Initial Scope)**
-   - Patient self-service portal
-   - Real-time chat
-   - Automated translation services
-   - Billing system integration
+### Business Risks
+- **Staff adoption**: Training, gradual rollout
+- **Therapist confusion**: Clear communication
+- **Patient expectations**: Transparent process

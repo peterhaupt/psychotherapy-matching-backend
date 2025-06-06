@@ -14,6 +14,25 @@ This document standardizes terminology used throughout the Psychotherapy Matchin
 | Therapy Session | Therapiesitzung |
 | Insurance Provider | Krankenkasse |
 | Referral | Empfehlung |
+| Patient Search | Platzsuche |
+| Therapist Inquiry | Therapeutenanfrage |
+| Bundle | Bündel |
+| Contact Request | Kontaktanfrage |
+
+## Bundle-Based System Terms
+
+| English | German |
+|---------|--------|
+| Patient Search | Platzsuche |
+| Therapist Inquiry | Therapeutenanfrage |
+| Bundle Composition | Bündelzusammensetzung |
+| Contact Request | Kontaktanfrage |
+| Cooling Period | Abkühlungsphase |
+| Bundle Size | Bündelgröße |
+| Parallel Search | Parallele Suche |
+| Exclusion List | Ausschlussliste |
+| Progressive Filtering | Progressive Filterung |
+| Preference Matching | Präferenzabgleich |
 
 ## Status Terms
 
@@ -33,6 +52,12 @@ This document standardizes terminology used throughout the Psychotherapy Matchin
 | Sent | Gesendet |
 | Failed | Fehlgeschlagen |
 | Scheduled | Geplant |
+| Successful | Erfolgreich |
+| Abandoned | Abgebrochen |
+| In Sessions | In Sitzungen |
+| Partial | Teilweise |
+| No Response | Keine Antwort |
+| Pending | Ausstehend |
 
 ## Communication Terms
 
@@ -49,6 +74,10 @@ This document standardizes terminology used throughout the Psychotherapy Matchin
 | Content | Inhalt |
 | Follow-up | Nachverfolgung |
 | Reminder | Erinnerung |
+| Bundle Email | Bündel-E-Mail |
+| Individual Contact | Einzelkontakt |
+| Response Type | Antworttyp |
+| Response Outcome | Antwortergebnis |
 
 ## Process Terms
 
@@ -66,6 +95,12 @@ This document standardizes terminology used throughout the Psychotherapy Matchin
 | Processing | Verarbeitung |
 | Batching | Stapelverarbeitung |
 | Scheduling | Terminplanung |
+| Bundle Creation | Bündelerstellung |
+| Progressive Filtering | Progressive Filterung |
+| Conflict Resolution | Konfliktlösung |
+| Manual Assignment | Manuelle Zuweisung |
+| Parallel Processing | Parallele Verarbeitung |
+| Pre-qualification | Vorqualifizierung |
 
 ## Patient-Specific Terms
 
@@ -81,6 +116,14 @@ This document standardizes terminology used throughout the Psychotherapy Matchin
 | Psychological Complaints | Psychische Beschwerden |
 | Support Systems | Unterstützungssysteme |
 | Therapy Goals | Therapieziele |
+| Maximum Travel Distance | Maximale Reiseentfernung |
+| Travel Mode | Reisemodus |
+| Availability Schedule | Verfügbarkeitsplan |
+| Waiting Time | Wartezeit |
+| Exclusion List | Ausschlussliste |
+| Initial Sessions | Erstgespräche |
+| Insurance Eligibility | Versicherungsberechtigung |
+| Two-Year Rule | Zwei-Jahres-Regel |
 
 ## Therapist-Specific Terms
 
@@ -96,6 +139,32 @@ This document standardizes terminology used throughout the Psychotherapy Matchin
 | Single Therapy Places | Einzeltherapieplätze |
 | Group Therapy Places | Gruppentherapieplätze |
 | Potentially Available | Potenziell Verfügbar |
+| Next Contactable Date | Nächstes Kontaktdatum |
+| Last Contact Date | Letztes Kontaktdatum |
+| Preferred Diagnoses | Bevorzugte Diagnosen |
+| Age Preferences | Altersbereiche |
+| Gender Preferences | Geschlechterpräferenzen |
+| Working Hours | Arbeitszeiten |
+| Response Pattern | Antwortmuster |
+| Acceptance Rate | Annahmerate |
+
+## Bundle-Specific Terms
+
+| English | German |
+|---------|--------|
+| Bundle | Bündel |
+| Bundle Size | Bündelgröße |
+| Bundle Composition | Bündelzusammensetzung |
+| Bundle Priority | Bündelpriorität |
+| Accepted Count | Angenommene Anzahl |
+| Position in Bundle | Position im Bündel |
+| Bundle Efficiency | Bündeleffizienz |
+| Optimal Bundle | Optimales Bündel |
+| Bundle Preview | Bündelvorschau |
+| Bundle Response | Bündelantwort |
+| Full Acceptance | Vollständige Annahme |
+| Partial Acceptance | Teilweise Annahme |
+| Full Rejection | Vollständige Ablehnung |
 
 ## Technical Terms
 
@@ -116,3 +185,21 @@ This document standardizes terminology used throughout the Psychotherapy Matchin
 | Service | Dienst |
 | Cache | Zwischenspeicher |
 | Queue | Warteschlange |
+| Feature Flag | Feature-Flag |
+| Rollback | Rückgängigmachung |
+| Deployment | Bereitstellung |
+
+## Business Metrics Terms
+
+| English | German |
+|---------|--------|
+| Placement Speed | Vermittlungsgeschwindigkeit |
+| Success Rate | Erfolgsquote |
+| Response Rate | Antwortquote |
+| Show Rate | Erscheinungsquote |
+| Conflict Rate | Konfliktrate |
+| Bundle Efficiency | Bündeleffizienz |
+| Cooling Compliance | Einhaltung der Abkühlungsphase |
+| Parallel Search Effectiveness | Effektivität der parallelen Suche |
+| Acceptance Rate | Annahmerate |
+| Rejection Rate | Ablehnungsquote |
