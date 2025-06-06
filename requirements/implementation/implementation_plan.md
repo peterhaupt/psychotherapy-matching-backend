@@ -13,19 +13,22 @@ Phased implementation approach for the Psychotherapy Matching Platform.
 ## Phase 2: Integration & Enhancement (✅ Completed)
 
 ### Achievements
-- Scraper integration via cloud storage
-- Email batching and phone call scheduling
+- Email system with templates
+- Phone call scheduling
+- Geocoding with caching
 - Centralized configuration
-- Comprehensive documentation
-- Testing framework
+- Basic matching with simple placement requests
 
-## Phase 3: Bundle-Based Matching System (🚧 Current - 4 weeks)
+## Phase 3: Bundle-Based Matching System (🚧 Current - 3 weeks)
+
+### Overview
+Transform the current basic matching system into the bundle-based system described in business requirements.
 
 ### Week 1: Database Schema Updates
 
 **New Tables:**
 ```sql
--- Patient search management
+-- Patient search tracking
 CREATE TABLE matching_service.platzsuche (
     id SERIAL PRIMARY KEY,
     patient_id INTEGER NOT NULL,
@@ -35,7 +38,7 @@ CREATE TABLE matching_service.platzsuche (
     total_requested_contacts INTEGER DEFAULT 0
 );
 
--- Therapist inquiry bundles
+-- Bundle tracking
 CREATE TABLE matching_service.therapeutenanfrage (
     id SERIAL PRIMARY KEY,
     therapist_id INTEGER NOT NULL,
@@ -57,178 +60,183 @@ CREATE TABLE matching_service.therapeut_anfrage_patient (
 );
 ```
 
-**Column Updates:**
+**Column Additions:**
 ```sql
--- Patient updates
+-- Patient enhancements
 ALTER TABLE patient_service.patients ADD COLUMN 
-    max_travel_distance_km INTEGER,
-    travel_mode VARCHAR(50),
+    max_travel_distance_km INTEGER DEFAULT 30,
+    travel_mode VARCHAR(50) DEFAULT 'Auto',
     availability_schedule JSONB;
 
--- Therapist updates  
+-- Therapist enhancements
 ALTER TABLE therapist_service.therapists ADD COLUMN
     next_contactable_date DATE,
-    last_contact_date DATE,
     preferred_diagnoses JSONB,
     age_min INTEGER,
-    age_max INTEGER;
+    age_max INTEGER,
+    gender_preference VARCHAR(50),
+    working_hours JSONB;
 ```
 
-### Week 2-3: Service Logic & API Implementation
+### Week 2: Bundle Algorithm Implementation
 
-**Matching Service v2:**
-- Bundle creation algorithm with progressive filtering
-- Cooling period enforcement via `next_contactable_date`
-- Parallel bundle support with conflict resolution
-- New API endpoints with versioning:
-  ```
-  # v1 endpoints (maintain for compatibility)
-  GET/POST /api/placement-requests
-  
-  # v2 endpoints (new bundle system)
-  POST   /api/v2/patient-searches
-  POST   /api/v2/bundles/create
-  PUT    /api/v2/bundles/{id}/response
-  GET    /api/v2/analytics/bundle-efficiency
-  ```
+**Core Components:**
 
-**Communication Service Updates:**
-- Maintain existing email/phone endpoints
-- Remove bundle logic (handled by Matching Service)
-- Add response notification to Matching Service
+1. **Bundle Creation Service** (`matching_service/algorithms/bundle_creator.py`):
+   ```python
+   def create_bundles_for_all_therapists():
+       # 1. Get all contactable therapists
+       # 2. For each therapist, apply progressive filtering
+       # 3. Create bundles of 3-6 patients
+       # 4. Update cooling periods
+   ```
 
-**Feature Flags:**
-```python
-FEATURE_FLAGS = {
-    'bundle_matching': {
-        'enabled': True,
-        'rollout_percentage': 50,
-        'override_users': ['admin']
-    }
-}
-```
+2. **Progressive Filtering** (`matching_service/algorithms/filters.py`):
+   - Hard constraints (distance, exclusions, gender)
+   - Soft preferences (diagnosis, age, availability)
+   - Sorting by patient wait time
 
-### Week 4: Testing & Deployment
+3. **Conflict Resolution** (`matching_service/algorithms/conflict_resolver.py`):
+   - Handle multiple acceptances
+   - Reassign patients
+   - Notify affected therapists
+
+4. **API Updates** (modify existing endpoints):
+   ```
+   POST /api/placement-requests/bulk    # Create bundles
+   GET  /api/placement-requests/bundles # View bundles
+   PUT  /api/placement-requests/bundle-response # Record responses
+   ```
+
+### Week 3: Testing & Refinement
 
 **Testing Strategy:**
-- Unit tests for bundle algorithm
-- Integration tests for complete flow
-- Performance tests (target: <2s bundle creation)
-- UAT with staff using feature flags
+1. **Unit Tests**:
+   - Bundle algorithm with various scenarios
+   - Progressive filtering logic
+   - Cooling period calculations
 
-**Deployment & Cutover:**
-1. Deploy with feature flags disabled
-2. Run parallel with old system
-3. Gradual rollout by percentage
-4. Monitor key metrics
-5. Full cutover after validation
+2. **Integration Tests**:
+   - Full flow from patient search to bundle creation
+   - Email generation with correct templates
+   - Phone call scheduling after 7 days
 
-**Rollback Plan:**
-```sql
--- Database rollback
-DROP TABLE IF EXISTS matching_service.therapeut_anfrage_patient;
-DROP TABLE IF EXISTS matching_service.therapeutenanfrage;
-DROP TABLE IF EXISTS matching_service.platzsuche;
--- Revert column additions...
+3. **Load Testing**:
+   - 100+ patients, 50+ therapists
+   - Performance targets: <2s bundle creation
 
--- Code rollback
--- 1. Disable feature flags
--- 2. Revert to previous release tag
--- 3. Clear caches
+**Test Data Generation:**
+```python
+# scripts/generate_test_data.py
+- Create patients with varied preferences
+- Create therapists with different availability
+- Simulate various response patterns
 ```
 
 ### Success Criteria
-- [ ] All models implemented
-- [ ] APIs returning correct data  
-- [ ] Cooling periods enforced
-- [ ] Performance <2s for bundle creation
-- [ ] Staff can create bundles
-- [ ] Parallel bundles working
+- [x] Database schema updated
+- [ ] Bundle algorithm creates appropriate groups
+- [ ] Cooling periods enforced correctly
+- [ ] Email templates use bundle data
+- [ ] Tests pass with good coverage
+- [ ] Performance meets targets
 
 ## Phase 4: Web Interface (Planned - 4 weeks)
 
-### Core Features
-- Patient search management UI
+### Week 1-2: Core UI
+- Patient search dashboard
 - Bundle creation interface
 - Response recording
-- Cooling period visualization
+
+### Week 3-4: Advanced Features
+- Real-time updates
 - Conflict resolution UI
+- Analytics dashboard
 
 ### Technical Stack
-- React/TypeScript frontend
-- Material-UI components
-- State management (Redux/Context)
-- Real-time updates
+- React with TypeScript
+- Material-UI or similar
+- WebSocket for real-time updates
 
-## Phase 5: Production Readiness (Planned - 2 weeks)
+## Phase 5: Production Preparation (Planned - 2 weeks)
 
-### Performance
-- Query optimization
-- Caching implementation
-- Load testing
+### Infrastructure
+- Production Docker configuration
+- Database backup strategy
+- Monitoring setup (Prometheus/Grafana)
+- Log aggregation
 
 ### Security
-- Authentication/authorization
+- Authentication implementation
+- API rate limiting
 - Data encryption
 - Security audit
 
-### Operations
-- Monitoring setup
-- Alert configuration
-- Backup procedures
-- Documentation completion
-
-### Post-Migration Monitoring (First Month)
-**Week 1-2:**
-- Daily monitoring of bundle creation
-- Response rate tracking
-- Bug fixes for urgent issues
-
-**Week 3-4:**
-- Algorithm optimization based on data
-- UI enhancements from feedback
-- Deprecate old placement request endpoints
-
-**Month 2:**
-- Remove old models and code
-- Analyze bundle effectiveness
-- Plan next features
+### Documentation
+- API documentation
+- Deployment guide
+- User manual
 
 ## Phase 6: Advanced Features (Future)
 
-### Intelligence
-- ML-based matching optimization
-- Success prediction
-- Preference learning
+### Machine Learning
+- Success prediction models
+- Preference learning from acceptance patterns
+- Optimal bundle size prediction
 
-### Integration
+### Integrations
 - Insurance system APIs
-- Hospital discharge systems
+- Hospital referral systems
 - Mobile applications
 
-## Risk Mitigation
+## Key Decisions for Early Development
+
+### What We're NOT Doing Yet:
+- ❌ API versioning (no existing clients)
+- ❌ Feature flags (no users to roll out to)
+- ❌ Complex rollback procedures (can recreate database)
+- ❌ Backward compatibility (greenfield project)
+
+### What We ARE Doing:
+- ✅ Direct implementation of new features
+- ✅ Comprehensive testing with mock data
+- ✅ Clear separation of basic vs bundle matching
+- ✅ Focus on core business logic first
+
+## Development Workflow
+
+1. **Branch Strategy**:
+   - `main`: Stable code
+   - `feature/bundle-matching`: Current work
+   - Direct commits during early development
+
+2. **Database Changes**:
+   - Create migrations
+   - Test locally
+   - Reset database as needed
+
+3. **Testing Approach**:
+   - Write tests alongside features
+   - Use mock data extensively
+   - Manual testing with realistic scenarios
+
+## Risks & Mitigation
 
 ### Technical Risks
-- **Algorithm performance**: Pre-calculate eligible therapists, use caching
-- **Data conflicts**: Database locking, UI for manual resolution
-- **Migration failures**: Comprehensive rollback scripts ready
+- **Algorithm complexity**: Start simple, iterate based on results
+- **Performance**: Profile early, optimize as needed
+- **Data quality**: Validate all inputs, handle edge cases
 
 ### Business Risks
-- **Staff adoption**: Hands-on training, gradual rollout
-- **Therapist confusion**: Clear communication templates
-- **Patient expectations**: Transparent process documentation
+- **Requirements clarity**: Regular reviews of bundle logic
+- **User acceptance**: Early demos with stakeholders
 
-### Monitoring During Migration
-- API response times
-- Bundle creation success rate
-- Cooling period violations
-- Staff productivity metrics
-- Database query performance
+## Definition of Done
 
-## Overall MVP Success Metrics
-- [ ] Placement time <30 days average
-- [ ] >20% therapist acceptance rate
-- [ ] System handles 100+ concurrent searches
-- [ ] Staff productivity improved 50%
-- [ ] Zero data loss during migration
-- [ ] Backward compatibility maintained
+A feature is complete when:
+- [ ] Code is written and reviewed
+- [ ] Unit tests pass
+- [ ] Integration tests pass
+- [ ] Documentation updated
+- [ ] Manual testing completed
+- [ ] Performance acceptable

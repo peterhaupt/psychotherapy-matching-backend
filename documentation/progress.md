@@ -1,77 +1,164 @@
 # Psychotherapy Matching Platform - Implementation Progress
 
 ## Overview
-This document tracks the implementation progress of the Psychotherapy Matching Platform. The system is substantially complete with all core services operational.
+This document tracks the implementation progress of the Psychotherapy Matching Platform. The system has completed its foundation and basic features, with the core bundle-based matching system currently in development.
 
 ## Implementation Status
 
-| Component | Status | Documentation |
-|-----------|--------|---------------|
-| Environment Setup | ✅ Complete | [Details](01_environment_setup.md) |
-| Database Configuration | ✅ Complete | [Details](02_database_configuration.md) |
-| Patient Service | ✅ Complete | [Details](03_patient_service.md) |
-| Kafka Configuration | ✅ Complete | [Details](04_kafka_configuration.md) |
-| Robust Kafka Producer | ✅ Complete | [Details](06_kafka_robust_producer.md) |
-| Therapist Service | ✅ Complete | [Details](07_therapist_service.md) |
-| Matching Service | ✅ Complete | [Details](08_matching_service.md) |
-| Communication Service | ✅ Complete | [Details](09_communication_service.md) |
-| Geocoding Service | ✅ Complete | [Details](12_geocoding_service.md) |
-| Centralized Configuration | ✅ Complete | [Details](15_configuration_management.md) |
+### Core Infrastructure
+| Component | Status | Description |
+|-----------|--------|-------------|
+| Environment Setup | ✅ Complete | Docker, Python, development tools |
+| Database Configuration | ✅ Complete | PostgreSQL with PgBouncer, migrations |
+| Kafka Event System | ✅ Complete | Event-driven architecture with robust producer |
+| Centralized Configuration | ✅ Complete | Shared configuration across all services |
+
+### Microservices
+| Service | Status | Current Functionality |
+|---------|--------|----------------------|
+| Patient Service | ✅ Complete | CRUD operations, status tracking, event publishing |
+| Therapist Service | ✅ Complete | CRUD operations, availability management, status tracking |
+| Matching Service (Basic) | ✅ Complete | Simple 1-to-1 placement requests |
+| Matching Service (Bundles) | 🔄 In Progress | Bundle-based matching with progressive filtering |
+| Communication Service | ✅ Complete | Email templates, phone scheduling, batch management |
+| Geocoding Service | ✅ Complete | OSM/OSRM integration, caching, distance calculations |
 | Web Scraping Service | ✅ Complete | [Separate repository](https://github.com/peterhaupt/curavani_scraping) |
-| Scraper Integration | 🔄 In Progress | [Details](13_scraper_integration.md) |
-| Web Interface | 🔄 Planned | - |
+| Scraper Integration | 🔄 In Progress | Import process for scraped data |
+| Web Interface | 📋 Planned | React-based UI for staff |
 
-## Completed Components
+## Current Sprint: Bundle-Based Matching System
 
-### Matching Service ✅
-- Full matching algorithm with all business rules
-- Distance-based filtering using Geocoding Service
-- Gender preference filtering
-- Excluded therapist filtering
-- Duplicate prevention
-- Integration with Patient, Therapist, and Geocoding services
-- Event publishing for placement requests
+### What's Already Implemented
+- ✅ Basic placement request model (1-to-1 matching)
+- ✅ Status tracking for requests
+- ✅ Event publishing for status changes
+- ✅ Integration with other services
 
-### Communication Service ✅
-- Email system with batching and templates
-- Phone call scheduling with automatic 7-day follow-up
-- Frequency limitation enforcement
-- Response tracking
-- Integration with matching events
+### What's Being Built Now
+- 🔄 Bundle creation algorithm (3-6 patients per therapist)
+- 🔄 Progressive filtering based on constraints and preferences
+- 🔄 Cooling period management (4-week contact frequency)
+- 🔄 Parallel search support (patients in multiple bundles)
+- 🔄 Conflict resolution (handling multiple acceptances)
 
-### Geocoding Service ✅
-- OpenStreetMap and OSRM integration
-- Multi-modal routing (car/transit)
-- Two-level caching system
-- Batch therapist distance calculations
+### Why This Matters
+The current "matching service" only handles simple 1-to-1 requests. The business requirements specify a sophisticated bundle-based system that:
+- Groups multiple patients per therapist contact
+- Enforces contact frequency limits
+- Enables parallel searching
+- Maximizes placement speed
 
-### All Core Services ✅
-All microservices are operational with:
-- REST APIs
-- Kafka event integration
-- Centralized configuration
-- Error handling
-- Docker containerization
+## Technical Achievements
 
-## Current Focus
+### Architecture Patterns
+- ✅ Microservice architecture with clear boundaries
+- ✅ Event-driven communication via Kafka
+- ✅ Centralized configuration management
+- ✅ Robust error handling and retry logic
+- ✅ Comprehensive API design
 
-### Web Scraping Integration (In Progress)
-- Import process implementation
-- Testing end-to-end data flow
-- Monitoring setup
+### Development Practices
+- ✅ Docker containerization for all services
+- ✅ Database migrations with Alembic
+- ✅ Consistent code structure across services
+- ✅ Shared utilities for common functionality
+- ✅ API documentation
 
-### Web Interface (Planned)
-- Frontend architecture design
-- UI component development
-- Authentication system
+### Testing Infrastructure
+- ✅ Unit test framework
+- ✅ Integration test setup
+- ✅ Database schema validation tests
+- 🔄 Bundle algorithm testing (in progress)
 
-## Technical Debt
-- Integration tests for centralized configuration
-- Configuration hot-reloading capability
-- Performance optimization for large datasets
+## Upcoming Milestones
 
-## Deployment Status
-- ✅ Local development environment fully operational
-- ✅ All services containerized
-- ✅ Database migrations complete
-- 🔄 Production deployment configuration pending
+### Next 3 Weeks: Complete Bundle Matching
+- Week 1: Database schema updates
+- Week 2: Algorithm implementation
+- Week 3: Testing and refinement
+
+### Next Quarter: Production Readiness
+1. Web interface development
+2. Security implementation
+3. Performance optimization
+4. Deployment preparation
+
+## Key Metrics to Track
+
+### System Capabilities
+- **Current**: Can create individual placement requests
+- **Target**: Process 100+ patient searches simultaneously
+- **Current**: Manual email sending
+- **Target**: Automated bundle-based communications
+
+### Performance Targets
+- Bundle creation: <2 seconds for 100 patients
+- API response time: <200ms average
+- Concurrent users: 10+ staff members
+
+## Known Issues & Technical Debt
+
+### Current Limitations
+- Basic matching doesn't implement business rules
+- No web interface for staff operations
+- Limited monitoring and analytics
+
+### Technical Debt
+- Some services still using individual Kafka producers (not RobustProducer)
+- Test coverage varies by service
+- Documentation needs updates for bundle system
+
+## Development Status Summary
+
+### What Works Today
+A functional microservice platform that can:
+- Manage patient and therapist data
+- Track placement requests
+- Send emails and schedule calls
+- Calculate distances and find nearby therapists
+- Handle events between services
+
+### What's Being Built
+The core business logic that will:
+- Create intelligent patient bundles
+- Enforce cooling periods
+- Manage parallel searches
+- Resolve conflicts automatically
+- Maximize placement efficiency
+
+### What's Next
+- Production-ready web interface
+- Advanced analytics
+- Machine learning optimizations
+- External system integrations
+
+## Repository Structure
+```
+├── ✅ patient_service/
+├── ✅ therapist_service/
+├── ✅ matching_service/ (basic version)
+├── 🔄 matching_service/ (bundle enhancement)
+├── ✅ communication_service/
+├── ✅ geocoding_service/
+├── ✅ shared/
+├── ✅ migrations/
+├── 📋 frontend/ (planned)
+└── ✅ documentation/
+```
+
+## How to Contribute
+
+### Current Priorities
+1. Complete bundle matching algorithm
+2. Write comprehensive tests
+3. Update API documentation
+4. Create sample data generators
+
+### Getting Started
+1. Review `requirements/business/inhaltliche_anforderungen.md`
+2. Check current implementation in `matching_service/`
+3. See `implementation_plan.md` for technical details
+4. Run tests: `pytest tests/`
+
+---
+*Last Updated: Current Sprint - Bundle-Based Matching System*
