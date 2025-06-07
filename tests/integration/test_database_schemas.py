@@ -98,7 +98,7 @@ def test_therapist_service_tables(db_inspector):
     tables = db_inspector.get_table_names(schema='therapist_service')
     assert 'therapists' in tables, "Table 'therapists' not found in therapist_service schema"
     
-    # Check key columns exist (including new German field names)
+    # Check key columns exist (including German field names)
     columns = {col['name'] for col in db_inspector.get_columns('therapists', schema='therapist_service')}
     
     required_columns = {
@@ -107,82 +107,57 @@ def test_therapist_service_tables(db_inspector):
         'telefonische_erreichbarkeit', 'fremdsprachen', 'psychotherapieverfahren',
         'zusatzqualifikationen', 'besondere_leistungsangebote',
         'letzter_kontakt_email', 'letzter_kontakt_telefon',
-        'letztes_persoenliches_gespraech', 'freie_einzeltherapieplaetze_ab',
-        'freie_gruppentherapieplaetze_ab', 'status', 'sperrgrund', 'sperrdatum',
-        'potentially_available', 'potentially_available_notes',
-        # New bundle-related fields (German names after migration bcfc97d0f1h1)
+        'letztes_persoenliches_gespraech',
+        'status', 'sperrgrund', 'sperrdatum',
+        'potenziell_verfuegbar', 'potenziell_verfuegbar_notizen',
+        # Bundle-related fields (German names)
         'naechster_kontakt_moeglich', 'bevorzugte_diagnosen',
         'alter_min', 'alter_max', 'geschlechtspraeferenz', 'arbeitszeiten',
+        'bevorzugt_gruppentherapie',
         'created_at', 'updated_at'
     }
     
     missing_columns = required_columns - columns
-    
-    # If German fields are missing, check for English names (pre-migration)
-    if missing_columns:
-        english_to_german = {
-            'next_contactable_date': 'naechster_kontakt_moeglich',
-            'preferred_diagnoses': 'bevorzugte_diagnosen',
-            'age_min': 'alter_min',
-            'age_max': 'alter_max',
-            'gender_preference': 'geschlechtspraeferenz',
-            'working_hours': 'arbeitszeiten'
-        }
-        
-        english_columns = set(english_to_german.keys())
-        if english_columns.intersection(columns):
-            pytest.skip("Migration bcfc97d0f1h1 not yet applied - fields still have English names")
-        else:
-            assert not missing_columns, f"Missing columns in therapists table: {missing_columns}"
+    assert not missing_columns, f"Missing columns in therapists table: {missing_columns}"
 
 
 def test_matching_service_tables(db_inspector):
     """Test that matching service tables exist with correct columns."""
     tables = db_inspector.get_table_names(schema='matching_service')
     
-    # Check placement_requests table
-    assert 'placement_requests' in tables, "Table 'placement_requests' not found"
+    # Check that placement_requests table does NOT exist (removed in migration fcfc01h4l5l5)
+    assert 'placement_requests' not in tables, "Table 'placement_requests' should have been removed"
     
-    # Check new bundle tables
+    # Check new bundle tables exist
     assert 'platzsuche' in tables, "Table 'platzsuche' not found"
     assert 'therapeutenanfrage' in tables, "Table 'therapeutenanfrage' not found"
     assert 'therapeut_anfrage_patient' in tables, "Table 'therapeut_anfrage_patient' not found"
     
-    # Check placement_requests columns
-    pr_columns = {col['name'] for col in db_inspector.get_columns('placement_requests', schema='matching_service')}
-    pr_required = {
-        'id', 'patient_id', 'therapist_id', 'status', 'created_at',
-        'email_contact_date', 'phone_contact_date', 'response',
-        'response_date', 'next_contact_after', 'priority', 'notes'
-    }
-    missing = pr_required - pr_columns
-    assert not missing, f"Missing columns in placement_requests: {missing}"
-    
-    # Check platzsuche columns
+    # Check platzsuche columns (with German names)
     ps_columns = {col['name'] for col in db_inspector.get_columns('platzsuche', schema='matching_service')}
     ps_required = {
         'id', 'patient_id', 'status', 'created_at', 'updated_at',
-        'excluded_therapists', 'total_requested_contacts',
-        'successful_match_date', 'notes'
+        'ausgeschlossene_therapeuten', 'gesamt_angeforderte_kontakte',
+        'erfolgreiche_vermittlung_datum', 'notizen'
     }
     missing = ps_required - ps_columns
     assert not missing, f"Missing columns in platzsuche: {missing}"
     
-    # Check therapeutenanfrage columns
+    # Check therapeutenanfrage columns (with German names)
     ta_columns = {col['name'] for col in db_inspector.get_columns('therapeutenanfrage', schema='matching_service')}
     ta_required = {
         'id', 'therapist_id', 'created_date', 'sent_date', 'response_date',
-        'response_type', 'bundle_size', 'accepted_count', 'rejected_count',
-        'no_response_count', 'notes'
+        'antworttyp', 'buendelgroesse', 'angenommen_anzahl', 'abgelehnt_anzahl',
+        'keine_antwort_anzahl', 'notizen'
     }
     missing = ta_required - ta_columns
     assert not missing, f"Missing columns in therapeutenanfrage: {missing}"
     
-    # Check therapeut_anfrage_patient columns
+    # Check therapeut_anfrage_patient columns (with German names)
     tap_columns = {col['name'] for col in db_inspector.get_columns('therapeut_anfrage_patient', schema='matching_service')}
     tap_required = {
         'id', 'therapeutenanfrage_id', 'platzsuche_id', 'patient_id',
-        'position_in_bundle', 'status', 'response_outcome', 'response_notes',
+        'position_im_buendel', 'status', 'antwortergebnis', 'antwortnotizen',
         'created_at'
     }
     missing = tap_required - tap_columns
@@ -198,43 +173,43 @@ def test_communication_service_tables(db_inspector):
     for table in required_tables:
         assert table in tables, f"Table '{table}' not found in communication_service"
     
-    # Check emails columns
+    # Check emails columns (with German names)
     email_columns = {col['name'] for col in db_inspector.get_columns('emails', schema='communication_service')}
     email_required = {
-        'id', 'therapist_id', 'subject', 'body_html', 'body_text',
-        'recipient_email', 'recipient_name', 'sender_email', 'sender_name',
-        'placement_request_ids', 'batch_id', 'response_received',
-        'response_date', 'response_content', 'follow_up_required',
-        'follow_up_notes', 'status', 'queued_at', 'sent_at',
-        'error_message', 'retry_count', 'created_at', 'updated_at'
+        'id', 'therapist_id', 'betreff', 'body_html', 'body_text',
+        'empfaenger_email', 'empfaenger_name', 'absender_email', 'absender_name',
+        'placement_request_ids', 'batch_id', 'antwort_erhalten',
+        'antwortdatum', 'antwortinhalt', 'nachverfolgung_erforderlich',
+        'nachverfolgung_notizen', 'status', 'queued_at', 'sent_at',
+        'fehlermeldung', 'wiederholungsanzahl', 'created_at', 'updated_at'
     }
     missing = email_required - email_columns
     assert not missing, f"Missing columns in emails: {missing}"
     
-    # Check email_batches columns
+    # Check email_batches columns (with German names)
     eb_columns = {col['name'] for col in db_inspector.get_columns('email_batches', schema='communication_service')}
     eb_required = {
-        'id', 'email_id', 'placement_request_id', 'priority', 'included',
-        'response_outcome', 'response_notes', 'created_at', 'updated_at'
+        'id', 'email_id', 'therapeut_anfrage_patient_id', 'priority', 'included',
+        'antwortergebnis', 'antwortnotizen', 'created_at', 'updated_at'
     }
     missing = eb_required - eb_columns
     assert not missing, f"Missing columns in email_batches: {missing}"
     
-    # Check phone_calls columns
+    # Check phone_calls columns (with German names)
     pc_columns = {col['name'] for col in db_inspector.get_columns('phone_calls', schema='communication_service')}
     pc_required = {
-        'id', 'therapist_id', 'scheduled_date', 'scheduled_time',
-        'duration_minutes', 'actual_date', 'actual_time', 'status',
-        'outcome', 'notes', 'retry_after', 'created_at', 'updated_at'
+        'id', 'therapist_id', 'geplantes_datum', 'geplante_zeit',
+        'dauer_minuten', 'tatsaechliches_datum', 'tatsaechliche_zeit', 'status',
+        'ergebnis', 'notizen', 'wiederholen_nach', 'created_at', 'updated_at'
     }
     missing = pc_required - pc_columns
     assert not missing, f"Missing columns in phone_calls: {missing}"
     
-    # Check phone_call_batches columns
+    # Check phone_call_batches columns (with German names)
     pcb_columns = {col['name'] for col in db_inspector.get_columns('phone_call_batches', schema='communication_service')}
     pcb_required = {
-        'id', 'phone_call_id', 'placement_request_id', 'priority',
-        'discussed', 'outcome', 'follow_up_required', 'follow_up_notes',
+        'id', 'phone_call_id', 'therapeut_anfrage_patient_id', 'priority',
+        'discussed', 'ergebnis', 'nachverfolgung_erforderlich', 'nachverfolgung_notizen',
         'created_at'
     }
     missing = pcb_required - pcb_columns
@@ -249,7 +224,7 @@ def test_geocoding_service_tables(db_inspector):
     assert 'geocache' in tables, "Table 'geocache' not found"
     assert 'distance_cache' in tables, "Table 'distance_cache' not found"
     
-    # Check geocache columns
+    # Check geocache columns (these remain in English as they're technical)
     gc_columns = {col['name'] for col in db_inspector.get_columns('geocache', schema='geocoding_service')}
     gc_required = {
         'id', 'query', 'query_type', 'latitude', 'longitude',
@@ -258,7 +233,7 @@ def test_geocoding_service_tables(db_inspector):
     missing = gc_required - gc_columns
     assert not missing, f"Missing columns in geocache: {missing}"
     
-    # Check distance_cache columns
+    # Check distance_cache columns (these remain in English as they're technical)
     dc_columns = {col['name'] for col in db_inspector.get_columns('distance_cache', schema='geocoding_service')}
     dc_required = {
         'id', 'origin_latitude', 'origin_longitude', 'destination_latitude',
@@ -290,32 +265,30 @@ def test_enum_types(db_engine):
             key = f"{row[0]}.{row[1]}" if row[0] != 'public' else row[1]
             enums[key] = row[2]
     
-    # Check required enums exist with correct values
+    # Check required enums exist
     expected_enums = {
         'patientstatus': ['OPEN', 'SEARCHING', 'IN_THERAPY', 'THERAPY_COMPLETED', 
                          'SEARCH_ABORTED', 'THERAPY_ABORTED'],
         'therapistgenderpreference': ['MALE', 'FEMALE', 'ANY'],
         'therapiststatus': ['ACTIVE', 'BLOCKED', 'INACTIVE'],
-        'placementrequeststatus': ['OPEN', 'IN_PROGRESS', 'REJECTED', 'ACCEPTED'],
         'emailstatus': ['DRAFT', 'QUEUED', 'SENDING', 'SENT', 'FAILED']
     }
     
     for enum_name, expected_values in expected_enums.items():
         assert enum_name in enums, f"Enum type '{enum_name}' not found"
-        # For now, just check that the enum exists
-        # Values might be different based on migration status
+    
+    # PlacementRequestStatus should NOT exist anymore
+    assert 'placementrequeststatus' not in enums, "Enum 'placementrequeststatus' should have been removed"
 
 
 def test_indexes_exist(db_inspector):
     """Test that important indexes exist."""
-    # Check therapist indexes
+    # Check therapist indexes (German field name)
     therapist_indexes = db_inspector.get_indexes('therapists', schema='therapist_service')
     therapist_index_names = {idx['name'] for idx in therapist_indexes}
     
-    # Check for the German field name index (or English if migration not applied)
-    assert ('idx_therapists_naechster_kontakt_moeglich' in therapist_index_names or
-            'idx_therapists_next_contactable_date' in therapist_index_names), \
-           "Missing index on therapist contactable date"
+    assert 'idx_therapists_naechster_kontakt_moeglich' in therapist_index_names, \
+           "Missing index on therapist.naechster_kontakt_moeglich"
     
     # Check bundle table indexes
     ps_indexes = db_inspector.get_indexes('platzsuche', schema='matching_service')
@@ -326,15 +299,34 @@ def test_indexes_exist(db_inspector):
     ta_indexes = db_inspector.get_indexes('therapeutenanfrage', schema='matching_service')
     ta_index_names = {idx['name'] for idx in ta_indexes}
     assert 'idx_therapeutenanfrage_therapist_id' in ta_index_names, "Missing index on therapeutenanfrage.therapist_id"
+    
+    # Check communication service indexes
+    eb_indexes = db_inspector.get_indexes('email_batches', schema='communication_service')
+    eb_index_names = {idx['name'] for idx in eb_indexes}
+    assert 'idx_email_batches_therapeut_anfrage_patient_id' in eb_index_names, \
+           "Missing index on email_batches.therapeut_anfrage_patient_id"
+    
+    pcb_indexes = db_inspector.get_indexes('phone_call_batches', schema='communication_service')
+    pcb_index_names = {idx['name'] for idx in pcb_indexes}
+    assert 'idx_phone_call_batches_therapeut_anfrage_patient_id' in pcb_index_names, \
+           "Missing index on phone_call_batches.therapeut_anfrage_patient_id"
 
 
 def test_foreign_key_constraints(db_inspector):
     """Test that foreign key constraints exist."""
-    # Check email_batches foreign keys
+    # Check email_batches foreign keys (now references therapeut_anfrage_patient)
     eb_fks = db_inspector.get_foreign_keys('email_batches', schema='communication_service')
     eb_fk_columns = {fk['constrained_columns'][0] for fk in eb_fks}
     assert 'email_id' in eb_fk_columns, "Missing foreign key on email_batches.email_id"
-    assert 'placement_request_id' in eb_fk_columns, "Missing foreign key on email_batches.placement_request_id"
+    assert 'therapeut_anfrage_patient_id' in eb_fk_columns, \
+           "Missing foreign key on email_batches.therapeut_anfrage_patient_id"
+    
+    # Check phone_call_batches foreign keys (now references therapeut_anfrage_patient)
+    pcb_fks = db_inspector.get_foreign_keys('phone_call_batches', schema='communication_service')
+    pcb_fk_columns = {fk['constrained_columns'][0] for fk in pcb_fks}
+    assert 'phone_call_id' in pcb_fk_columns, "Missing foreign key on phone_call_batches.phone_call_id"
+    assert 'therapeut_anfrage_patient_id' in pcb_fk_columns, \
+           "Missing foreign key on phone_call_batches.therapeut_anfrage_patient_id"
     
     # Check bundle table foreign keys
     tap_fks = db_inspector.get_foreign_keys('therapeut_anfrage_patient', schema='matching_service')
@@ -342,6 +334,20 @@ def test_foreign_key_constraints(db_inspector):
     assert 'therapeutenanfrage_id' in tap_fk_columns, "Missing FK on therapeut_anfrage_patient.therapeutenanfrage_id"
     assert 'platzsuche_id' in tap_fk_columns, "Missing FK on therapeut_anfrage_patient.platzsuche_id"
     assert 'patient_id' in tap_fk_columns, "Missing FK on therapeut_anfrage_patient.patient_id"
+
+
+def test_no_placement_request_references(db_inspector):
+    """Test that placement_request references have been removed."""
+    # Ensure no tables have placement_request_id columns
+    all_schemas = ['patient_service', 'therapist_service', 'matching_service', 
+                   'communication_service', 'geocoding_service']
+    
+    for schema in all_schemas:
+        tables = db_inspector.get_table_names(schema=schema)
+        for table in tables:
+            columns = {col['name'] for col in db_inspector.get_columns(table, schema=schema)}
+            assert 'placement_request_id' not in columns, \
+                   f"Table {schema}.{table} still has placement_request_id column"
 
 
 if __name__ == "__main__":
