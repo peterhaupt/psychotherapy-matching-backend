@@ -60,7 +60,7 @@ class Therapist(Base):
     letzter_kontakt_telefon = Column(Date)
     letztes_persoenliches_gespraech = Column(Date)
 
-    # Availability
+    # Availability (German field names)
     potenziell_verfuegbar = Column(Boolean, default=False)
     potenziell_verfuegbar_notizen = Column(Text)
 
