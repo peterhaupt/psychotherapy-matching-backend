@@ -1,7 +1,9 @@
 """Therapist API endpoints implementation."""
+from datetime import datetime
 from flask import request
 from flask_restful import Resource, fields, marshal_with, reqparse
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.dialects.postgresql import JSONB
 
 from models.therapist import Therapist, TherapistStatus
 from shared.utils.database import SessionLocal
@@ -14,17 +16,59 @@ from events.producers import (
 )
 
 
-# Output fields definition for therapist responses
+# Custom field for JSONB data
+class JSONField(fields.Raw):
+    """Field for JSON/JSONB data."""
+    def format(self, value):
+        """Return the JSON data as-is."""
+        return value if value is not None else None
+
+
+# Output fields definition for therapist responses - NOW WITH ALL GERMAN FIELDS
 therapist_fields = {
     'id': fields.Integer,
+    # Personal Information
     'anrede': fields.String,
     'titel': fields.String,
     'vorname': fields.String,
     'nachname': fields.String,
-    'email': fields.String,
+    'strasse': fields.String,
+    'plz': fields.String,
+    'ort': fields.String,
     'telefon': fields.String,
+    'fax': fields.String,
+    'email': fields.String,
+    'webseite': fields.String,
+    # Professional Information
+    'kassensitz': fields.Boolean,
+    'geschlecht': fields.String,
+    'telefonische_erreichbarkeit': JSONField,
+    'fremdsprachen': JSONField,
+    'psychotherapieverfahren': JSONField,
+    'zusatzqualifikationen': fields.String,
+    'besondere_leistungsangebote': fields.String,
+    # Contact History
+    'letzter_kontakt_email': fields.String,  # Date as string
+    'letzter_kontakt_telefon': fields.String,  # Date as string
+    'letztes_persoenliches_gespraech': fields.String,  # Date as string
+    # Availability (German field names)
+    'potenziell_verfuegbar': fields.Boolean,
+    'potenziell_verfuegbar_notizen': fields.String,
+    # Bundle System Fields (German field names)
+    'naechster_kontakt_moeglich': fields.String,  # Date as string
+    'bevorzugte_diagnosen': JSONField,
+    'alter_min': fields.Integer,
+    'alter_max': fields.Integer,
+    'geschlechtspraeferenz': fields.String,
+    'arbeitszeiten': JSONField,
+    'bevorzugt_gruppentherapie': fields.Boolean,
+    # Status
     'status': fields.String,
-    # Add other fields as needed for API responses
+    'sperrgrund': fields.String,
+    'sperrdatum': fields.String,  # Date as string
+    # Timestamps
+    'created_at': fields.String,  # Date as string
+    'updated_at': fields.String,  # Date as string
 }
 
 
@@ -52,12 +96,45 @@ class TherapistResource(Resource):
     def put(self, therapist_id):
         """Update an existing therapist."""
         parser = reqparse.RequestParser()
+        # Personal Information
+        parser.add_argument('anrede', type=str)
+        parser.add_argument('titel', type=str)
         parser.add_argument('vorname', type=str)
         parser.add_argument('nachname', type=str)
-        parser.add_argument('email', type=str)
+        parser.add_argument('strasse', type=str)
+        parser.add_argument('plz', type=str)
+        parser.add_argument('ort', type=str)
         parser.add_argument('telefon', type=str)
+        parser.add_argument('fax', type=str)
+        parser.add_argument('email', type=str)
+        parser.add_argument('webseite', type=str)
+        # Professional Information
+        parser.add_argument('kassensitz', type=bool)
+        parser.add_argument('geschlecht', type=str)
+        parser.add_argument('telefonische_erreichbarkeit', type=dict)
+        parser.add_argument('fremdsprachen', type=list, location='json')
+        parser.add_argument('psychotherapieverfahren', type=list, location='json')
+        parser.add_argument('zusatzqualifikationen', type=str)
+        parser.add_argument('besondere_leistungsangebote', type=str)
+        # Contact History
+        parser.add_argument('letzter_kontakt_email', type=str)
+        parser.add_argument('letzter_kontakt_telefon', type=str)
+        parser.add_argument('letztes_persoenliches_gespraech', type=str)
+        # Availability (German field names)
+        parser.add_argument('potenziell_verfuegbar', type=bool)
+        parser.add_argument('potenziell_verfuegbar_notizen', type=str)
+        # Bundle System Fields (German field names)
+        parser.add_argument('naechster_kontakt_moeglich', type=str)
+        parser.add_argument('bevorzugte_diagnosen', type=list, location='json')
+        parser.add_argument('alter_min', type=int)
+        parser.add_argument('alter_max', type=int)
+        parser.add_argument('geschlechtspraeferenz', type=str)
+        parser.add_argument('arbeitszeiten', type=dict, location='json')
+        parser.add_argument('bevorzugt_gruppentherapie', type=bool)
+        # Status
         parser.add_argument('status', type=str)
-        # Add other arguments as needed
+        parser.add_argument('sperrgrund', type=str)
+        parser.add_argument('sperrdatum', type=str)
         
         args = parser.parse_args()
         
@@ -74,9 +151,16 @@ class TherapistResource(Resource):
             # Update fields from request
             for key, value in args.items():
                 if value is not None:
+                    # Handle special fields
                     if key == 'status' and value:
                         # Handle enum conversion
                         therapist.status = TherapistStatus(value)
+                    elif key in ['letzter_kontakt_email', 'letzter_kontakt_telefon', 
+                                'letztes_persoenliches_gespraech', 'naechster_kontakt_moeglich', 
+                                'sperrdatum']:
+                        # Convert string dates to date objects
+                        if value:
+                            setattr(therapist, key, datetime.fromisoformat(value).date())
                     else:
                         setattr(therapist, key, value)
             
@@ -90,7 +174,9 @@ class TherapistResource(Resource):
                 'titel': therapist.titel,
                 'email': therapist.email,
                 'telefon': therapist.telefon,
-                'status': therapist.status.value if therapist.status else None
+                'status': therapist.status.value if therapist.status else None,
+                'potenziell_verfuegbar': therapist.potenziell_verfuegbar,
+                'naechster_kontakt_moeglich': str(therapist.naechster_kontakt_moeglich) if therapist.naechster_kontakt_moeglich else None
             }
             
             # Check for status changes to publish specific events
@@ -145,6 +231,7 @@ class TherapistListResource(PaginatedListResource):
         """Get a list of therapists with optional filtering and pagination."""
         # Parse query parameters for filtering
         status = request.args.get('status')
+        potenziell_verfuegbar = request.args.get('potenziell_verfuegbar', type=bool)
         
         db = SessionLocal()
         try:
@@ -153,6 +240,8 @@ class TherapistListResource(PaginatedListResource):
             # Apply filters if provided
             if status:
                 query = query.filter(Therapist.status == TherapistStatus(status))
+            if potenziell_verfuegbar is not None:
+                query = query.filter(Therapist.potenziell_verfuegbar == potenziell_verfuegbar)
             
             # Apply pagination
             query = self.paginate_query(query)
@@ -174,13 +263,43 @@ class TherapistListResource(PaginatedListResource):
                            help='Vorname is required')
         parser.add_argument('nachname', type=str, required=True,
                            help='Nachname is required')
-        # Optional fields
+        # Personal Information (optional)
         parser.add_argument('anrede', type=str)
         parser.add_argument('titel', type=str)
-        parser.add_argument('email', type=str)
+        parser.add_argument('strasse', type=str)
+        parser.add_argument('plz', type=str)
+        parser.add_argument('ort', type=str)
         parser.add_argument('telefon', type=str)
+        parser.add_argument('fax', type=str)
+        parser.add_argument('email', type=str)
+        parser.add_argument('webseite', type=str)
+        # Professional Information
         parser.add_argument('kassensitz', type=bool)
-        # Add other fields as needed
+        parser.add_argument('geschlecht', type=str)
+        parser.add_argument('telefonische_erreichbarkeit', type=dict, location='json')
+        parser.add_argument('fremdsprachen', type=list, location='json')
+        parser.add_argument('psychotherapieverfahren', type=list, location='json')
+        parser.add_argument('zusatzqualifikationen', type=str)
+        parser.add_argument('besondere_leistungsangebote', type=str)
+        # Contact History
+        parser.add_argument('letzter_kontakt_email', type=str)
+        parser.add_argument('letzter_kontakt_telefon', type=str)
+        parser.add_argument('letztes_persoenliches_gespraech', type=str)
+        # Availability (German field names)
+        parser.add_argument('potenziell_verfuegbar', type=bool)
+        parser.add_argument('potenziell_verfuegbar_notizen', type=str)
+        # Bundle System Fields (German field names)
+        parser.add_argument('naechster_kontakt_moeglich', type=str)
+        parser.add_argument('bevorzugte_diagnosen', type=list, location='json')
+        parser.add_argument('alter_min', type=int)
+        parser.add_argument('alter_max', type=int)
+        parser.add_argument('geschlechtspraeferenz', type=str)
+        parser.add_argument('arbeitszeiten', type=dict, location='json')
+        parser.add_argument('bevorzugt_gruppentherapie', type=bool)
+        # Status
+        parser.add_argument('status', type=str)
+        parser.add_argument('sperrgrund', type=str)
+        parser.add_argument('sperrdatum', type=str)
         
         args = parser.parse_args()
         
@@ -189,14 +308,27 @@ class TherapistListResource(PaginatedListResource):
             # Create new therapist
             therapist = Therapist(
                 vorname=args['vorname'],
-                nachname=args['nachname'],
-                anrede=args.get('anrede'),
-                titel=args.get('titel'),
-                email=args.get('email'),
-                telefon=args.get('telefon'),
-                kassensitz=args.get('kassensitz', True),
-                # Add other fields from args
+                nachname=args['nachname']
             )
+            
+            # Set all other fields from args
+            for key, value in args.items():
+                if value is not None and key not in ['vorname', 'nachname']:
+                    # Handle special fields
+                    if key == 'status' and value:
+                        therapist.status = TherapistStatus(value)
+                    elif key in ['letzter_kontakt_email', 'letzter_kontakt_telefon', 
+                                'letztes_persoenliches_gespraech', 'naechster_kontakt_moeglich', 
+                                'sperrdatum']:
+                        # Convert string dates to date objects
+                        if value:
+                            setattr(therapist, key, datetime.fromisoformat(value).date())
+                    else:
+                        setattr(therapist, key, value)
+            
+            # Set defaults
+            if therapist.kassensitz is None:
+                therapist.kassensitz = True
             
             db.add(therapist)
             db.commit()
@@ -210,7 +342,8 @@ class TherapistListResource(PaginatedListResource):
                 'titel': therapist.titel,
                 'email': therapist.email,
                 'telefon': therapist.telefon,
-                'status': therapist.status.value if therapist.status else None
+                'status': therapist.status.value if therapist.status else None,
+                'potenziell_verfuegbar': therapist.potenziell_verfuegbar
             }
             publish_therapist_created(therapist.id, therapist_data)
             
