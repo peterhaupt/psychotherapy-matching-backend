@@ -1,14 +1,14 @@
 # Communication Service
 
 ## Summary
-This document details the implementation of the Communication Service for the Psychotherapy Matching Platform. The service handles all communication-related operations including email management, phone call scheduling, template rendering, and message dispatching. The service has been simplified to focus solely on sending communications, with bundle logic moved to the Matching Service.
+This document details the implementation of the Communication Service for the Psychotherapy Matching Platform. The service handles all communication-related operations including email management, phone call scheduling, template rendering, and message dispatching. The service has been simplified to focus solely on sending communications, with bundle logic moved to the Matching Service. All models and APIs now use German field names.
 
-## Current Status
-The Communication Service has been implemented with these components:
+## Current Status ✅ FULLY UPDATED
+The Communication Service has been fully updated with these components:
 
-- **Email Model**: Database storage for emails with status tracking and response monitoring
-- **Phone Call System**: Complete implementation of phone call scheduling and management
-- **API Endpoints**: REST endpoints for email and phone call operations
+- **Email Model**: Database storage for emails with German field names
+- **Phone Call System**: Complete implementation with German field names
+- **API Endpoints**: REST endpoints accepting and returning German field names
 - **Kafka Integration**: Robust event producers and consumers with resilience features
 - **Email Sending Functionality**: Integrated SMTP client for email delivery
 - **Template System**: Enhanced Jinja2-based HTML template system
@@ -18,55 +18,53 @@ The Communication Service has been implemented with these components:
 - ❌ **Email Batch System**: REMOVED - Bundle logic moved to Matching Service
 - ❌ **Phone Call Batch System**: REMOVED - Bundle logic moved to Matching Service
 - ✅ **Simplified Design**: Communication Service now only sends emails and schedules calls
-- ✅ **German Field Names**: Database schema uses German field names (models need updating)
+- ✅ **German Field Names**: All models and APIs now use German field names
 
 ## Models Implementation
 
-### Email Model (⚠️ Needs German Field Updates)
-The Email model in `communication_service/models/email.py` stores all information related to emails. 
+### Email Model ✅ UPDATED
+The Email model in `communication_service/models/email.py` stores all information related to emails with German field names:
 
-**Current State**: Model still uses English field names but database uses German names.
-
-**Required Updates**:
 ```python
-# These fields need to be renamed in the model:
-subject → betreff
-recipient_email → empfaenger_email
-recipient_name → empfaenger_name
-sender_email → absender_email
-sender_name → absender_name
-response_received → antwort_erhalten
-response_date → antwortdatum
-response_content → antwortinhalt
-follow_up_required → nachverfolgung_erforderlich
-follow_up_notes → nachverfolgung_notizen
-error_message → fehlermeldung
-retry_count → wiederholungsanzahl
+class Email(Base):
+    # German field names matching database
+    betreff = Column(String(255), nullable=False)  # subject
+    empfaenger_email = Column(String(255), nullable=False)  # recipient_email
+    empfaenger_name = Column(String(255), nullable=False)  # recipient_name
+    absender_email = Column(String(255), nullable=False)  # sender_email
+    absender_name = Column(String(255), nullable=False)  # sender_name
+    antwort_erhalten = Column(Boolean, default=False)  # response_received
+    antwortdatum = Column(DateTime)  # response_date
+    antwortinhalt = Column(Text)  # response_content
+    nachverfolgung_erforderlich = Column(Boolean, default=False)  # follow_up_required
+    nachverfolgung_notizen = Column(Text)  # follow_up_notes
+    fehlermeldung = Column(Text)  # error_message
+    wiederholungsanzahl = Column(Integer, default=0)  # retry_count
 ```
 
-### Phone Call Model (⚠️ Needs German Field Updates)
-The Phone Call model stores scheduling information, outcomes, and status.
+### Phone Call Model ✅ UPDATED
+The Phone Call model stores scheduling information with German field names:
 
-**Required Updates**:
 ```python
-# These fields need to be renamed in the model:
-scheduled_date → geplantes_datum
-scheduled_time → geplante_zeit
-duration_minutes → dauer_minuten
-actual_date → tatsaechliches_datum
-actual_time → tatsaechliche_zeit
-outcome → ergebnis
-notes → notizen
-retry_after → wiederholen_nach
+class PhoneCall(Base):
+    # German field names matching database
+    geplantes_datum = Column(Date, nullable=False)  # scheduled_date
+    geplante_zeit = Column(Time, nullable=False)  # scheduled_time
+    dauer_minuten = Column(Integer, default=5)  # duration_minutes
+    tatsaechliches_datum = Column(Date)  # actual_date
+    tatsaechliche_zeit = Column(Time)  # actual_time
+    ergebnis = Column(Text)  # outcome
+    notizen = Column(Text)  # notes
+    wiederholen_nach = Column(Date)  # retry_after
 ```
 
-### Removed Models
+### Removed Models ✅
 - ❌ **EmailBatch**: Removed (bundle logic moved to Matching Service)
 - ❌ **PhoneCallBatch**: Removed (bundle logic moved to Matching Service)
 
 ## API Implementation
 
-### API Endpoints
+### API Endpoints (German Field Names)
 
 #### Email Endpoints:
 - **EmailResource**: Operations on individual emails (GET, PUT)
@@ -75,6 +73,30 @@ retry_after → wiederholen_nach
 #### Phone Call Endpoints:
 - **PhoneCallResource**: Operations on individual phone calls (GET, PUT, DELETE)
 - **PhoneCallListResource**: Collection operations (GET, POST)
+
+### Example API Usage
+
+#### Create Email (POST /api/emails)
+```json
+{
+  "therapist_id": 1,
+  "betreff": "Therapieanfrage für mehrere Patienten",
+  "body_html": "<html>...</html>",
+  "body_text": "...",
+  "empfaenger_email": "therapist@example.com",
+  "empfaenger_name": "Dr. Schmidt"
+}
+```
+
+#### Create Phone Call (POST /api/phone-calls)
+```json
+{
+  "therapist_id": 1,
+  "geplantes_datum": "2025-06-10",
+  "geplante_zeit": "14:30",
+  "dauer_minuten": 5
+}
+```
 
 ## Simplified Architecture
 
@@ -174,7 +196,7 @@ The service consumes and produces events using centralized Kafka configuration:
 The simplified Communication Service processes emails through these stages:
 
 1. **Email Creation** (via API from Matching Service)
-   - Parse request arguments
+   - Parse request arguments with German field names
    - Apply default values from centralized config
    - Create Email record
    - Publish `email.created` event
@@ -220,14 +242,15 @@ SMTP_USE_TLS=false
 4. **Error Handling**: Implement proper SMTP error handling
 5. **Testing**: Use mail catchers for local development
 6. **Templates**: Keep email templates simple and responsive
+7. **German Field Names**: Always use German field names in API requests and responses
 
-## Migration Path
+## Migration Completed ✅
 
 ### From Batch System to Simple Communication
 
 1. **Database**: Batch tables have been removed via migration
-2. **Models**: Need to remove EmailBatch and PhoneCallBatch classes
-3. **API**: Need to remove batch-related endpoints
+2. **Models**: EmailBatch and PhoneCallBatch classes removed
+3. **API**: Batch-related endpoints removed
 4. **Logic**: Bundle logic now resides in Matching Service
 
 ### Integration with New Bundle System
@@ -240,16 +263,75 @@ The Matching Service now:
 
 ## Future Enhancements
 
-### Code Improvements
-- Complete model updates to German field names
-- Remove legacy batch code
-- Service layer pattern implementation
-- Enhanced validation middleware
-- Async email sending
-
 ### Functional Enhancements
 - Email open/click tracking
 - Advanced template customization
 - SMS notification support
 - Calendar integration for scheduling
 - Real-time communication dashboard
+
+## Current API Examples
+
+### Email Operations
+
+#### Get Email by ID
+```bash
+curl http://localhost:8004/api/emails/1
+```
+
+Response (with German fields):
+```json
+{
+  "id": 1,
+  "therapist_id": 123,
+  "betreff": "Therapieanfrage",
+  "empfaenger_email": "doctor@example.com",
+  "empfaenger_name": "Dr. Schmidt",
+  "absender_email": "noreply@example.com",
+  "absender_name": "Therapy Platform",
+  "status": "SENT",
+  "antwort_erhalten": false,
+  "antwortdatum": null,
+  "sent_at": "2025-06-08T10:30:00"
+}
+```
+
+#### Update Email Response
+```bash
+curl -X PUT http://localhost:8004/api/emails/1 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "antwort_erhalten": true,
+    "antwortdatum": "2025-06-09T14:00:00",
+    "antwortinhalt": "Ich kann 2 Patienten aufnehmen.",
+    "nachverfolgung_erforderlich": false
+  }'
+```
+
+### Phone Call Operations
+
+#### Schedule Phone Call
+```bash
+curl -X POST http://localhost:8004/api/phone-calls \
+  -H "Content-Type: application/json" \
+  -d '{
+    "therapist_id": 123,
+    "geplantes_datum": "2025-06-15",
+    "geplante_zeit": "10:00",
+    "dauer_minuten": 5,
+    "notizen": "Follow-up für Bündel #45"
+  }'
+```
+
+#### Update Call Outcome
+```bash
+curl -X PUT http://localhost:8004/api/phone-calls/1 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tatsaechliches_datum": "2025-06-15",
+    "tatsaechliche_zeit": "10:05",
+    "status": "completed",
+    "ergebnis": "Therapeut interessiert an 1 Patient",
+    "notizen": "Will sich nächste Woche melden"
+  }'
+```

@@ -2,14 +2,15 @@
 
 This document shows the FINAL database schema after all migrations have been applied. All field names use German terminology for consistency.
 
-## Naming Convention ✅ FULLY IMPLEMENTED IN DATABASE AND CODE
+## Naming Convention ✅ FULLY IMPLEMENTED IN DATABASE
 **Important:** ALL field names in the database now use German terminology. This decision was made to maintain consistency with the existing codebase and avoid confusion from mixing languages.
 
 **Current Status:**
 - ✅ Database: 100% German field names
-- ❌ Models: Still using English (causing errors) - EXCEPT Matching Service
-- ❌ APIs: Still returning English field names - EXCEPT Matching Service
-- ✅ Matching Service: PlacementRequest fully removed, stub models created
+- ✅ Patient Service: Models and APIs use German
+- ❌ Therapist Service: Models still use English (causing errors)
+- ✅ Matching Service: PlacementRequest removed, stub models use German
+- ✅ Communication Service: Models and APIs updated to German
 
 ## Current Database State
 
@@ -347,6 +348,11 @@ All migrations have been successfully applied:
 - **Resolution**: PlacementRequest code completely removed, stub models created
 - **Status**: Service returns 501 (Not Implemented) for all endpoints
 
+### ✅ RESOLVED: Communication Service
+- **Previous Issue**: Database fields didn't match model fields
+- **Resolution**: All models updated to use German field names
+- **Status**: Service fully operational with German field names
+
 ### Still Active Issues:
 
 1. **Therapist Service** ⚠️
@@ -355,13 +361,7 @@ All migrations have been successfully applied:
    - API: Returns English fields ❌
    - Status: GET operations work, POST/PUT may fail on new fields
 
-2. **Communication Service** ⚠️
-   - Database: German field names ✅
-   - Models: English field names ❌
-   - Batch tables removed from DB but models still exist ❌
-   - Status: Basic operations work, batch operations fail
-
-## Code Removal Status
+## Code Update Status
 
 ### ✅ PlacementRequest Removal Complete
 1. ✅ `matching_service/models/placement_request.py` - DELETED
@@ -371,22 +371,28 @@ All migrations have been successfully applied:
 5. ✅ All events updated to bundle system
 6. ✅ No more PlacementRequest references in codebase
 
-### ❌ Batch System Removal Pending
-1. ❌ `communication_service/models/email_batch.py` - Still exists
-2. ❌ `communication_service/models/phone_call_batch.py` - Still exists
-3. ❌ Batch API endpoints still present
-4. ❌ Batch imports throughout communication service
+### ✅ Communication Service Update Complete
+1. ✅ `communication_service/models/email.py` - Updated to German
+2. ✅ `communication_service/models/phone_call.py` - Updated to German
+3. ✅ `communication_service/models/email_batch.py` - DELETED
+4. ✅ `communication_service/models/phone_call_batch.py` - DELETED
+5. ✅ All API endpoints updated to use German fields
+6. ✅ All utilities updated to use German fields
 
 ## Next Steps
 
 1. ✅ Database schema is complete
-2. ✅ PlacementRequest code removed (no more crashes)
-3. 🔄 Update therapist model to match German field names
-4. 🔄 Update communication models to match German fields
-5. 🔄 Remove batch models from communication service
-6. 🔄 Implement full bundle system (currently stubs)
+2. ✅ PlacementRequest code removed
+3. ✅ Communication Service updated to German
+4. 🔄 Update therapist model to match German field names
+5. 🔄 Implement full bundle system (currently stubs)
 
 ## Quick Reference: Model Updates Needed
+
+### ✅ Communication Service (COMPLETE)
+- All models updated to German
+- All APIs use German field names
+- Batch system removed
 
 ### ✅ Matching Service (COMPLETE - Using Stubs)
 - PlacementRequest removed
@@ -405,36 +411,9 @@ All migrations have been successfully applied:
 - `working_hours` → `arbeitszeiten`
 - ADD: `bevorzugt_gruppentherapie`
 
-### Communication Model Fields to Rename:
-**Email Model:**
-- `subject` → `betreff`
-- `recipient_email` → `empfaenger_email`
-- `recipient_name` → `empfaenger_name`
-- `sender_email` → `absender_email`
-- `sender_name` → `absender_name`
-- `response_received` → `antwort_erhalten`
-- `response_date` → `antwortdatum`
-- `response_content` → `antwortinhalt`
-- `follow_up_required` → `nachverfolgung_erforderlich`
-- `follow_up_notes` → `nachverfolgung_notizen`
-- `error_message` → `fehlermeldung`
-- `retry_count` → `wiederholungsanzahl`
-
-**PhoneCall Model:**
-- `scheduled_date` → `geplantes_datum`
-- `scheduled_time` → `geplante_zeit`
-- `duration_minutes` → `dauer_minuten`
-- `actual_date` → `tatsaechliches_datum`
-- `actual_time` → `tatsaechliche_zeit`
-- `outcome` → `ergebnis`
-- `notes` → `notizen`
-- `retry_after` → `wiederholen_nach`
-
-**Remove These Models:**
-- EmailBatch (table already removed)
-- PhoneCallBatch (table already removed)
-
 ---
 *Database State: Fully migrated to German ✅*
+*Patient Service: Fully aligned with German ✅*
+*Communication Service: Fully aligned with German ✅*
 *Matching Service: Stable with stub implementation 🟡*
-*Other Services: Still need model updates ❌*
+*Therapist Service: Still needs model updates ❌*
