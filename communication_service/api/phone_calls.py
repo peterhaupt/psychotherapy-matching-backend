@@ -2,13 +2,14 @@
 from flask import request
 from flask_restful import Resource, fields, marshal_with, reqparse
 from sqlalchemy.exc import SQLAlchemyError
+from datetime import datetime, time
 
 from models.phone_call import PhoneCall, PhoneCallStatus
 from shared.utils.database import SessionLocal
 from shared.api.base_resource import PaginatedListResource
 from utils.phone_call_scheduler import find_available_slot
 
-# Output fields definition for phone call responses
+# Output fields definition for phone call responses - German field names
 phone_call_fields = {
     'id': fields.Integer,
     'therapist_id': fields.Integer,
@@ -73,6 +74,18 @@ class PhoneCallResource(Resource):
                         if value not in [e.value for e in PhoneCallStatus]:
                             return {'message': f'Invalid status value: {value}'}, 400
                         phone_call.status = value
+                    elif key == 'geplantes_datum' and value:
+                        phone_call.geplantes_datum = datetime.fromisoformat(value).date()
+                    elif key == 'geplante_zeit' and value:
+                        hour, minute = map(int, value.split(':'))
+                        phone_call.geplante_zeit = time(hour=hour, minute=minute)
+                    elif key == 'tatsaechliches_datum' and value:
+                        phone_call.tatsaechliches_datum = datetime.fromisoformat(value).date()
+                    elif key == 'tatsaechliche_zeit' and value:
+                        hour, minute = map(int, value.split(':'))
+                        phone_call.tatsaechliche_zeit = time(hour=hour, minute=minute)
+                    elif key == 'wiederholen_nach' and value:
+                        phone_call.wiederholen_nach = datetime.fromisoformat(value).date()
                     else:
                         setattr(phone_call, key, value)
             
@@ -174,10 +187,12 @@ class PhoneCallListResource(PaginatedListResource):
                 scheduled_time = args['geplante_zeit']
             
             # Create the phone call
-            from datetime import datetime
             start_hour, start_minute = map(int, scheduled_time.split(':'))
-            from datetime import time
             call_time = time(hour=start_hour, minute=start_minute)
+            
+            # Parse date if it's a string
+            if isinstance(scheduled_date, str):
+                scheduled_date = datetime.fromisoformat(scheduled_date).date()
             
             phone_call = PhoneCall(
                 therapist_id=args['therapist_id'],

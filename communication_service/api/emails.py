@@ -26,18 +26,24 @@ class EnumField(fields.String):
         return str(value)
 
 
-# Output fields definition for email responses
+# Output fields definition for email responses - German field names
 email_fields = {
     'id': fields.Integer,
     'therapist_id': fields.Integer,
     'betreff': fields.String,
     'empfaenger_email': fields.String,
     'empfaenger_name': fields.String,
+    'absender_email': fields.String,
+    'absender_name': fields.String,
     'status': EnumField,  # Use custom field for enum
-    'created_at': fields.DateTime,
-    'sent_at': fields.DateTime,
     'antwort_erhalten': fields.Boolean,
     'antwortdatum': fields.DateTime,
+    'antwortinhalt': fields.String,
+    'nachverfolgung_erforderlich': fields.Boolean,
+    'nachverfolgung_notizen': fields.String,
+    'sent_at': fields.DateTime,
+    'created_at': fields.DateTime,
+    'updated_at': fields.DateTime,
 }
 
 
@@ -161,7 +167,7 @@ class EmailListResource(PaginatedListResource):
     def post(self):
         """Create a new email."""
         parser = reqparse.RequestParser()
-        # Required fields
+        # Required fields - German names
         parser.add_argument('therapist_id', type=int, required=True,
                            help='Therapist ID is required')
         parser.add_argument('betreff', type=str, required=True,
