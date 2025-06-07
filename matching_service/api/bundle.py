@@ -7,11 +7,11 @@ from flask_restful import Resource, reqparse
 from sqlalchemy import and_, or_
 
 from shared.api import PaginatedListResource
-from ..db import get_db
-from ..models import Platzsuche, Therapeutenanfrage, TherapeutAnfragePatient
-from ..models.platzsuche import SearchStatus
-from ..models.therapeutenanfrage import ResponseType
-from ..services import BundleService, PatientService
+from db import get_db
+from models import Platzsuche, Therapeutenanfrage, TherapeutAnfragePatient
+from models.platzsuche import SearchStatus
+from models.therapeutenanfrage import ResponseType
+from services import BundleService, PatientService
 
 logger = logging.getLogger(__name__)
 
@@ -322,12 +322,59 @@ class BundleCreationResource(Resource):
 
     def post(self):
         """Trigger bundle creation for all eligible therapists."""
-        # Note: This is a placeholder that returns 501
-        # The actual implementation will call the bundle algorithm
-        return {
-            "message": "Bundle creation algorithm not yet implemented",
-            "note": "This will trigger the creation of bundles for all eligible therapists"
-        }, 501
+        parser = reqparse.RequestParser()
+        parser.add_argument('send_immediately', type=bool, default=False)
+        parser.add_argument('dry_run', type=bool, default=False)
+        args = parser.parse_args()
+        
+        try:
+            # Import the algorithm
+            from models.therapeut_anfrage_patient import PatientOutcome
+            
+            with get_db() as db:
+                # Create bundles
+                bundles = create_bundles_for_all_therapists(db)
+                
+                if args.get('dry_run'):
+                    # Don't actually commit in dry run mode
+                    db.rollback()
+                    return {
+                        "message": "Dry run completed",
+                        "bundles_created": len(bundles),
+                        "bundles": [{
+                            "therapist_id": b.therapist_id,
+                            "bundle_size": b.buendelgroesse,
+                            "patient_ids": [bp.patient_id for bp in b.bundle_patients]
+                        } for b in bundles]
+                    }, 200
+                
+                # Send bundles if requested
+                sent_count = 0
+                if args.get('send_immediately') and bundles:
+                    for bundle in bundles:
+                        try:
+                            success = BundleService.send_bundle(db, bundle.id)
+                            if success:
+                                sent_count += 1
+                        except Exception as e:
+                            logger.error(f"Failed to send bundle {bundle.id}: {str(e)}")
+                
+                # Commit the transaction
+                db.commit()
+                
+                return {
+                    "message": f"Created {len(bundles)} bundles",
+                    "bundles_created": len(bundles),
+                    "bundles_sent": sent_count,
+                    "bundle_ids": [b.id for b in bundles]
+                }, 201
+                
+        except Exception as e:
+            logger.error(f"Bundle creation failed: {str(e)}")
+            return {
+                "message": "Bundle creation failed",
+                "error": str(e)
+            }, 500
 
 
 class BundleResponseResource(Resource):
@@ -352,7 +399,7 @@ class BundleResponseResource(Resource):
                 try:
                     patient_id = int(patient_id_str)
                     # Import here to avoid circular import
-                    from ..models.therapeut_anfrage_patient import PatientOutcome
+                    from models.therapeut_anfrage_patient import PatientOutcome
                     outcome = PatientOutcome(outcome_str)
                     patient_responses[patient_id] = outcome
                 except (ValueError, KeyError):

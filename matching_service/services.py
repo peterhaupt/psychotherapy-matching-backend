@@ -6,10 +6,10 @@ import requests
 
 from sqlalchemy.orm import Session
 
-from .models import Platzsuche, Therapeutenanfrage, TherapeutAnfragePatient
-from .models.platzsuche import SearchStatus
-from .models.therapeutenanfrage import ResponseType
-from .models.therapeut_anfrage_patient import PatientOutcome
+from models import Platzsuche, Therapeutenanfrage, TherapeutAnfragePatient
+from models.platzsuche import SearchStatus
+from models.therapeutenanfrage import ResponseType
+from models.therapeut_anfrage_patient import PatientOutcome
 from shared.config import get_config
 
 # Get configuration and logger
