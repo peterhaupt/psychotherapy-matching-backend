@@ -1,15 +1,13 @@
 """Phone call scheduling utility functions."""
 import logging
 from datetime import date, datetime, time, timedelta
-from typing import Dict, List, Optional, Any
+from typing import Dict, Optional, Any
 
 import requests
-from sqlalchemy import and_
 
 from shared.utils.database import SessionLocal
-from models.phone_call import PhoneCall, PhoneCallStatus, PhoneCallBatch
+from models.phone_call import PhoneCall, PhoneCallStatus
 from models.email import Email, EmailStatus
-from models.email_batch import EmailBatch
 from shared.config import get_config
 
 # Initialize logging
@@ -134,8 +132,8 @@ def is_slot_booked(
         # Check for existing calls
         existing_calls = db.query(PhoneCall).filter(
             PhoneCall.therapist_id == therapist_id,
-            PhoneCall.scheduled_date == date_obj,
-            PhoneCall.scheduled_time == time_obj,
+            PhoneCall.geplantes_datum == date_obj,
+            PhoneCall.geplante_zeit == time_obj,
             PhoneCall.status != PhoneCallStatus.CANCELED.value
         ).count()
         
@@ -165,16 +163,6 @@ def schedule_call_for_email(email_id: int) -> Optional[int]:
             logger.error(f"Email {email_id} not found")
             return None
         
-        # Check if call already scheduled
-        existing_call = db.query(PhoneCallBatch).join(PhoneCall).filter(
-            PhoneCallBatch.email_id == email_id,
-            PhoneCall.status.in_([PhoneCallStatus.SCHEDULED.value, PhoneCallStatus.COMPLETED.value])
-        ).first()
-        
-        if existing_call:
-            logger.info(f"Call already exists for email {email_id}")
-            return existing_call.phone_call_id
-        
         # Find available slot
         slot = find_available_slot(email.therapist_id)
         if not slot:
@@ -188,30 +176,14 @@ def schedule_call_for_email(email_id: int) -> Optional[int]:
         
         phone_call = PhoneCall(
             therapist_id=email.therapist_id,
-            scheduled_date=scheduled_date,
-            scheduled_time=scheduled_time,
-            duration_minutes=slot["duration_minutes"],
+            geplantes_datum=scheduled_date,
+            geplante_zeit=scheduled_time,
+            dauer_minuten=slot["duration_minutes"],
             status=PhoneCallStatus.SCHEDULED.value,
-            notes=f"Follow-up for email {email_id}"
+            notizen=f"Follow-up for email {email_id}"
         )
         
         db.add(phone_call)
-        db.flush()
-        
-        # Get placement request IDs from email batches
-        email_batches = db.query(EmailBatch).filter(
-            EmailBatch.email_id == email_id
-        ).all()
-        
-        # Create phone call batches for the same placement requests
-        for email_batch in email_batches:
-            phone_batch = PhoneCallBatch(
-                phone_call_id=phone_call.id,
-                placement_request_id=email_batch.placement_request_id,
-                priority=email_batch.priority
-            )
-            db.add(phone_batch)
-        
         db.commit()
         
         logger.info(f"Scheduled follow-up call {phone_call.id} for email {email_id}")
@@ -242,7 +214,7 @@ def schedule_follow_up_calls(days_threshold: int = 7) -> int:
         unanswered_emails = db.query(Email).filter(
             Email.sent_at <= threshold_date,
             Email.status == EmailStatus.SENT.value,
-            Email.response_received.is_(False)
+            Email.antwort_erhalten.is_(False)
         ).all()
         
         scheduled_count = 0

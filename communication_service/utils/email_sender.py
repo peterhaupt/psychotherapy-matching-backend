@@ -1,18 +1,16 @@
 """Email sending utility functions."""
 import logging
 import smtplib
-import uuid
 from datetime import datetime, timedelta
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from typing import List, Optional, Dict, Any
+from typing import Optional
 
 from flask import current_app
-from sqlalchemy import and_, or_, cast, String, func
+from sqlalchemy import cast, String
 
 from shared.utils.database import SessionLocal
 from models.email import Email, EmailStatus
-from models.email_batch import EmailBatch
 from models.phone_call import PhoneCall
 from utils.template_renderer import render_template
 from utils.phone_call_scheduler import schedule_call_for_email
@@ -24,8 +22,7 @@ logger = logging.getLogger(__name__)
 # Get configuration
 config = get_config()
 
-# Constants for email batching
-MAX_PATIENTS_PER_EMAIL = 5  # Maximum number of patients to include in a single email
+# Constants for email management
 MIN_DAYS_BETWEEN_EMAILS = 7  # Minimum days between emails to the same therapist
 
 
@@ -144,12 +141,12 @@ def can_contact_therapist(therapist_id: int, days_threshold: int = MIN_DAYS_BETW
         # Also check phone calls
         recent_call = db.query(PhoneCall).filter(
             PhoneCall.therapist_id == therapist_id,
-            PhoneCall.actual_date > threshold_date.date(),
+            PhoneCall.tatsaechliches_datum > threshold_date.date(),
             PhoneCall.status == 'completed'
         ).first()
         
         if recent_call:
-            logger.info(f"Therapist {therapist_id} was called recently on {recent_call.actual_date}")
+            logger.info(f"Therapist {therapist_id} was called recently on {recent_call.tatsaechliches_datum}")
             return False
             
         return True
@@ -186,12 +183,12 @@ def send_queued_emails(limit: int = 10) -> int:
             
             # Try to send
             success = send_email(
-                to_email=email.recipient_email,
-                subject=email.subject,
+                to_email=email.empfaenger_email,
+                subject=email.betreff,
                 body_html=email.body_html,
                 body_text=email.body_text,
-                sender_email=email.sender_email,
-                sender_name=email.sender_name
+                sender_email=email.absender_email,
+                sender_name=email.absender_name
             )
             
             if success:
@@ -201,8 +198,8 @@ def send_queued_emails(limit: int = 10) -> int:
                 logger.info(f"Email {email.id} sent successfully")
             else:
                 email.status = EmailStatus.FAILED
-                email.error_message = "Failed to send email"
-                email.retry_count += 1
+                email.fehlermeldung = "Failed to send email"
+                email.wiederholungsanzahl += 1
                 logger.error(f"Failed to send email {email.id}")
             
             db.commit()
@@ -212,7 +209,7 @@ def send_queued_emails(limit: int = 10) -> int:
             if success:
                 publish_email_sent(email.id, {
                     'therapist_id': email.therapist_id,
-                    'subject': email.subject,
+                    'betreff': email.betreff,
                     'status': email.status.value if hasattr(email.status, 'value') else str(email.status)
                 })
         
@@ -226,168 +223,34 @@ def send_queued_emails(limit: int = 10) -> int:
         db.close()
 
 
-def create_batch_email(
-    therapist_id: int,
-    placement_requests: List[Dict[str, Any]],
-    template_name: str = "batch_request.html"
-) -> Optional[int]:
-    """Create a batch email for multiple placement requests.
-    
-    Args:
-        therapist_id: ID of the therapist
-        placement_requests: List of placement request data
-        template_name: Name of the email template to use
-        
-    Returns:
-        int: ID of created email or None if failed
-    """
-    import requests
+def check_unanswered_emails():
+    """Check for emails without responses after 7 days and schedule phone calls."""
+    logger.info("Checking for unanswered emails older than 7 days")
     
     db = SessionLocal()
     try:
-        # Get therapist data
-        from shared.config import get_config
-        config = get_config()
-        therapist_url = f"{config.get_service_url('therapist', internal=True)}/api/therapists/{therapist_id}"
-        response = requests.get(therapist_url)
+        # Find emails sent more than 7 days ago without a response
+        seven_days_ago = datetime.utcnow() - timedelta(days=7)
         
-        if response.status_code != 200:
-            logger.error(f"Failed to get therapist {therapist_id}")
-            return None
-            
-        therapist = response.json()
+        unanswered_emails = db.query(Email).filter(
+            Email.sent_at <= seven_days_ago,
+            cast(Email.status, String) == EmailStatus.SENT.value,
+            Email.antwort_erhalten.is_(False)
+        ).all()
         
-        # Get patient data for each placement request
-        patients = []
-        patient_service_url = config.get_service_url('patient', internal=True)
+        logger.info(f"Found {len(unanswered_emails)} unanswered emails older than 7 days")
         
-        for pr in placement_requests[:MAX_PATIENTS_PER_EMAIL]:
-            patient_response = requests.get(f"{patient_service_url}/api/patients/{pr['patient_id']}")
-            if patient_response.status_code == 200:
-                patients.append(patient_response.json())
-        
-        if not patients:
-            logger.error("No patient data found for batch email")
-            return None
-        
-        # Render email content
-        context = {
-            'recipient_name': f"{therapist.get('titel', '')} {therapist['nachname']}".strip(),
-            'patients': patients,
-            'sender_email': config.EMAIL_SENDER,
-            'sender_name': config.EMAIL_SENDER_NAME,
-            'current_year': datetime.now().year
-        }
-        
-        body_html = render_template(f"emails/{template_name}", **context)
-        
-        # Create plain text version
-        body_text = f"""
-Sehr geehrte(r) {context['recipient_name']},
-
-wir haben mehrere Patienten, für die wir einen Therapieplatz suchen.
-Bitte antworten Sie auf diese E-Mail, wenn Sie Kapazitäten haben.
-
-Mit freundlichen Grüßen,
-{context['sender_name']}
-        """
-        
-        # Create email record
-        batch_id = str(uuid.uuid4())
-        
-        email = Email(
-            therapist_id=therapist_id,
-            subject=f"Therapieplatz-Anfrage für {len(patients)} Patient(en)",
-            body_html=body_html,
-            body_text=body_text,
-            recipient_email=therapist['email'],
-            recipient_name=context['recipient_name'],
-            sender_email=config.EMAIL_SENDER,
-            sender_name=config.EMAIL_SENDER_NAME,
-            status=EmailStatus.QUEUED,
-            batch_id=batch_id,
-            queued_at=datetime.utcnow()
-        )
-        
-        db.add(email)
-        db.flush()
-        
-        # Create email batches
-        for i, pr in enumerate(placement_requests[:MAX_PATIENTS_PER_EMAIL]):
-            batch = EmailBatch(
-                email_id=email.id,
-                placement_request_id=pr['id'],
-                priority=i + 1,
-                included=True
-            )
-            db.add(batch)
-        
-        db.commit()
-        
-        logger.info(f"Created batch email {email.id} for therapist {therapist_id} with {len(patients)} patients")
-        return email.id
-        
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Error creating batch email: {str(e)}")
-        return None
-    finally:
-        db.close()
-
-
-def process_pending_requests() -> int:
-    """Process pending placement requests and create batch emails.
-    
-    Returns:
-        int: Number of batch emails created
-    """
-    import requests
-    from collections import defaultdict
-    
-    db = SessionLocal()
-    batch_count = 0
-    
-    try:
-        # Get pending placement requests from matching service
-        config = get_config()
-        matching_url = f"{config.get_service_url('matching', internal=True)}/api/placement-requests"
-        response = requests.get(matching_url, params={'status': 'offen'})
-        
-        if response.status_code != 200:
-            logger.error("Failed to get placement requests")
-            return 0
-        
-        placement_requests = response.json()
-        
-        # Group by therapist
-        requests_by_therapist = defaultdict(list)
-        for pr in placement_requests:
-            therapist_id = pr['therapist_id']
-            
-            # Check if we can contact this therapist
-            if can_contact_therapist(therapist_id):
-                requests_by_therapist[therapist_id].append(pr)
-        
-        # Create batch emails
-        for therapist_id, requests in requests_by_therapist.items():
-            # Sort by creation date (oldest first)
-            requests.sort(key=lambda x: x.get('created_at', ''))
-            
-            # Create email
-            email_id = create_batch_email(therapist_id, requests)
-            if email_id:
-                batch_count += 1
+        scheduled_count = 0
+        for email in unanswered_emails:
+            call_id = schedule_call_for_email(email.id)
+            if call_id:
+                scheduled_count += 1
                 
-                # Update placement request status
-                for pr in requests[:MAX_PATIENTS_PER_EMAIL]:
-                    update_url = f"{matching_url}/{pr['id']}"
-                    requests.put(update_url, json={'status': 'in_bearbeitung'})
-        
-        logger.info(f"Created {batch_count} batch emails")
-        return batch_count
+        logger.info(f"Scheduled {scheduled_count} follow-up calls")
+        return scheduled_count
         
     except Exception as e:
-        logger.error(f"Error processing pending requests: {str(e)}")
-        return batch_count
+        logger.error(f"Error checking unanswered emails: {str(e)}")
+        return 0
     finally:
         db.close()

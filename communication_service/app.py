@@ -3,15 +3,8 @@ from flask import Flask
 from flask_restful import Api
 from flask_cors import CORS
 
-from api.emails import (
-    EmailResource, EmailListResource,
-    EmailBatchListResource, EmailBatchResource
-)
-from api.phone_calls import (
-    PhoneCallResource, 
-    PhoneCallListResource, 
-    PhoneCallBatchResource
-)
+from api.emails import EmailResource, EmailListResource
+from api.phone_calls import PhoneCallResource, PhoneCallListResource
 from events.consumers import start_consumers
 from shared.config import get_config
 
@@ -49,13 +42,10 @@ def create_app():
     # Register API endpoints for emails
     api.add_resource(EmailListResource, '/api/emails')
     api.add_resource(EmailResource, '/api/emails/<int:email_id>')
-    api.add_resource(EmailBatchListResource, '/api/emails/<int:email_id>/batches')
-    api.add_resource(EmailBatchResource, '/api/email-batches/<int:batch_id>')
     
     # Register API endpoints for phone calls
     api.add_resource(PhoneCallListResource, '/api/phone-calls')
     api.add_resource(PhoneCallResource, '/api/phone-calls/<int:call_id>')
-    api.add_resource(PhoneCallBatchResource, '/api/phone-call-batches/<int:batch_id>')
 
     # Start Kafka consumers
     start_consumers()

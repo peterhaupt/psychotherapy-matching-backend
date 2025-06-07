@@ -3,7 +3,7 @@ from flask import request
 from flask_restful import Resource, fields, marshal_with, reqparse
 from sqlalchemy.exc import SQLAlchemyError
 
-from models.phone_call import PhoneCall, PhoneCallStatus, PhoneCallBatch
+from models.phone_call import PhoneCall, PhoneCallStatus
 from shared.utils.database import SessionLocal
 from shared.api.base_resource import PaginatedListResource
 from utils.phone_call_scheduler import find_available_slot
@@ -12,30 +12,17 @@ from utils.phone_call_scheduler import find_available_slot
 phone_call_fields = {
     'id': fields.Integer,
     'therapist_id': fields.Integer,
-    'scheduled_date': fields.String,
-    'scheduled_time': fields.String,
-    'duration_minutes': fields.Integer,
-    'actual_date': fields.String,
-    'actual_time': fields.String,
+    'geplantes_datum': fields.String,
+    'geplante_zeit': fields.String,
+    'dauer_minuten': fields.Integer,
+    'tatsaechliches_datum': fields.String,
+    'tatsaechliche_zeit': fields.String,
     'status': fields.String,
-    'outcome': fields.String,
-    'notes': fields.String,
-    'retry_after': fields.String,
+    'ergebnis': fields.String,
+    'notizen': fields.String,
+    'wiederholen_nach': fields.String,
     'created_at': fields.DateTime,
     'updated_at': fields.DateTime
-}
-
-# Output fields for phone call batch responses
-phone_call_batch_fields = {
-    'id': fields.Integer,
-    'phone_call_id': fields.Integer,
-    'placement_request_id': fields.Integer,
-    'priority': fields.Integer,
-    'discussed': fields.Boolean,
-    'outcome': fields.String,
-    'follow_up_required': fields.Boolean,
-    'follow_up_notes': fields.String,
-    'created_at': fields.DateTime
 }
 
 
@@ -60,15 +47,15 @@ class PhoneCallResource(Resource):
     def put(self, call_id):
         """Update an existing phone call."""
         parser = reqparse.RequestParser()
-        parser.add_argument('scheduled_date', type=str)
-        parser.add_argument('scheduled_time', type=str)
-        parser.add_argument('duration_minutes', type=int)
-        parser.add_argument('actual_date', type=str)
-        parser.add_argument('actual_time', type=str)
+        parser.add_argument('geplantes_datum', type=str)
+        parser.add_argument('geplante_zeit', type=str)
+        parser.add_argument('dauer_minuten', type=int)
+        parser.add_argument('tatsaechliches_datum', type=str)
+        parser.add_argument('tatsaechliche_zeit', type=str)
         parser.add_argument('status', type=str)
-        parser.add_argument('outcome', type=str)
-        parser.add_argument('notes', type=str)
-        parser.add_argument('retry_after', type=str)
+        parser.add_argument('ergebnis', type=str)
+        parser.add_argument('notizen', type=str)
+        parser.add_argument('wiederholen_nach', type=str)
         
         args = parser.parse_args()
         
@@ -125,7 +112,7 @@ class PhoneCallListResource(PaginatedListResource):
         # Parse query parameters for filtering
         therapist_id = request.args.get('therapist_id', type=int)
         status = request.args.get('status')
-        scheduled_date = request.args.get('scheduled_date')
+        geplantes_datum = request.args.get('geplantes_datum')
         
         db = SessionLocal()
         try:
@@ -136,8 +123,8 @@ class PhoneCallListResource(PaginatedListResource):
                 query = query.filter(PhoneCall.therapist_id == therapist_id)
             if status:
                 query = query.filter(PhoneCall.status == status)
-            if scheduled_date:
-                query = query.filter(PhoneCall.scheduled_date == scheduled_date)
+            if geplantes_datum:
+                query = query.filter(PhoneCall.geplantes_datum == geplantes_datum)
             
             # Apply pagination
             query = self.paginate_query(query)
@@ -158,22 +145,21 @@ class PhoneCallListResource(PaginatedListResource):
         parser.add_argument('therapist_id', type=int, required=True,
                           help='Therapist ID is required')
         # Optional fields with automatic scheduling
-        parser.add_argument('scheduled_date', type=str)
-        parser.add_argument('scheduled_time', type=str)
-        parser.add_argument('duration_minutes', type=int, default=5)
+        parser.add_argument('geplantes_datum', type=str)
+        parser.add_argument('geplante_zeit', type=str)
+        parser.add_argument('dauer_minuten', type=int, default=5)
         parser.add_argument('status', type=str)
-        parser.add_argument('notes', type=str)
-        parser.add_argument('placement_request_ids', type=list)
+        parser.add_argument('notizen', type=str)
         
         args = parser.parse_args()
         
         db = SessionLocal()
         try:
             # Check if we need to find an available slot
-            if not args.get('scheduled_date') or not args.get('scheduled_time'):
+            if not args.get('geplantes_datum') or not args.get('geplante_zeit'):
                 slot = find_available_slot(
                     args['therapist_id'],
-                    duration_minutes=args.get('duration_minutes', 5)
+                    duration_minutes=args.get('dauer_minuten', 5)
                 )
                 
                 if not slot:
@@ -184,8 +170,8 @@ class PhoneCallListResource(PaginatedListResource):
                 scheduled_date = slot['date']
                 scheduled_time = slot['start_time']
             else:
-                scheduled_date = args['scheduled_date']
-                scheduled_time = args['scheduled_time']
+                scheduled_date = args['geplantes_datum']
+                scheduled_time = args['geplante_zeit']
             
             # Create the phone call
             from datetime import datetime
@@ -195,26 +181,14 @@ class PhoneCallListResource(PaginatedListResource):
             
             phone_call = PhoneCall(
                 therapist_id=args['therapist_id'],
-                scheduled_date=scheduled_date,
-                scheduled_time=call_time,
-                duration_minutes=args.get('duration_minutes', 5),
-                notes=args.get('notes'),
+                geplantes_datum=scheduled_date,
+                geplante_zeit=call_time,
+                dauer_minuten=args.get('dauer_minuten', 5),
+                notizen=args.get('notizen'),
                 status=args.get('status', PhoneCallStatus.SCHEDULED.value)
             )
             
             db.add(phone_call)
-            db.flush()  # Get ID without committing
-            
-            # Create batches for placement requests if provided
-            placement_request_ids = args.get('placement_request_ids', [])
-            for pr_id in placement_request_ids:
-                batch = PhoneCallBatch(
-                    phone_call_id=phone_call.id,
-                    placement_request_id=pr_id,
-                    priority=1  # Default priority
-                )
-                db.add(batch)
-            
             db.commit()
             db.refresh(phone_call)
             
@@ -225,57 +199,5 @@ class PhoneCallListResource(PaginatedListResource):
         except Exception as e:
             db.rollback()
             return {'message': f'Error creating phone call: {str(e)}'}, 500
-        finally:
-            db.close()
-
-
-class PhoneCallBatchResource(Resource):
-    """REST resource for phone call batch operations."""
-
-    @marshal_with(phone_call_batch_fields)
-    def get(self, batch_id):
-        """Get a specific phone call batch by ID."""
-        db = SessionLocal()
-        try:
-            batch = db.query(PhoneCallBatch).filter(
-                PhoneCallBatch.id == batch_id
-            ).first()
-            if not batch:
-                return {'message': 'Phone call batch not found'}, 404
-            return batch
-        except SQLAlchemyError as e:
-            return {'message': f'Database error: {str(e)}'}, 500
-        finally:
-            db.close()
-
-    @marshal_with(phone_call_batch_fields)
-    def put(self, batch_id):
-        """Update an existing phone call batch."""
-        parser = reqparse.RequestParser()
-        parser.add_argument('discussed', type=bool)
-        parser.add_argument('outcome', type=str)
-        parser.add_argument('follow_up_required', type=bool)
-        parser.add_argument('follow_up_notes', type=str)
-        
-        args = parser.parse_args()
-        
-        db = SessionLocal()
-        try:
-            batch = db.query(PhoneCallBatch).filter(
-                PhoneCallBatch.id == batch_id
-            ).first()
-            if not batch:
-                return {'message': 'Phone call batch not found'}, 404
-            
-            # Update fields from request
-            for key, value in args.items():
-                if value is not None:
-                    setattr(batch, key, value)
-            
-            db.commit()
-            return batch
-        except SQLAlchemyError as e:
-            db.rollback()
-            return {'message': f'Database error: {str(e)}'}, 500
         finally:
             db.close()
