@@ -2,13 +2,13 @@
 
 This document shows the FINAL database schema after all migrations have been applied. All field names use German terminology for consistency.
 
-## Naming Convention ✅ FULLY IMPLEMENTED IN DATABASE
-**Important:** ALL field names in the database now use German terminology. This decision was made to maintain consistency with the existing codebase and avoid confusion from mixing languages.
+## Naming Convention ✅ FULLY IMPLEMENTED IN DATABASE AND CODE
+**Important:** ALL field names in both the database AND models now use German terminology. This decision was made to maintain consistency with the existing codebase and avoid confusion from mixing languages.
 
 **Current Status:**
 - ✅ Database: 100% German field names
 - ✅ Patient Service: Models and APIs use German
-- ❌ Therapist Service: Models still use English (causing errors)
+- ✅ Therapist Service: Models and APIs use German
 - ✅ Matching Service: PlacementRequest removed, stub models use German
 - ✅ Communication Service: Models and APIs updated to German
 
@@ -341,79 +341,64 @@ All migrations have been successfully applied:
 | `gcfc02i5m6m6` | ✅ Applied | Rename ALL remaining fields |
 | `hcfc03j6n7n7` | ✅ Applied | Remove communication batch tables |
 
-## Current Issues Due to Model/Database Mismatch
+## Current Service Status
 
-### ✅ RESOLVED: Matching Service
-- **Previous Issue**: `relation "matching_service.placement_requests" does not exist`
-- **Resolution**: PlacementRequest code completely removed, stub models created
-- **Status**: Service returns 501 (Not Implemented) for all endpoints
+### ✅ FULLY RESOLVED: All Services
 
-### ✅ RESOLVED: Communication Service
-- **Previous Issue**: Database fields didn't match model fields
-- **Resolution**: All models updated to use German field names
-- **Status**: Service fully operational with German field names
-
-### Still Active Issues:
-
-1. **Therapist Service** ⚠️
+1. **Patient Service** ✅
    - Database: German field names ✅
-   - Model: English field names ❌
-   - API: Returns English fields ❌
-   - Status: GET operations work, POST/PUT may fail on new fields
+   - Model: German field names ✅
+   - API: German field names ✅
+   - Status: Fully operational
+
+2. **Therapist Service** ✅
+   - Database: German field names ✅
+   - Model: German field names ✅
+   - API: German field names ✅
+   - Status: Fully operational
+
+3. **Communication Service** ✅
+   - Database: German field names ✅
+   - Model: German field names ✅
+   - API: German field names ✅
+   - Status: Fully operational
+
+4. **Matching Service** 🟡
+   - Database: German field names ✅
+   - Model: Stub implementation ✅
+   - API: Returns 501 (Not Implemented) ✅
+   - Status: Stable, awaiting bundle implementation
+
+5. **Geocoding Service** ✅
+   - Database: Technical English names (by design)
+   - Model: No changes needed
+   - Status: Fully operational
 
 ## Code Update Status
 
-### ✅ PlacementRequest Removal Complete
-1. ✅ `matching_service/models/placement_request.py` - DELETED
-2. ✅ `matching_service/models/__init__.py` - Import removed
-3. ✅ `migrations/alembic/env.py` - Import removed
-4. ✅ All API endpoints updated to return 501
-5. ✅ All events updated to bundle system
-6. ✅ No more PlacementRequest references in codebase
-
-### ✅ Communication Service Update Complete
-1. ✅ `communication_service/models/email.py` - Updated to German
-2. ✅ `communication_service/models/phone_call.py` - Updated to German
-3. ✅ `communication_service/models/email_batch.py` - DELETED
-4. ✅ `communication_service/models/phone_call_batch.py` - DELETED
-5. ✅ All API endpoints updated to use German fields
-6. ✅ All utilities updated to use German fields
+### ✅ All German Field Updates Complete
+1. ✅ Patient Service - Already used German from the start
+2. ✅ Therapist Service - Fully updated to German
+3. ✅ Communication Service - Fully updated to German
+4. ✅ Matching Service - PlacementRequest removed, stubs use German
+5. ✅ Geocoding Service - Uses technical English (no update needed)
 
 ## Next Steps
 
 1. ✅ Database schema is complete
-2. ✅ PlacementRequest code removed
-3. ✅ Communication Service updated to German
-4. 🔄 Update therapist model to match German field names
-5. 🔄 Implement full bundle system (currently stubs)
+2. ✅ All services updated to German field names
+3. 🔄 Implement full bundle system (currently stubs)
 
-## Quick Reference: Model Updates Needed
+## Quick Reference: Current State
 
-### ✅ Communication Service (COMPLETE)
-- All models updated to German
-- All APIs use German field names
-- Batch system removed
-
-### ✅ Matching Service (COMPLETE - Using Stubs)
-- PlacementRequest removed
-- Bundle models created (basic structure)
-- All imports updated
-- API returns 501 for all endpoints
-
-### Therapist Model Fields to Rename:
-- `potentially_available` → `potenziell_verfuegbar`
-- `potentially_available_notes` → `potenziell_verfuegbar_notizen`
-- `next_contactable_date` → `naechster_kontakt_moeglich`
-- `preferred_diagnoses` → `bevorzugte_diagnosen`
-- `age_min` → `alter_min`
-- `age_max` → `alter_max`
-- `gender_preference` → `geschlechtspraeferenz`
-- `working_hours` → `arbeitszeiten`
-- ADD: `bevorzugt_gruppentherapie`
+### All Services Working ✅
+- Patient Service: Fully operational with German fields
+- Therapist Service: Fully operational with German fields
+- Communication Service: Fully operational with German fields
+- Geocoding Service: Fully operational (technical English)
+- Matching Service: Stable with stub implementation (returns 501)
 
 ---
 *Database State: Fully migrated to German ✅*
-*Patient Service: Fully aligned with German ✅*
-*Communication Service: Fully aligned with German ✅*
-*Matching Service: Stable with stub implementation 🟡*
-*Therapist Service: Still needs model updates ❌*
+*All Services: Updated to match database ✅*
+*Current Task: Implement bundle system logic*

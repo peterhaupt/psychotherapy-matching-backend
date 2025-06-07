@@ -1,7 +1,7 @@
 # Psychotherapy Matching Platform - Implementation Progress
 
 ## Overview
-This document tracks the implementation progress of the Psychotherapy Matching Platform. The database migration to German field names and bundle system is complete. PlacementRequest has been fully removed from the codebase. Communication Service has been fully updated to German field names. The next phase involves updating the Therapist Service and implementing the full bundle system.
+This document tracks the implementation progress of the Psychotherapy Matching Platform. The database migration to German field names and bundle system is complete. PlacementRequest has been fully removed from the codebase. All services have been fully updated to German field names. The next phase involves implementing the full bundle system logic.
 
 ## Implementation Status
 
@@ -17,7 +17,7 @@ This document tracks the implementation progress of the Psychotherapy Matching P
 | Service | Status | Current Functionality |
 |---------|--------|----------------------|
 | Patient Service | ✅ Complete | CRUD operations, status tracking, event publishing |
-| Therapist Service | ⚠️ DB/Model Mismatch | Database uses German fields, model uses English |
+| Therapist Service | ✅ Complete | All fields German, bundle preferences, availability |
 | Matching Service (Bundle) | 🟡 Stub Implementation | PlacementRequest removed, returns 501 for all endpoints |
 | Communication Service | ✅ Complete | All models updated to German, batch system removed |
 | Geocoding Service | ✅ Complete | OSM/OSRM integration, caching, distance calculations |
@@ -25,7 +25,7 @@ This document tracks the implementation progress of the Psychotherapy Matching P
 | Scraper Integration | 🔄 In Progress | Import process for scraped data |
 | Web Interface | 📋 Planned | React-based UI for staff |
 
-## Current Sprint: Bundle-Based Matching System
+## Current Sprint: Bundle System Implementation
 
 ### Phase 1: Database Schema Updates ✅ COMPLETED
 
@@ -37,63 +37,38 @@ This document tracks the implementation progress of the Psychotherapy Matching P
 - ✅ Removed communication batch tables
 - ✅ All database tests passing
 
-### Phase 2: Model & Code Updates 🔄 CURRENT PHASE
+### Phase 2: Model & Code Updates ✅ COMPLETED
 
-#### Current State Analysis
+**What Was Accomplished:**
+- ✅ PlacementRequest completely removed from codebase
+- ✅ Matching Service stabilized with stub implementation (returns 501)
+- ✅ Communication Service fully updated to German field names
+- ✅ Therapist Service fully updated to German field names
+- ✅ All services now use German field names consistently
 
-**Working Services:**
-- ✅ Patient Service (already uses German fields everywhere)
-- ✅ Geocoding Service (unaffected by changes)
-- ✅ Communication Service (fully updated to German field names)
+### Phase 3: Bundle Algorithm Implementation 🔄 CURRENT PHASE
 
-**Services Updated:**
-- ✅ Matching Service (PlacementRequest removed, stub implementation complete)
-- ✅ Communication Service (models and APIs now use German field names)
+#### Tasks Remaining
 
-**Services Needing Updates:**
+**Week 1: Complete Bundle Models**
+1. 🔄 Implement full Platzsuche model with relationships
+2. 🔄 Implement full Therapeutenanfrage model
+3. 🔄 Implement full TherapeutAnfragePatient model
+4. 🔄 Add model methods for business logic
 
-1. **Therapist Service** ⚠️
-   - Database: German field names ✅
-   - Model: English field names ❌
-   - API: Returns English fields ❌
-   - Status: GET operations work, POST/PUT may fail on new fields
+**Week 2: Bundle Algorithm**
+1. ❌ Create bundle_creator.py module
+2. ❌ Implement hard constraints (distance, exclusions, gender)
+3. ❌ Implement progressive filtering
+4. ❌ Add cooling period enforcement
+5. ❌ Implement conflict resolution
 
-#### Tasks Completed
-
-**Day 1: Fixed Matching Service ✅**
-- ✅ Removed PlacementRequest completely
-- ✅ Created stub bundle models
-- ✅ No more 500 errors
-
-**Day 2: Updated Communication Service ✅**
-- ✅ Renamed all Email model fields to German
-- ✅ Renamed all PhoneCall model fields to German
-- ✅ Updated all API endpoints to use German field names
-- ✅ Removed EmailBatch and PhoneCallBatch models
-- ✅ Updated utilities and event handlers
-
-#### Immediate Tasks (Priority Order)
-
-**Day 3: Update Therapist Model (CURRENT)**
-1. Rename all fields to German in model
-2. Update API field mappings
-3. Test all endpoints
-4. Update event payloads
-
-**Days 4-6: Implement Bundle System**
-1. Complete bundle models with business logic
-2. Implement bundle creation algorithm
-3. Create new API endpoints
-4. Add progressive filtering
-
-### Phase 3: Testing & Refinement 📋 NEXT PHASE
-
-**Upcoming Tasks:**
-- Unit tests for bundle algorithm
-- Integration tests for complete flow
-- Performance testing with realistic data
-- Test data generation scripts
-- API documentation updates
+**Week 3: API Implementation**
+1. ❌ Create /api/platzsuchen endpoints
+2. ❌ Create /api/therapeutenanfragen endpoints
+3. ❌ Create bundle creation endpoint
+4. ❌ Add response recording endpoints
+5. ❌ Implement analytics endpoints
 
 ## Key Architectural Decisions
 
@@ -112,79 +87,89 @@ All database tables now use German field names consistently:
 - 🟡 Stub model implementation
 - ❌ Algorithm implementation pending
 
-## Current Issues
+## Current State Summary
 
-### 1. Model/Database Mismatches ⚠️
-**Problem**: Database fields don't match model fields
-**Services Affected**: Therapist only
-**Impact**: POST/PUT operations may fail
-**Fix**: Update models to use German field names
+### What's Done ✅
+- Database fully migrated to German
+- PlacementRequest completely removed
+- All services updated to use German field names
+- Communication Service simplified (batch logic removed)
+- Matching Service stabilized (returns 501)
+- No more crashes or 500 errors
 
-### 2. Missing Bundle Implementation ❌
-**Problem**: Bundle system has stubs only
-**Impact**: Cannot create patient searches or bundles
-**Fix**: Implement models and algorithms
+### What's In Progress 🔄
+- Bundle algorithm implementation
+- Bundle API endpoints
+- Integration between services
+
+### What's Next ❌
+- Complete bundle models with business logic
+- Implement progressive filtering algorithm
+- Create bundle management APIs
+- Add cooling period enforcement
+- Implement conflict resolution
+- Full integration testing
 
 ## Current Database State vs Code State
 
 | Component | Database | Models | APIs | Status |
 |-----------|----------|--------|------|--------|
 | Patient Fields | German ✅ | German ✅ | German ✅ | ✅ Working |
-| Therapist Fields | German ✅ | English ❌ | English ❌ | ⚠️ Partial |
+| Therapist Fields | German ✅ | German ✅ | German ✅ | ✅ Working |
 | Communication Fields | German ✅ | German ✅ | German ✅ | ✅ Working |
-| PlacementRequest | Removed ✅ | Removed ✅ | 501 Response ✅ | 🟡 Stable |
+| PlacementRequest | Removed ✅ | Removed ✅ | 501 Response ✅ | ✅ Complete |
 | Bundle System | Created ✅ | Stubs ✅ | 501 Response ✅ | 🟡 Ready for Implementation |
 | Batch Tables | Removed ✅ | Removed ✅ | Removed ✅ | ✅ Complete |
 
 ## Next Sprint Planning
 
-### Week 1: Complete Model Updates
-- ✅ Remove PlacementRequest completely (DONE)
-- ✅ Update communication models to German field names (DONE)
-- Update therapist model to German field names
-- Fix broken endpoints
+### Week 1: Bundle Models
+- Complete Platzsuche model implementation
+- Complete Therapeutenanfrage model
+- Complete TherapeutAnfragePatient model
+- Add relationships and helper methods
 
-### Week 2: Bundle Implementation  
-- Complete bundle algorithm
-- Implement progressive filtering
-- Create bundle API endpoints
-- Add cooling period logic
+### Week 2: Bundle Algorithm  
+- Implement hard constraint checking
+- Add progressive filtering logic
+- Create bundle composition algorithm
+- Add cooling period management
 
 ### Week 3: Integration & Testing
-- Connect all services
-- Test bundle creation flow
-- Performance optimization
-- Documentation updates
+- Create all bundle API endpoints
+- Connect to communication service
+- Implement event handlers
+- Full integration testing
 
 ## How to Test Current State
 
 ```bash
-# Working endpoints
+# All working endpoints
 curl http://localhost:8001/api/patients  # ✅ Works
+curl http://localhost:8002/api/therapists  # ✅ Works
 curl http://localhost:8003/api/placement-requests  # ✅ Returns 501
 curl http://localhost:8004/api/emails  # ✅ Works with German fields
-
-# Partially working
-curl http://localhost:8002/api/therapists  # ⚠️ GET works, POST may fail
+curl http://localhost:8004/api/phone-calls  # ✅ Works with German fields
+curl http://localhost:8005/api/geocode?address=Berlin  # ✅ Works
 ```
 
 ## Definition of Done for Current Phase
 
-### Models Updated 🔄
+### Models Updated ✅ COMPLETE
 - [x] PlacementRequest removed completely
 - [x] Matching service has stub models
-- [ ] Therapist model uses German field names
+- [x] Therapist model uses German field names
 - [x] Communication models use German field names
 - [ ] Bundle models fully implemented
 - [x] All imports updated
 
-### APIs Updated 🔄
+### APIs Updated ✅ COMPLETE
 - [x] Matching endpoints return 501 (not 500)
-- [ ] All endpoints use German field names
+- [x] All endpoints use German field names
 - [ ] Bundle endpoints created
-- [ ] API documentation updated
+- [x] API documentation updated
 
-### Bundle System Working ❌
+### Bundle System Working ❌ NOT STARTED
 - [ ] Can create patient searches
 - [ ] Can create bundles
 - [ ] Progressive filtering works
@@ -196,9 +181,9 @@ curl http://localhost:8002/api/therapists  # ⚠️ GET works, POST may fail
 ```
 Service Health:
 ├── Patient Service:       🟢 Operational
-├── Therapist Service:     🟡 Degraded (model mismatch)
+├── Therapist Service:     🟢 Operational
 ├── Matching Service:      🟡 Stable (stub implementation)
-├── Communication Service: 🟢 Operational (fully updated)
+├── Communication Service: 🟢 Operational
 └── Geocoding Service:     🟢 Operational
 
 Database State:
@@ -207,12 +192,12 @@ Database State:
 └── Tests:      ✅ All passing
 
 Code State:
-├── Models:     🟡 Partial (therapist needs updates)
-├── APIs:       🟡 Partial (therapist needs updates)
+├── Models:     ✅ All using German field names
+├── APIs:       ✅ All using German field names
 └── Bundle:     🟡 Stub implementation ready
 ```
 
 ---
-*Last Updated: Communication Service fully updated to German*
-*Current Task: Update therapist model to German field names*
-*Next Action: Complete therapist service updates*
+*Last Updated: All services fully updated to German*
+*Current Task: Implement bundle system algorithm*
+*Next Action: Complete bundle model implementations*

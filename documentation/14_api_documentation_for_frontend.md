@@ -1,15 +1,15 @@
 # Frontend API Documentation
 
-## ⚠️ IMPORTANT: System in Transition
-**Current State (as of implementation)**:
+## ✅ SYSTEM UPDATE COMPLETE
+**Current State (as of latest implementation)**:
 - ✅ Database: All tables use German field names
 - ✅ Patient Service: Models and APIs use German field names
-- ❌ Therapist Service: Models still use English field names
-- ✅ Communication Service: Models and APIs now use German field names
+- ✅ Therapist Service: Models and APIs use German field names
+- ✅ Communication Service: Models and APIs use German field names
 - ✅ PlacementRequest: Removed from codebase, replaced with stub bundle system
 - 🟡 Matching Service: Returns 501 (Not Implemented) for all endpoints
 
-**This documentation shows the CURRENT API state after recent updates.**
+**This documentation shows the CURRENT API state with all services fully updated.**
 
 ## Base URLs
 - Patient Service: `http://localhost:8001`
@@ -46,9 +46,9 @@ const PatientStatus = {
 ### TherapistStatus  
 ```javascript
 const TherapistStatus = {
-  ACTIVE: "ACTIVE",
-  BLOCKED: "BLOCKED",
-  INACTIVE: "INACTIVE"
+  ACTIVE: "aktiv",
+  BLOCKED: "gesperrt",
+  INACTIVE: "inaktiv"
 }
 ```
 
@@ -133,25 +133,62 @@ Optional fields (all German):
 }
 ```
 
-## Therapist Service API (⚠️ Model/DB Mismatch)
+## Therapist Service API ✅ WORKING
 
-**IMPORTANT**: The database uses German field names but the model still uses English names. The API currently returns English field names.
+The Therapist Service uses German field names in database, models, and API.
 
 ### GET /api/therapists
-Returns therapists with ENGLISH field names (current state).
+Returns therapists with GERMAN field names.
+
+Query parameters:
+- `status` (optional): Filter by therapist status ("aktiv", "gesperrt", "inaktiv")
+- `potenziell_verfuegbar` (optional): Filter by availability (boolean)
+- `page` (optional): Page number for pagination (default: 1)
+- `limit` (optional): Items per page (default: 20, max: 100)
+
+Response example:
+```json
+{
+  "id": 1,
+  "vorname": "Max",
+  "nachname": "Mustermann",
+  "potenziell_verfuegbar": true,
+  "potenziell_verfuegbar_notizen": "Ab nächstem Monat",
+  "naechster_kontakt_moeglich": "2025-06-15",
+  "bevorzugte_diagnosen": ["F32", "F41"],
+  "alter_min": 18,
+  "alter_max": 65,
+  "geschlechtspraeferenz": "Egal",
+  "arbeitszeiten": {
+    "monday": [{"start": "09:00", "end": "17:00"}]
+  },
+  "bevorzugt_gruppentherapie": false,
+  "status": "aktiv"
+}
+```
 
 ### POST /api/therapists
-Currently expects ENGLISH field names:
+Expects GERMAN field names:
 ```json
 {
   "vorname": "string",
   "nachname": "string",
-  "potentially_available": boolean,
-  "potentially_available_notes": "string"
+  "potenziell_verfuegbar": boolean,
+  "potenziell_verfuegbar_notizen": "string",
+  "naechster_kontakt_moeglich": "YYYY-MM-DD",
+  "bevorzugte_diagnosen": ["F32", "F41"],
+  "alter_min": 18,
+  "alter_max": 65,
+  "geschlechtspraeferenz": "Male|Female|Egal",
+  "arbeitszeiten": {
+    "monday": [{"start": "09:00", "end": "12:00"}]
+  },
+  "bevorzugt_gruppentherapie": boolean
 }
 ```
 
-**Note**: Fields like `potentially_available` will fail once models are updated to match the database's `potenziell_verfuegbar`.
+### PUT /api/therapists/{id}
+Same fields as POST, all fields are optional.
 
 ## Matching Service API 🟡 Returns 501 - Not Implemented
 
@@ -183,9 +220,9 @@ All return:
 ```
 Status: 501
 
-## Communication Service API ✅ FULLY UPDATED
+## Communication Service API ✅ FULLY WORKING
 
-**IMPORTANT**: The Communication Service now uses German field names in both requests and responses.
+The Communication Service uses German field names in both requests and responses.
 
 ### Email Endpoints
 
@@ -202,7 +239,10 @@ Returns emails with GERMAN field names:
   "absender_name": "Boona Team",
   "status": "SENT",
   "antwort_erhalten": false,
-  "antwortdatum": null
+  "antwortdatum": null,
+  "antwortinhalt": null,
+  "nachverfolgung_erforderlich": false,
+  "sent_at": "2025-06-08T10:30:00"
 }
 ```
 
@@ -223,6 +263,17 @@ Optional fields:
 - `absender_email` (defaults to config EMAIL_SENDER)
 - `absender_name` (defaults to config EMAIL_SENDER_NAME)
 
+#### PUT /api/emails/{id}
+Update email with GERMAN field names:
+```json
+{
+  "antwort_erhalten": true,
+  "antwortdatum": "2025-06-09T14:00:00",
+  "antwortinhalt": "Ich kann 2 Patienten aufnehmen.",
+  "nachverfolgung_erforderlich": false
+}
+```
+
 ### Phone Call Endpoints
 
 #### GET /api/phone-calls
@@ -234,7 +285,11 @@ Returns calls with GERMAN field names:
   "geplantes_datum": "2025-06-10",
   "geplante_zeit": "14:30",
   "dauer_minuten": 5,
-  "status": "scheduled"
+  "status": "scheduled",
+  "tatsaechliches_datum": null,
+  "tatsaechliche_zeit": null,
+  "ergebnis": null,
+  "notizen": null
 }
 ```
 
@@ -245,11 +300,12 @@ Expects GERMAN field names:
   "therapist_id": 123,
   "geplantes_datum": "2025-06-10",
   "geplante_zeit": "14:30",
-  "dauer_minuten": 5
+  "dauer_minuten": 5,
+  "notizen": "Follow-up für Bündel #456"
 }
 ```
 
-Optional: If `geplantes_datum` and `geplante_zeit` are not provided, the system will automatically find the next available slot.
+Optional: If `geplantes_datum` and `geplante_zeit` are not provided, the system will automatically find the next available slot based on therapist's `telefonische_erreichbarkeit`.
 
 #### PUT /api/phone-calls/{id}
 Update with GERMAN field names:
@@ -265,14 +321,58 @@ Update with GERMAN field names:
 
 ## Geocoding Service API ✅ WORKING
 
-The Geocoding Service is unaffected by the German field name changes as it uses technical/English field names.
+The Geocoding Service uses technical/English field names (unchanged).
 
 ### GET /api/geocode
-### GET /api/reverse-geocode  
-### GET /api/calculate-distance
-### POST /api/find-therapists
+Query parameters:
+- `address` (required): Address to geocode
 
-(Same as before - see original documentation)
+Response:
+```json
+{
+  "latitude": 52.5200,
+  "longitude": 13.4050,
+  "display_name": "Berlin, Germany"
+}
+```
+
+### GET /api/reverse-geocode  
+Query parameters:
+- `lat` (required): Latitude
+- `lon` (required): Longitude
+
+### GET /api/calculate-distance
+Query parameters:
+- `origin`: Address or coordinates (origin_lat, origin_lon)
+- `destination`: Address or coordinates (destination_lat, destination_lon)
+- `travel_mode`: "car" or "transit" (default: "car")
+- `no_cache`: Bypass cache (default: false)
+
+Response:
+```json
+{
+  "distance_km": 123.45,
+  "travel_time_minutes": 67.8
+}
+```
+
+### POST /api/find-therapists
+Request body:
+```json
+{
+  "patient_address": "Berlin, Germany",
+  "max_distance_km": 30,
+  "travel_mode": "car",
+  "therapists": [
+    {
+      "id": 1,
+      "strasse": "Example Street 1",
+      "plz": "10115",
+      "ort": "Berlin"
+    }
+  ]
+}
+```
 
 ## Common Error Responses
 
@@ -292,6 +392,13 @@ The Geocoding Service is unaffected by the German field name changes as it uses 
 }
 ```
 
+#### 500 Internal Server Error
+```json
+{
+  "message": "Database error: [details]"
+}
+```
+
 #### 501 Not Implemented (Matching Service)
 ```json
 {
@@ -299,37 +406,32 @@ The Geocoding Service is unaffected by the German field name changes as it uses 
 }
 ```
 
-### Current Issues You May Encounter
+## Migration Complete - Everything Working ✅
 
-#### 500 Internal Server Error - Database/Model Mismatch
-```json
-{
-  "message": "Database error: (psycopg2.errors.UndefinedColumn) column \"potentially_available\" does not exist"
-}
-```
-This occurs when models haven't been updated to match database field names.
-**Note**: This should NOT occur in Communication Service anymore.
+### Currently Working
+- ✅ Patient Service (fully migrated to German)
+- ✅ Therapist Service (fully migrated to German)
+- ✅ Communication Service (fully migrated to German)
+- ✅ Geocoding Service (unaffected)
+- ✅ Matching Service (returns 501 instead of crashing)
 
-## Migration in Progress - What's Working
+### Field Name Reference (All Services Now Using German)
 
-### Currently Working ✅
-- Patient Service (fully migrated to German)
-- Communication Service (fully migrated to German)
-- Geocoding Service (unaffected)
-- Basic GET operations on existing data
-- Matching Service (returns 501 instead of crashing)
+#### Patient Fields:
+All fields as documented above use German names.
 
-### Currently Broken ❌
-- Creating new therapists with bundle preferences
-- Any operation involving new therapist fields
+#### Therapist Fields:
+- `potentially_available` → `potenziell_verfuegbar` ✅
+- `potentially_available_notes` → `potenziell_verfuegbar_notizen` ✅
+- `next_contactable_date` → `naechster_kontakt_moeglich` ✅
+- `preferred_diagnoses` → `bevorzugte_diagnosen` ✅
+- `age_min` → `alter_min` ✅
+- `age_max` → `alter_max` ✅
+- `gender_preference` → `geschlechtspraeferenz` ✅
+- `working_hours` → `arbeitszeiten` ✅
+- `prefers_group_therapy` → `bevorzugt_gruppentherapie` ✅
 
-### Partially Working ⚠️
-- Therapist Service (reads work, writes may fail on new fields)
-
-## Updated Field Name References
-
-### Communication Service Fields (NOW IN USE) ✅
-#### Email Fields:
+#### Communication Fields:
 - `subject` → `betreff` ✅
 - `recipient_email` → `empfaenger_email` ✅
 - `recipient_name` → `empfaenger_name` ✅
@@ -340,8 +442,6 @@ This occurs when models haven't been updated to match database field names.
 - `response_content` → `antwortinhalt` ✅
 - `follow_up_required` → `nachverfolgung_erforderlich` ✅
 - `follow_up_notes` → `nachverfolgung_notizen` ✅
-
-#### Phone Call Fields:
 - `scheduled_date` → `geplantes_datum` ✅
 - `scheduled_time` → `geplante_zeit` ✅
 - `duration_minutes` → `dauer_minuten` ✅
@@ -351,19 +451,61 @@ This occurs when models haven't been updated to match database field names.
 - `notes` → `notizen` ✅
 - `retry_after` → `wiederholen_nach` ✅
 
-### Therapist Fields (PENDING UPDATE):
-- `potentially_available` → `potenziell_verfuegbar` (pending)
-- `potentially_available_notes` → `potenziell_verfuegbar_notizen` (pending)
-- `next_contactable_date` → `naechster_kontakt_moeglich` (pending)
-- (etc. - see documentation)
+## Testing the APIs
+
+### Test Patient Service
+```bash
+# Get all patients
+curl http://localhost:8001/api/patients
+
+# Create a patient
+curl -X POST http://localhost:8001/api/patients \
+  -H "Content-Type: application/json" \
+  -d '{"vorname": "Test", "nachname": "Patient"}'
+```
+
+### Test Therapist Service
+```bash
+# Get all therapists
+curl http://localhost:8002/api/therapists
+
+# Create a therapist with bundle preferences
+curl -X POST http://localhost:8002/api/therapists \
+  -H "Content-Type: application/json" \
+  -d '{
+    "vorname": "Test",
+    "nachname": "Therapist",
+    "potenziell_verfuegbar": true,
+    "bevorzugte_diagnosen": ["F32", "F41"],
+    "alter_min": 18,
+    "alter_max": 65
+  }'
+```
+
+### Test Communication Service
+```bash
+# Get all emails
+curl http://localhost:8004/api/emails
+
+# Create an email
+curl -X POST http://localhost:8004/api/emails \
+  -H "Content-Type: application/json" \
+  -d '{
+    "therapist_id": 1,
+    "betreff": "Test Email",
+    "body_html": "<p>Test</p>",
+    "body_text": "Test",
+    "empfaenger_email": "test@example.com",
+    "empfaenger_name": "Test Therapist"
+  }'
+```
 
 ## Next Steps
 
 The development team is working on:
-1. ✅ PlacementRequest code removed (COMPLETE)
-2. ✅ Communication models updated to German (COMPLETE)
-3. 🔄 Updating therapist model to use German field names
-4. 🔄 Implementing full bundle system (currently returns 501)
-5. 🔄 Updating this documentation once all models are fixed
+1. ✅ Database migration to German (COMPLETE)
+2. ✅ All service models updated to German (COMPLETE)
+3. ✅ All APIs using German field names (COMPLETE)
+4. 🔄 Implementing full bundle system (in progress)
 
-**Check back for updates or monitor the git repository for changes.**
+**All field name updates are complete. Frontend can now use German field names for all services.**
