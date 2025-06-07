@@ -1,4 +1,7 @@
-# Frontend API Documentation
+# Frontend API Documentation (Updated for German Field Names)
+
+## ⚠️ IMPORTANT: Database Schema Update in Progress
+The system is transitioning to German field names throughout. This documentation reflects the TARGET state after model updates are complete.
 
 ## Base URLs
 - Patient Service: `http://localhost:8001`
@@ -17,11 +20,6 @@ All list endpoints support pagination with the following query parameters:
 | `limit` | integer | 20 | 100 | Number of items per page |
 
 Example: `GET /api/patients?page=2&limit=50`
-
-Response format for paginated endpoints:
-- Returns an array of items for the requested page
-- Total count is not included in the response (to be added in future version)
-- If page exceeds available data, returns empty array
 
 ## Important Enums (Use these exact values in API calls)
 
@@ -43,16 +41,6 @@ const TherapistStatus = {
   ACTIVE: "aktiv",
   BLOCKED: "gesperrt",
   INACTIVE: "inaktiv"
-}
-```
-
-### PlacementRequestStatus
-```javascript
-const PlacementRequestStatus = {
-  OPEN: "offen",
-  IN_PROGRESS: "in_bearbeitung",
-  REJECTED: "abgelehnt",
-  ACCEPTED: "angenommen"
 }
 ```
 
@@ -144,7 +132,7 @@ Same fields as POST (all optional)
 ### DELETE /api/patients/{id}
 No body required
 
-## Therapist Service API
+## Therapist Service API (with German field names)
 
 ### GET /api/therapists
 Query parameters:
@@ -183,8 +171,17 @@ Optional fields:
   "psychotherapieverfahren": ["Verhaltenstherapie"],
   "zusatzqualifikationen": "string",
   "besondere_leistungsangebote": "string",
-  "potentially_available": boolean,
-  "potentially_available_notes": "string"
+  "potenziell_verfuegbar": boolean,
+  "potenziell_verfuegbar_notizen": "string",
+  "naechster_kontakt_moeglich": "YYYY-MM-DD",
+  "bevorzugte_diagnosen": ["F32", "F33"],
+  "alter_min": integer,
+  "alter_max": integer,
+  "geschlechtspraeferenz": "Männlich|Weiblich|Egal",
+  "arbeitszeiten": {
+    "monday": [{"start": "09:00", "end": "17:00"}]
+  },
+  "bevorzugt_gruppentherapie": boolean
 }
 ```
 
@@ -197,54 +194,47 @@ Same fields as POST (all optional)
 ### DELETE /api/therapists/{id}
 No body required
 
-## Matching Service API
+## Matching Service API (Bundle System)
 
-### GET /api/placement-requests
-Query parameters:
-- `patient_id` (optional): Filter by patient
-- `therapist_id` (optional): Filter by therapist
-- `status` (optional): Filter by status
-- `page` (optional): Page number for pagination (default: 1)
-- `limit` (optional): Items per page (default: 20, max: 100)
+### ⚠️ PlacementRequest endpoints are REMOVED
+The old `/api/placement-requests` endpoints no longer exist.
 
-### POST /api/placement-requests
-Required fields:
+### New Bundle System Endpoints (Coming Soon)
+
+#### POST /api/platzsuchen
+Create a new patient search:
 ```json
 {
   "patient_id": integer,
-  "therapist_id": integer
+  "notizen": "string"
 }
 ```
 
-Optional fields:
+#### GET /api/platzsuchen/{id}
+Returns patient search details with bundle history
+
+#### POST /api/therapeutenanfragen
+Create a new therapist inquiry (bundle):
 ```json
 {
-  "status": "offen|in_bearbeitung|abgelehnt|angenommen",
-  "priority": integer,
-  "notes": "string"
+  "therapist_id": integer,
+  "patient_ids": [1, 2, 3, 4, 5],
+  "notizen": "string"
 }
 ```
 
-### GET /api/placement-requests/{id}
-Returns placement request object
-
-### PUT /api/placement-requests/{id}
-Optional fields:
+#### PUT /api/therapeutenanfragen/{id}/antwort
+Record therapist response:
 ```json
 {
-  "status": "offen|in_bearbeitung|abgelehnt|angenommen",
-  "response": "string",
-  "response_date": "YYYY-MM-DD",
-  "next_contact_after": "YYYY-MM-DD",
-  "priority": integer,
-  "notes": "string"
+  "antworttyp": "vollstaendig_angenommen|teilweise_angenommen|abgelehnt",
+  "angenommene_patienten": [1, 3],
+  "abgelehnte_patienten": [2, 4, 5],
+  "notizen": "string"
 }
 ```
 
-### DELETE /api/placement-requests/{id}
-No body required
-
-## Communication Service API
+## Communication Service API (with German field names)
 
 ### Email Endpoints
 
@@ -252,7 +242,7 @@ No body required
 Query parameters:
 - `therapist_id` (optional): Filter by therapist
 - `status` (optional): Filter by status
-- `response_received` (optional): Filter by response status
+- `antwort_erhalten` (optional): Filter by response status
 - `batch_id` (optional): Filter by batch ID
 - `page` (optional): Page number for pagination (default: 1)
 - `limit` (optional): Items per page (default: 20, max: 100)
@@ -262,10 +252,10 @@ Required fields:
 ```json
 {
   "therapist_id": integer,
-  "subject": "string",
+  "betreff": "string",
   "body_html": "string",
-  "recipient_email": "string",
-  "recipient_name": "string"
+  "empfaenger_email": "string",
+  "empfaenger_name": "string"
 }
 ```
 
@@ -273,10 +263,10 @@ Optional fields:
 ```json
 {
   "body_text": "string",
-  "sender_email": "string",
-  "sender_name": "string",
+  "absender_email": "string",
+  "absender_name": "string",
   "status": "DRAFT|QUEUED|SENDING|SENT|FAILED",
-  "placement_request_ids": [1, 2, 3],
+  "therapeut_anfrage_patient_ids": [1, 2, 3],
   "batch_id": "string"
 }
 ```
@@ -289,21 +279,21 @@ Optional fields:
 ```json
 {
   "status": "DRAFT|QUEUED|SENDING|SENT|FAILED",
-  "response_received": boolean,
-  "response_date": "YYYY-MM-DD",
-  "response_content": "string",
-  "follow_up_required": boolean,
-  "follow_up_notes": "string"
+  "antwort_erhalten": boolean,
+  "antwortdatum": "YYYY-MM-DD",
+  "antwortinhalt": "string",
+  "nachverfolgung_erforderlich": boolean,
+  "nachverfolgung_notizen": "string"
 }
 ```
 
-### Phone Call Endpoints
+### Phone Call Endpoints (with German field names)
 
 #### GET /api/phone-calls
 Query parameters:
 - `therapist_id` (optional): Filter by therapist
 - `status` (optional): Filter by status
-- `scheduled_date` (optional): Filter by date
+- `geplantes_datum` (optional): Filter by scheduled date
 - `page` (optional): Page number for pagination (default: 1)
 - `limit` (optional): Items per page (default: 20, max: 100)
 
@@ -318,16 +308,16 @@ Required fields:
 Optional fields:
 ```json
 {
-  "scheduled_date": "YYYY-MM-DD",
-  "scheduled_time": "HH:MM",
-  "duration_minutes": integer,
+  "geplantes_datum": "YYYY-MM-DD",
+  "geplante_zeit": "HH:MM",
+  "dauer_minuten": integer,
   "status": "scheduled|completed|failed|canceled",
-  "notes": "string",
-  "placement_request_ids": [1, 2, 3]
+  "notizen": "string",
+  "therapeut_anfrage_patient_ids": [1, 2, 3]
 }
 ```
 
-Note: If `scheduled_date` and `scheduled_time` are not provided, the system will automatically find the next available slot based on the therapist's availability.
+Note: If `geplantes_datum` and `geplante_zeit` are not provided, the system will automatically find the next available slot based on the therapist's availability.
 
 #### GET /api/phone-calls/{id}
 Returns phone call object
@@ -336,115 +326,31 @@ Returns phone call object
 Optional fields:
 ```json
 {
-  "scheduled_date": "YYYY-MM-DD",
-  "scheduled_time": "HH:MM",
-  "duration_minutes": integer,
-  "actual_date": "YYYY-MM-DD",
-  "actual_time": "HH:MM",
+  "geplantes_datum": "YYYY-MM-DD",
+  "geplante_zeit": "HH:MM",
+  "dauer_minuten": integer,
+  "tatsaechliches_datum": "YYYY-MM-DD",
+  "tatsaechliche_zeit": "HH:MM",
   "status": "scheduled|completed|failed|canceled",
-  "outcome": "string",
-  "notes": "string",
-  "retry_after": "YYYY-MM-DD"
+  "ergebnis": "string",
+  "notizen": "string",
+  "wiederholen_nach": "YYYY-MM-DD"
 }
 ```
 
 #### DELETE /api/phone-calls/{id}
 No body required
 
-## Geocoding Service API
+## Geocoding Service API (No Changes)
+
+The Geocoding Service API remains unchanged as it uses technical/English field names.
 
 ### GET /api/geocode
-Query parameters:
-- `address` (required): Address to geocode
-
-Response:
-```json
-{
-  "latitude": float,
-  "longitude": float,
-  "display_name": "string",
-  "address_components": {},
-  "source": "string",
-  "status": "success|error"
-}
-```
-
 ### GET /api/reverse-geocode
-Query parameters:
-- `lat` (required): Latitude
-- `lon` (required): Longitude
-
 ### GET /api/calculate-distance
-Query parameters (origin can be address OR coordinates):
-- `origin` (optional): Origin address
-- `origin_lat` (optional): Origin latitude
-- `origin_lon` (optional): Origin longitude
-
-Query parameters (destination can be address OR coordinates):
-- `destination` (optional): Destination address
-- `destination_lat` (optional): Destination latitude
-- `destination_lon` (optional): Destination longitude
-
-Additional parameters:
-- `travel_mode` (optional): "car" or "transit" (default: "car")
-- `no_cache` (optional): Bypass cache (default: false)
-
-Response:
-```json
-{
-  "distance_km": float,
-  "travel_time_minutes": float,
-  "status": "success|partial|error",
-  "source": "osrm|haversine|cache",
-  "travel_mode": "car|transit",
-  "route_available": boolean
-}
-```
-
 ### POST /api/find-therapists
-Request body:
-```json
-{
-  "patient_address": "string",
-  "max_distance_km": float,
-  "travel_mode": "car|transit",
-  "therapists": [
-    {
-      "id": integer,
-      "strasse": "string",
-      "plz": "string",
-      "ort": "string"
-    }
-  ]
-}
-```
 
-Alternative using coordinates:
-```json
-{
-  "patient_lat": float,
-  "patient_lon": float,
-  "max_distance_km": float,
-  "travel_mode": "car|transit",
-  "therapists": [...]
-}
-```
-
-Response:
-```json
-{
-  "status": "success",
-  "count": integer,
-  "therapists": [
-    {
-      "id": integer,
-      "distance_km": float,
-      "travel_time_minutes": float,
-      "travel_mode": "string"
-    }
-  ]
-}
-```
+(Same as before - see original documentation)
 
 ## Common Error Responses
 
@@ -473,11 +379,49 @@ All endpoints may return these error formats:
 
 ## Important Notes for Frontend Development
 
-1. **Date Format**: Always use ISO format `YYYY-MM-DD` for dates
-2. **Time Format**: Always use 24-hour format `HH:MM` for times
-3. **Boolean Values**: Use JavaScript `true`/`false` (not strings)
-4. **Enum Values**: Always use the exact string values shown above
-5. **Optional Fields**: Fields marked as optional can be omitted entirely from requests
-6. **German Field Names**: Many field names are in German - refer to TERMINOLOGY.md for translations
-7. **JSON Arrays**: For list fields like `ausgeschlossene_therapeuten`, always send as arrays even if empty
-8. **Availability Structure**: The `zeitliche_verfuegbarkeit` and `telefonische_erreichbarkeit` fields use weekday names in English (lowercase) as keys
+1. **Field Name Changes**: Many fields have been renamed to German. Update your frontend accordingly.
+2. **PlacementRequest Removal**: All placement request endpoints are removed. Use the new bundle system.
+3. **Date Format**: Always use ISO format `YYYY-MM-DD` for dates
+4. **Time Format**: Always use 24-hour format `HH:MM` for times
+5. **Boolean Values**: Use JavaScript `true`/`false` (not strings)
+6. **Enum Values**: Always use the exact string values shown above
+7. **Optional Fields**: Fields marked as optional can be omitted entirely from requests
+8. **German Field Names**: Most field names are now in German - update your data models
+9. **JSON Arrays**: For list fields like `ausgeschlossene_therapeuten`, always send as arrays even if empty
+10. **Availability Structure**: The `zeitliche_verfuegbarkeit` and `telefonische_erreichbarkeit` fields use weekday names in English (lowercase) as keys
+
+## Migration Guide
+
+### Old Field → New Field Mappings
+
+#### Therapist Fields:
+- `potentially_available` → `potenziell_verfuegbar`
+- `potentially_available_notes` → `potenziell_verfuegbar_notizen`
+- `next_contactable_date` → `naechster_kontakt_moeglich`
+- `preferred_diagnoses` → `bevorzugte_diagnosen`
+- `age_min` → `alter_min`
+- `age_max` → `alter_max`
+- `gender_preference` → `geschlechtspraeferenz`
+- `working_hours` → `arbeitszeiten`
+
+#### Email Fields:
+- `subject` → `betreff`
+- `recipient_email` → `empfaenger_email`
+- `recipient_name` → `empfaenger_name`
+- `sender_email` → `absender_email`
+- `sender_name` → `absender_name`
+- `response_received` → `antwort_erhalten`
+- `response_date` → `antwortdatum`
+- `response_content` → `antwortinhalt`
+- `follow_up_required` → `nachverfolgung_erforderlich`
+- `follow_up_notes` → `nachverfolgung_notizen`
+
+#### Phone Call Fields:
+- `scheduled_date` → `geplantes_datum`
+- `scheduled_time` → `geplante_zeit`
+- `duration_minutes` → `dauer_minuten`
+- `actual_date` → `tatsaechliches_datum`
+- `actual_time` → `tatsaechliche_zeit`
+- `outcome` → `ergebnis`
+- `notes` → `notizen`
+- `retry_after` → `wiederholen_nach`
