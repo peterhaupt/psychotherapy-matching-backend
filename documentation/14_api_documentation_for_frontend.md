@@ -1,11 +1,17 @@
-# Frontend API Documentation (Updated for German Field Names)
+# Frontend API Documentation
 
-## ⚠️ IMPORTANT: Database Schema Update in Progress
-The system is transitioning to German field names throughout. This documentation reflects the TARGET state after model updates are complete.
+## ⚠️ IMPORTANT: System in Transition
+**Current State (as of implementation)**:
+- ✅ Database: All tables use German field names
+- ❌ Models: Still use English field names (causing mismatches)
+- ❌ APIs: Still return English field names
+- ❌ PlacementRequest: Still exists in code (but removed from database)
+
+**This documentation shows the CURRENT API state, not the target state.**
 
 ## Base URLs
 - Patient Service: `http://localhost:8001`
-- Therapist Service: `http://localhost:8002`
+- Therapist Service: `http://localhost:8002` 
 - Matching Service: `http://localhost:8003`
 - Communication Service: `http://localhost:8004`
 - Geocoding Service: `http://localhost:8005`
@@ -21,26 +27,26 @@ All list endpoints support pagination with the following query parameters:
 
 Example: `GET /api/patients?page=2&limit=50`
 
-## Important Enums (Use these exact values in API calls)
+## Important Enums (Current Values)
 
 ### PatientStatus
 ```javascript
 const PatientStatus = {
-  OPEN: "offen",
-  SEARCHING: "auf der Suche",
-  IN_THERAPY: "in Therapie",
-  THERAPY_COMPLETED: "Therapie abgeschlossen",
-  SEARCH_ABORTED: "Suche abgebrochen",
-  THERAPY_ABORTED: "Therapie abgebrochen"
+  OPEN: "OPEN",
+  SEARCHING: "SEARCHING",
+  IN_THERAPY: "IN_THERAPY",
+  THERAPY_COMPLETED: "THERAPY_COMPLETED",
+  SEARCH_ABORTED: "SEARCH_ABORTED",
+  THERAPY_ABORTED: "THERAPY_ABORTED"
 }
 ```
 
-### TherapistStatus
+### TherapistStatus  
 ```javascript
 const TherapistStatus = {
-  ACTIVE: "aktiv",
-  BLOCKED: "gesperrt",
-  INACTIVE: "inaktiv"
+  ACTIVE: "ACTIVE",
+  BLOCKED: "BLOCKED",
+  INACTIVE: "INACTIVE"
 }
 ```
 
@@ -68,13 +74,25 @@ const PhoneCallStatus = {
 ### TherapistGenderPreference
 ```javascript
 const TherapistGenderPreference = {
-  MALE: "Männlich",
-  FEMALE: "Weiblich",
-  ANY: "Egal"
+  MALE: "MALE",
+  FEMALE: "FEMALE",
+  ANY: "ANY"
+}
+```
+
+### PlacementRequestStatus (⚠️ Still in code but table removed from DB)
+```javascript
+const PlacementRequestStatus = {
+  OPEN: "offen",
+  IN_PROGRESS: "in_bearbeitung",
+  REJECTED: "abgelehnt",
+  ACCEPTED: "angenommen"
 }
 ```
 
 ## Patient Service API
+
+The Patient Service already uses German field names in both database and models.
 
 ### GET /api/patients
 Query parameters:
@@ -91,7 +109,7 @@ Required fields:
 }
 ```
 
-Optional fields:
+Optional fields (all German):
 ```json
 {
   "anrede": "string",
@@ -118,235 +136,116 @@ Optional fields:
   "verkehrsmittel": "Auto|ÖPNV",
   "offen_fuer_gruppentherapie": boolean,
   "offen_fuer_diga": boolean,
-  "bevorzugtes_therapeutengeschlecht": "Männlich|Weiblich|Egal",
+  "bevorzugtes_therapeutengeschlecht": "MALE|FEMALE|ANY",
   "ausgeschlossene_therapeuten": [1, 2, 3]
 }
 ```
 
-### GET /api/patients/{id}
-Returns patient object
+## Therapist Service API (⚠️ Model/DB Mismatch)
 
-### PUT /api/patients/{id}
-Same fields as POST (all optional)
-
-### DELETE /api/patients/{id}
-No body required
-
-## Therapist Service API (with German field names)
+**IMPORTANT**: The database uses German field names but the model still uses English names. The API currently returns English field names.
 
 ### GET /api/therapists
-Query parameters:
-- `status` (optional): Filter by therapist status
-- `page` (optional): Page number for pagination (default: 1)
-- `limit` (optional): Items per page (default: 20, max: 100)
+Returns therapists with ENGLISH field names (current state).
 
 ### POST /api/therapists
-Required fields:
+Currently expects ENGLISH field names:
 ```json
 {
   "vorname": "string",
-  "nachname": "string"
+  "nachname": "string",
+  "potentially_available": boolean,
+  "potentially_available_notes": "string"
 }
 ```
 
-Optional fields:
-```json
-{
-  "anrede": "string",
-  "titel": "string",
-  "strasse": "string",
-  "plz": "string",
-  "ort": "string",
-  "telefon": "string",
-  "fax": "string",
-  "email": "string",
-  "webseite": "string",
-  "kassensitz": boolean,
-  "geschlecht": "string",
-  "telefonische_erreichbarkeit": {
-    "monday": [{"start": "09:00", "end": "12:00"}],
-    "wednesday": [{"start": "14:00", "end": "18:00"}]
-  },
-  "fremdsprachen": ["Englisch", "Französisch"],
-  "psychotherapieverfahren": ["Verhaltenstherapie"],
-  "zusatzqualifikationen": "string",
-  "besondere_leistungsangebote": "string",
-  "potenziell_verfuegbar": boolean,
-  "potenziell_verfuegbar_notizen": "string",
-  "naechster_kontakt_moeglich": "YYYY-MM-DD",
-  "bevorzugte_diagnosen": ["F32", "F33"],
-  "alter_min": integer,
-  "alter_max": integer,
-  "geschlechtspraeferenz": "Männlich|Weiblich|Egal",
-  "arbeitszeiten": {
-    "monday": [{"start": "09:00", "end": "17:00"}]
-  },
-  "bevorzugt_gruppentherapie": boolean
-}
-```
+**Note**: Fields like `potentially_available` will fail once models are updated to match the database's `potenziell_verfuegbar`.
 
-### GET /api/therapists/{id}
-Returns therapist object
+## Matching Service API (⚠️ Broken - Table Removed)
 
-### PUT /api/therapists/{id}
-Same fields as POST (all optional)
+### ⚠️ PlacementRequest endpoints are BROKEN
+The database table `placement_requests` has been removed, but the code still tries to use it.
 
-### DELETE /api/therapists/{id}
-No body required
+**These endpoints will return database errors**:
+- ❌ GET /api/placement-requests
+- ❌ POST /api/placement-requests  
+- ❌ GET /api/placement-requests/{id}
+- ❌ PUT /api/placement-requests/{id}
+- ❌ DELETE /api/placement-requests/{id}
 
-## Matching Service API (Bundle System)
+### New Bundle System Endpoints (Not Yet Implemented)
+The following endpoints are planned but not yet available:
+- 🔄 POST /api/platzsuchen
+- 🔄 GET /api/platzsuchen/{id}
+- 🔄 POST /api/therapeutenanfragen
+- 🔄 PUT /api/therapeutenanfragen/{id}/antwort
 
-### ⚠️ PlacementRequest endpoints are REMOVED
-The old `/api/placement-requests` endpoints no longer exist.
+## Communication Service API (⚠️ Model/DB Mismatch)
 
-### New Bundle System Endpoints (Coming Soon)
-
-#### POST /api/platzsuchen
-Create a new patient search:
-```json
-{
-  "patient_id": integer,
-  "notizen": "string"
-}
-```
-
-#### GET /api/platzsuchen/{id}
-Returns patient search details with bundle history
-
-#### POST /api/therapeutenanfragen
-Create a new therapist inquiry (bundle):
-```json
-{
-  "therapist_id": integer,
-  "patient_ids": [1, 2, 3, 4, 5],
-  "notizen": "string"
-}
-```
-
-#### PUT /api/therapeutenanfragen/{id}/antwort
-Record therapist response:
-```json
-{
-  "antworttyp": "vollstaendig_angenommen|teilweise_angenommen|abgelehnt",
-  "angenommene_patienten": [1, 3],
-  "abgelehnte_patienten": [2, 4, 5],
-  "notizen": "string"
-}
-```
-
-## Communication Service API (with German field names)
+**IMPORTANT**: The database uses German field names but models still use English names.
 
 ### Email Endpoints
 
 #### GET /api/emails
-Query parameters:
-- `therapist_id` (optional): Filter by therapist
-- `status` (optional): Filter by status
-- `antwort_erhalten` (optional): Filter by response status
-- `batch_id` (optional): Filter by batch ID
-- `page` (optional): Page number for pagination (default: 1)
-- `limit` (optional): Items per page (default: 20, max: 100)
+Currently returns emails with ENGLISH field names:
+```json
+{
+  "id": 1,
+  "therapist_id": 123,
+  "subject": "Email subject",
+  "recipient_email": "doctor@example.com",
+  "recipient_name": "Dr. Smith",
+  "sender_email": "info@boona.de",
+  "sender_name": "Boona Team",
+  "status": "SENT",
+  "response_received": false,
+  "response_date": null
+}
+```
 
 #### POST /api/emails
-Required fields:
+Currently expects ENGLISH field names:
 ```json
 {
-  "therapist_id": integer,
-  "betreff": "string",
-  "body_html": "string",
-  "empfaenger_email": "string",
-  "empfaenger_name": "string"
+  "therapist_id": 123,
+  "subject": "Therapieanfrage",
+  "body_html": "<html>...</html>",
+  "recipient_email": "doctor@example.com",
+  "recipient_name": "Dr. Smith"
 }
 ```
 
-Optional fields:
-```json
-{
-  "body_text": "string",
-  "absender_email": "string",
-  "absender_name": "string",
-  "status": "DRAFT|QUEUED|SENDING|SENT|FAILED",
-  "therapeut_anfrage_patient_ids": [1, 2, 3],
-  "batch_id": "string"
-}
-```
-
-#### GET /api/emails/{id}
-Returns email object
-
-#### PUT /api/emails/{id}
-Optional fields:
-```json
-{
-  "status": "DRAFT|QUEUED|SENDING|SENT|FAILED",
-  "antwort_erhalten": boolean,
-  "antwortdatum": "YYYY-MM-DD",
-  "antwortinhalt": "string",
-  "nachverfolgung_erforderlich": boolean,
-  "nachverfolgung_notizen": "string"
-}
-```
-
-### Phone Call Endpoints (with German field names)
+### Phone Call Endpoints
 
 #### GET /api/phone-calls
-Query parameters:
-- `therapist_id` (optional): Filter by therapist
-- `status` (optional): Filter by status
-- `geplantes_datum` (optional): Filter by scheduled date
-- `page` (optional): Page number for pagination (default: 1)
-- `limit` (optional): Items per page (default: 20, max: 100)
+Currently returns calls with ENGLISH field names:
+```json
+{
+  "id": 1,
+  "therapist_id": 123,
+  "scheduled_date": "2025-06-10",
+  "scheduled_time": "14:30",
+  "duration_minutes": 5,
+  "status": "scheduled"
+}
+```
 
 #### POST /api/phone-calls
-Required fields:
+Currently expects ENGLISH field names:
 ```json
 {
-  "therapist_id": integer
+  "therapist_id": 123,
+  "scheduled_date": "2025-06-10",
+  "scheduled_time": "14:30"
 }
 ```
 
-Optional fields:
-```json
-{
-  "geplantes_datum": "YYYY-MM-DD",
-  "geplante_zeit": "HH:MM",
-  "dauer_minuten": integer,
-  "status": "scheduled|completed|failed|canceled",
-  "notizen": "string",
-  "therapeut_anfrage_patient_ids": [1, 2, 3]
-}
-```
+## Geocoding Service API
 
-Note: If `geplantes_datum` and `geplante_zeit` are not provided, the system will automatically find the next available slot based on the therapist's availability.
-
-#### GET /api/phone-calls/{id}
-Returns phone call object
-
-#### PUT /api/phone-calls/{id}
-Optional fields:
-```json
-{
-  "geplantes_datum": "YYYY-MM-DD",
-  "geplante_zeit": "HH:MM",
-  "dauer_minuten": integer,
-  "tatsaechliches_datum": "YYYY-MM-DD",
-  "tatsaechliche_zeit": "HH:MM",
-  "status": "scheduled|completed|failed|canceled",
-  "ergebnis": "string",
-  "notizen": "string",
-  "wiederholen_nach": "YYYY-MM-DD"
-}
-```
-
-#### DELETE /api/phone-calls/{id}
-No body required
-
-## Geocoding Service API (No Changes)
-
-The Geocoding Service API remains unchanged as it uses technical/English field names.
+The Geocoding Service is unaffected by the German field name changes as it uses technical/English field names.
 
 ### GET /api/geocode
-### GET /api/reverse-geocode
+### GET /api/reverse-geocode  
 ### GET /api/calculate-distance
 ### POST /api/find-therapists
 
@@ -354,74 +253,87 @@ The Geocoding Service API remains unchanged as it uses technical/English field n
 
 ## Common Error Responses
 
-All endpoints may return these error formats:
+### Current Issues You May Encounter
 
-### 400 Bad Request
+#### 500 Internal Server Error - Database/Model Mismatch
+```json
+{
+  "message": "Database error: (psycopg2.errors.UndefinedColumn) column \"potentially_available\" does not exist"
+}
+```
+This occurs when models haven't been updated to match database field names.
+
+#### 500 Internal Server Error - Missing Table
+```json
+{
+  "message": "Database error: (psycopg2.errors.UndefinedTable) relation \"matching_service.placement_requests\" does not exist"
+}
+```
+This occurs when trying to use PlacementRequest endpoints (table has been removed).
+
+### Standard Error Formats
+
+#### 400 Bad Request
 ```json
 {
   "message": "Description of what went wrong"
 }
 ```
 
-### 404 Not Found
+#### 404 Not Found
 ```json
 {
   "message": "Resource not found"
 }
 ```
 
-### 500 Internal Server Error
-```json
-{
-  "message": "Database error: specific error message"
-}
-```
+## Migration in Progress - What's Broken
 
-## Important Notes for Frontend Development
+### Currently Working ✅
+- Patient Service (fully migrated to German)
+- Geocoding Service (unaffected)
+- Basic GET operations on existing data
 
-1. **Field Name Changes**: Many fields have been renamed to German. Update your frontend accordingly.
-2. **PlacementRequest Removal**: All placement request endpoints are removed. Use the new bundle system.
-3. **Date Format**: Always use ISO format `YYYY-MM-DD` for dates
-4. **Time Format**: Always use 24-hour format `HH:MM` for times
-5. **Boolean Values**: Use JavaScript `true`/`false` (not strings)
-6. **Enum Values**: Always use the exact string values shown above
-7. **Optional Fields**: Fields marked as optional can be omitted entirely from requests
-8. **German Field Names**: Most field names are now in German - update your data models
-9. **JSON Arrays**: For list fields like `ausgeschlossene_therapeuten`, always send as arrays even if empty
-10. **Availability Structure**: The `zeitliche_verfuegbarkeit` and `telefonische_erreichbarkeit` fields use weekday names in English (lowercase) as keys
+### Currently Broken ❌
+- All Matching Service endpoints (PlacementRequest table removed)
+- Creating new therapists with bundle preferences
+- Creating emails/calls with batch references
+- Any operation involving removed tables
 
-## Migration Guide
+### Partially Working ⚠️
+- Therapist Service (reads work, writes may fail on new fields)
+- Communication Service (basic operations work, batch operations fail)
 
-### Old Field → New Field Mappings
+## Temporary Workarounds
+
+### For Frontend Development
+1. **Use Patient Service** as reference for German field implementation
+2. **Avoid Matching Service** endpoints entirely  
+3. **Test carefully** - some operations may work in GET but fail in POST/PUT
+4. **Check logs** - database errors will show exact field name mismatches
+
+### Field Name References
+
+When models are updated, these mappings will apply:
 
 #### Therapist Fields:
 - `potentially_available` → `potenziell_verfuegbar`
 - `potentially_available_notes` → `potenziell_verfuegbar_notizen`
 - `next_contactable_date` → `naechster_kontakt_moeglich`
-- `preferred_diagnoses` → `bevorzugte_diagnosen`
-- `age_min` → `alter_min`
-- `age_max` → `alter_max`
-- `gender_preference` → `geschlechtspraeferenz`
-- `working_hours` → `arbeitszeiten`
+- (etc. - see documentation)
 
-#### Email Fields:
+#### Communication Fields:
 - `subject` → `betreff`
 - `recipient_email` → `empfaenger_email`
-- `recipient_name` → `empfaenger_name`
-- `sender_email` → `absender_email`
-- `sender_name` → `absender_name`
-- `response_received` → `antwort_erhalten`
-- `response_date` → `antwortdatum`
-- `response_content` → `antwortinhalt`
-- `follow_up_required` → `nachverfolgung_erforderlich`
-- `follow_up_notes` → `nachverfolgung_notizen`
-
-#### Phone Call Fields:
 - `scheduled_date` → `geplantes_datum`
-- `scheduled_time` → `geplante_zeit`
-- `duration_minutes` → `dauer_minuten`
-- `actual_date` → `tatsaechliches_datum`
-- `actual_time` → `tatsaechliche_zeit`
-- `outcome` → `ergebnis`
-- `notes` → `notizen`
-- `retry_after` → `wiederholen_nach`
+- (etc. - see documentation)
+
+## Next Steps
+
+The development team is working on:
+1. Updating all model files to use German field names
+2. Removing PlacementRequest code completely
+3. Implementing new bundle system endpoints
+4. Updating this documentation once models are fixed
+
+**Check back for updates or monitor the git repository for changes.**

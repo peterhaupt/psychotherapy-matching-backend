@@ -5,243 +5,251 @@
 ### Overview
 Transform the current basic matching system into the bundle-based system described in business requirements. Database schema is complete with German field names - now updating code to match.
 
-### Week 1: Database Schema Updates ✅ COMPLETED
+### Week 1-2: Database Schema Updates ✅ COMPLETED
 
-**Completed Tasks:**
-- ✅ Migration `acfc96c9f0g0`: Added bundle system tables
-- ✅ Migration `bcfc97d0f1h1`: Renamed therapist fields to German
-- ✅ Migration series: Cleaned up schema and added missing fields
-- ✅ Migration `fcfc01h4l5l5`: Removed placement_requests completely
-- ✅ Migration `gcfc02i5m6m6`: Renamed ALL fields to German
-- ✅ All database tests passing
-
-### Week 2: German Field Renaming ✅ COMPLETED
-
-**Database Migrations Applied:**
-- ✅ All tables now use German field names
-- ✅ Foreign key relationships updated
-- ✅ Indexes created with German names
-- ✅ Enum types properly configured
-- ✅ test_database_schemas.py fully passing
+**What Was Accomplished:**
+- ✅ Created all bundle system tables with German names
+- ✅ Renamed ALL database fields to German
+- ✅ Removed placement_requests table completely
+- ✅ Removed communication batch tables
+- ✅ Updated all foreign key relationships
+- ✅ All database migrations applied successfully
+- ✅ Database tests passing (test_database_schemas.py)
 
 ### Week 3: Model & Code Updates 🔄 CURRENT WEEK
 
-#### Day 1-2: Model File Updates 🔄 TODAY'S TASKS
+## 🚨 CRITICAL ISSUES BLOCKING PROGRESS
 
-**1. Update Therapist Model** (`therapist_service/models/therapist.py`)
+### Issue 1: Matching Service Crashes 🔴
+**Problem**: Any request to `/api/placement-requests/*` causes 500 error
+**Root Cause**: `placement_requests` table removed from database but code still tries to query it
+**Impact**: Entire matching service is unusable
+**Priority**: MUST FIX FIRST
+
+### Issue 2: Model/Database Mismatches ⚠️
+**Problem**: Models use English field names, database uses German
+**Affected Services**: Therapist, Communication
+**Impact**: Create/Update operations fail with "column does not exist" errors
+**Priority**: Fix after matching service
+
+## Emergency Fix Plan (Today)
+
+### Step 1: Stop the Crashes (1-2 hours)
 ```python
-# Change these field definitions:
-potentially_available → potenziell_verfuegbar
-potentially_available_notes → potenziell_verfuegbar_notizen
-next_contactable_date → naechster_kontakt_moeglich
-preferred_diagnoses → bevorzugte_diagnosen
-age_min → alter_min
-age_max → alter_max
-gender_preference → geschlechtspraeferenz
-working_hours → arbeitszeiten
-# Add: bevorzugt_gruppentherapie
+# In matching_service/api/matching.py
+# Replace all endpoints with:
+
+class PlacementRequestResource(Resource):
+    def get(self, request_id):
+        return {'message': 'Bundle system not yet implemented'}, 501
+    
+    def put(self, request_id):
+        return {'message': 'Bundle system not yet implemented'}, 501
+    
+    def delete(self, request_id):
+        return {'message': 'Bundle system not yet implemented'}, 501
+
+class PlacementRequestListResource(Resource):
+    def get(self):
+        return {'message': 'Bundle system not yet implemented'}, 501
+    
+    def post(self):
+        return {'message': 'Bundle system not yet implemented'}, 501
 ```
 
-**2. Update Communication Models**
+### Step 2: Remove PlacementRequest Model (30 minutes)
+1. Delete `matching_service/models/placement_request.py`
+2. Update `matching_service/models/__init__.py` (remove import)
+3. Update `migrations/alembic/env.py` (remove import)
+4. Search entire codebase for "PlacementRequest" and remove
 
-Email Model (`communication_service/models/email.py`):
+### Step 3: Create Stub Bundle Models (1 hour)
+Create minimal models just to stop import errors:
+
 ```python
-subject → betreff
-recipient_email → empfaenger_email
-recipient_name → empfaenger_name
-sender_email → absender_email
-sender_name → absender_name
-response_received → antwort_erhalten
-response_date → antwortdatum
-response_content → antwortinhalt
-follow_up_required → nachverfolgung_erforderlich
-follow_up_notes → nachverfolgung_notizen
-error_message → fehlermeldung
-retry_count → wiederholungsanzahl
+# matching_service/models/platzsuche.py
+class Platzsuche(Base):
+    __tablename__ = "platzsuche"
+    __table_args__ = {"schema": "matching_service"}
+    # Add basic fields to match database
 ```
 
-PhoneCall Model (`communication_service/models/phone_call.py`):
-```python
-scheduled_date → geplantes_datum
-scheduled_time → geplante_zeit
-duration_minutes → dauer_minuten
-actual_date → tatsaechliches_datum
-actual_time → tatsaechliche_zeit
-outcome → ergebnis
-notes → notizen
-retry_after → wiederholen_nach
-```
+## Revised Implementation Schedule
 
-EmailBatch & PhoneCallBatch:
-```python
-placement_request_id → therapeut_anfrage_patient_id (+ update foreign key)
-response_outcome → antwortergebnis
-response_notes → antwortnotizen
-follow_up_required → nachverfolgung_erforderlich
-follow_up_notes → nachverfolgung_notizen
-```
+### Day 1 (Today) - Emergency Fixes 🚨
 
-**3. Create Bundle Models** (`matching_service/models/`)
-- Create `platzsuche.py`
-- Create `therapeutenanfrage.py`
-- Create `therapeut_anfrage_patient.py`
-- Update `__init__.py` to export new models
-- DELETE `placement_request.py`
+**Morning: Stop the Bleeding**
+- [ ] Fix matching service crashes (2 hours)
+- [ ] Remove PlacementRequest completely (30 min)
+- [ ] Create stub bundle models (1 hour)
+- [ ] Verify no more 500 errors (30 min)
 
-**4. Update Import References**
-- Remove PlacementRequest from `migrations/alembic/env.py`
-- Update all service imports
-- Update event handling code
-
-#### Day 3-4: API Updates
-
-**1. Update API Field Names**
-- Patient API: No changes needed (already German)
-- Therapist API: Update field names in responses
-- Communication API: Update all field names
-- Matching API: Complete rewrite for bundles
-
-**2. Remove PlacementRequest Endpoints**
-- Delete old endpoints from `matching_service/api/matching.py`
-- Create new bundle endpoints
-
-**3. Update Request Parsing**
-- Update all `reqparse` arguments to German names
-- Update validation logic
-
-#### Day 5: Event System Updates
-
-**1. Update Event Payloads**
-- Use German field names in all events
-- Remove placement_request references
-- Add bundle event types
-
-**2. Update Consumers**
-- Update field access to use German names
-- Handle new bundle events
-
-### Week 4: Bundle Algorithm & Testing 📋 PLANNED
-
-#### Day 1-2: Bundle Algorithm
-- Implement `bundle_creator.py`
-- Implement progressive filtering
-- Add cooling period logic
-- Create conflict resolution
-
-#### Day 3-4: Integration
-- Connect all services
-- Test full bundle flow
-- Debug issues
-
-#### Day 5: Testing
-- Unit tests for algorithm
-- API endpoint tests
-- Performance testing
-
-## Implementation Checklist
-
-### Immediate Tasks (Today/Tomorrow)
-
-#### Therapist Model Update
+**Afternoon: Update Therapist Model**
 - [ ] Open `therapist_service/models/therapist.py`
-- [ ] Rename all fields to German
-- [ ] Update helper methods to use new names
-- [ ] Test model changes
+- [ ] Rename fields to German (match database)
+- [ ] Update API response marshalling
+- [ ] Test all endpoints
 
-#### Communication Models Update
-- [ ] Update Email model fields
-- [ ] Update PhoneCall model fields
-- [ ] Update Batch models with new FK
-- [ ] Update all field references in code
+### Day 2 - Communication Service Updates
 
-#### Bundle Models Creation
-- [ ] Create Platzsuche model
-- [ ] Create Therapeutenanfrage model
-- [ ] Create TherapeutAnfragePatient model
-- [ ] Remove PlacementRequest completely
+**Morning: Update Models**
+- [ ] Update Email model fields to German
+- [ ] Update PhoneCall model fields to German
+- [ ] Remove EmailBatch model
+- [ ] Remove PhoneCallBatch model
 
-#### Code Cleanup
-- [ ] Remove PlacementRequest imports
-- [ ] Update alembic env.py
-- [ ] Update all API endpoints
-- [ ] Fix event handling
+**Afternoon: Fix APIs**
+- [ ] Update email API field names
+- [ ] Update phone call API field names
+- [ ] Remove batch endpoints
+- [ ] Test with Matching Service
 
-### Testing After Each Change
+### Day 3 - Bundle Models Implementation
+
+**Morning: Complete Models**
+- [ ] Implement Platzsuche model fully
+- [ ] Implement Therapeutenanfrage model
+- [ ] Implement TherapeutAnfragePatient model
+- [ ] Add model relationships and methods
+
+**Afternoon: Start Bundle Algorithm**
+- [ ] Create bundle_creator.py
+- [ ] Implement hard constraints
+- [ ] Add distance checking
+- [ ] Add exclusion checking
+
+### Day 4 - Bundle Algorithm Completion
+
+**Morning: Progressive Filtering**
+- [ ] Implement availability matching
+- [ ] Add preference scoring
+- [ ] Sort by wait time
+- [ ] Bundle size optimization
+
+**Afternoon: API Endpoints**
+- [ ] Create /api/platzsuchen endpoints
+- [ ] Create /api/therapeutenanfragen endpoints
+- [ ] Add bundle creation endpoint
+- [ ] Response recording endpoint
+
+### Day 5 - Integration & Testing
+
+**Morning: Service Integration**
+- [ ] Connect bundle creation to email sending
+- [ ] Implement cooling period updates
+- [ ] Add conflict resolution
+- [ ] Event publishing
+
+**Afternoon: Testing**
+- [ ] Unit tests for algorithm
+- [ ] API endpoint tests
+- [ ] Integration test full flow
+- [ ] Performance testing
+
+## Updated Task Checklist
+
+### Immediate Actions (Block Everything Else)
+- [ ] Fix matching service 500 errors
+- [ ] Remove all PlacementRequest code
+- [ ] Create minimal bundle models
+- [ ] Verify services don't crash
+
+### Model Updates (Day 1-2)
+- [ ] Therapist model → German fields
+- [ ] Email model → German fields  
+- [ ] PhoneCall model → German fields
+- [ ] Remove batch models
+- [ ] Update all model imports
+
+### Bundle Implementation (Day 3-4)
+- [ ] Complete bundle models
+- [ ] Bundle creation algorithm
+- [ ] Progressive filtering
+- [ ] API endpoints
+
+### Integration (Day 5)
+- [ ] Service connections
+- [ ] Event handling
+- [ ] Full flow testing
+- [ ] Documentation
+
+## Testing Strategy
+
+### After Each Model Update
 ```bash
-# After updating models, test database connection:
-docker-compose exec matching_service python -c "from models import *"
+# Test model can be imported
+docker-compose exec [service_name] python -c "from models import *"
 
-# Run schema tests:
-python tests/integration/test_database_schemas.py
+# Test API endpoints
+curl http://localhost:[port]/api/[endpoint]
 
-# Test API endpoints:
-curl http://localhost:8002/api/therapists
+# Check logs for errors
+docker-compose logs [service_name]
 ```
 
-## Critical Path
+### Integration Testing
+```bash
+# Test full bundle creation flow
+python tests/integration/test_bundle_creation.py
 
-1. **Models MUST be updated first** - Everything depends on this
-2. **Then API endpoints** - So frontend can start adapting
-3. **Then bundle algorithm** - Core business logic
-4. **Finally extensive testing** - Ensure quality
+# Monitor events
+python tests/integration/all_topics_monitor.py
+```
 
-## Definition of Done for Current Phase
+## Success Criteria
 
-### Models Updated ❌
-- [ ] All models use German field names
-- [ ] PlacementRequest removed completely
-- [ ] Bundle models created
-- [ ] All imports updated
-- [ ] Models can be imported without errors
-
-### APIs Updated ❌
-- [ ] All endpoints use German field names
-- [ ] PlacementRequest endpoints removed
-- [ ] Bundle endpoints created
-- [ ] API documentation updated
-- [ ] Postman/curl tests pass
-
-### Bundle System Working ❌
-- [ ] Can create patient searches
-- [ ] Can create bundles
-- [ ] Progressive filtering works
-- [ ] Cooling periods enforced
-- [ ] Conflicts resolved properly
-
-### Tests Passing ❌
-- [ ] Unit tests updated and passing
-- [ ] Integration tests for bundles
-- [ ] Performance within targets
-- [ ] No regression in other services
+### Phase Complete When:
+1. ✅ No 500 errors on any endpoint
+2. ✅ All models use German field names matching database
+3. ✅ Bundle system creates groups of 3-6 patients
+4. ✅ Cooling periods enforced (4 weeks)
+5. ✅ Progressive filtering works correctly
+6. ✅ Can handle 100+ active patient searches
+7. ✅ Integration tests pass
 
 ## Risk Mitigation
 
 ### Current Risks
-1. **Field name mismatches** - Mitigated by systematic updates
-2. **Broken imports** - Test after each file change
-3. **API compatibility** - Document all changes clearly
-4. **Event system issues** - Update producers and consumers together
+1. **Service Downtime**: Matching service currently broken
+   - Mitigation: Emergency fix today
+   
+2. **Data Loss**: Models don't match database
+   - Mitigation: Careful field mapping, extensive testing
+   
+3. **Integration Issues**: Services may not work together
+   - Mitigation: Test after each change
+   
+4. **Performance**: Bundle algorithm may be slow
+   - Mitigation: Start simple, optimize later
 
 ### Rollback Plan
-- All migrations are reversible
-- Git commits after each major change
-- Database backups before major updates
+- Database migrations are reversible (but don't rollback)
+- Keep old model files until new ones work
+- Git commit after each successful change
+- Can disable bundle system via feature flag
 
-## Communication Points
+## Communication Plan
 
 ### For Frontend Team
-- API field names are changing to German
-- PlacementRequest endpoints will stop working
-- New bundle endpoints coming soon
-- Refer to updated API documentation
+- Matching Service will return 501 (Not Implemented) instead of 500 errors
+- Field names changing to German - will provide mapping
+- New endpoints coming Day 4
+- Full API documentation update on Day 5
 
-### For Testing Team
-- Models being updated now
-- API changes coming in 2-3 days
-- Full bundle system in ~1 week
-- Prepare test data with German fields
+### For Testing Team  
+- System partially broken right now
+- Emergency fixes in progress
+- Will provide test plan by Day 3
+- Need test data with German field names
+
+### For Stakeholders
+- Database migration complete ✅
+- Code updates in progress (5 days)
+- Bundle system operational by end of week
+- No data loss, just code updates needed
 
 ---
-*Current Status: Database complete, starting model updates*
-*Next Milestone: All models updated with German fields*
-*Target: Bundle system operational by end of week*
+*Current Status: Database ready, fixing code to match*
+*Critical Issue: Matching service crashes - fixing NOW*
+*ETA for Stability: End of Day 1*
+*ETA for Bundle System: End of Week*

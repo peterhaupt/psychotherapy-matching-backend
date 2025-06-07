@@ -2,8 +2,13 @@
 
 This document shows the FINAL database schema after all migrations have been applied. All field names use German terminology for consistency.
 
-## Naming Convention ✅ FULLY IMPLEMENTED
+## Naming Convention ✅ FULLY IMPLEMENTED IN DATABASE
 **Important:** ALL field names in the database now use German terminology. This decision was made to maintain consistency with the existing codebase and avoid confusion from mixing languages.
+
+**Current Status:**
+- ✅ Database: 100% German field names
+- ❌ Models: Still using English (causing errors)
+- ❌ APIs: Still returning English field names
 
 ## Current Database State
 
@@ -17,8 +22,8 @@ This document shows the FINAL database schema after all migrations have been app
 2. **Communication Tables Created**:
    - `communication_service.emails` → Email tracking with German fields
    - `communication_service.phone_calls` → Phone call tracking with German fields
-   - `communication_service.email_batches` → Links emails to bundle patients
-   - `communication_service.phone_call_batches` → Links calls to bundle patients
+   - ~~`communication_service.email_batches`~~ → **REMOVED** (moved to matching service)
+   - ~~`communication_service.phone_call_batches`~~ → **REMOVED** (moved to matching service)
 
 ### Phase 2: Bundle System ✅ COMPLETED
 
@@ -37,10 +42,20 @@ This document shows the FINAL database schema after all migrations have been app
    - `matching_service.therapeut_anfrage_patient` → Bundle composition
 
 3. **PlacementRequest Removal**:
-   - ❌ `matching_service.placement_requests` → REMOVED COMPLETELY
-   - ❌ All foreign key references updated to use bundle system
+   - ❌ `matching_service.placement_requests` → **REMOVED COMPLETELY**
+   - ✅ All foreign key references updated to use bundle system
 
-## Complete Schema Reference
+### Phase 3: Communication Service Simplification ✅ COMPLETED
+
+1. **Removed Batch Tables**:
+   - ❌ `communication_service.email_batches` → **REMOVED**
+   - ❌ `communication_service.phone_call_batches` → **REMOVED**
+
+2. **Added Bundle References**:
+   - `matching_service.therapeutenanfrage.email_id` → References communication emails
+   - `matching_service.therapeutenanfrage.phone_call_id` → References communication calls
+
+## Complete Schema Reference (Current State in Database)
 
 ### Patient Service
 
@@ -48,7 +63,7 @@ This document shows the FINAL database schema after all migrations have been app
 ```sql
 CREATE TABLE patient_service.patients (
     id SERIAL PRIMARY KEY,
-    -- Personal Information
+    -- Personal Information (German names)
     anrede VARCHAR(10),
     vorname VARCHAR(100) NOT NULL,
     nachname VARCHAR(100) NOT NULL,
@@ -58,14 +73,14 @@ CREATE TABLE patient_service.patients (
     email VARCHAR(255),
     telefon VARCHAR(50),
     
-    -- Medical Information
+    -- Medical Information (German names)
     hausarzt VARCHAR(255),
     krankenkasse VARCHAR(100),
     krankenversicherungsnummer VARCHAR(50),
     geburtsdatum DATE,
     diagnose VARCHAR(50),
     
-    -- Process Status
+    -- Process Status (German names)
     vertraege_unterschrieben BOOLEAN DEFAULT FALSE,
     psychotherapeutische_sprechstunde BOOLEAN DEFAULT FALSE,
     startdatum DATE,
@@ -74,7 +89,7 @@ CREATE TABLE patient_service.patients (
     status patientstatus,
     empfehler_der_unterstuetzung TEXT,
     
-    -- Availability & Preferences
+    -- Availability & Preferences (German names)
     zeitliche_verfuegbarkeit JSONB,
     raeumliche_verfuegbarkeit JSONB,
     verkehrsmittel VARCHAR(50),
@@ -91,11 +106,11 @@ CREATE TABLE patient_service.patients (
 
 ### Therapist Service
 
-#### therapists (with all German fields)
+#### therapists (ALL German fields)
 ```sql
 CREATE TABLE therapist_service.therapists (
     id SERIAL PRIMARY KEY,
-    -- Personal Information
+    -- Personal Information (German names)
     anrede VARCHAR(10),
     titel VARCHAR(20),
     vorname VARCHAR(100) NOT NULL,
@@ -108,7 +123,7 @@ CREATE TABLE therapist_service.therapists (
     email VARCHAR(255),
     webseite VARCHAR(255),
     
-    -- Professional Information
+    -- Professional Information (German names)
     kassensitz BOOLEAN DEFAULT TRUE,
     geschlecht VARCHAR(20),
     telefonische_erreichbarkeit JSONB,
@@ -117,7 +132,7 @@ CREATE TABLE therapist_service.therapists (
     zusatzqualifikationen TEXT,
     besondere_leistungsangebote TEXT,
     
-    -- Contact History
+    -- Contact History (German names)
     letzter_kontakt_email DATE,
     letzter_kontakt_telefon DATE,
     letztes_persoenliches_gespraech DATE,
@@ -175,7 +190,10 @@ CREATE TABLE matching_service.therapeutenanfrage (
     angenommen_anzahl INTEGER DEFAULT 0,
     abgelehnt_anzahl INTEGER DEFAULT 0,
     keine_antwort_anzahl INTEGER DEFAULT 0,
-    notizen TEXT
+    notizen TEXT,
+    -- References to communication service
+    email_id INTEGER REFERENCES communication_service.emails(id),
+    phone_call_id INTEGER REFERENCES communication_service.phone_calls(id)
 );
 ```
 
@@ -197,7 +215,7 @@ CREATE TABLE matching_service.therapeut_anfrage_patient (
 
 ### Communication Service (with German fields)
 
-#### emails
+#### emails (German field names)
 ```sql
 CREATE TABLE communication_service.emails (
     id SERIAL PRIMARY KEY,
@@ -209,8 +227,6 @@ CREATE TABLE communication_service.emails (
     empfaenger_name VARCHAR(255) NOT NULL,
     absender_email VARCHAR(255) NOT NULL,
     absender_name VARCHAR(255) NOT NULL,
-    placement_request_ids JSONB,  -- Legacy field
-    batch_id VARCHAR(50),
     antwort_erhalten BOOLEAN DEFAULT FALSE,
     antwortdatum TIMESTAMP,
     antwortinhalt TEXT,
@@ -226,22 +242,7 @@ CREATE TABLE communication_service.emails (
 );
 ```
 
-#### email_batches (updated to reference bundle system)
-```sql
-CREATE TABLE communication_service.email_batches (
-    id SERIAL PRIMARY KEY,
-    email_id INTEGER NOT NULL REFERENCES emails(id),
-    therapeut_anfrage_patient_id INTEGER REFERENCES matching_service.therapeut_anfrage_patient(id),
-    priority INTEGER DEFAULT 1,
-    included BOOLEAN DEFAULT TRUE,
-    antwortergebnis VARCHAR(50),
-    antwortnotizen TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP
-);
-```
-
-#### phone_calls
+#### phone_calls (German field names)
 ```sql
 CREATE TABLE communication_service.phone_calls (
     id SERIAL PRIMARY KEY,
@@ -257,21 +258,6 @@ CREATE TABLE communication_service.phone_calls (
     wiederholen_nach DATE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP
-);
-```
-
-#### phone_call_batches (updated to reference bundle system)
-```sql
-CREATE TABLE communication_service.phone_call_batches (
-    id SERIAL PRIMARY KEY,
-    phone_call_id INTEGER NOT NULL REFERENCES phone_calls(id),
-    therapeut_anfrage_patient_id INTEGER REFERENCES matching_service.therapeut_anfrage_patient(id),
-    priority INTEGER DEFAULT 1,
-    discussed BOOLEAN DEFAULT FALSE,
-    ergebnis VARCHAR(50),
-    nachverfolgung_erforderlich BOOLEAN DEFAULT FALSE,
-    nachverfolgung_notizen TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 ```
 
@@ -335,32 +321,92 @@ CREATE TYPE emailstatus AS ENUM (
     'DRAFT', 'QUEUED', 'SENDING', 'SENT', 'FAILED'
 );
 
--- PlacementRequestStatus has been REMOVED
+-- PlacementRequestStatus has been REMOVED (table and enum deleted)
 ```
 
 ## Migration Status Summary
 
 All migrations have been successfully applied:
 
-| Migration | Description | German Fields |
-|-----------|-------------|---------------|
-| `bcfc97d0f1h1` | ✅ Rename therapist bundle fields | naechster_kontakt_moeglich, etc. |
-| `ccfc98e1g2i2` | ✅ Remove unused date fields | - |
-| `dcfc99f2h3j3` | ✅ Add group therapy preference | bevorzugt_gruppentherapie |
-| `ecfc00g3k4k4` | ✅ Rename potentially_available | potenziell_verfuegbar |
-| `fcfc01h4l5l5` | ✅ Remove placement_requests | - |
-| `gcfc02i5m6m6` | ✅ Rename ALL remaining fields | Complete German naming |
+| Migration | Status | Description |
+|-----------|--------|-------------|
+| `bcfc97d0f1h1` | ✅ Applied | Rename therapist bundle fields |
+| `ccfc98e1g2i2` | ✅ Applied | Remove unused date fields |
+| `dcfc99f2h3j3` | ✅ Applied | Add group therapy preference |
+| `ecfc00g3k4k4` | ✅ Applied | Rename potentially_available |
+| `fcfc01h4l5l5` | ✅ Applied | Remove placement_requests |
+| `gcfc02i5m6m6` | ✅ Applied | Rename ALL remaining fields |
+| `hcfc03j6n7n7` | ✅ Applied | Remove communication batch tables |
+
+## Current Issues Due to Model/Database Mismatch
+
+### Error Examples You'll See:
+
+1. **Therapist Service**:
+```
+psycopg2.errors.UndefinedColumn: column "potentially_available" does not exist
+LINE 1: SELECT therapists.potentially_available AS therapists_potentially...
+HINT: Perhaps you meant to reference the column "therapists.potenziell_verfuegbar".
+```
+
+2. **Communication Service**:
+```
+psycopg2.errors.UndefinedColumn: column "subject" does not exist
+HINT: Perhaps you meant to reference the column "emails.betreff".
+```
+
+3. **Matching Service**:
+```
+psycopg2.errors.UndefinedTable: relation "matching_service.placement_requests" does not exist
+```
 
 ## Next Steps
 
 1. ✅ Database schema is complete
-2. 🔄 Update all model files to match German field names
-3. 🔄 Update API endpoints to use German fields
-4. 🔄 Update documentation and tests
+2. 🚨 **URGENT**: Remove PlacementRequest code (causing crashes)
+3. 🔄 Update all model files to match German field names
+4. 🔄 Update API endpoints to use German fields
+5. 🔄 Update documentation and tests
 
-## Important Notes
+## Quick Reference: Model Updates Needed
 
-- **NO English field names remain** in the database (except technical geocoding fields)
-- **PlacementRequest is completely removed** - use bundle system instead
-- **All foreign keys updated** to reference therapeut_anfrage_patient
-- **Models must be updated** to match these German field names exactly
+### Therapist Model Fields to Rename:
+- `potentially_available` → `potenziell_verfuegbar`
+- `potentially_available_notes` → `potenziell_verfuegbar_notizen`
+- `next_contactable_date` → `naechster_kontakt_moeglich`
+- `preferred_diagnoses` → `bevorzugte_diagnosen`
+- `age_min` → `alter_min`
+- `age_max` → `alter_max`
+- `gender_preference` → `geschlechtspraeferenz`
+- `working_hours` → `arbeitszeiten`
+- ADD: `bevorzugt_gruppentherapie`
+
+### Communication Model Fields to Rename:
+**Email Model:**
+- `subject` → `betreff`
+- `recipient_email` → `empfaenger_email`
+- `recipient_name` → `empfaenger_name`
+- `sender_email` → `absender_email`
+- `sender_name` → `absender_name`
+- `response_received` → `antwort_erhalten`
+- `response_date` → `antwortdatum`
+- `response_content` → `antwortinhalt`
+- `follow_up_required` → `nachverfolgung_erforderlich`
+- `follow_up_notes` → `nachverfolgung_notizen`
+- `error_message` → `fehlermeldung`
+- `retry_count` → `wiederholungsanzahl`
+
+**PhoneCall Model:**
+- `scheduled_date` → `geplantes_datum`
+- `scheduled_time` → `geplante_zeit`
+- `duration_minutes` → `dauer_minuten`
+- `actual_date` → `tatsaechliches_datum`
+- `actual_time` → `tatsaechliche_zeit`
+- `outcome` → `ergebnis`
+- `notes` → `notizen`
+- `retry_after` → `wiederholen_nach`
+
+---
+*Database State: Fully migrated to German ✅*
+*Code State: Still using English (needs urgent updates) ❌*
+*Critical Issue: PlacementRequest crashes (table doesn't exist) 🚨*

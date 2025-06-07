@@ -5,11 +5,11 @@ The Matching Service has been completely redesigned to implement the bundle-base
 
 ## Current Status
 - ✅ Database schema complete with German field names
-- ✅ PlacementRequest table and references removed
-- ✅ Bundle system tables created
-- 🔄 Model implementation needed
-- 🔄 API endpoints need updating
-- 🔄 Bundle algorithm needs implementation
+- ✅ PlacementRequest table and references removed from database
+- ✅ Bundle system tables created (platzsuche, therapeutenanfrage, therapeut_anfrage_patient)
+- ❌ Model implementation needed (PlacementRequest still exists in code)
+- ❌ API endpoints need updating (old endpoints still present)
+- ❌ Bundle algorithm needs implementation
 
 ## Bundle System Architecture
 
@@ -31,63 +31,69 @@ The Matching Service has been completely redesigned to implement the bundle-base
    - Tracks individual patient outcomes within bundle
    - Maintains position in bundle for prioritization
 
-## Models (To Be Implemented)
+## Database Schema (✅ COMPLETED)
 
-### Platzsuche Model
-Location: `matching_service/models/platzsuche.py`
-```python
-class Platzsuche(Base):
-    __tablename__ = "platzsuche"
-    __table_args__ = {"schema": "matching_service"}
-    
-    id = Column(Integer, primary_key=True)
-    patient_id = Column(Integer, ForeignKey('patient_service.patients.id'))
-    status = Column(String(50), default='active')
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, onupdate=datetime.utcnow)
-    ausgeschlossene_therapeuten = Column(JSONB, default=[])
-    gesamt_angeforderte_kontakte = Column(Integer, default=0)
-    erfolgreiche_vermittlung_datum = Column(DateTime)
-    notizen = Column(Text)
+### platzsuche (Patient Search)
+```sql
+CREATE TABLE matching_service.platzsuche (
+    id SERIAL PRIMARY KEY,
+    patient_id INTEGER NOT NULL REFERENCES patient_service.patients(id),
+    status VARCHAR(50) DEFAULT 'active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    ausgeschlossene_therapeuten JSONB DEFAULT '[]',
+    gesamt_angeforderte_kontakte INTEGER DEFAULT 0,
+    erfolgreiche_vermittlung_datum TIMESTAMP,
+    notizen TEXT
+);
 ```
 
-### Therapeutenanfrage Model
-Location: `matching_service/models/therapeutenanfrage.py`
-```python
-class Therapeutenanfrage(Base):
-    __tablename__ = "therapeutenanfrage"
-    __table_args__ = {"schema": "matching_service"}
-    
-    id = Column(Integer, primary_key=True)
-    therapist_id = Column(Integer, ForeignKey('therapist_service.therapists.id'))
-    created_date = Column(DateTime, default=datetime.utcnow)
-    sent_date = Column(DateTime)
-    response_date = Column(DateTime)
-    antworttyp = Column(String(50))  # vollstaendig_angenommen, teilweise_angenommen, abgelehnt
-    buendelgroesse = Column(Integer)
-    angenommen_anzahl = Column(Integer, default=0)
-    abgelehnt_anzahl = Column(Integer, default=0)
-    keine_antwort_anzahl = Column(Integer, default=0)
-    notizen = Column(Text)
+### therapeutenanfrage (Therapist Inquiry/Bundle)
+```sql
+CREATE TABLE matching_service.therapeutenanfrage (
+    id SERIAL PRIMARY KEY,
+    therapist_id INTEGER NOT NULL REFERENCES therapist_service.therapists(id),
+    created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    sent_date TIMESTAMP,
+    response_date TIMESTAMP,
+    antworttyp VARCHAR(50),
+    buendelgroesse INTEGER NOT NULL,
+    angenommen_anzahl INTEGER DEFAULT 0,
+    abgelehnt_anzahl INTEGER DEFAULT 0,
+    keine_antwort_anzahl INTEGER DEFAULT 0,
+    notizen TEXT,
+    email_id INTEGER REFERENCES communication_service.emails(id),
+    phone_call_id INTEGER REFERENCES communication_service.phone_calls(id)
+);
 ```
 
-### TherapeutAnfragePatient Model
-Location: `matching_service/models/therapeut_anfrage_patient.py`
-```python
-class TherapeutAnfragePatient(Base):
-    __tablename__ = "therapeut_anfrage_patient"
-    __table_args__ = {"schema": "matching_service"}
-    
-    id = Column(Integer, primary_key=True)
-    therapeutenanfrage_id = Column(Integer, ForeignKey('matching_service.therapeutenanfrage.id'))
-    platzsuche_id = Column(Integer, ForeignKey('matching_service.platzsuche.id'))
-    patient_id = Column(Integer, ForeignKey('patient_service.patients.id'))
-    position_im_buendel = Column(Integer)
-    status = Column(String(50), default='pending')
-    antwortergebnis = Column(String(50))  # angenommen, abgelehnt, keine_antwort
-    antwortnotizen = Column(Text)
-    created_at = Column(DateTime, default=datetime.utcnow)
+### therapeut_anfrage_patient (Bundle Composition)
+```sql
+CREATE TABLE matching_service.therapeut_anfrage_patient (
+    id SERIAL PRIMARY KEY,
+    therapeutenanfrage_id INTEGER NOT NULL REFERENCES therapeutenanfrage(id),
+    platzsuche_id INTEGER NOT NULL REFERENCES platzsuche(id),
+    patient_id INTEGER NOT NULL REFERENCES patient_service.patients(id),
+    position_im_buendel INTEGER NOT NULL,
+    status VARCHAR(50) DEFAULT 'pending',
+    antwortergebnis VARCHAR(50),
+    antwortnotizen TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(therapeutenanfrage_id, platzsuche_id)
+);
 ```
+
+## Models (❌ To Be Implemented)
+
+**CURRENT STATE**: The codebase still contains the old PlacementRequest model and needs to be updated.
+
+### Required Actions:
+1. Delete `matching_service/models/placement_request.py`
+2. Create `matching_service/models/platzsuche.py`
+3. Create `matching_service/models/therapeutenanfrage.py`
+4. Create `matching_service/models/therapeut_anfrage_patient.py`
+5. Update all imports throughout the codebase
+6. Remove PlacementRequest from `migrations/alembic/env.py`
 
 ## Bundle Algorithm Implementation
 
@@ -171,7 +177,13 @@ def apply_progressive_filtering(therapist, patients):
     return patients
 ```
 
-## API Endpoints (To Be Implemented)
+## API Endpoints (❌ To Be Implemented)
+
+**CURRENT STATE**: The API still uses the old placement request endpoints.
+
+### Required Actions:
+1. Remove all `/api/placement-requests` endpoints
+2. Implement new bundle system endpoints
 
 ### Patient Search Management
 
@@ -325,19 +337,19 @@ def manual_assignment(patient_id, therapist_id, reason):
 
 ## Migration from PlacementRequest
 
-### What Changed
-1. **Removed**: All PlacementRequest code and references
-2. **Replaced with**: Bundle system (Platzsuche, Therapeutenanfrage, etc.)
-3. **New Logic**: Progressive filtering and parallel search
-4. **New Constraints**: Cooling periods and bundle sizes
+### Database Changes (✅ COMPLETED)
+1. **Removed**: placement_requests table
+2. **Added**: Bundle system tables (platzsuche, therapeutenanfrage, etc.)
+3. **Updated**: Foreign key references in communication service
+4. **Applied**: All migrations successfully
 
-### Code Removal Checklist
-- [ ] Remove models/placement_request.py
-- [ ] Remove PlacementRequest from models/__init__.py
-- [ ] Remove PlacementRequest API endpoints
-- [ ] Remove PlacementRequest events
-- [ ] Update imports throughout
-- [ ] Remove from alembic env.py
+### Code Changes (❌ PENDING)
+1. Remove models/placement_request.py
+2. Remove PlacementRequest from models/__init__.py
+3. Remove PlacementRequest API endpoints
+4. Remove PlacementRequest events
+5. Update imports throughout
+6. Remove from alembic env.py
 
 ## Next Implementation Steps
 

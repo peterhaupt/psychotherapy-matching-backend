@@ -1,13 +1,12 @@
 # Communication Service
 
 ## Summary
-This document details the implementation of the Communication Service for the Psychotherapy Matching Platform. The service handles all communication-related operations including email management, phone call scheduling, template rendering, and message dispatching. It provides a foundation for both automated and manual communication with therapists.
+This document details the implementation of the Communication Service for the Psychotherapy Matching Platform. The service handles all communication-related operations including email management, phone call scheduling, template rendering, and message dispatching. The service has been simplified to focus solely on sending communications, with bundle logic moved to the Matching Service.
 
 ## Current Status
 The Communication Service has been implemented with these components:
 
 - **Email Model**: Database storage for emails with status tracking and response monitoring
-- **Email Batch System**: Complete implementation of email batching for grouping multiple patient requests
 - **Phone Call System**: Complete implementation of phone call scheduling and management
 - **API Endpoints**: REST endpoints for email and phone call operations
 - **Kafka Integration**: Robust event producers and consumers with resilience features
@@ -15,22 +14,55 @@ The Communication Service has been implemented with these components:
 - **Template System**: Enhanced Jinja2-based HTML template system
 - **Centralized Configuration**: All settings managed through shared configuration
 
+### Recent Architectural Changes
+- ❌ **Email Batch System**: REMOVED - Bundle logic moved to Matching Service
+- ❌ **Phone Call Batch System**: REMOVED - Bundle logic moved to Matching Service
+- ✅ **Simplified Design**: Communication Service now only sends emails and schedules calls
+- ✅ **German Field Names**: Database schema uses German field names (models need updating)
+
 ## Models Implementation
 
-### Email Model
-The Email model in `communication_service/models/email.py` stores all information related to emails, including:
-- Email metadata (sender, recipient, subject)
-- Body content in HTML and plain text formats
-- Response tracking fields
-- Status information and timestamps
+### Email Model (⚠️ Needs German Field Updates)
+The Email model in `communication_service/models/email.py` stores all information related to emails. 
 
-### Email Batch Model
-The Email Batch model in `communication_service/models/email_batch.py` establishes the relationship between emails and placement requests, supporting the batching of multiple requests into a single email.
+**Current State**: Model still uses English field names but database uses German names.
 
-### Phone Call Models
-Two models handle phone call scheduling and batch processing:
-- `PhoneCall` model: Stores scheduling information, outcomes, and status
-- `PhoneCallBatch` model: Tracks which placement requests are discussed in each call
+**Required Updates**:
+```python
+# These fields need to be renamed in the model:
+subject → betreff
+recipient_email → empfaenger_email
+recipient_name → empfaenger_name
+sender_email → absender_email
+sender_name → absender_name
+response_received → antwort_erhalten
+response_date → antwortdatum
+response_content → antwortinhalt
+follow_up_required → nachverfolgung_erforderlich
+follow_up_notes → nachverfolgung_notizen
+error_message → fehlermeldung
+retry_count → wiederholungsanzahl
+```
+
+### Phone Call Model (⚠️ Needs German Field Updates)
+The Phone Call model stores scheduling information, outcomes, and status.
+
+**Required Updates**:
+```python
+# These fields need to be renamed in the model:
+scheduled_date → geplantes_datum
+scheduled_time → geplante_zeit
+duration_minutes → dauer_minuten
+actual_date → tatsaechliches_datum
+actual_time → tatsaechliche_zeit
+outcome → ergebnis
+notes → notizen
+retry_after → wiederholen_nach
+```
+
+### Removed Models
+- ❌ **EmailBatch**: Removed (bundle logic moved to Matching Service)
+- ❌ **PhoneCallBatch**: Removed (bundle logic moved to Matching Service)
 
 ## API Implementation
 
@@ -39,32 +71,26 @@ Two models handle phone call scheduling and batch processing:
 #### Email Endpoints:
 - **EmailResource**: Operations on individual emails (GET, PUT)
 - **EmailListResource**: Collection operations (GET, POST)
-- **EmailBatchListResource**: Operations for managing batches for a specific email (GET, POST)
-- **EmailBatchResource**: Operations on individual email batches (GET, PUT, DELETE)
 
 #### Phone Call Endpoints:
 - **PhoneCallResource**: Operations on individual phone calls (GET, PUT, DELETE)
 - **PhoneCallListResource**: Collection operations (GET, POST)
-- **PhoneCallBatchResource**: Operations on phone call batches (GET, PUT)
 
-## Email Batching System
+## Simplified Architecture
 
-The email batching system provides a sophisticated way to group multiple patient requests into a single email to therapists.
+The Communication Service no longer handles bundle/batch logic. Instead:
 
-### Key Features:
-- **Frequency Limitation**: Enforces maximum one email per therapist per week
-- **Patient Grouping**: Groups multiple patients for a therapist into a single email
-- **Dynamic Templating**: Selects appropriate templates based on batch size
-- **Batch Tracking**: Tracks the included placement requests in each email
-- **Response Management**: Records responses at both email and individual batch level
-- **Prioritization**: Orders patients by registration date for batching
+1. **Matching Service** creates bundles and determines which patients to include
+2. **Matching Service** calls Communication Service API to create emails/calls
+3. **Communication Service** sends emails and schedules calls
+4. **Communication Service** publishes events when emails are sent or calls completed
+5. **Matching Service** handles responses and updates bundle status
 
-### Implementation
-Key components are found in `communication_service/utils/email_sender.py`:
-- `can_contact_therapist()`: Enforces the 7-day frequency limitation
-- `create_batch_email()`: Creates emails with multiple patient requests
-- `process_pending_requests()`: Identifies requests that need to be batched
-- `send_queued_emails()`: Processes the email queue with batch awareness
+### Key Simplifications:
+- No more email batching logic
+- No more placement request tracking
+- No complex template selection based on batch size
+- Clear separation of concerns
 
 ## Phone Call Scheduling System
 
@@ -74,7 +100,6 @@ The phone call scheduling system provides automated scheduling of calls based on
 - **Availability Parsing**: Converts therapist's JSON availability data into usable time slots
 - **Slot Finding**: Locates appropriate time slots for scheduling calls
 - **Follow-up Automation**: Automatically schedules follow-up calls for unanswered emails after 7 days
-- **Batch Processing**: Handles multiple placement requests in a single call
 - **5-Minute Intervals**: Schedules calls in 5-minute time blocks
 
 ### Implementation
@@ -89,9 +114,11 @@ Key components are in `communication_service/utils/phone_call_scheduler.py`:
 The service uses a structured template system with Jinja2 in `communication_service/templates/`:
 - `base_email.html`: Base template with common structure
 - `initial_contact.html`: Template for first contact with therapist
-- `batch_request.html`: Template for multiple patient requests
+- `batch_request.html`: Template for multiple patient requests (legacy)
 - `follow_up.html`: Template for follow-up communications
 - `confirmation.html`: Template for confirming accepted patients
+
+Note: Templates may need updating to work with the new bundle system.
 
 ## Centralized Configuration
 
@@ -117,33 +144,6 @@ Email/SMTP settings in `.env`:
 - `EMAIL_SENDER`: Default sender email address
 - `EMAIL_SENDER_NAME`: Default sender name
 
-### Configuration Usage
-The service uses configuration in multiple ways:
-
-1. **Flask App Configuration** (in `app.py`):
-```python
-config = get_config()
-smtp_settings = config.get_smtp_settings()
-app.config["SMTP_HOST"] = smtp_settings["host"]
-app.config["SMTP_PORT"] = smtp_settings["port"]
-# ... etc
-```
-
-2. **Email Sending Utilities**:
-```python
-def get_smtp_settings():
-    """Get SMTP settings from app config or use defaults."""
-    try:
-        # Try Flask app context first
-        return {
-            'host': current_app.config.get('SMTP_HOST', config.SMTP_HOST),
-            # ... etc
-        }
-    except RuntimeError:
-        # Fall back to centralized config
-        return config.get_smtp_settings()
-```
-
 ## Resilient Kafka Integration
 
 The service uses the shared RobustKafkaProducer with centralized configuration:
@@ -155,21 +155,13 @@ from shared.kafka.robust_producer import RobustKafkaProducer
 producer = RobustKafkaProducer(service_name="communication-service")
 ```
 
-Key features:
-- Connection configuration loaded automatically
-- Message persistence during Kafka outages
-- Automatic reconnection with exponential backoff
-- Background message queue processing
-
 ## Event Handling
 
 The service consumes and produces events using centralized Kafka configuration:
 
 ### Consumed Events:
-- `handle_matching_event()`: Processes events from the matching service
-- `process_email_queue()`: Regularly checks for emails that need to be sent
-- `check_unanswered_emails()`: Identifies emails that need follow-up calls
-- `schedule_daily_batch_processing()`: Runs the daily batch email processing
+- `communication.send_email`: Request to send an email
+- `communication.schedule_call`: Request to schedule a phone call
 
 ### Published Events:
 - `communication.email_created`: When a new email is created
@@ -179,28 +171,26 @@ The service consumes and produces events using centralized Kafka configuration:
 
 ## Email Flow Process
 
-The Communication Service processes emails through these stages:
+The simplified Communication Service processes emails through these stages:
 
-1. **Email Creation**
+1. **Email Creation** (via API from Matching Service)
    - Parse request arguments
    - Apply default values from centralized config
-   - Create Email and EmailBatch records
+   - Create Email record
    - Publish `email.created` event
 
-2. **Email Batching**
-   - Daily scheduled process (1 AM)
-   - Group placement requests by therapist
-   - Apply 7-day contact frequency rule
-   - Generate appropriate email content
-
-3. **Email Sending**
+2. **Email Sending**
    - Use SMTP settings from centralized config
    - Create MIME message with HTML and plain text
    - Connect to SMTP server and send
    - Update status and publish events
 
+3. **Response Tracking**
+   - Manual update via API when response received
+   - Matching Service handles bundle response logic
+
 4. **Follow-up Processing**
-   - Daily check for unanswered emails (7 days old)
+   - Check for unanswered emails (7 days old)
    - Schedule follow-up phone calls automatically
 
 ## Testing Email Functionality
@@ -231,29 +221,28 @@ SMTP_USE_TLS=false
 5. **Testing**: Use mail catchers for local development
 6. **Templates**: Keep email templates simple and responsive
 
-## Previously Known Issues (Now Fixed)
+## Migration Path
 
-### Default Value Handling in RequestParser ✓
+### From Batch System to Simple Communication
 
-**Issue**: Flask-RESTful's RequestParser adds `None` for undefined arguments, preventing `.get()` defaults from working.
+1. **Database**: Batch tables have been removed via migration
+2. **Models**: Need to remove EmailBatch and PhoneCallBatch classes
+3. **API**: Need to remove batch-related endpoints
+4. **Logic**: Bundle logic now resides in Matching Service
 
-**Solution**: Use the `or` operator:
-```python
-sender_email = args.get('sender_email') or smtp_settings['sender']
-```
+### Integration with New Bundle System
 
-### Placement Request IDs Handling ✓
-
-**Issue**: Null `placement_request_ids` not handled properly.
-
-**Solution**: Use the `or` operator:
-```python
-placement_request_ids = args.get('placement_request_ids') or []
-```
+The Matching Service now:
+1. Creates bundles (Therapeutenanfrage)
+2. Calls Communication Service API to create email
+3. Stores email_id in Therapeutenanfrage record
+4. Handles all response processing and bundle updates
 
 ## Future Enhancements
 
 ### Code Improvements
+- Complete model updates to German field names
+- Remove legacy batch code
 - Service layer pattern implementation
 - Enhanced validation middleware
 - Async email sending
