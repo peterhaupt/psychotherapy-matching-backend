@@ -16,7 +16,10 @@ from shared.utils.database import Base  # noqa: E402
 # Need to import all models that will be part of migrations
 from patient_service.models.patient import Patient  # noqa: F401, E402
 from therapist_service.models.therapist import Therapist  # noqa: F401, E402
-from matching_service.models.placement_request import PlacementRequest  # noqa: F401, E402
+# PlacementRequest removed - using bundle system instead
+from matching_service.models.platzsuche import Platzsuche  # noqa: F401, E402
+from matching_service.models.therapeutenanfrage import Therapeutenanfrage  # noqa: F401, E402
+from matching_service.models.therapeut_anfrage_patient import TherapeutAnfragePatient  # noqa: F401, E402
 from communication_service.models.email import Email  # noqa: F401, E402
 from communication_service.models.email_batch import EmailBatch  # noqa: F401, E402
 from communication_service.models.phone_call import PhoneCall, PhoneCallBatch  # noqa: F401, E402

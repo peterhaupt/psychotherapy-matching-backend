@@ -1,8 +1,7 @@
-"""Test script for the matching algorithm."""
+"""Test script for the matching algorithm - STUB."""
 import sys
 import os
 import logging
-import json
 from argparse import ArgumentParser
 
 # Add the project root to path
@@ -10,8 +9,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 
 from algorithms.matcher import (
     find_matching_therapists,
-    create_placement_requests,
-    calculate_distance
+    create_placement_requests
 )
 
 # Configure logging
@@ -22,92 +20,49 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def test_distance_calculation():
-    """Test the distance calculation between two points."""
-    # Berlin coordinates
-    berlin = "Berlin, Germany"
-    # Munich coordinates
-    munich = "Munich, Germany"
+def test_bundle_system():
+    """Test the bundle system - PLACEHOLDER."""
+    logger.info("Bundle system test placeholder")
+    logger.info("The bundle system is not yet implemented")
+    logger.info("This test will be updated when the bundle system is ready")
     
-    # Calculate distance between Berlin and Munich
-    result = calculate_distance(berlin, munich)
-    
-    logger.info(f"Distance from Berlin to Munich:")
-    logger.info(f"  Distance: {result['distance_km']:.2f} km")
-    logger.info(f"  Travel time: {result['travel_time_minutes']:.2f} minutes")
-    logger.info(f"  Source: {result['source']}")
-    
-    return result
+    # Placeholder tests
+    logger.info("\nPlanned tests:")
+    logger.info("1. Test bundle creation with 3-6 patients")
+    logger.info("2. Test cooling period enforcement")
+    logger.info("3. Test progressive filtering")
+    logger.info("4. Test conflict resolution")
+    logger.info("5. Test parallel search handling")
 
 
 def main():
     """Run the matching algorithm test."""
-    parser = ArgumentParser(description="Test the matching algorithm")
+    parser = ArgumentParser(description="Test the bundle-based matching algorithm")
     parser.add_argument(
         '--patient',
         type=int,
-        help='Patient ID to find matches for'
+        help='Patient ID to test bundle creation for'
     )
     parser.add_argument(
-        '--create',
+        '--test-bundle',
         action='store_true',
-        help='Create placement requests for matches'
-    )
-    parser.add_argument(
-        '--max-matches',
-        type=int,
-        default=5,
-        help='Maximum number of matches to create'
-    )
-    parser.add_argument(
-        '--test-distance',
-        action='store_true',
-        help='Test distance calculation'
+        help='Run bundle system tests'
     )
     
     args = parser.parse_args()
     
-    if args.test_distance:
-        logger.info("Testing distance calculation...")
-        test_distance_calculation()
-        return
-    
-    if not args.patient:
-        logger.error("Patient ID is required unless testing distance calculation")
-        parser.print_help()
-        return
-    
-    logger.info(f"Finding matches for patient {args.patient}")
-    
-    # Find matching therapists
-    matches = find_matching_therapists(
-        patient_id=args.patient
-    )
-    
-    # Print matches
-    logger.info(f"Found {len(matches)} potential matches")
-    for i, match in enumerate(matches[:args.max_matches]):
-        logger.info(
-            f"Match {i+1}: {match['therapist_name']} "
-            f"(ID: {match['therapist_id']}) - "
-            f"Distance: {match['distance_km']:.2f} km, "
-            f"Travel time: {match['travel_time_minutes']:.2f} min"
-        )
-    
-    # Create placement requests if requested
-    if args.create and matches:
-        therapist_ids = [
-            m['therapist_id'] for m in matches[:args.max_matches]
-        ]
-        request_ids = create_placement_requests(
-            patient_id=args.patient,
-            therapist_ids=therapist_ids,
-            notes="Created via test script"
-        )
+    if args.test_bundle or args.patient:
+        logger.info("Bundle system testing...")
+        test_bundle_system()
         
-        logger.info(f"Created {len(request_ids)} placement requests")
-        for req_id in request_ids:
-            logger.info(f"Created request ID: {req_id}")
+        if args.patient:
+            logger.info(f"\nWould create bundles for patient {args.patient}")
+            logger.info("(Not implemented yet)")
+    else:
+        logger.info("Bundle system test suite")
+        logger.info("Use --test-bundle to run tests")
+        logger.info("Use --patient <id> to test bundle creation for a specific patient")
+        parser.print_help()
 
 
 if __name__ == "__main__":

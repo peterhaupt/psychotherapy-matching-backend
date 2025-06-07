@@ -1,4 +1,4 @@
-"""Matching algorithms package."""
+"""Matching algorithms package - Bundle System (STUB)."""
 from .matcher import (
     find_matching_therapists,
     create_placement_requests,
@@ -8,6 +8,7 @@ from .matcher import (
 )
 
 __all__ = [
+    # Stub functions - to be replaced with bundle system
     'find_matching_therapists',
     'create_placement_requests',
     'get_patient_data',
