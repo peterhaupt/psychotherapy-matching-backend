@@ -10,10 +10,10 @@ from shared.utils.database import Base
 
 
 class EmailBatch(Base):
-    """Email batch database model.
+    """Email batch database model with German field names.
     
-    This model represents the relationship between emails and placement requests,
-    allowing multiple placement requests to be grouped into a single email.
+    This model represents the relationship between emails and bundle patients,
+    allowing multiple patients from bundles to be grouped into a single email.
     """
 
     __tablename__ = "email_batches"
@@ -27,19 +27,21 @@ class EmailBatch(Base):
         ForeignKey("communication_service.emails.id", ondelete="CASCADE"),
         nullable=False
     )
-    placement_request_id = Column(
+    
+    # Updated foreign key to reference bundle system
+    therapeut_anfrage_patient_id = Column(
         Integer,
-        ForeignKey("matching_service.placement_requests.id", ondelete="CASCADE"),
-        nullable=False
+        ForeignKey("matching_service.therapeut_anfrage_patient.id", ondelete="CASCADE"),
+        nullable=True
     )
     
     # Batch metadata
     priority = Column(Integer, default=1)  # Higher numbers = higher priority
     included = Column(Boolean, default=True)  # Flag to indicate if the request was included in the email
     
-    # Response tracking
-    response_outcome = Column(String(50))  # e.g., "accepted", "rejected", "needs_follow_up"
-    response_notes = Column(Text)
+    # Response tracking - German field names
+    antwortergebnis = Column(String(50))  # response_outcome: e.g., "angenommen", "abgelehnt", "nachverfolgung_erforderlich"
+    antwortnotizen = Column(Text)  # response_notes
     
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -56,5 +58,25 @@ class EmailBatch(Base):
         """Provide a string representation of the EmailBatch instance."""
         return (
             f"<EmailBatch id={self.id} email_id={self.email_id} "
-            f"placement_request_id={self.placement_request_id}>"
+            f"therapeut_anfrage_patient_id={self.therapeut_anfrage_patient_id}>"
         )
+    
+    def mark_response(self, outcome: str, notes: str = None) -> None:
+        """Mark the response for this batch item.
+        
+        Args:
+            outcome: The outcome (angenommen, abgelehnt, etc.)
+            notes: Optional notes about the response
+        """
+        self.antwortergebnis = outcome
+        if notes:
+            self.antwortnotizen = notes
+        self.updated_at = datetime.utcnow()
+    
+    def is_accepted(self) -> bool:
+        """Check if this patient was accepted by the therapist."""
+        return self.antwortergebnis == "angenommen"
+    
+    def is_rejected(self) -> bool:
+        """Check if this patient was rejected by the therapist."""
+        return self.antwortergebnis == "abgelehnt"
