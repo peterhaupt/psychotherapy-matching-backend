@@ -1,15 +1,16 @@
 # Frontend API Documentation
 
-## ✅ SYSTEM UPDATE COMPLETE
-**Current State (as of latest implementation)**:
+## ✅ SYSTEM UPDATE STATUS
+**Current State (as of bundle algorithm implementation)**:
 - ✅ Database: All tables use German field names
 - ✅ Patient Service: Models and APIs use German field names
 - ✅ Therapist Service: Models and APIs use German field names
 - ✅ Communication Service: Models and APIs use German field names
-- ✅ PlacementRequest: Removed from codebase, replaced with stub bundle system
-- 🟡 Matching Service: Returns 501 (Not Implemented) for all endpoints
+- ✅ PlacementRequest: Removed from codebase, replaced with bundle system
+- ✅ Bundle Algorithm: Fully implemented with weighted scoring
+- 🟡 Matching Service: Bundle creation endpoint works, others need integration
 
-**This documentation shows the CURRENT API state with all services fully updated.**
+**This documentation shows the CURRENT API state with bundle algorithm implemented.**
 
 ## Base URLs
 - Patient Service: `http://localhost:8001`
@@ -49,6 +50,38 @@ const TherapistStatus = {
   ACTIVE: "aktiv",
   BLOCKED: "gesperrt",
   INACTIVE: "inaktiv"
+}
+```
+
+### SearchStatus (New)
+```javascript
+const SearchStatus = {
+  ACTIVE: "active",
+  SUCCESSFUL: "successful",
+  PAUSED: "paused",
+  CANCELLED: "cancelled"
+}
+```
+
+### ResponseType (New)
+```javascript
+const ResponseType = {
+  FULL_ACCEPTANCE: "vollstaendige_annahme",
+  PARTIAL_ACCEPTANCE: "teilweise_annahme",
+  FULL_REJECTION: "vollstaendige_ablehnung",
+  NO_RESPONSE: "keine_antwort"
+}
+```
+
+### PatientOutcome (New)
+```javascript
+const PatientOutcome = {
+  ACCEPTED: "angenommen",
+  REJECTED_CAPACITY: "abgelehnt_kapazitaet",
+  REJECTED_NOT_SUITABLE: "abgelehnt_nicht_geeignet",
+  REJECTED_OTHER: "abgelehnt_sonstiges",
+  NO_SHOW: "nicht_erschienen",
+  IN_SESSIONS: "in_sitzungen"
 }
 ```
 
@@ -190,12 +223,144 @@ Expects GERMAN field names:
 ### PUT /api/therapists/{id}
 Same fields as POST, all fields are optional.
 
-## Matching Service API 🟡 Returns 501 - Not Implemented
+## Matching Service API 🟡 Bundle System Partially Working
 
 ### Current State
-All matching service endpoints return 501 (Not Implemented) with a message explaining the bundle system is in development.
+The bundle creation algorithm is fully implemented. The `/api/buendel/erstellen` endpoint works. Other endpoints need connection to the algorithm.
 
-### GET /api/placement-requests
+### 🟢 WORKING: Bundle Creation
+
+#### POST /api/buendel/erstellen
+Triggers bundle creation for all eligible therapists using the implemented algorithm.
+
+Request:
+```json
+{
+  "send_immediately": false,  // If true, sends emails immediately
+  "dry_run": false           // If true, doesn't commit to database
+}
+```
+
+Response (dry_run example):
+```json
+{
+  "message": "Dry run completed",
+  "bundles_created": 5,
+  "bundles": [
+    {
+      "therapist_id": 123,
+      "bundle_size": 4,
+      "patient_ids": [1, 5, 8, 12]
+    }
+  ]
+}
+```
+
+Response (actual run):
+```json
+{
+  "message": "Created 5 bundles",
+  "bundles_created": 5,
+  "bundles_sent": 0,
+  "bundle_ids": [101, 102, 103, 104, 105]
+}
+```
+
+### 🔄 NEEDS INTEGRATION: Patient Search Endpoints
+
+#### POST /api/platzsuchen
+Create a new patient search (needs integration).
+
+Expected request:
+```json
+{
+  "patient_id": 123,
+  "notizen": "Patient urgently needs therapy"
+}
+```
+
+#### GET /api/platzsuchen/{id}
+Get patient search details with bundle history (needs integration).
+
+Expected response structure:
+```json
+{
+  "id": 1,
+  "patient_id": 123,
+  "patient": { /* patient data */ },
+  "status": "active",
+  "created_at": "2025-06-07T10:00:00",
+  "ausgeschlossene_therapeuten": [45, 67],
+  "gesamt_angeforderte_kontakte": 25,
+  "active_bundles": 3,
+  "total_bundles": 8
+}
+```
+
+#### POST /api/platzsuchen/{id}/kontaktanfrage
+Request additional contacts for a patient search (needs integration).
+
+Request:
+```json
+{
+  "requested_count": 10,
+  "notizen": "Patient still searching"
+}
+```
+
+### 🔄 NEEDS INTEGRATION: Bundle Query Endpoints
+
+#### GET /api/therapeutenanfragen
+Get all bundles with filtering (needs integration).
+
+Query parameters:
+- `therapist_id`: Filter by therapist
+- `sent_status`: "sent" or "unsent"
+- `response_status`: "responded" or "pending"
+
+#### GET /api/therapeutenanfragen/{id}
+Get bundle details with patient list (needs integration).
+
+Expected response structure:
+```json
+{
+  "id": 101,
+  "therapist_id": 123,
+  "created_date": "2025-06-07T10:00:00",
+  "sent_date": "2025-06-07T10:30:00",
+  "buendelgroesse": 4,
+  "patients": [
+    {
+      "position": 1,
+      "patient_id": 1,
+      "patient": { /* patient data */ },
+      "platzsuche_id": 10,
+      "status": "pending"
+    }
+  ],
+  "needs_follow_up": false
+}
+```
+
+#### PUT /api/therapeutenanfragen/{id}/antwort
+Record therapist response (needs integration).
+
+Request:
+```json
+{
+  "patient_responses": {
+    "1": "angenommen",
+    "5": "abgelehnt_kapazitaet",
+    "8": "angenommen",
+    "12": "abgelehnt_nicht_geeignet"
+  },
+  "notizen": "Can take 2 patients starting next month"
+}
+```
+
+### Legacy Endpoints (Return 501)
+
+#### GET /api/placement-requests
 ```json
 {
   "message": "Bundle system not yet implemented",
@@ -207,10 +372,10 @@ All matching service endpoints return 501 (Not Implemented) with a message expla
 ```
 Status: 501
 
-### POST /api/placement-requests  
-### GET /api/placement-requests/{id}
-### PUT /api/placement-requests/{id}
-### DELETE /api/placement-requests/{id}
+#### POST /api/placement-requests  
+#### GET /api/placement-requests/{id}
+#### PUT /api/placement-requests/{id}
+#### DELETE /api/placement-requests/{id}
 
 All return:
 ```json
@@ -374,6 +539,31 @@ Request body:
 }
 ```
 
+## Bundle Algorithm Details ✅ IMPLEMENTED
+
+The bundle system uses a sophisticated scoring algorithm:
+
+### Scoring Weights
+- **Availability Compatibility**: 40%
+- **Diagnosis Preference**: 30%
+- **Age Preference**: 20%
+- **Group Therapy Compatibility**: 10%
+
+### Hard Constraints (Must Pass)
+1. **Distance**: Patient within travel distance of therapist
+2. **Exclusions**: Therapist not on patient's exclusion list
+3. **Gender**: Therapist gender matches patient preference
+
+### Bundle Creation Process
+1. Get all contactable therapists (not in cooling period)
+2. For each therapist:
+   - Apply hard constraints
+   - Score remaining patients (0-100)
+   - Sort by score and wait time
+   - Select top 3-6 patients
+3. Create bundles in database
+4. Optionally send emails immediately
+
 ## Common Error Responses
 
 ### Standard Error Formats
@@ -399,57 +589,12 @@ Request body:
 }
 ```
 
-#### 501 Not Implemented (Matching Service)
+#### 501 Not Implemented (Some Matching Endpoints)
 ```json
 {
   "message": "Bundle system not yet implemented"
 }
 ```
-
-## Migration Complete - Everything Working ✅
-
-### Currently Working
-- ✅ Patient Service (fully migrated to German)
-- ✅ Therapist Service (fully migrated to German)
-- ✅ Communication Service (fully migrated to German)
-- ✅ Geocoding Service (unaffected)
-- ✅ Matching Service (returns 501 instead of crashing)
-
-### Field Name Reference (All Services Now Using German)
-
-#### Patient Fields:
-All fields as documented above use German names.
-
-#### Therapist Fields:
-- `potentially_available` → `potenziell_verfuegbar` ✅
-- `potentially_available_notes` → `potenziell_verfuegbar_notizen` ✅
-- `next_contactable_date` → `naechster_kontakt_moeglich` ✅
-- `preferred_diagnoses` → `bevorzugte_diagnosen` ✅
-- `age_min` → `alter_min` ✅
-- `age_max` → `alter_max` ✅
-- `gender_preference` → `geschlechtspraeferenz` ✅
-- `working_hours` → `arbeitszeiten` ✅
-- `prefers_group_therapy` → `bevorzugt_gruppentherapie` ✅
-
-#### Communication Fields:
-- `subject` → `betreff` ✅
-- `recipient_email` → `empfaenger_email` ✅
-- `recipient_name` → `empfaenger_name` ✅
-- `sender_email` → `absender_email` ✅
-- `sender_name` → `absender_name` ✅
-- `response_received` → `antwort_erhalten` ✅
-- `response_date` → `antwortdatum` ✅
-- `response_content` → `antwortinhalt` ✅
-- `follow_up_required` → `nachverfolgung_erforderlich` ✅
-- `follow_up_notes` → `nachverfolgung_notizen` ✅
-- `scheduled_date` → `geplantes_datum` ✅
-- `scheduled_time` → `geplante_zeit` ✅
-- `duration_minutes` → `dauer_minuten` ✅
-- `actual_date` → `tatsaechliches_datum` ✅
-- `actual_time` → `tatsaechliche_zeit` ✅
-- `outcome` → `ergebnis` ✅
-- `notes` → `notizen` ✅
-- `retry_after` → `wiederholen_nach` ✅
 
 ## Testing the APIs
 
@@ -482,6 +627,19 @@ curl -X POST http://localhost:8002/api/therapists \
   }'
 ```
 
+### Test Bundle Creation ✅ WORKING
+```bash
+# Create bundles (dry run)
+curl -X POST http://localhost:8003/api/buendel/erstellen \
+  -H "Content-Type: application/json" \
+  -d '{"dry_run": true}'
+
+# Create bundles (actual)
+curl -X POST http://localhost:8003/api/buendel/erstellen \
+  -H "Content-Type: application/json" \
+  -d '{"send_immediately": false}'
+```
+
 ### Test Communication Service
 ```bash
 # Get all emails
@@ -506,6 +664,9 @@ The development team is working on:
 1. ✅ Database migration to German (COMPLETE)
 2. ✅ All service models updated to German (COMPLETE)
 3. ✅ All APIs using German field names (COMPLETE)
-4. 🔄 Implementing full bundle system (in progress)
+4. ✅ Bundle algorithm implemented (COMPLETE)
+5. 🔄 Connecting all endpoints to algorithm (IN PROGRESS)
+6. ❌ Email sending integration (NEXT)
+7. ❌ Response handling (NEXT)
 
-**All field name updates are complete. Frontend can now use German field names for all services.**
+**Bundle creation is working! Other endpoints need integration to complete the system.**

@@ -1,7 +1,7 @@
 # Psychotherapy Matching Platform - Implementation Progress
 
 ## Overview
-This document tracks the implementation progress of the Psychotherapy Matching Platform. The database migration to German field names and bundle system is complete. PlacementRequest has been fully removed from the codebase. All services have been fully updated to German field names. The next phase involves implementing the full bundle system logic.
+This document tracks the implementation progress of the Psychotherapy Matching Platform. The database migration to German field names and bundle system is complete. PlacementRequest has been fully removed from the codebase. All services have been fully updated to German field names. The bundle algorithm has been implemented. The next phase involves connecting the APIs to make the system fully operational.
 
 ## Implementation Status
 
@@ -18,14 +18,14 @@ This document tracks the implementation progress of the Psychotherapy Matching P
 |---------|--------|----------------------|
 | Patient Service | ✅ Complete | CRUD operations, status tracking, event publishing |
 | Therapist Service | ✅ Complete | All fields German, bundle preferences, availability |
-| Matching Service (Bundle) | 🟡 Stub Implementation | PlacementRequest removed, returns 501 for all endpoints |
+| Matching Service (Bundle) | 🟡 Algorithm Complete | Bundle algorithm implemented, APIs need connection |
 | Communication Service | ✅ Complete | All models updated to German, batch system removed |
 | Geocoding Service | ✅ Complete | OSM/OSRM integration, caching, distance calculations |
 | Web Scraping Service | ✅ Complete | [Separate repository](https://github.com/peterhaupt/curavani_scraping) |
 | Scraper Integration | 🔄 In Progress | Import process for scraped data |
 | Web Interface | 📋 Planned | React-based UI for staff |
 
-## Current Sprint: Bundle System Implementation
+## Current Sprint: Bundle System API Integration
 
 ### Phase 1: Database Schema Updates ✅ COMPLETED
 
@@ -46,29 +46,45 @@ This document tracks the implementation progress of the Psychotherapy Matching P
 - ✅ Therapist Service fully updated to German field names
 - ✅ All services now use German field names consistently
 
-### Phase 3: Bundle Algorithm Implementation 🔄 CURRENT PHASE
+### Phase 3: Bundle Algorithm Implementation ✅ COMPLETED (Week 4)
+
+**What Was Accomplished:**
+- ✅ Implemented full Platzsuche model with relationships
+- ✅ Implemented full Therapeutenanfrage model
+- ✅ Implemented full TherapeutAnfragePatient model
+- ✅ Created bundle_creator.py module with complete algorithm
+- ✅ Implemented hard constraints (distance, exclusions, gender)
+- ✅ Implemented progressive filtering with weighted scoring
+- ✅ Added cooling period enforcement
+- ✅ Implemented conflict resolution
+- ✅ Created test script for algorithm validation
+- ✅ Fixed all import statements (absolute imports)
+
+### Phase 4: API Implementation 🔄 CURRENT PHASE (Week 5)
+
+#### Tasks Completed
+- ✅ Bundle creation endpoint `/api/buendel/erstellen` works with algorithm
+- ✅ All API endpoints registered in app.py
 
 #### Tasks Remaining
 
-**Week 1: Complete Bundle Models**
-1. 🔄 Implement full Platzsuche model with relationships
-2. 🔄 Implement full Therapeutenanfrage model
-3. 🔄 Implement full TherapeutAnfragePatient model
-4. 🔄 Add model methods for business logic
+**Day 1-2: Connect APIs to Algorithm**
+1. 🔄 Update PlatzsucheResource methods to use algorithm
+2. 🔄 Connect bundle creation to email sending
+3. 🔄 Implement response handling in APIs
+4. 🔄 Add validation and error handling
 
-**Week 2: Bundle Algorithm**
-1. ❌ Create bundle_creator.py module
-2. ❌ Implement hard constraints (distance, exclusions, gender)
-3. ❌ Implement progressive filtering
-4. ❌ Add cooling period enforcement
-5. ❌ Implement conflict resolution
+**Day 3-4: Service Integration**
+1. ❌ Connect to Communication Service for emails
+2. ❌ Implement response event handlers
+3. ❌ Test cooling period updates
+4. ❌ Add comprehensive logging
 
-**Week 3: API Implementation**
-1. ❌ Create /api/platzsuchen endpoints
-2. ❌ Create /api/therapeutenanfragen endpoints
-3. ❌ Create bundle creation endpoint
-4. ❌ Add response recording endpoints
-5. ❌ Implement analytics endpoints
+**Day 5: Testing**
+1. ❌ Integration tests for full flow
+2. ❌ API endpoint testing
+3. ❌ Error case handling
+4. ❌ Documentation updates
 
 ## Key Architectural Decisions
 
@@ -79,13 +95,26 @@ All database tables now use German field names consistently:
 - ✅ Communication fields (betreff, empfaenger_email, geplantes_datum, etc.)
 - ✅ Bundle system fields (all German from the start)
 
-### Bundle System Design ✅ DATABASE READY
+### Bundle System Design ✅ ALGORITHM IMPLEMENTED
 - ✅ Platzsuche table for patient searches
 - ✅ Therapeutenanfrage table for bundles
 - ✅ Therapeut_anfrage_patient for bundle composition
 - ✅ Foreign keys to communication tables
-- 🟡 Stub model implementation
-- ❌ Algorithm implementation pending
+- ✅ Full model implementation with business logic
+- ✅ Bundle creation algorithm with progressive filtering
+- 🟡 API integration in progress
+
+### Bundle Algorithm Details ✅ IMPLEMENTED
+The algorithm uses a weighted scoring system:
+- **Availability Compatibility**: 40% weight
+- **Diagnosis Preference**: 30% weight  
+- **Age Preference**: 20% weight
+- **Group Therapy Compatibility**: 10% weight
+
+Hard constraints that must be satisfied:
+- Distance within patient's max travel distance
+- Therapist not in patient's exclusion list
+- Therapist gender matches patient preference
 
 ## Current State Summary
 
@@ -94,52 +123,53 @@ All database tables now use German field names consistently:
 - PlacementRequest completely removed
 - All services updated to use German field names
 - Communication Service simplified (batch logic removed)
-- Matching Service stabilized (returns 501)
-- No more crashes or 500 errors
+- Matching Service stabilized
+- Bundle models fully implemented
+- Bundle algorithm complete with scoring system
+- Test framework for algorithm validation
 
 ### What's In Progress 🔄
-- Bundle algorithm implementation
-- Bundle API endpoints
-- Integration between services
+- Connecting API endpoints to algorithm
+- Email sending integration
+- Response handling implementation
+- Event processing setup
 
 ### What's Next ❌
-- Complete bundle models with business logic
-- Implement progressive filtering algorithm
-- Create bundle management APIs
-- Add cooling period enforcement
-- Implement conflict resolution
+- Complete API-algorithm integration
+- Enable event consumers
 - Full integration testing
+- Performance optimization
+- Production deployment preparation
 
 ## Current Database State vs Code State
 
-| Component | Database | Models | APIs | Status |
-|-----------|----------|--------|------|--------|
-| Patient Fields | German ✅ | German ✅ | German ✅ | ✅ Working |
-| Therapist Fields | German ✅ | German ✅ | German ✅ | ✅ Working |
-| Communication Fields | German ✅ | German ✅ | German ✅ | ✅ Working |
-| PlacementRequest | Removed ✅ | Removed ✅ | 501 Response ✅ | ✅ Complete |
-| Bundle System | Created ✅ | Stubs ✅ | 501 Response ✅ | 🟡 Ready for Implementation |
-| Batch Tables | Removed ✅ | Removed ✅ | Removed ✅ | ✅ Complete |
+| Component | Database | Models | Algorithm | APIs | Status |
+|-----------|----------|--------|-----------|------|--------|
+| Patient Fields | German ✅ | German ✅ | Integrated ✅ | German ✅ | ✅ Working |
+| Therapist Fields | German ✅ | German ✅ | Integrated ✅ | German ✅ | ✅ Working |
+| Communication Fields | German ✅ | German ✅ | N/A | German ✅ | ✅ Working |
+| PlacementRequest | Removed ✅ | Removed ✅ | N/A | 501 Response ✅ | ✅ Complete |
+| Bundle System | Created ✅ | Full ✅ | Implemented ✅ | Partial 🟡 | 🔄 Integration Needed |
 
 ## Next Sprint Planning
 
-### Week 1: Bundle Models
-- Complete Platzsuche model implementation
-- Complete Therapeutenanfrage model
-- Complete TherapeutAnfragePatient model
-- Add relationships and helper methods
+### Week 5: API Integration (Current)
+- Connect all endpoints to algorithm
+- Implement email sending flow
+- Add response handling
+- Test end-to-end flow
 
-### Week 2: Bundle Algorithm  
-- Implement hard constraint checking
-- Add progressive filtering logic
-- Create bundle composition algorithm
-- Add cooling period management
-
-### Week 3: Integration & Testing
-- Create all bundle API endpoints
-- Connect to communication service
-- Implement event handlers
+### Week 6: Testing & Optimization
 - Full integration testing
+- Performance testing with realistic data
+- Edge case handling
+- Documentation finalization
+
+### Week 7: Production Readiness
+- Deploy to staging environment
+- Load testing
+- Security review
+- Rollout planning
 
 ## How to Test Current State
 
@@ -147,34 +177,46 @@ All database tables now use German field names consistently:
 # All working endpoints
 curl http://localhost:8001/api/patients  # ✅ Works
 curl http://localhost:8002/api/therapists  # ✅ Works
-curl http://localhost:8003/api/placement-requests  # ✅ Returns 501
 curl http://localhost:8004/api/emails  # ✅ Works with German fields
 curl http://localhost:8004/api/phone-calls  # ✅ Works with German fields
 curl http://localhost:8005/api/geocode?address=Berlin  # ✅ Works
+
+# Bundle system testing
+cd matching_service
+python tests/test_bundle_algorithm.py  # ✅ Algorithm works
+
+# API endpoint testing
+curl -X POST http://localhost:8003/api/buendel/erstellen \
+  -H "Content-Type: application/json" \
+  -d '{"dry_run": true}'  # ✅ Works with algorithm
+
+curl http://localhost:8003/api/platzsuchen  # 🔄 Needs integration
 ```
 
 ## Definition of Done for Current Phase
 
-### Models Updated ✅ COMPLETE
-- [x] PlacementRequest removed completely
-- [x] Matching service has stub models
-- [x] Therapist model uses German field names
-- [x] Communication models use German field names
-- [ ] Bundle models fully implemented
-- [x] All imports updated
+### Algorithm Implementation ✅ COMPLETE
+- [x] Bundle creation algorithm implemented
+- [x] Hard constraints working
+- [x] Progressive filtering with scoring
+- [x] Conflict resolution logic
+- [x] Test script created
+- [x] Import statements fixed
 
-### APIs Updated ✅ COMPLETE
-- [x] Matching endpoints return 501 (not 500)
-- [x] All endpoints use German field names
-- [ ] Bundle endpoints created
-- [x] API documentation updated
+### API Integration 🔄 IN PROGRESS
+- [x] Bundle creation endpoint works
+- [ ] All endpoints connected to algorithm
+- [ ] Email sending integrated
+- [ ] Response handling complete
+- [ ] Event publishing active
+- [ ] Full flow tested
 
-### Bundle System Working ❌ NOT STARTED
-- [ ] Can create patient searches
-- [ ] Can create bundles
-- [ ] Progressive filtering works
-- [ ] Cooling periods enforced
-- [ ] Conflicts resolved properly
+### Production Ready ❌ NOT STARTED
+- [ ] Performance optimized
+- [ ] Error handling comprehensive
+- [ ] Monitoring in place
+- [ ] Documentation complete
+- [ ] Security reviewed
 
 ## Monitoring Dashboard
 
@@ -182,9 +224,16 @@ curl http://localhost:8005/api/geocode?address=Berlin  # ✅ Works
 Service Health:
 ├── Patient Service:       🟢 Operational
 ├── Therapist Service:     🟢 Operational
-├── Matching Service:      🟡 Stable (stub implementation)
+├── Matching Service:      🟡 Algorithm ready, APIs partial
 ├── Communication Service: 🟢 Operational
 └── Geocoding Service:     🟢 Operational
+
+Algorithm Status:
+├── Bundle Creation:    ✅ Implemented
+├── Hard Constraints:   ✅ Working
+├── Scoring System:     ✅ Implemented
+├── Conflict Resolution:✅ Implemented
+└── API Integration:    🔄 In Progress
 
 Database State:
 ├── Schema:     ✅ Fully migrated to German
@@ -193,11 +242,12 @@ Database State:
 
 Code State:
 ├── Models:     ✅ All using German field names
-├── APIs:       ✅ All using German field names
-└── Bundle:     🟡 Stub implementation ready
+├── Algorithm:  ✅ Fully implemented
+├── APIs:       🟡 Partially connected
+└── Events:     🔄 Ready to enable
 ```
 
 ---
-*Last Updated: All services fully updated to German*
-*Current Task: Implement bundle system algorithm*
-*Next Action: Complete bundle model implementations*
+*Last Updated: Bundle algorithm complete, API integration in progress*
+*Current Week: 5 of 6*
+*Next Action: Connect all API endpoints to the algorithm*
