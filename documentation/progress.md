@@ -1,7 +1,7 @@
 # Psychotherapy Matching Platform - Implementation Progress
 
 ## Overview
-This document tracks the implementation progress of the Psychotherapy Matching Platform. The database migration to German field names and bundle system is complete. The next phase involves updating all model files and APIs to match the database schema.
+This document tracks the implementation progress of the Psychotherapy Matching Platform. The database migration to German field names and bundle system is complete. PlacementRequest has been fully removed from the codebase. The next phase involves updating remaining model files and implementing the full bundle system.
 
 ## Implementation Status
 
@@ -18,7 +18,7 @@ This document tracks the implementation progress of the Psychotherapy Matching P
 |---------|--------|----------------------|
 | Patient Service | ✅ Complete | CRUD operations, status tracking, event publishing |
 | Therapist Service | ⚠️ DB/Model Mismatch | Database uses German fields, model uses English |
-| Matching Service (Bundle) | 🔴 Broken | PlacementRequest removed from DB but still in code |
+| Matching Service (Bundle) | 🟡 Stub Implementation | PlacementRequest removed, returns 501 for all endpoints |
 | Communication Service | ⚠️ DB/Model Mismatch | Database uses German fields, model uses English |
 | Geocoding Service | ✅ Complete | OSM/OSRM integration, caching, distance calculations |
 | Web Scraping Service | ✅ Complete | [Separate repository](https://github.com/peterhaupt/curavani_scraping) |
@@ -35,7 +35,7 @@ This document tracks the implementation progress of the Psychotherapy Matching P
 - ✅ Removed placement_requests table completely
 - ✅ Updated all foreign key references
 - ✅ Renamed ALL fields to German throughout database
-- ✅ Removed communication service batch tables
+- ✅ Removed communication batch tables
 - ✅ All database tests passing
 
 ### Phase 2: Model & Code Updates 🔄 CURRENT PHASE
@@ -45,6 +45,9 @@ This document tracks the implementation progress of the Psychotherapy Matching P
 **Working Services:**
 - ✅ Patient Service (already uses German fields everywhere)
 - ✅ Geocoding Service (unaffected by changes)
+
+**Services Updated:**
+- ✅ Matching Service (PlacementRequest removed, stub implementation complete)
 
 **Services Needing Updates:**
 
@@ -60,33 +63,31 @@ This document tracks the implementation progress of the Psychotherapy Matching P
    - Batch tables removed from DB but models still exist ❌
    - Status: Basic operations work, batch operations fail
 
-3. **Matching Service** 🔴
-   - PlacementRequest table removed from DB ✅
-   - PlacementRequest model still exists ❌
-   - All endpoints broken (500 errors) ❌
-   - Bundle models not created yet ❌
+#### Tasks Completed
+
+**Day 1 Morning: Fix Matching Service ✅**
+1. ✅ Removed `matching_service/models/placement_request.py`
+2. ✅ Removed PlacementRequest imports everywhere
+3. ✅ Created stub bundle models (Platzsuche, Therapeutenanfrage, TherapeutAnfragePatient)
+4. ✅ Updated API to return 501 (Not Implemented)
+5. ✅ Updated event publishers for bundle system
+6. ✅ No more 500 errors!
 
 #### Immediate Tasks (Priority Order)
 
-**Day 1: Fix Matching Service (Critical)**
-1. Delete `matching_service/models/placement_request.py`
-2. Remove PlacementRequest imports everywhere
-3. Create stub bundle models to stop errors
-4. Update API to return "not implemented" instead of crashes
-
-**Day 2: Update Therapist Model**
+**Day 1 Afternoon: Update Therapist Model (CURRENT)**
 1. Rename all fields to German in model
 2. Update API field mappings
 3. Test all endpoints
 4. Update event payloads
 
-**Day 3: Update Communication Models**
+**Day 2: Update Communication Models**
 1. Rename all fields to German in models
 2. Remove EmailBatch and PhoneCallBatch models
 3. Update API field mappings
 4. Fix event handling
 
-**Day 4-5: Implement Bundle System**
+**Day 3-5: Implement Bundle System**
 1. Complete bundle models with business logic
 2. Implement bundle creation algorithm
 3. Create new API endpoints
@@ -115,25 +116,19 @@ All database tables now use German field names consistently:
 - ✅ Therapeutenanfrage table for bundles
 - ✅ Therapeut_anfrage_patient for bundle composition
 - ✅ Foreign keys to communication tables
-- ❌ Model implementation pending
+- 🟡 Stub model implementation
 - ❌ Algorithm implementation pending
 
-## Critical Issues Requiring Immediate Attention
+## Current Issues
 
-### 1. Matching Service Crash 🔴
-**Problem**: All `/api/placement-requests` endpoints return 500 errors
-**Cause**: Table removed from database but code still references it
-**Impact**: Blocks all matching operations
-**Fix**: Remove PlacementRequest code immediately
-
-### 2. Model/Database Mismatches ⚠️
+### 1. Model/Database Mismatches ⚠️
 **Problem**: Database fields don't match model fields
 **Services Affected**: Therapist, Communication
 **Impact**: POST/PUT operations may fail
 **Fix**: Update models to use German field names
 
-### 3. Missing Bundle Implementation ❌
-**Problem**: Bundle system designed but not implemented
+### 2. Missing Bundle Implementation ❌
+**Problem**: Bundle system has stubs only
 **Impact**: Cannot create patient searches or bundles
 **Fix**: Implement models and algorithms
 
@@ -151,17 +146,18 @@ All database tables now use German field names consistently:
 | Patient Fields | German ✅ | German ✅ | German ✅ | ✅ Working |
 | Therapist Fields | German ✅ | English ❌ | English ❌ | ⚠️ Partial |
 | Communication Fields | German ✅ | English ❌ | English ❌ | ⚠️ Partial |
-| PlacementRequest | Removed ✅ | Exists ❌ | Exists ❌ | 🔴 Broken |
-| Bundle System | Created ✅ | Missing ❌ | Missing ❌ | ❌ Not Implemented |
+| PlacementRequest | Removed ✅ | Removed ✅ | 501 Response ✅ | 🟡 Stable |
+| Bundle System | Created ✅ | Stubs ✅ | 501 Response ✅ | 🟡 Ready for Implementation |
 | Batch Tables | Removed ✅ | Exists ❌ | Exists ❌ | ⚠️ Partial |
 
 ## Next Sprint Planning
 
-### Week 1: Critical Fixes
-- Remove PlacementRequest completely
-- Update all models to German field names
+### Week 1: Complete Model Updates
+- ✅ Remove PlacementRequest completely (DONE)
+- Update therapist model to German field names
+- Update communication models to German field names
+- Remove batch models
 - Fix broken endpoints
-- Basic bundle model creation
 
 ### Week 2: Bundle Implementation  
 - Complete bundle algorithm
@@ -180,30 +176,28 @@ All database tables now use German field names consistently:
 ```bash
 # Working endpoints
 curl http://localhost:8001/api/patients  # ✅ Works
+curl http://localhost:8003/api/placement-requests  # ✅ Returns 501
 
 # Partially working
 curl http://localhost:8002/api/therapists  # ⚠️ GET works, POST may fail
 curl http://localhost:8004/api/emails  # ⚠️ Basic ops work
-
-# Broken endpoints  
-curl http://localhost:8003/api/placement-requests  # 🔴 500 error
 ```
 
 ## Definition of Done for Current Phase
 
-### Models Updated ❌
-- [ ] PlacementRequest removed completely
+### Models Updated 🔄
+- [x] PlacementRequest removed completely
+- [x] Matching service has stub models
 - [ ] Therapist model uses German field names
 - [ ] Communication models use German field names
-- [ ] Bundle models created
+- [ ] Bundle models fully implemented
 - [ ] All imports updated
 
-### APIs Updated ❌
+### APIs Updated 🔄
+- [x] Matching endpoints return 501 (not 500)
 - [ ] All endpoints use German field names
-- [ ] PlacementRequest endpoints removed
 - [ ] Bundle endpoints created
 - [ ] API documentation updated
-- [ ] No 500 errors on any endpoint
 
 ### Bundle System Working ❌
 - [ ] Can create patient searches
@@ -218,7 +212,7 @@ curl http://localhost:8003/api/placement-requests  # 🔴 500 error
 Service Health:
 ├── Patient Service:       🟢 Operational
 ├── Therapist Service:     🟡 Degraded (model mismatch)
-├── Matching Service:      🔴 Critical (crashes on requests)
+├── Matching Service:      🟡 Stable (stub implementation)
 ├── Communication Service: 🟡 Degraded (model mismatch)
 └── Geocoding Service:     🟢 Operational
 
@@ -228,12 +222,12 @@ Database State:
 └── Tests:      ✅ All passing
 
 Code State:
-├── Models:     ❌ Need German field updates
-├── APIs:       ❌ Need German field updates
-└── Bundle:     ❌ Not implemented
+├── Models:     🟡 Partial (matching has stubs, others need updates)
+├── APIs:       🟡 Partial (matching returns 501, others need updates)
+└── Bundle:     🟡 Stub implementation ready
 ```
 
 ---
-*Last Updated: Database migration complete, starting model updates*
-*Critical Issue: Matching Service endpoints crash due to missing table*
-*Next Action: Remove PlacementRequest code to stop crashes*
+*Last Updated: PlacementRequest removed, stub implementation complete*
+*Current Task: Update therapist model to German field names*
+*Next Action: Complete model updates for all services*

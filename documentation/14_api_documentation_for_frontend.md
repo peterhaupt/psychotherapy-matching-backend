@@ -3,9 +3,10 @@
 ## ⚠️ IMPORTANT: System in Transition
 **Current State (as of implementation)**:
 - ✅ Database: All tables use German field names
-- ❌ Models: Still use English field names (causing mismatches)
-- ❌ APIs: Still return English field names
-- ❌ PlacementRequest: Still exists in code (but removed from database)
+- ❌ Models: Still use English field names (causing mismatches) - EXCEPT Matching Service
+- ❌ APIs: Still return English field names - EXCEPT Matching Service
+- ✅ PlacementRequest: Removed from codebase, replaced with stub bundle system
+- 🟡 Matching Service: Returns 501 (Not Implemented) for all endpoints
 
 **This documentation shows the CURRENT API state, not the target state.**
 
@@ -80,16 +81,6 @@ const TherapistGenderPreference = {
 }
 ```
 
-### PlacementRequestStatus (⚠️ Still in code but table removed from DB)
-```javascript
-const PlacementRequestStatus = {
-  OPEN: "offen",
-  IN_PROGRESS: "in_bearbeitung",
-  REJECTED: "abgelehnt",
-  ACCEPTED: "angenommen"
-}
-```
-
 ## Patient Service API
 
 The Patient Service already uses German field names in both database and models.
@@ -161,20 +152,40 @@ Currently expects ENGLISH field names:
 
 **Note**: Fields like `potentially_available` will fail once models are updated to match the database's `potenziell_verfuegbar`.
 
-## Matching Service API (⚠️ Broken - Table Removed)
+## Matching Service API (🟡 Returns 501 - Not Implemented)
 
-### ⚠️ PlacementRequest endpoints are BROKEN
-The database table `placement_requests` has been removed, but the code still tries to use it.
+### Current State
+All matching service endpoints return 501 (Not Implemented) with a message explaining the bundle system is in development. No database errors or crashes occur.
 
-**These endpoints will return database errors**:
-- ❌ GET /api/placement-requests
-- ❌ POST /api/placement-requests  
-- ❌ GET /api/placement-requests/{id}
-- ❌ PUT /api/placement-requests/{id}
-- ❌ DELETE /api/placement-requests/{id}
+**All endpoints return proper error responses**:
 
-### New Bundle System Endpoints (Not Yet Implemented)
-The following endpoints are planned but not yet available:
+### GET /api/placement-requests
+```json
+{
+  "message": "Bundle system not yet implemented",
+  "data": [],
+  "page": 1,
+  "limit": 20,
+  "total": 0
+}
+```
+Status: 501
+
+### POST /api/placement-requests  
+### GET /api/placement-requests/{id}
+### PUT /api/placement-requests/{id}
+### DELETE /api/placement-requests/{id}
+
+All return:
+```json
+{
+  "message": "Bundle system not yet implemented"
+}
+```
+Status: 501
+
+### New Bundle System Endpoints (Planned - Not Yet Available)
+The following endpoints are planned but not yet implemented:
 - 🔄 POST /api/platzsuchen
 - 🔄 GET /api/platzsuchen/{id}
 - 🔄 POST /api/therapeutenanfragen
@@ -253,24 +264,6 @@ The Geocoding Service is unaffected by the German field name changes as it uses 
 
 ## Common Error Responses
 
-### Current Issues You May Encounter
-
-#### 500 Internal Server Error - Database/Model Mismatch
-```json
-{
-  "message": "Database error: (psycopg2.errors.UndefinedColumn) column \"potentially_available\" does not exist"
-}
-```
-This occurs when models haven't been updated to match database field names.
-
-#### 500 Internal Server Error - Missing Table
-```json
-{
-  "message": "Database error: (psycopg2.errors.UndefinedTable) relation \"matching_service.placement_requests\" does not exist"
-}
-```
-This occurs when trying to use PlacementRequest endpoints (table has been removed).
-
 ### Standard Error Formats
 
 #### 400 Bad Request
@@ -287,18 +280,36 @@ This occurs when trying to use PlacementRequest endpoints (table has been remove
 }
 ```
 
-## Migration in Progress - What's Broken
+#### 501 Not Implemented (Matching Service)
+```json
+{
+  "message": "Bundle system not yet implemented"
+}
+```
+
+### Current Issues You May Encounter
+
+#### 500 Internal Server Error - Database/Model Mismatch
+```json
+{
+  "message": "Database error: (psycopg2.errors.UndefinedColumn) column \"potentially_available\" does not exist"
+}
+```
+This occurs when models haven't been updated to match database field names.
+**Note**: This does NOT occur in the Matching Service anymore.
+
+## Migration in Progress - What's Working
 
 ### Currently Working ✅
 - Patient Service (fully migrated to German)
 - Geocoding Service (unaffected)
 - Basic GET operations on existing data
+- **Matching Service** (returns 501 instead of crashing)
 
 ### Currently Broken ❌
-- All Matching Service endpoints (PlacementRequest table removed)
 - Creating new therapists with bundle preferences
 - Creating emails/calls with batch references
-- Any operation involving removed tables
+- Any operation involving removed batch tables
 
 ### Partially Working ⚠️
 - Therapist Service (reads work, writes may fail on new fields)
@@ -308,7 +319,7 @@ This occurs when trying to use PlacementRequest endpoints (table has been remove
 
 ### For Frontend Development
 1. **Use Patient Service** as reference for German field implementation
-2. **Avoid Matching Service** endpoints entirely  
+2. **Matching Service** now safe to call - returns 501 status
 3. **Test carefully** - some operations may work in GET but fail in POST/PUT
 4. **Check logs** - database errors will show exact field name mismatches
 
@@ -331,9 +342,10 @@ When models are updated, these mappings will apply:
 ## Next Steps
 
 The development team is working on:
-1. Updating all model files to use German field names
-2. Removing PlacementRequest code completely
-3. Implementing new bundle system endpoints
-4. Updating this documentation once models are fixed
+1. ✅ PlacementRequest code removed (COMPLETE)
+2. 🔄 Updating therapist model to use German field names
+3. 🔄 Updating communication models to use German field names  
+4. 🔄 Implementing full bundle system (currently returns 501)
+5. 🔄 Updating this documentation once models are fixed
 
 **Check back for updates or monitor the git repository for changes.**

@@ -2,13 +2,14 @@
 
 This document shows the FINAL database schema after all migrations have been applied. All field names use German terminology for consistency.
 
-## Naming Convention ✅ FULLY IMPLEMENTED IN DATABASE
+## Naming Convention ✅ FULLY IMPLEMENTED IN DATABASE AND CODE
 **Important:** ALL field names in the database now use German terminology. This decision was made to maintain consistency with the existing codebase and avoid confusion from mixing languages.
 
 **Current Status:**
 - ✅ Database: 100% German field names
-- ❌ Models: Still using English (causing errors)
-- ❌ APIs: Still returning English field names
+- ❌ Models: Still using English (causing errors) - EXCEPT Matching Service
+- ❌ APIs: Still returning English field names - EXCEPT Matching Service
+- ✅ Matching Service: PlacementRequest fully removed, stub models created
 
 ## Current Database State
 
@@ -42,8 +43,9 @@ This document shows the FINAL database schema after all migrations have been app
    - `matching_service.therapeut_anfrage_patient` → Bundle composition
 
 3. **PlacementRequest Removal**:
-   - ❌ `matching_service.placement_requests` → **REMOVED COMPLETELY**
+   - ✅ `matching_service.placement_requests` → **REMOVED FROM DATABASE**
    - ✅ All foreign key references updated to use bundle system
+   - ✅ **PlacementRequest code completely removed from codebase**
 
 ### Phase 3: Communication Service Simplification ✅ COMPLETED
 
@@ -340,35 +342,57 @@ All migrations have been successfully applied:
 
 ## Current Issues Due to Model/Database Mismatch
 
-### Error Examples You'll See:
+### ✅ RESOLVED: Matching Service
+- **Previous Issue**: `relation "matching_service.placement_requests" does not exist`
+- **Resolution**: PlacementRequest code completely removed, stub models created
+- **Status**: Service returns 501 (Not Implemented) for all endpoints
 
-1. **Therapist Service**:
-```
-psycopg2.errors.UndefinedColumn: column "potentially_available" does not exist
-LINE 1: SELECT therapists.potentially_available AS therapists_potentially...
-HINT: Perhaps you meant to reference the column "therapists.potenziell_verfuegbar".
-```
+### Still Active Issues:
 
-2. **Communication Service**:
-```
-psycopg2.errors.UndefinedColumn: column "subject" does not exist
-HINT: Perhaps you meant to reference the column "emails.betreff".
-```
+1. **Therapist Service** ⚠️
+   - Database: German field names ✅
+   - Model: English field names ❌
+   - API: Returns English fields ❌
+   - Status: GET operations work, POST/PUT may fail on new fields
 
-3. **Matching Service**:
-```
-psycopg2.errors.UndefinedTable: relation "matching_service.placement_requests" does not exist
-```
+2. **Communication Service** ⚠️
+   - Database: German field names ✅
+   - Models: English field names ❌
+   - Batch tables removed from DB but models still exist ❌
+   - Status: Basic operations work, batch operations fail
+
+## Code Removal Status
+
+### ✅ PlacementRequest Removal Complete
+1. ✅ `matching_service/models/placement_request.py` - DELETED
+2. ✅ `matching_service/models/__init__.py` - Import removed
+3. ✅ `migrations/alembic/env.py` - Import removed
+4. ✅ All API endpoints updated to return 501
+5. ✅ All events updated to bundle system
+6. ✅ No more PlacementRequest references in codebase
+
+### ❌ Batch System Removal Pending
+1. ❌ `communication_service/models/email_batch.py` - Still exists
+2. ❌ `communication_service/models/phone_call_batch.py` - Still exists
+3. ❌ Batch API endpoints still present
+4. ❌ Batch imports throughout communication service
 
 ## Next Steps
 
 1. ✅ Database schema is complete
-2. 🚨 **URGENT**: Remove PlacementRequest code (causing crashes)
-3. 🔄 Update all model files to match German field names
-4. 🔄 Update API endpoints to use German fields
-5. 🔄 Update documentation and tests
+2. ✅ PlacementRequest code removed (no more crashes)
+3. 🔄 Update therapist model to match German field names
+4. 🔄 Update communication models to match German fields
+5. 🔄 Remove batch models from communication service
+6. 🔄 Implement full bundle system (currently stubs)
 
 ## Quick Reference: Model Updates Needed
+
+### ✅ Matching Service (COMPLETE - Using Stubs)
+- PlacementRequest removed
+- Bundle models created (basic structure)
+- All imports updated
+- API returns 501 for all endpoints
 
 ### Therapist Model Fields to Rename:
 - `potentially_available` → `potenziell_verfuegbar`
@@ -406,7 +430,11 @@ psycopg2.errors.UndefinedTable: relation "matching_service.placement_requests" d
 - `notes` → `notizen`
 - `retry_after` → `wiederholen_nach`
 
+**Remove These Models:**
+- EmailBatch (table already removed)
+- PhoneCallBatch (table already removed)
+
 ---
 *Database State: Fully migrated to German ✅*
-*Code State: Still using English (needs urgent updates) ❌*
-*Critical Issue: PlacementRequest crashes (table doesn't exist) 🚨*
+*Matching Service: Stable with stub implementation 🟡*
+*Other Services: Still need model updates ❌*

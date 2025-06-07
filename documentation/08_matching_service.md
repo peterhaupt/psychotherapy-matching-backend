@@ -1,15 +1,17 @@
 # Matching Service - Bundle System Implementation
 
 ## Overview
-The Matching Service has been completely redesigned to implement the bundle-based matching system. The old placement request system has been removed entirely in favor of a more sophisticated bundle approach that handles parallel searches and cooling periods.
+The Matching Service has been completely redesigned to implement the bundle-based matching system. The old placement request system has been fully removed in favor of a more sophisticated bundle approach that handles parallel searches and cooling periods.
 
 ## Current Status
 - ✅ Database schema complete with German field names
-- ✅ PlacementRequest table and references removed from database
+- ✅ PlacementRequest table and all references removed from database
 - ✅ Bundle system tables created (platzsuche, therapeutenanfrage, therapeut_anfrage_patient)
-- ❌ Model implementation needed (PlacementRequest still exists in code)
-- ❌ API endpoints need updating (old endpoints still present)
-- ❌ Bundle algorithm needs implementation
+- ✅ PlacementRequest model and code completely removed
+- ✅ Stub bundle models created (basic structure only)
+- 🟡 API endpoints return 501 (Not Implemented) - no crashes
+- ❌ Bundle algorithm needs full implementation
+- ❌ API endpoints need actual implementation
 
 ## Bundle System Architecture
 
@@ -83,24 +85,28 @@ CREATE TABLE matching_service.therapeut_anfrage_patient (
 );
 ```
 
-## Models (❌ To Be Implemented)
+## Models (🟡 STUB IMPLEMENTATION)
 
-**CURRENT STATE**: The codebase still contains the old PlacementRequest model and needs to be updated.
+**CURRENT STATE**: Basic stub models exist to prevent import errors.
 
-### Required Actions:
-1. Delete `matching_service/models/placement_request.py`
-2. Create `matching_service/models/platzsuche.py`
-3. Create `matching_service/models/therapeutenanfrage.py`
-4. Create `matching_service/models/therapeut_anfrage_patient.py`
-5. Update all imports throughout the codebase
-6. Remove PlacementRequest from `migrations/alembic/env.py`
+### Implemented Stubs:
+1. ✅ `matching_service/models/platzsuche.py` - Basic structure
+2. ✅ `matching_service/models/therapeutenanfrage.py` - Basic structure
+3. ✅ `matching_service/models/therapeut_anfrage_patient.py` - Basic structure
+4. ✅ All imports updated throughout the codebase
+5. ✅ PlacementRequest completely removed from codebase
+
+### Still Needed:
+- Full model implementation with relationships
+- Model methods for bundle operations
+- Validation logic
 
 ## Bundle Algorithm Implementation
 
 ### Overview
 The bundle algorithm creates optimal groups of 3-6 patients for each contactable therapist using progressive filtering.
 
-### Algorithm Steps
+### Algorithm Steps (NOT YET IMPLEMENTED)
 
 ```python
 def erstelle_buendel_fuer_alle_therapeuten():
@@ -177,163 +183,145 @@ def apply_progressive_filtering(therapist, patients):
     return patients
 ```
 
-## API Endpoints (❌ To Be Implemented)
+## API Endpoints (🟡 STUB IMPLEMENTATION)
 
-**CURRENT STATE**: The API still uses the old placement request endpoints.
+**CURRENT STATE**: All API endpoints return 501 (Not Implemented) with a message explaining the bundle system is in development. No crashes or database errors occur.
 
-### Required Actions:
-1. Remove all `/api/placement-requests` endpoints
-2. Implement new bundle system endpoints
+### Temporary Stub Endpoints
 
-### Patient Search Management
-
-#### POST /api/platzsuchen
-Create a new patient search:
+#### GET /api/placement-requests
+Returns:
 ```json
 {
-  "patient_id": 123,
-  "notizen": "Patient very motivated"
+  "message": "Bundle system not yet implemented",
+  "data": [],
+  "page": 1,
+  "limit": 20,
+  "total": 0
 }
 ```
+Status: 501
 
-#### GET /api/platzsuchen/{id}
+#### POST /api/placement-requests
+#### GET /api/placement-requests/{id}
+#### PUT /api/placement-requests/{id}
+#### DELETE /api/placement-requests/{id}
+All return:
+```json
+{
+  "message": "Bundle system not yet implemented"
+}
+```
+Status: 501
+
+### Planned Bundle System Endpoints (NOT YET IMPLEMENTED)
+
+#### Patient Search Management
+
+##### POST /api/platzsuchen
+Create a new patient search
+
+##### GET /api/platzsuchen/{id}
 Get search details with bundle history
 
-#### POST /api/platzsuchen/{id}/kontaktanfrage
-Request additional contacts:
-```json
-{
-  "anzahl": 25,
-  "notizen": "Patient requests more options"
-}
-```
+##### POST /api/platzsuchen/{id}/kontaktanfrage
+Request additional contacts
 
 ### Bundle Operations
 
-#### POST /api/buendel/erstellen
+##### POST /api/buendel/erstellen
 Trigger bundle creation for all eligible therapists
 
-#### GET /api/therapeutenanfragen/{id}
+##### GET /api/therapeutenanfragen/{id}
 Get bundle details with patient list
 
-#### PUT /api/therapeutenanfragen/{id}/antwort
-Record therapist response:
-```json
-{
-  "antworttyp": "teilweise_angenommen",
-  "patient_antworten": [
-    {"patient_id": 1, "ergebnis": "angenommen"},
-    {"patient_id": 2, "ergebnis": "abgelehnt", "grund": "Keine Kapazität"},
-    {"patient_id": 3, "ergebnis": "angenommen"}
-  ]
-}
-```
+##### PUT /api/therapeutenanfragen/{id}/antwort
+Record therapist response
 
 ### Analytics Endpoints
 
-#### GET /api/analytics/bundle-efficiency
+##### GET /api/analytics/bundle-efficiency
 Bundle performance metrics
 
-#### GET /api/analytics/therapist-preferences
+##### GET /api/analytics/therapist-preferences
 Learned therapist preferences
 
 ## Event Management
 
-### Published Events
+### Published Events (Stubs Created)
+
+The event publishers have been created but are not yet used:
 
 #### bundle.created
-```json
-{
-  "eventType": "bundle.created",
-  "payload": {
-    "bundle_id": 123,
-    "therapist_id": 456,
-    "patient_ids": [1, 2, 3, 4, 5],
-    "bundle_size": 5
-  }
-}
+```python
+publish_bundle_created(bundle_id, therapist_id, patient_ids, bundle_size)
+```
+
+#### bundle.sent
+```python
+publish_bundle_sent(bundle_id, communication_type, communication_id)
 ```
 
 #### bundle.response_received
-```json
-{
-  "eventType": "bundle.response_received",
-  "payload": {
-    "bundle_id": 123,
-    "response_type": "teilweise_angenommen",
-    "accepted_count": 2,
-    "rejected_count": 3
-  }
-}
+```python
+publish_bundle_response_received(bundle_id, response_type, accepted_count, rejected_count, no_response_count)
 ```
 
 #### search.status_changed
-```json
-{
-  "eventType": "search.status_changed",
-  "payload": {
-    "search_id": 789,
-    "old_status": "active",
-    "new_status": "successful"
-  }
-}
+```python
+publish_search_status_changed(search_id, patient_id, old_status, new_status)
+```
+
+#### cooling.period_started
+```python
+publish_cooling_period_started(therapist_id, next_contactable_date, reason)
 ```
 
 ### Consumed Events
 
-- `patient.deleted`: Deactivate associated searches
-- `therapist.blocked`: Cancel pending bundles
-- `communication.email_sent`: Update bundle sent timestamp
-- `communication.response_received`: Process therapist response
+Event consumers are temporarily disabled pending full implementation:
+- `patient.deleted`: Will deactivate associated searches
+- `therapist.blocked`: Will cancel pending bundles
+- `communication.email_sent`: Will update bundle sent timestamp
+- `communication.response_received`: Will process therapist response
 
-## Business Rules Implementation
+## Business Rules Implementation (PLANNED)
 
 ### Cooling Period (Abkühlungsphase)
 ```python
 def set_cooling_period(therapist_id, weeks=4):
     """Set cooling period after any contact."""
-    therapist = get_therapist(therapist_id)
-    therapist.naechster_kontakt_moeglich = (
-        date.today() + timedelta(weeks=weeks)
-    )
+    # To be implemented
 ```
 
 ### Conflict Resolution
 ```python
 def resolve_conflicts(accepted_bundles):
     """Handle when patient is accepted by multiple therapists."""
-    # First acceptance wins
-    # Notify other therapists immediately
-    # Offer alternative patients from their bundles
+    # To be implemented
 ```
 
 ### Manual Overrides
 ```python
 def manual_assignment(patient_id, therapist_id, reason):
     """Allow staff to manually assign patients."""
-    # Create special bundle entry
-    # Document reason
-    # May override cooling period
+    # To be implemented
 ```
 
 ## Testing Approach
 
-### Unit Tests
+### Current Testing
+- ✅ Service starts without errors
+- ✅ All endpoints return proper 501 responses
+- ✅ No database errors or crashes
+- ✅ Event publishers created (not yet used)
+
+### Planned Testing
 - Bundle creation logic
 - Progressive filtering
 - Cooling period calculations
 - Conflict resolution
-
-### Integration Tests
-- Full bundle flow
-- Event publishing/consumption
-- API endpoint testing
-- Database constraint validation
-
-### Performance Tests
-- Bundle creation with 100+ patients
-- Concurrent bundle processing
-- Query optimization verification
+- Full integration tests
 
 ## Migration from PlacementRequest
 
@@ -343,37 +331,66 @@ def manual_assignment(patient_id, therapist_id, reason):
 3. **Updated**: Foreign key references in communication service
 4. **Applied**: All migrations successfully
 
-### Code Changes (❌ PENDING)
-1. Remove models/placement_request.py
-2. Remove PlacementRequest from models/__init__.py
-3. Remove PlacementRequest API endpoints
-4. Remove PlacementRequest events
-5. Update imports throughout
-6. Remove from alembic env.py
+### Code Changes (✅ COMPLETED)
+1. ✅ Removed models/placement_request.py
+2. ✅ Removed PlacementRequest from models/__init__.py
+3. ✅ Updated all API endpoints to return 501
+4. ✅ Removed PlacementRequest events
+5. ✅ Updated all imports throughout codebase
+6. ✅ Removed from alembic env.py
 
 ## Next Implementation Steps
 
-1. **Create Model Files**
-   - platzsuche.py
-   - therapeutenanfrage.py
-   - therapeut_anfrage_patient.py
+### Phase 1: Complete Model Implementation (Next)
+1. Add relationships between models
+2. Add model methods for business logic
+3. Add validation
+4. Write unit tests for models
 
-2. **Implement Bundle Algorithm**
-   - bundle_creator.py
-   - progressive_filter.py
-   - conflict_resolver.py
+### Phase 2: Implement Bundle Algorithm
+1. Create bundle_creator.py
+2. Implement hard constraints
+3. Implement progressive filtering
+4. Add conflict resolution
 
-3. **Create API Endpoints**
-   - Remove old matching.py
-   - Create bundle_api.py
-   - Create search_api.py
+### Phase 3: Create Real API Endpoints
+1. Replace stub endpoints with real implementation
+2. Create bundle management endpoints
+3. Add search management endpoints
+4. Implement analytics endpoints
 
-4. **Update Event Handling**
-   - Remove placement events
-   - Add bundle events
-   - Update consumers
+### Phase 4: Enable Event Processing
+1. Re-enable event consumers
+2. Implement event handlers
+3. Test event flow
+4. Add event monitoring
 
-5. **Write Tests**
-   - Test bundle creation
-   - Test API endpoints
-   - Test event flow
+### Phase 5: Integration Testing
+1. Test complete bundle creation flow
+2. Test therapist response handling
+3. Test cooling period enforcement
+4. Performance testing with realistic data
+
+## Development Notes
+
+### Why Stub Implementation?
+The stub implementation approach was chosen to:
+1. Stabilize the service immediately (no more crashes)
+2. Allow other teams to continue development
+3. Provide clear indication of work in progress (501 status)
+4. Maintain clean separation between old and new systems
+
+### Current Service Behavior
+- Service starts successfully
+- All endpoints respond without errors
+- Clear messaging about implementation status
+- No database operations performed
+- Ready for incremental development
+
+### For Developers
+When implementing the full system:
+1. Start with models - complete the stub implementations
+2. Implement core algorithm functions
+3. Replace stub API endpoints one by one
+4. Enable events after core functionality works
+5. Add comprehensive error handling throughout

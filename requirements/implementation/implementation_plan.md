@@ -3,7 +3,7 @@
 ## Phase 3: Bundle-Based Matching System 🚧 IN PROGRESS
 
 ### Overview
-Transform the current basic matching system into the bundle-based system described in business requirements. Database schema is complete with German field names - now updating code to match.
+Transform the current basic matching system into the bundle-based system described in business requirements. Database schema is complete with German field names. PlacementRequest has been fully removed. Now updating remaining services to match database schema.
 
 ### Week 1-2: Database Schema Updates ✅ COMPLETED
 
@@ -18,73 +18,45 @@ Transform the current basic matching system into the bundle-based system describ
 
 ### Week 3: Model & Code Updates 🔄 CURRENT WEEK
 
-## 🚨 CRITICAL ISSUES BLOCKING PROGRESS
+## ✅ RESOLVED ISSUES
 
-### Issue 1: Matching Service Crashes 🔴
-**Problem**: Any request to `/api/placement-requests/*` causes 500 error
-**Root Cause**: `placement_requests` table removed from database but code still tries to query it
-**Impact**: Entire matching service is unusable
-**Priority**: MUST FIX FIRST
+### Issue 1: Matching Service Crashes ✅ RESOLVED
+**Previous Problem**: Any request to `/api/placement-requests/*` caused 500 error
+**Root Cause**: `placement_requests` table removed from database but code still tried to query it
+**Resolution**: PlacementRequest completely removed, stub implementation created
+**Current State**: Service returns 501 (Not Implemented) for all endpoints
 
-### Issue 2: Model/Database Mismatches ⚠️
-**Problem**: Models use English field names, database uses German
-**Affected Services**: Therapist, Communication
-**Impact**: Create/Update operations fail with "column does not exist" errors
-**Priority**: Fix after matching service
+## Emergency Fix Plan ✅ COMPLETED (Day 1 Morning)
 
-## Emergency Fix Plan (Today)
+### Step 1: Stop the Crashes ✅ DONE
+- ✅ Updated all endpoints to return 501 instead of crashing
+- ✅ Added informative message: "Bundle system not yet implemented"
+- ✅ No more 500 errors!
 
-### Step 1: Stop the Crashes (1-2 hours)
-```python
-# In matching_service/api/matching.py
-# Replace all endpoints with:
+### Step 2: Remove PlacementRequest Model ✅ DONE
+- ✅ Deleted `matching_service/models/placement_request.py`
+- ✅ Updated `matching_service/models/__init__.py`
+- ✅ Updated `migrations/alembic/env.py`
+- ✅ Searched entire codebase and removed all references
 
-class PlacementRequestResource(Resource):
-    def get(self, request_id):
-        return {'message': 'Bundle system not yet implemented'}, 501
-    
-    def put(self, request_id):
-        return {'message': 'Bundle system not yet implemented'}, 501
-    
-    def delete(self, request_id):
-        return {'message': 'Bundle system not yet implemented'}, 501
-
-class PlacementRequestListResource(Resource):
-    def get(self):
-        return {'message': 'Bundle system not yet implemented'}, 501
-    
-    def post(self):
-        return {'message': 'Bundle system not yet implemented'}, 501
-```
-
-### Step 2: Remove PlacementRequest Model (30 minutes)
-1. Delete `matching_service/models/placement_request.py`
-2. Update `matching_service/models/__init__.py` (remove import)
-3. Update `migrations/alembic/env.py` (remove import)
-4. Search entire codebase for "PlacementRequest" and remove
-
-### Step 3: Create Stub Bundle Models (1 hour)
-Create minimal models just to stop import errors:
-
-```python
-# matching_service/models/platzsuche.py
-class Platzsuche(Base):
-    __tablename__ = "platzsuche"
-    __table_args__ = {"schema": "matching_service"}
-    # Add basic fields to match database
-```
+### Step 3: Create Stub Bundle Models ✅ DONE
+- ✅ Created `matching_service/models/platzsuche.py`
+- ✅ Created `matching_service/models/therapeutenanfrage.py`
+- ✅ Created `matching_service/models/therapeut_anfrage_patient.py`
+- ✅ Updated all imports
+- ✅ Service starts without errors
 
 ## Revised Implementation Schedule
 
-### Day 1 (Today) - Emergency Fixes 🚨
+### Day 1 (Today) - Emergency Fixes ✅ MORNING COMPLETE
 
-**Morning: Stop the Bleeding**
-- [ ] Fix matching service crashes (2 hours)
-- [ ] Remove PlacementRequest completely (30 min)
-- [ ] Create stub bundle models (1 hour)
-- [ ] Verify no more 500 errors (30 min)
+**Morning: Stop the Bleeding ✅ COMPLETE**
+- [x] Fix matching service crashes (2 hours) - DONE
+- [x] Remove PlacementRequest completely (30 min) - DONE
+- [x] Create stub bundle models (1 hour) - DONE
+- [x] Verify no more 500 errors (30 min) - DONE
 
-**Afternoon: Update Therapist Model**
+**Afternoon: Update Therapist Model 🔄 CURRENT**
 - [ ] Open `therapist_service/models/therapist.py`
 - [ ] Rename fields to German (match database)
 - [ ] Update API response marshalling
@@ -148,18 +120,18 @@ class Platzsuche(Base):
 
 ## Updated Task Checklist
 
-### Immediate Actions (Block Everything Else)
-- [ ] Fix matching service 500 errors
-- [ ] Remove all PlacementRequest code
-- [ ] Create minimal bundle models
-- [ ] Verify services don't crash
+### ✅ Immediate Actions (COMPLETE)
+- [x] Fix matching service 500 errors - DONE
+- [x] Remove all PlacementRequest code - DONE
+- [x] Create minimal bundle models - DONE
+- [x] Verify services don't crash - DONE
 
 ### Model Updates (Day 1-2)
-- [ ] Therapist model → German fields
-- [ ] Email model → German fields  
-- [ ] PhoneCall model → German fields
-- [ ] Remove batch models
-- [ ] Update all model imports
+- [ ] Therapist model → German fields (Day 1 PM)
+- [ ] Email model → German fields (Day 2 AM)
+- [ ] PhoneCall model → German fields (Day 2 AM)
+- [ ] Remove batch models (Day 2 AM)
+- [ ] Update all model imports (Day 2 PM)
 
 ### Bundle Implementation (Day 3-4)
 - [ ] Complete bundle models
@@ -174,6 +146,17 @@ class Platzsuche(Base):
 - [ ] Documentation
 
 ## Testing Strategy
+
+### Current Testing Status ✅
+```bash
+# Matching service now stable
+curl http://localhost:8003/api/placement-requests
+# Returns: {"message": "Bundle system not yet implemented"} (501)
+
+# No more crashes!
+docker-compose logs matching-service
+# Shows: No errors, service running normally
+```
 
 ### After Each Model Update
 ```bash
@@ -199,27 +182,28 @@ python tests/integration/all_topics_monitor.py
 ## Success Criteria
 
 ### Phase Complete When:
-1. ✅ No 500 errors on any endpoint
-2. ✅ All models use German field names matching database
-3. ✅ Bundle system creates groups of 3-6 patients
-4. ✅ Cooling periods enforced (4 weeks)
-5. ✅ Progressive filtering works correctly
-6. ✅ Can handle 100+ active patient searches
-7. ✅ Integration tests pass
+1. ✅ No 500 errors on any endpoint (Matching Service DONE)
+2. 🔄 All models use German field names matching database
+3. ❌ Bundle system creates groups of 3-6 patients
+4. ❌ Cooling periods enforced (4 weeks)
+5. ❌ Progressive filtering works correctly
+6. ❌ Can handle 100+ active patient searches
+7. ❌ Integration tests pass
 
 ## Risk Mitigation
 
-### Current Risks
-1. **Service Downtime**: Matching service currently broken
-   - Mitigation: Emergency fix today
+### ✅ Resolved Risks
+1. **Service Downtime**: Matching service was broken
+   - Resolution: Emergency fix completed, now returns 501
    
-2. **Data Loss**: Models don't match database
+### Current Risks
+1. **Data Loss**: Models don't match database
    - Mitigation: Careful field mapping, extensive testing
    
-3. **Integration Issues**: Services may not work together
+2. **Integration Issues**: Services may not work together
    - Mitigation: Test after each change
    
-4. **Performance**: Bundle algorithm may be slow
+3. **Performance**: Bundle algorithm may be slow
    - Mitigation: Start simple, optimize later
 
 ### Rollback Plan
@@ -231,25 +215,42 @@ python tests/integration/all_topics_monitor.py
 ## Communication Plan
 
 ### For Frontend Team
-- Matching Service will return 501 (Not Implemented) instead of 500 errors
+- ✅ Matching Service now returns 501 (Not Implemented) instead of 500 errors
 - Field names changing to German - will provide mapping
 - New endpoints coming Day 4
 - Full API documentation update on Day 5
 
 ### For Testing Team  
-- System partially broken right now
-- Emergency fixes in progress
+- ✅ Matching service now stable (was broken this morning)
+- Emergency fixes complete
 - Will provide test plan by Day 3
 - Need test data with German field names
 
 ### For Stakeholders
+- ✅ Critical issue resolved (matching service crashes)
 - Database migration complete ✅
-- Code updates in progress (5 days)
+- PlacementRequest removal complete ✅
+- Code updates in progress (4 more days)
 - Bundle system operational by end of week
-- No data loss, just code updates needed
+
+## Current Status Summary
+
+### What's Done ✅
+- Database fully migrated to German
+- PlacementRequest completely removed
+- Matching service stabilized (returns 501)
+- Stub bundle models created
+- No more crashes!
+
+### What's In Progress 🔄
+- Updating therapist model (Day 1 PM)
+- Preparing communication service updates (Day 2)
+
+### What's Next ❌
+- Complete bundle implementation (Day 3-4)
+- Integration and testing (Day 5)
 
 ---
-*Current Status: Database ready, fixing code to match*
-*Critical Issue: Matching service crashes - fixing NOW*
-*ETA for Stability: End of Day 1*
-*ETA for Bundle System: End of Week*
+*Current Status: Emergency fixes complete, matching service stable*
+*Current Task: Update therapist model to German (Day 1 Afternoon)*
+*ETA for Full Bundle System: End of Week*
