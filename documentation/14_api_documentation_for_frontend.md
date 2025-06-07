@@ -1,16 +1,16 @@
 # Frontend API Documentation
 
 ## ✅ SYSTEM UPDATE STATUS
-**Current State (as of bundle algorithm implementation)**:
+**Current State (Bundle System Complete)**:
 - ✅ Database: All tables use German field names
 - ✅ Patient Service: Models and APIs use German field names
 - ✅ Therapist Service: Models and APIs use German field names
 - ✅ Communication Service: Models and APIs use German field names
 - ✅ PlacementRequest: Removed from codebase, replaced with bundle system
 - ✅ Bundle Algorithm: Fully implemented with weighted scoring
-- 🟡 Matching Service: Bundle creation endpoint works, others need integration
+- ✅ Matching Service: All APIs fully functional and integrated
 
-**This documentation shows the CURRENT API state with bundle algorithm implemented.**
+**This documentation shows the CURRENT API state with all endpoints operational.**
 
 ## Base URLs
 - Patient Service: `http://localhost:8001`
@@ -223,12 +223,11 @@ Expects GERMAN field names:
 ### PUT /api/therapists/{id}
 Same fields as POST, all fields are optional.
 
-## Matching Service API 🟡 Bundle System Partially Working
+## Matching Service API ✅ FULLY WORKING
 
-### Current State
-The bundle creation algorithm is fully implemented. The `/api/buendel/erstellen` endpoint works. Other endpoints need connection to the algorithm.
+All bundle system endpoints are now fully functional with complete integration.
 
-### 🟢 WORKING: Bundle Creation
+### ✅ WORKING: Bundle Creation
 
 #### POST /api/buendel/erstellen
 Triggers bundle creation for all eligible therapists using the implemented algorithm.
@@ -244,11 +243,12 @@ Request:
 Response (dry_run example):
 ```json
 {
-  "message": "Dry run completed",
+  "message": "Dry run completed - no data was saved",
   "bundles_created": 5,
   "bundles": [
     {
       "therapist_id": 123,
+      "therapist_name": "Dr. Max Mustermann",
       "bundle_size": 4,
       "patient_ids": [1, 5, 8, 12]
     }
@@ -266,12 +266,22 @@ Response (actual run):
 }
 ```
 
-### 🔄 NEEDS INTEGRATION: Patient Search Endpoints
+Response (with immediate sending):
+```json
+{
+  "message": "Created 5 bundles",
+  "bundles_created": 5,
+  "bundles_sent": 5,
+  "bundle_ids": [101, 102, 103, 104, 105]
+}
+```
+
+### ✅ WORKING: Patient Search Endpoints
 
 #### POST /api/platzsuchen
-Create a new patient search (needs integration).
+Create a new patient search.
 
-Expected request:
+Request:
 ```json
 {
   "patient_id": 123,
@@ -279,26 +289,85 @@ Expected request:
 }
 ```
 
-#### GET /api/platzsuchen/{id}
-Get patient search details with bundle history (needs integration).
-
-Expected response structure:
+Response:
 ```json
 {
   "id": 1,
   "patient_id": 123,
-  "patient": { /* patient data */ },
+  "status": "active",
+  "created_at": "2025-06-07T10:00:00",
+  "message": "Patient search created successfully"
+}
+```
+
+#### GET /api/platzsuchen
+Get all patient searches with filtering.
+
+Query parameters:
+- `status`: Filter by search status ("active", "successful", "paused", "cancelled")
+- `patient_id`: Filter by specific patient
+- `min_bundles`: Minimum bundle count
+- `max_bundles`: Maximum bundle count
+
+Response:
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "patient_id": 123,
+      "patient_name": "Max Mustermann",
+      "status": "active",
+      "created_at": "2025-06-07T10:00:00",
+      "gesamt_angeforderte_kontakte": 25,
+      "active_bundles": 3,
+      "total_bundles": 8,
+      "excluded_therapists_count": 2
+    }
+  ],
+  "page": 1,
+  "limit": 20,
+  "total": 45
+}
+```
+
+#### GET /api/platzsuchen/{id}
+Get patient search details with bundle history.
+
+Response:
+```json
+{
+  "id": 1,
+  "patient_id": 123,
+  "patient": {
+    "vorname": "Max",
+    "nachname": "Mustermann",
+    "diagnose": "F32.1",
+    "krankenkasse": "AOK"
+  },
   "status": "active",
   "created_at": "2025-06-07T10:00:00",
   "ausgeschlossene_therapeuten": [45, 67],
   "gesamt_angeforderte_kontakte": 25,
   "active_bundles": 3,
-  "total_bundles": 8
+  "total_bundles": 8,
+  "bundle_history": [
+    {
+      "bundle_id": 101,
+      "therapist_id": 123,
+      "therapist_name": "Dr. Schmidt",
+      "position": 2,
+      "status": "pending",
+      "outcome": null,
+      "sent_date": "2025-06-07T10:30:00",
+      "response_date": null
+    }
+  ]
 }
 ```
 
 #### POST /api/platzsuchen/{id}/kontaktanfrage
-Request additional contacts for a patient search (needs integration).
+Request additional contacts for a patient search.
 
 Request:
 ```json
@@ -308,34 +377,105 @@ Request:
 }
 ```
 
-### 🔄 NEEDS INTEGRATION: Bundle Query Endpoints
+Response:
+```json
+{
+  "message": "Requested 10 additional contacts",
+  "previous_total": 15,
+  "new_total": 25,
+  "search_id": 1
+}
+```
+
+### ✅ WORKING: Bundle Query Endpoints
 
 #### GET /api/therapeutenanfragen
-Get all bundles with filtering (needs integration).
+Get all bundles with filtering.
 
 Query parameters:
 - `therapist_id`: Filter by therapist
 - `sent_status`: "sent" or "unsent"
 - `response_status`: "responded" or "pending"
+- `needs_follow_up`: boolean
+- `min_size`: minimum bundle size
+- `max_size`: maximum bundle size
+
+Response:
+```json
+{
+  "data": [
+    {
+      "id": 101,
+      "therapist_id": 123,
+      "therapist_name": "Dr. Max Mustermann",
+      "created_date": "2025-06-07T10:00:00",
+      "sent_date": "2025-06-07T10:30:00",
+      "response_date": null,
+      "days_since_sent": 2,
+      "antworttyp": null,
+      "buendelgroesse": 4,
+      "angenommen_anzahl": 0,
+      "abgelehnt_anzahl": 0,
+      "keine_antwort_anzahl": 0,
+      "needs_follow_up": false,
+      "response_complete": false
+    }
+  ],
+  "page": 1,
+  "limit": 20,
+  "total": 150,
+  "summary": {
+    "total_bundles": 150,
+    "unsent_bundles": 15,
+    "pending_responses": 38,
+    "needing_follow_up": 12
+  }
+}
+```
 
 #### GET /api/therapeutenanfragen/{id}
-Get bundle details with patient list (needs integration).
+Get bundle details with patient list.
 
-Expected response structure:
+Response:
 ```json
 {
   "id": 101,
   "therapist_id": 123,
+  "therapist": {
+    "vorname": "Max",
+    "nachname": "Mustermann",
+    "email": "dr.mustermann@example.com"
+  },
   "created_date": "2025-06-07T10:00:00",
   "sent_date": "2025-06-07T10:30:00",
+  "response_date": null,
+  "days_since_sent": 2,
+  "antworttyp": null,
   "buendelgroesse": 4,
+  "response_summary": {
+    "total_accepted": 0,
+    "total_rejected": 0,
+    "total_no_response": 0,
+    "response_complete": false
+  },
+  "notizen": null,
+  "email_id": 456,
+  "phone_call_id": null,
   "patients": [
     {
       "position": 1,
       "patient_id": 1,
-      "patient": { /* patient data */ },
+      "patient": {
+        "vorname": "Anna",
+        "nachname": "Schmidt",
+        "diagnose": "F32.1"
+      },
       "platzsuche_id": 10,
-      "status": "pending"
+      "search_created_at": "2025-05-01T08:00:00",
+      "wait_time_days": 37,
+      "status": "pending",
+      "antwortergebnis": null,
+      "antwortnotizen": null
     }
   ],
   "needs_follow_up": false
@@ -343,7 +483,7 @@ Expected response structure:
 ```
 
 #### PUT /api/therapeutenanfragen/{id}/antwort
-Record therapist response (needs integration).
+Record therapist response.
 
 Request:
 ```json
@@ -355,6 +495,24 @@ Request:
     "12": "abgelehnt_nicht_geeignet"
   },
   "notizen": "Can take 2 patients starting next month"
+}
+```
+
+Response:
+```json
+{
+  "message": "Bundle response recorded successfully",
+  "bundle_id": 101,
+  "response_type": "teilweise_annahme",
+  "accepted_patients": [
+    {"patient_id": 1, "platzsuche_id": 10},
+    {"patient_id": 8, "platzsuche_id": 23}
+  ],
+  "response_summary": {
+    "accepted": 2,
+    "rejected": 2,
+    "no_response": 0
+  }
 }
 ```
 
@@ -589,7 +747,7 @@ The bundle system uses a sophisticated scoring algorithm:
 }
 ```
 
-#### 501 Not Implemented (Some Matching Endpoints)
+#### 501 Not Implemented (Legacy Matching Endpoints Only)
 ```json
 {
   "message": "Bundle system not yet implemented"
@@ -658,15 +816,15 @@ curl -X POST http://localhost:8004/api/emails \
   }'
 ```
 
-## Next Steps
+## Summary
 
-The development team is working on:
+The development team has successfully completed:
 1. ✅ Database migration to German (COMPLETE)
 2. ✅ All service models updated to German (COMPLETE)
 3. ✅ All APIs using German field names (COMPLETE)
 4. ✅ Bundle algorithm implemented (COMPLETE)
-5. 🔄 Connecting all endpoints to algorithm (IN PROGRESS)
-6. ❌ Email sending integration (NEXT)
-7. ❌ Response handling (NEXT)
+5. ✅ All endpoints connected to algorithm (COMPLETE)
+6. ✅ Email sending integration (COMPLETE)
+7. ✅ Response handling (COMPLETE)
 
-**Bundle creation is working! Other endpoints need integration to complete the system.**
+**The bundle system is now fully operational!**
