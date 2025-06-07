@@ -63,6 +63,36 @@ class PatientService:
             if patient_data:
                 patients[patient_id] = patient_data
         return patients
+    
+    @staticmethod
+    def get_all_patients(status: Optional[str] = None, limit: int = 1000) -> List[Dict[str, Any]]:
+        """Get all patients from the Patient Service.
+        
+        Args:
+            status: Optional status filter
+            limit: Maximum number of patients to retrieve
+            
+        Returns:
+            List of patient data dictionaries
+        """
+        try:
+            url = f"{config.get_service_url('patient', internal=True)}/api/patients"
+            params = {"limit": limit}
+            if status:
+                params["status"] = status
+            
+            response = requests.get(url, params=params, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                return data.get("data", [])
+            else:
+                logger.error(f"Error fetching patients: {response.status_code}")
+                return []
+                
+        except requests.RequestException as e:
+            logger.error(f"Failed to fetch patients: {str(e)}")
+            return []
 
 
 class TherapistService:
@@ -111,7 +141,9 @@ class TherapistService:
             response = requests.get(url, params=params, timeout=10)
             
             if response.status_code == 200:
-                therapists = response.json()
+                data = response.json()
+                therapists = data.get("data", [])
+                
                 # Filter out therapists in cooling period
                 today = datetime.utcnow().date()
                 contactable = []
@@ -121,6 +153,7 @@ class TherapistService:
                     if not next_contact or datetime.fromisoformat(next_contact).date() <= today:
                         contactable.append(therapist)
                 
+                logger.info(f"Found {len(contactable)} contactable therapists out of {len(therapists)} active")
                 return contactable
             else:
                 logger.error(f"Error fetching therapists: {response.status_code}")
@@ -185,35 +218,70 @@ class CommunicationService:
         try:
             therapist = TherapistService.get_therapist(therapist_id)
             if not therapist:
+                logger.error(f"Could not fetch therapist {therapist_id} for email creation")
+                return None
+            
+            # Check if therapist has email
+            if not therapist.get('email'):
+                logger.error(f"Therapist {therapist_id} has no email address")
                 return None
             
             # Prepare email content
             subject = f"Therapieanfrage für {len(patient_data)} Patienten"
             
-            # Build email body (simplified - in reality would use templates)
+            # Build email body
             body_html = f"""
-            <h2>Neue Therapieanfragen</h2>
-            <p>Sehr geehrte/r {therapist.get('anrede', '')} {therapist.get('titel', '')} {therapist.get('nachname', '')},</p>
-            <p>wir haben {len(patient_data)} neue Patienten für Sie:</p>
-            <ol>
+            <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <h2 style="color: #2c5aa0;">Neue Therapieanfragen</h2>
+                <p>Sehr geehrte/r {therapist.get('anrede', '')} {therapist.get('titel', '')} {therapist.get('nachname', '')},</p>
+                <p>wir haben {len(patient_data)} neue Therapieanfragen für Sie:</p>
+                
+                <ol style="background-color: #f4f4f4; padding: 20px; border-radius: 5px;">
             """
+            
+            body_text = f"Neue Therapieanfragen\n\n"
+            body_text += f"Sehr geehrte/r {therapist.get('anrede', '')} {therapist.get('titel', '')} {therapist.get('nachname', '')},\n\n"
+            body_text += f"wir haben {len(patient_data)} neue Therapieanfragen für Sie:\n\n"
             
             for idx, patient in enumerate(patient_data, 1):
+                # HTML version
                 body_html += f"""
-                <li>
-                    <strong>{patient.get('vorname')} {patient.get('nachname')}</strong><br>
-                    Diagnose: {patient.get('diagnose', 'Nicht angegeben')}<br>
-                    Krankenkasse: {patient.get('krankenkasse', 'Nicht angegeben')}
+                <li style="margin-bottom: 15px;">
+                    <strong>{patient.get('vorname', '')} {patient.get('nachname', '')}</strong><br>
+                    <span style="color: #666;">
+                        Alter: {self._calculate_age(patient.get('geburtsdatum'))} Jahre<br>
+                        Diagnose: {patient.get('diagnose', 'Nicht angegeben')}<br>
+                        Krankenkasse: {patient.get('krankenkasse', 'Nicht angegeben')}<br>
+                        PLZ/Ort: {patient.get('plz', '')} {patient.get('ort', '')}
+                    </span>
                 </li>
                 """
+                
+                # Text version
+                body_text += f"{idx}. {patient.get('vorname', '')} {patient.get('nachname', '')}\n"
+                body_text += f"   Alter: {self._calculate_age(patient.get('geburtsdatum'))} Jahre\n"
+                body_text += f"   Diagnose: {patient.get('diagnose', 'Nicht angegeben')}\n"
+                body_text += f"   Krankenkasse: {patient.get('krankenkasse', 'Nicht angegeben')}\n"
+                body_text += f"   PLZ/Ort: {patient.get('plz', '')} {patient.get('ort', '')}\n\n"
             
             body_html += """
-            </ol>
-            <p>Bitte teilen Sie uns mit, welche Patienten Sie übernehmen können.</p>
-            <p>Mit freundlichen Grüßen,<br>Ihr Curavani Team</p>
-            """
+                </ol>
+                <p>Bitte teilen Sie uns mit, welche Patienten Sie übernehmen können. Sie können uns einfach auf diese E-Mail antworten.</p>
+                <p style="color: #666; font-size: 0.9em;">
+                    Referenz-Nr: B{bundle_id}<br>
+                    Diese Anfrage wurde automatisch generiert.
+                </p>
+                <p>Mit freundlichen Grüßen,<br>
+                <strong>Ihr Curavani Team</strong></p>
+            </body>
+            </html>
+            """.format(bundle_id=bundle_id)
             
-            body_text = f"Neue Therapieanfragen für {len(patient_data)} Patienten..."
+            body_text += f"\nBitte teilen Sie uns mit, welche Patienten Sie übernehmen können.\n"
+            body_text += f"Sie können uns einfach auf diese E-Mail antworten.\n\n"
+            body_text += f"Referenz-Nr: B{bundle_id}\n\n"
+            body_text += "Mit freundlichen Grüßen,\nIhr Curavani Team"
             
             # Create email via Communication Service
             url = f"{config.get_service_url('communication', internal=True)}/api/emails"
@@ -223,21 +291,49 @@ class CommunicationService:
                 'body_html': body_html,
                 'body_text': body_text,
                 'empfaenger_email': therapist.get('email'),
-                'empfaenger_name': f"{therapist.get('vorname')} {therapist.get('nachname')}"
+                'empfaenger_name': f"{therapist.get('vorname', '')} {therapist.get('nachname', '')}"
             }
             
-            response = requests.post(url, json=data, timeout=5)
+            response = requests.post(url, json=data, timeout=10)
             
             if response.status_code in [200, 201]:
                 email_data = response.json()
-                return email_data.get('id')
+                email_id = email_data.get('id')
+                logger.info(f"Created email {email_id} for bundle {bundle_id}")
+                return email_id
             else:
-                logger.error(f"Failed to create email: {response.status_code}")
+                logger.error(f"Failed to create email: {response.status_code} - {response.text}")
                 return None
                 
         except requests.RequestException as e:
             logger.error(f"Failed to create email: {str(e)}")
             return None
+    
+    @staticmethod
+    def _calculate_age(birthdate_str: Optional[str]) -> str:
+        """Calculate age from birthdate string.
+        
+        Args:
+            birthdate_str: Birthdate in ISO format
+            
+        Returns:
+            Age as string or "Unbekannt" if cannot calculate
+        """
+        if not birthdate_str:
+            return "Unbekannt"
+        
+        try:
+            birthdate = datetime.fromisoformat(birthdate_str).date()
+            today = datetime.utcnow().date()
+            age = today.year - birthdate.year
+            
+            # Adjust if birthday hasn't occurred this year
+            if (today.month, today.day) < (birthdate.month, birthdate.day):
+                age -= 1
+            
+            return str(age)
+        except:
+            return "Unbekannt"
     
     @staticmethod
     def schedule_follow_up_call(therapist_id: int, bundle_id: int) -> Optional[int]:
@@ -254,7 +350,7 @@ class CommunicationService:
             url = f"{config.get_service_url('communication', internal=True)}/api/phone-calls"
             data = {
                 'therapist_id': therapist_id,
-                'notizen': f"Follow-up für Bündel #{bundle_id}"
+                'notizen': f"Follow-up für Bündel B{bundle_id}"
             }
             
             response = requests.post(url, json=data, timeout=5)
@@ -276,15 +372,15 @@ class GeoCodingService:
     
     @staticmethod
     def calculate_distance(
-        patient_address: str,
-        therapist_address: str,
+        origin_address: str,
+        destination_address: str,
         travel_mode: str = "car"
     ) -> Optional[float]:
-        """Calculate distance between patient and therapist.
+        """Calculate distance between two addresses.
         
         Args:
-            patient_address: Patient's address
-            therapist_address: Therapist's address
+            origin_address: Origin address
+            destination_address: Destination address
             travel_mode: Travel mode (car or transit)
             
         Returns:
@@ -293,8 +389,8 @@ class GeoCodingService:
         try:
             url = f"{config.get_service_url('geocoding', internal=True)}/api/calculate-distance"
             params = {
-                'origin': patient_address,
-                'destination': therapist_address,
+                'origin': origin_address,
+                'destination': destination_address,
                 'travel_mode': travel_mode
             }
             
@@ -404,6 +500,10 @@ class BundleService:
             logger.error(f"Bundle {bundle_id} not found")
             return False
         
+        if bundle.sent_date:
+            logger.warning(f"Bundle {bundle_id} already sent on {bundle.sent_date}")
+            return False
+        
         # Get patient data
         patient_ids = [bp.patient_id for bp in bundle.bundle_patients]
         patients = PatientService.get_patients(patient_ids)
@@ -428,9 +528,6 @@ class BundleService:
         if email_id:
             bundle.mark_as_sent(email_id=email_id)
             db.commit()
-            
-            # Set cooling period for therapist
-            TherapistService.set_cooling_period(bundle.therapist_id)
             
             logger.info(f"Bundle {bundle_id} sent successfully via email {email_id}")
             return True
@@ -484,6 +581,7 @@ class BundleService:
                             )
             else:
                 no_response_count += 1
+                bp.mark_no_response()
         
         # Update bundle response
         response_type = bundle.calculate_response_type()
@@ -497,3 +595,45 @@ class BundleService:
         
         db.commit()
         logger.info(f"Updated bundle {bundle_id} response: {response_type.value}")
+    
+    @staticmethod
+    def check_for_conflicts(db: Session) -> List[Dict[str, Any]]:
+        """Check for patients accepted by multiple therapists.
+        
+        Args:
+            db: Database session
+            
+        Returns:
+            List of conflict dictionaries
+        """
+        # Find all accepted patients
+        accepted_entries = db.query(TherapeutAnfragePatient).filter(
+            TherapeutAnfragePatient.antwortergebnis == PatientOutcome.ACCEPTED
+        ).all()
+        
+        # Group by patient
+        patient_acceptances = {}
+        for entry in accepted_entries:
+            if entry.patient_id not in patient_acceptances:
+                patient_acceptances[entry.patient_id] = []
+            patient_acceptances[entry.patient_id].append({
+                'therapist_id': entry.get_therapist_id(),
+                'bundle_id': entry.therapeutenanfrage_id,
+                'response_date': entry.therapeutenanfrage.response_date
+            })
+        
+        # Find conflicts
+        conflicts = []
+        for patient_id, acceptances in patient_acceptances.items():
+            if len(acceptances) > 1:
+                # Sort by response date
+                acceptances.sort(key=lambda x: x['response_date'] or datetime.min)
+                
+                conflicts.append({
+                    'patient_id': patient_id,
+                    'acceptances': acceptances,
+                    'winner': acceptances[0]['therapist_id'],
+                    'conflict_count': len(acceptances)
+                })
+        
+        return conflicts
