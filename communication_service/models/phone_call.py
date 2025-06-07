@@ -4,10 +4,9 @@ from enum import Enum
 from typing import Optional
 
 from sqlalchemy import (
-    Boolean, Column, Date, DateTime, ForeignKey, Integer, 
+    Boolean, Column, Date, DateTime, Integer, 
     String, Text, Time
 )
-from sqlalchemy.orm import relationship
 
 from shared.utils.database import Base
 
@@ -52,13 +51,6 @@ class PhoneCall(Base):
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, onupdate=datetime.utcnow)
-    
-    # Relationships
-    batches = relationship(
-        "PhoneCallBatch",
-        back_populates="phone_call",
-        cascade="all, delete-orphan"
-    )
     
     def __repr__(self):
         """Provide a string representation of the PhoneCall instance."""
@@ -122,67 +114,3 @@ class PhoneCall(Base):
         if self.status != PhoneCallStatus.SCHEDULED.value:
             return False
         return self.geplantes_datum < date.today()
-
-
-class PhoneCallBatch(Base):
-    """Phone call batch database model with German field names.
-
-    This model represents a batch of patients from bundles discussed 
-    in a single phone call with a therapist.
-    """
-
-    __tablename__ = "phone_call_batches"
-    __table_args__ = {"schema": "communication_service"}
-
-    id = Column(Integer, primary_key=True, index=True)
-    phone_call_id = Column(
-        Integer,
-        ForeignKey("communication_service.phone_calls.id", ondelete="CASCADE"),
-        nullable=False
-    )
-    
-    # Updated foreign key to reference bundle system
-    therapeut_anfrage_patient_id = Column(
-        Integer,
-        ForeignKey("matching_service.therapeut_anfrage_patient.id", ondelete="CASCADE"),
-        nullable=True
-    )
-    
-    priority = Column(Integer, default=1)
-    discussed = Column(Boolean, default=False)
-    
-    # Outcome tracking - German field names
-    ergebnis = Column(String(50))  # outcome
-    nachverfolgung_erforderlich = Column(Boolean, default=False)  # follow_up_required
-    nachverfolgung_notizen = Column(Text)  # follow_up_notes
-    
-    created_at = Column(DateTime, default=datetime.utcnow)
-    
-    # Relationships
-    phone_call = relationship("PhoneCall", back_populates="batches")
-    
-    def __repr__(self):
-        """Provide a string representation of the PhoneCallBatch instance."""
-        return (
-            f"<PhoneCallBatch id={self.id} "
-            f"phone_call_id={self.phone_call_id} "
-            f"therapeut_anfrage_patient_id={self.therapeut_anfrage_patient_id}>"
-        )
-    
-    def mark_as_discussed(self, 
-                         outcome: Optional[str] = None,
-                         follow_up_required: bool = False,
-                         follow_up_notes: Optional[str] = None) -> None:
-        """Mark this batch item as discussed during the call.
-        
-        Args:
-            outcome: The outcome for this patient
-            follow_up_required: Whether follow-up is needed
-            follow_up_notes: Notes about required follow-up
-        """
-        self.discussed = True
-        if outcome:
-            self.ergebnis = outcome
-        self.nachverfolgung_erforderlich = follow_up_required
-        if follow_up_notes:
-            self.nachverfolgung_notizen = follow_up_notes

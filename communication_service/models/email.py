@@ -6,7 +6,6 @@ from sqlalchemy import (
     Boolean, Column, DateTime, Enum as SQLAlchemyEnum,
     Integer, String, Text
 )
-from sqlalchemy.dialects.postgresql import JSONB
 
 from shared.utils.database import Base
 
@@ -38,12 +37,6 @@ class Email(Base):
     empfaenger_name = Column(String(255), nullable=False)  # recipient_name
     absender_email = Column(String(255), nullable=False)  # sender_email
     absender_name = Column(String(255), nullable=False)  # sender_name
-    
-    # Legacy field - will be removed in future
-    placement_request_ids = Column(JSONB)
-    
-    # Batch identifier
-    batch_id = Column(String(50))
     
     # Response tracking - German field names
     antwort_erhalten = Column(Boolean, default=False)  # response_received
