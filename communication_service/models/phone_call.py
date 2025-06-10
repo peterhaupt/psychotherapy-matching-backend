@@ -14,10 +14,10 @@ from shared.utils.database import Base
 class PhoneCallStatus(str, Enum):
     """Enumeration for phone call status values."""
 
-    SCHEDULED = "scheduled"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    CANCELED = "canceled"
+    SCHEDULED = "geplant"
+    COMPLETED = "abgeschlossen"
+    FAILED = "fehlgeschlagen"
+    CANCELED = "abgebrochen"
 
 
 class PhoneCall(Base):

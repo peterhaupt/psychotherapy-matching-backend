@@ -16,10 +16,10 @@ from shared.utils.database import Base
 class SearchStatus(str, Enum):
     """Enumeration for patient search status values."""
     
-    ACTIVE = "active"
-    SUCCESSFUL = "successful"
-    PAUSED = "paused"
-    CANCELLED = "cancelled"
+    ACTIVE = "aktiv"
+    SUCCESSFUL = "erfolgreich"
+    PAUSED = "pausiert"
+    CANCELLED = "abgebrochen"
 
 
 class Platzsuche(Base):
