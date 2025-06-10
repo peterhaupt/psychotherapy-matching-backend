@@ -21,8 +21,7 @@ from matching_service.models.platzsuche import Platzsuche  # noqa: F401, E402
 from matching_service.models.therapeutenanfrage import Therapeutenanfrage  # noqa: F401, E402
 from matching_service.models.therapeut_anfrage_patient import TherapeutAnfragePatient  # noqa: F401, E402
 from communication_service.models.email import Email  # noqa: F401, E402
-from communication_service.models.email_batch import EmailBatch  # noqa: F401, E402
-from communication_service.models.phone_call import PhoneCall, PhoneCallBatch  # noqa: F401, E402
+from communication_service.models.phone_call import PhoneCall  # noqa: F401, E402
 from geocoding_service.models.geocache import GeoCache, DistanceCache  # noqa: F401, E402
 
 # Try to load environment variables
