@@ -51,7 +51,7 @@ class PlatzsucheResource(Resource):
                     bundle_entries.append({
                         "bundle_id": bundle.id,
                         "therapist_id": bundle.therapist_id,
-                        "therapist_name": f"{therapist.get('vorname', '')} {therapist.get('nachname', '')}" if therapist else "Unknown",
+                        "therapeuten_name": f"{therapist.get('vorname', '')} {therapist.get('nachname', '')}" if therapist else "Unknown",
                         "position": entry.position_im_buendel,
                         "status": entry.status.value,
                         "outcome": entry.antwortergebnis.value if entry.antwortergebnis else None,
@@ -70,9 +70,9 @@ class PlatzsucheResource(Resource):
                     "gesamt_angeforderte_kontakte": search.gesamt_angeforderte_kontakte,
                     "erfolgreiche_vermittlung_datum": search.erfolgreiche_vermittlung_datum.isoformat() if search.erfolgreiche_vermittlung_datum else None,
                     "notizen": search.notizen,
-                    "active_bundles": search.get_active_bundle_count(),
-                    "total_bundles": search.get_total_bundle_count(),
-                    "bundle_history": bundle_entries
+                    "aktive_buendel": search.get_active_bundle_count(),
+                    "gesamt_buendel": search.get_total_bundle_count(),
+                    "buendel_verlauf": bundle_entries
                 }, 200
                 
         except Exception as e:
@@ -222,14 +222,14 @@ class PlatzsucheListResource(PaginatedListResource):
                     "data": [{
                         "id": s.id,
                         "patient_id": s.patient_id,
-                        "patient_name": f"{patients.get(s.patient_id, {}).get('vorname', '')} {patients.get(s.patient_id, {}).get('nachname', '')}" if s.patient_id in patients else "Unknown",
+                        "patienten_name": f"{patients.get(s.patient_id, {}).get('vorname', '')} {patients.get(s.patient_id, {}).get('nachname', '')}" if s.patient_id in patients else "Unknown",
                         "status": s.status.value,
                         "created_at": s.created_at.isoformat(),
                         "updated_at": s.updated_at.isoformat() if s.updated_at else None,
                         "gesamt_angeforderte_kontakte": s.gesamt_angeforderte_kontakte,
-                        "active_bundles": s.get_active_bundle_count(),
-                        "total_bundles": s.get_total_bundle_count(),
-                        "excluded_therapists_count": len(s.ausgeschlossene_therapeuten) if s.ausgeschlossene_therapeuten else 0
+                        "aktive_buendel": s.get_active_bundle_count(),
+                        "gesamt_buendel": s.get_total_bundle_count(),
+                        "ausgeschlossene_therapeuten_anzahl": len(s.ausgeschlossene_therapeuten) if s.ausgeschlossene_therapeuten else 0
                     } for s in searches],
                     "page": page,
                     "limit": limit,
@@ -391,7 +391,7 @@ class TherapeutenanfrageResource(Resource):
                         "patient": patient_data,
                         "platzsuche_id": bp.platzsuche_id,
                         "search_created_at": search.created_at.isoformat() if search else None,
-                        "wait_time_days": (datetime.utcnow() - search.created_at).days if search else None,
+                        "wartezeit_tage": (datetime.utcnow() - search.created_at).days if search else None,
                         "status": bp.status.value,
                         "antwortergebnis": bp.antwortergebnis.value if bp.antwortergebnis else None,
                         "antwortnotizen": bp.antwortnotizen
@@ -405,7 +405,7 @@ class TherapeutenanfrageResource(Resource):
                     "total_accepted": bundle.angenommen_anzahl,
                     "total_rejected": bundle.abgelehnt_anzahl,
                     "total_no_response": bundle.keine_antwort_anzahl,
-                    "response_complete": bundle.is_response_complete()
+                    "antwort_vollstaendig": bundle.is_response_complete()
                 }
                 
                 return {
@@ -415,15 +415,15 @@ class TherapeutenanfrageResource(Resource):
                     "created_date": bundle.created_date.isoformat(),
                     "sent_date": bundle.sent_date.isoformat() if bundle.sent_date else None,
                     "response_date": bundle.response_date.isoformat() if bundle.response_date else None,
-                    "days_since_sent": bundle.days_since_sent(),
+                    "tage_seit_versand": bundle.days_since_sent(),
                     "antworttyp": bundle.antworttyp.value if bundle.antworttyp else None,
                     "buendelgroesse": bundle.buendelgroesse,
-                    "response_summary": response_summary,
+                    "antwort_zusammenfassung": response_summary,
                     "notizen": bundle.notizen,
                     "email_id": bundle.email_id,
                     "phone_call_id": bundle.phone_call_id,
                     "patients": patients,
-                    "needs_follow_up": bundle.needs_follow_up()
+                    "nachverfolgung_erforderlich": bundle.needs_follow_up()
                 }, 200
                 
         except Exception as e:
@@ -438,9 +438,9 @@ class TherapeutenanfrageListResource(PaginatedListResource):
         """Get all bundles with optional filtering."""
         parser = reqparse.RequestParser()
         parser.add_argument('therapist_id', type=int)
-        parser.add_argument('sent_status', type=str)  # sent, unsent
-        parser.add_argument('response_status', type=str)  # responded, pending
-        parser.add_argument('needs_follow_up', type=bool)
+        parser.add_argument('versand_status', type=str)  # Changed from sent_status
+        parser.add_argument('antwort_status', type=str)  # Changed from response_status
+        parser.add_argument('nachverfolgung_erforderlich', type=bool)  # Changed from needs_follow_up
         parser.add_argument('min_size', type=int)
         parser.add_argument('max_size', type=int)
         args = parser.parse_args()
@@ -453,18 +453,18 @@ class TherapeutenanfrageListResource(PaginatedListResource):
                 if args.get('therapist_id'):
                     query = query.filter(Therapeutenanfrage.therapist_id == args['therapist_id'])
                 
-                if args.get('sent_status'):
-                    if args['sent_status'] == 'sent':
+                if args.get('versand_status'):
+                    if args['versand_status'] == 'gesendet':
                         query = query.filter(Therapeutenanfrage.sent_date.isnot(None))
-                    elif args['sent_status'] == 'unsent':
+                    elif args['versand_status'] == 'ungesendet':
                         query = query.filter(Therapeutenanfrage.sent_date.is_(None))
                     else:
-                        return {"message": "Invalid sent_status. Use 'sent' or 'unsent'"}, 400
+                        return {"message": "Invalid versand_status. Use 'gesendet' or 'ungesendet'"}, 400
                 
-                if args.get('response_status'):
-                    if args['response_status'] == 'responded':
+                if args.get('antwort_status'):
+                    if args['antwort_status'] == 'beantwortet':
                         query = query.filter(Therapeutenanfrage.response_date.isnot(None))
-                    elif args['response_status'] == 'pending':
+                    elif args['antwort_status'] == 'ausstehend':
                         query = query.filter(
                             and_(
                                 Therapeutenanfrage.sent_date.isnot(None),
@@ -472,7 +472,7 @@ class TherapeutenanfrageListResource(PaginatedListResource):
                             )
                         )
                     else:
-                        return {"message": "Invalid response_status. Use 'responded' or 'pending'"}, 400
+                        return {"message": "Invalid antwort_status. Use 'beantwortet' or 'ausstehend'"}, 400
                 
                 if args.get('min_size'):
                     query = query.filter(Therapeutenanfrage.buendelgroesse >= args['min_size'])
@@ -490,10 +490,10 @@ class TherapeutenanfrageListResource(PaginatedListResource):
                 
                 bundles = query.all()
                 
-                # Filter by needs_follow_up if specified
-                if args.get('needs_follow_up') is not None:
-                    bundles = [b for b in bundles if b.needs_follow_up() == args['needs_follow_up']]
-                    if args['needs_follow_up']:
+                # Filter by nachverfolgung_erforderlich if specified
+                if args.get('nachverfolgung_erforderlich') is not None:
+                    bundles = [b for b in bundles if b.needs_follow_up() == args['nachverfolgung_erforderlich']]
+                    if args['nachverfolgung_erforderlich']:
                         total = len(bundles)  # Adjust total for filtered results
                 
                 # Get therapist data
@@ -508,18 +508,18 @@ class TherapeutenanfrageListResource(PaginatedListResource):
                     "data": [{
                         "id": b.id,
                         "therapist_id": b.therapist_id,
-                        "therapist_name": f"{therapists.get(b.therapist_id, {}).get('vorname', '')} {therapists.get(b.therapist_id, {}).get('nachname', '')}" if b.therapist_id in therapists else "Unknown",
+                        "therapeuten_name": f"{therapists.get(b.therapist_id, {}).get('vorname', '')} {therapists.get(b.therapist_id, {}).get('nachname', '')}" if b.therapist_id in therapists else "Unknown",
                         "created_date": b.created_date.isoformat(),
                         "sent_date": b.sent_date.isoformat() if b.sent_date else None,
                         "response_date": b.response_date.isoformat() if b.response_date else None,
-                        "days_since_sent": b.days_since_sent(),
+                        "tage_seit_versand": b.days_since_sent(),
                         "antworttyp": b.antworttyp.value if b.antworttyp else None,
                         "buendelgroesse": b.buendelgroesse,
                         "angenommen_anzahl": b.angenommen_anzahl,
                         "abgelehnt_anzahl": b.abgelehnt_anzahl,
                         "keine_antwort_anzahl": b.keine_antwort_anzahl,
-                        "needs_follow_up": b.needs_follow_up(),
-                        "response_complete": b.is_response_complete()
+                        "nachverfolgung_erforderlich": b.needs_follow_up(),
+                        "antwort_vollstaendig": b.is_response_complete()
                     } for b in bundles],
                     "page": page,
                     "limit": limit,
@@ -543,15 +543,15 @@ class BundleCreationResource(Resource):
     def post(self):
         """Trigger bundle creation for all eligible therapists."""
         parser = reqparse.RequestParser()
-        parser.add_argument('send_immediately', type=bool, default=False)
-        parser.add_argument('dry_run', type=bool, default=False)
+        parser.add_argument('sofort_senden', type=bool, default=False)  # Changed from send_immediately
+        parser.add_argument('testlauf', type=bool, default=False)  # Changed from dry_run
         parser.add_argument('therapist_ids', type=list, location='json')  # Optional: specific therapists
         args = parser.parse_args()
         
         try:
             with get_db() as db:
                 # Create bundles
-                logger.info(f"Starting bundle creation (dry_run={args.get('dry_run')})")
+                logger.info(f"Starting bundle creation (testlauf={args.get('testlauf')})")
                 
                 bundles = create_bundles_for_all_therapists(db)
                 
@@ -561,8 +561,8 @@ class BundleCreationResource(Resource):
                 
                 logger.info(f"Created {len(bundles)} bundles")
                 
-                if args.get('dry_run'):
-                    # Don't commit in dry run mode
+                if args.get('testlauf'):
+                    # Don't commit in test run mode
                     bundle_data = []
                     for b in bundles:
                         # Get patient IDs for this bundle
@@ -574,15 +574,15 @@ class BundleCreationResource(Resource):
                         
                         bundle_data.append({
                             "therapist_id": b.therapist_id,
-                            "therapist_name": therapist_name,
+                            "therapeuten_name": therapist_name,
                             "bundle_size": b.buendelgroesse,
                             "patient_ids": patient_ids
                         })
                     
                     db.rollback()
                     return {
-                        "message": "Dry run completed - no data was saved",
-                        "bundles_created": len(bundles),
+                        "message": "Testlauf completed - no data was saved",
+                        "buendel_erstellt": len(bundles),
                         "bundles": bundle_data
                     }, 200
                 
@@ -603,7 +603,7 @@ class BundleCreationResource(Resource):
                 sent_count = 0
                 send_errors = []
                 
-                if args.get('send_immediately') and bundles:
+                if args.get('sofort_senden') and bundles:
                     logger.info(f"Sending {len(bundles)} bundles immediately")
                     
                     for bundle in bundles:
@@ -633,9 +633,9 @@ class BundleCreationResource(Resource):
                 
                 response = {
                     "message": f"Created {len(bundles)} bundles",
-                    "bundles_created": len(bundles),
-                    "bundles_sent": sent_count,
-                    "bundle_ids": [b.id for b in bundles]
+                    "buendel_erstellt": len(bundles),
+                    "buendel_gesendet": sent_count,
+                    "buendel_ids": [b.id for b in bundles]
                 }
                 
                 if send_errors:
@@ -755,8 +755,8 @@ class BundleResponseResource(Resource):
                     "message": "Bundle response recorded successfully",
                     "bundle_id": bundle.id,
                     "response_type": bundle.antworttyp.value if bundle.antworttyp else None,
-                    "accepted_patients": accepted_patients,
-                    "response_summary": {
+                    "angenommene_patienten": accepted_patients,
+                    "antwort_zusammenfassung": {
                         "accepted": bundle.angenommen_anzahl,
                         "rejected": bundle.abgelehnt_anzahl,
                         "no_response": bundle.keine_antwort_anzahl

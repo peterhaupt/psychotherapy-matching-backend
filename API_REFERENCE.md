@@ -68,10 +68,10 @@ This document contains the complete API specification for all microservices. All
 
 ### Search Status
 ```
-"active"
-"successful"
-"paused"
-"cancelled"
+"aktiv"
+"erfolgreich"
+"pausiert"
+"abgebrochen"
 ```
 
 ### Email Status
@@ -85,10 +85,10 @@ This document contains the complete API specification for all microservices. All
 
 ### Phone Call Status
 ```
-"scheduled"
-"completed"
-"failed"
-"canceled"
+"geplant"
+"abgeschlossen"
+"fehlgeschlagen"
+"abgebrochen"
 ```
 
 ### Gender Preference
@@ -485,14 +485,14 @@ curl -X DELETE "http://localhost:8002/api/therapists/1"
 **Description:** Retrieve all patient searches with filtering.
 
 **Query Parameters:**
-- `status` (optional): Filter by search status ("active", "successful", "paused", "cancelled")
+- `status` (optional): Filter by search status ("aktiv", "erfolgreich", "pausiert", "abgebrochen")
 - `patient_id` (optional): Filter by specific patient
 - `min_bundles` (optional): Minimum bundle count
 - `max_bundles` (optional): Maximum bundle count
 
 **Example Request:**
 ```bash
-curl "http://localhost:8003/api/platzsuchen?status=active"
+curl "http://localhost:8003/api/platzsuchen?status=aktiv"
 ```
 
 **Example Response:**
@@ -502,13 +502,13 @@ curl "http://localhost:8003/api/platzsuchen?status=active"
     {
       "id": 1,
       "patient_id": 123,
-      "patient_name": "Anna Müller",
-      "status": "active",
+      "patienten_name": "Anna Müller",
+      "status": "aktiv",
       "created_at": "2025-06-07T10:00:00",
       "gesamt_angeforderte_kontakte": 25,
-      "active_bundles": 3,
-      "total_bundles": 8,
-      "excluded_therapists_count": 2
+      "aktive_buendel": 3,
+      "gesamt_buendel": 8,
+      "ausgeschlossene_therapeuten_anzahl": 2
     }
   ],
   "page": 1,
@@ -537,17 +537,17 @@ curl "http://localhost:8003/api/platzsuchen/1"
     "diagnose": "F32.1",
     "krankenkasse": "AOK"
   },
-  "status": "active",
+  "status": "aktiv",
   "created_at": "2025-06-07T10:00:00",
   "ausgeschlossene_therapeuten": [45, 67],
   "gesamt_angeforderte_kontakte": 25,
-  "active_bundles": 3,
-  "total_bundles": 8,
-  "bundle_history": [
+  "aktive_buendel": 3,
+  "gesamt_buendel": 8,
+  "buendel_verlauf": [
     {
       "bundle_id": 101,
       "therapist_id": 123,
-      "therapist_name": "Dr. Schmidt",
+      "therapeuten_name": "Dr. Schmidt",
       "position": 2,
       "status": "pending",
       "outcome": null,
@@ -580,7 +580,7 @@ curl -X POST "http://localhost:8003/api/platzsuchen" \
 {
   "id": 1,
   "patient_id": 123,
-  "status": "active",
+  "status": "aktiv",
   "created_at": "2025-06-07T10:00:00",
   "message": "Patient search created successfully"
 }
@@ -616,15 +616,15 @@ curl -X POST "http://localhost:8003/api/platzsuchen/1/kontaktanfrage" \
 
 **Query Parameters:**
 - `therapist_id` (optional): Filter by therapist
-- `sent_status` (optional): "sent" or "unsent"
-- `response_status` (optional): "responded" or "pending"
-- `needs_follow_up` (optional): boolean
+- `versand_status` (optional): "gesendet" or "ungesendet"
+- `antwort_status` (optional): "beantwortet" or "ausstehend"
+- `nachverfolgung_erforderlich` (optional): boolean
 - `min_size` (optional): minimum bundle size
 - `max_size` (optional): maximum bundle size
 
 **Example Request:**
 ```bash
-curl "http://localhost:8003/api/therapeutenanfragen?sent_status=sent&response_status=pending"
+curl "http://localhost:8003/api/therapeutenanfragen?versand_status=gesendet&antwort_status=ausstehend"
 ```
 
 **Example Response:**
@@ -634,18 +634,18 @@ curl "http://localhost:8003/api/therapeutenanfragen?sent_status=sent&response_st
     {
       "id": 101,
       "therapist_id": 123,
-      "therapist_name": "Dr. Max Mustermann",
+      "therapeuten_name": "Dr. Max Mustermann",
       "created_date": "2025-06-07T10:00:00",
       "sent_date": "2025-06-07T10:30:00",
       "response_date": null,
-      "days_since_sent": 2,
+      "tage_seit_versand": 2,
       "antworttyp": null,
       "buendelgroesse": 4,
       "angenommen_anzahl": 0,
       "abgelehnt_anzahl": 0,
       "keine_antwort_anzahl": 0,
-      "needs_follow_up": false,
-      "response_complete": false
+      "nachverfolgung_erforderlich": false,
+      "antwort_vollstaendig": false
     }
   ],
   "page": 1,
@@ -682,14 +682,14 @@ curl "http://localhost:8003/api/therapeutenanfragen/101"
   "created_date": "2025-06-07T10:00:00",
   "sent_date": "2025-06-07T10:30:00",
   "response_date": null,
-  "days_since_sent": 2,
+  "tage_seit_versand": 2,
   "antworttyp": null,
   "buendelgroesse": 4,
-  "response_summary": {
+  "antwort_zusammenfassung": {
     "total_accepted": 0,
     "total_rejected": 0,
     "total_no_response": 0,
-    "response_complete": false
+    "antwort_vollstaendig": false
   },
   "notizen": null,
   "email_id": 456,
@@ -705,13 +705,13 @@ curl "http://localhost:8003/api/therapeutenanfragen/101"
       },
       "platzsuche_id": 10,
       "search_created_at": "2025-05-01T08:00:00",
-      "wait_time_days": 37,
+      "wartezeit_tage": 37,
       "status": "pending",
       "antwortergebnis": null,
       "antwortnotizen": null
     }
   ],
-  "needs_follow_up": false
+  "nachverfolgung_erforderlich": false
 }
 ```
 
@@ -740,11 +740,11 @@ curl -X PUT "http://localhost:8003/api/therapeutenanfragen/101/antwort" \
   "message": "Bundle response recorded successfully",
   "bundle_id": 101,
   "response_type": "teilweise_annahme",
-  "accepted_patients": [
+  "angenommene_patienten": [
     {"patient_id": 1, "platzsuche_id": 10},
     {"patient_id": 8, "platzsuche_id": 23}
   ],
-  "response_summary": {
+  "antwort_zusammenfassung": {
     "accepted": 2,
     "rejected": 2,
     "no_response": 0
@@ -761,8 +761,8 @@ curl -X PUT "http://localhost:8003/api/therapeutenanfragen/101/antwort" \
 curl -X POST "http://localhost:8003/api/buendel/erstellen" \
   -H "Content-Type: application/json" \
   -d '{
-    "send_immediately": false,
-    "dry_run": false
+    "sofort_senden": false,
+    "testlauf": false
   }'
 ```
 
@@ -770,9 +770,9 @@ curl -X POST "http://localhost:8003/api/buendel/erstellen" \
 ```json
 {
   "message": "Created 5 bundles",
-  "bundles_created": 5,
-  "bundles_sent": 0,
-  "bundle_ids": [101, 102, 103, 104, 105]
+  "buendel_erstellt": 5,
+  "buendel_gesendet": 0,
+  "buendel_ids": [101, 102, 103, 104, 105]
 }
 ```
 
@@ -914,7 +914,7 @@ curl -X PUT "http://localhost:8004/api/emails/1" \
 
 **Example Request:**
 ```bash
-curl "http://localhost:8004/api/phone-calls?status=scheduled"
+curl "http://localhost:8004/api/phone-calls?status=geplant"
 ```
 
 **Example Response:**
@@ -927,7 +927,7 @@ curl "http://localhost:8004/api/phone-calls?status=scheduled"
       "geplantes_datum": "2025-06-10",
       "geplante_zeit": "14:30",
       "dauer_minuten": 5,
-      "status": "scheduled",
+      "status": "geplant",
       "tatsaechliches_datum": null,
       "tatsaechliche_zeit": null,
       "ergebnis": null,
@@ -973,7 +973,7 @@ curl -X POST "http://localhost:8004/api/phone-calls" \
   "geplantes_datum": "2025-06-15",
   "geplante_zeit": "10:00",
   "dauer_minuten": 5,
-  "status": "scheduled",
+  "status": "geplant",
   "notizen": "Follow-up für Bündel #45",
   "created_at": "2025-06-10T12:30:00",
   "updated_at": "2025-06-10T12:30:00"
@@ -991,7 +991,7 @@ curl -X PUT "http://localhost:8004/api/phone-calls/1" \
   -d '{
     "tatsaechliches_datum": "2025-06-15",
     "tatsaechliche_zeit": "10:05",
-    "status": "completed",
+    "status": "abgeschlossen",
     "ergebnis": "Therapeut interessiert an 1 Patient",
     "notizen": "Will sich nächste Woche melden"
   }'
@@ -1001,7 +1001,7 @@ curl -X PUT "http://localhost:8004/api/phone-calls/1" \
 ```json
 {
   "id": 1,
-  "status": "completed",
+  "status": "abgeschlossen",
   "tatsaechliches_datum": "2025-06-15",
   "tatsaechliche_zeit": "10:05",
   "ergebnis": "Therapeut interessiert an 1 Patient",
@@ -1209,7 +1209,7 @@ curl -X POST "http://localhost:8003/api/platzsuchen" \
 # 2. Create bundles
 curl -X POST "http://localhost:8003/api/buendel/erstellen" \
   -H "Content-Type: application/json" \
-  -d '{"dry_run": false}'
+  -d '{"testlauf": false}'
 
 # 3. Check bundles
 curl "http://localhost:8003/api/therapeutenanfragen"
