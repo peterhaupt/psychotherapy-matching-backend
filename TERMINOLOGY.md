@@ -2,6 +2,23 @@
 
 This document standardizes terminology used throughout the Psychotherapy Matching Platform, providing consistent English-German translations for key terms.
 
+## Language Policy
+
+### English (API Protocol Layer)
+- **Response wrappers**: `data`, `message`, `error`, `status`
+- **Pagination**: `page`, `limit`, `total`
+- **System fields**: `id`, `created_at`, `updated_at`
+- **HTTP/Technical concepts**: Status codes, technical errors
+
+### German (Business Domain Layer)
+- **All entity fields**: Names, addresses, preferences, etc.
+- **Enum values**: Status values, types, categories
+- **Calculated fields**: Counts, summaries, derived data
+- **Business logic fields**: All domain-specific data
+
+### Priority Rule
+When a field exists in the database, use that exact German name throughout the API.
+
 ## Core Entities
 
 | English | German |
@@ -33,6 +50,9 @@ This document standardizes terminology used throughout the Psychotherapy Matchin
 | Exclusion List | Ausschlussliste |
 | Progressive Filtering | Progressive Filterung |
 | Preference Matching | Präferenzabgleich |
+| Bundle History | Buendel_verlauf |
+| Response Summary | Antwort_zusammenfassung |
+| Response Complete | Antwort_vollstaendig |
 
 ## Status Terms
 
@@ -54,6 +74,8 @@ This document standardizes terminology used throughout the Psychotherapy Matchin
 | Scheduled | Geplant |
 | Successful | Erfolgreich |
 | Abandoned | Abgebrochen |
+| Canceled | Abgebrochen |
+| Paused | Pausiert |
 | In Sessions | In Sitzungen |
 | Partial | Teilweise |
 | No Response | Keine Antwort |
@@ -78,6 +100,9 @@ This document standardizes terminology used throughout the Psychotherapy Matchin
 | Individual Contact | Einzelkontakt |
 | Response Type | Antworttyp |
 | Response Outcome | Antwortergebnis |
+| Response Status | Antwort_status |
+| Sent Status | Versand_status |
+| Needs Follow-up | Nachverfolgung_erforderlich |
 
 ## Process Terms
 
@@ -101,11 +126,29 @@ This document standardizes terminology used throughout the Psychotherapy Matchin
 | Manual Assignment | Manuelle Zuweisung |
 | Parallel Processing | Parallele Verarbeitung |
 | Pre-qualification | Vorqualifizierung |
+| Send Immediately | Sofort_senden |
+| Dry Run | Testlauf |
+
+## Count and Calculation Fields
+
+| English | German |
+|---------|--------|
+| Days Since Sent | Tage_seit_versand |
+| Wait Time Days | Wartezeit_tage |
+| Excluded Therapists Count | Ausgeschlossene_therapeuten_anzahl |
+| Active Bundles | Aktive_buendel |
+| Total Bundles | Gesamt_buendel |
+| Accepted Count | Angenommen_anzahl |
+| Rejected Count | Abgelehnt_anzahl |
+| No Response Count | Keine_antwort_anzahl |
+| Bundles Created | Buendel_erstellt |
+| Bundles Sent | Buendel_gesendet |
 
 ## Patient-Specific Terms
 
 | English | German |
 |---------|--------|
+| Patient Name | Patienten_name |
 | Diagnosis | Diagnose |
 | Medical History | Krankengeschichte |
 | Availability | Zeitliche Verfügbarkeit |
@@ -117,18 +160,20 @@ This document standardizes terminology used throughout the Psychotherapy Matchin
 | Support Systems | Unterstützungssysteme |
 | Therapy Goals | Therapieziele |
 | Maximum Travel Distance | Maximale Reiseentfernung |
-| Travel Mode | Reisemodus |
+| Travel Mode | Verkehrsmittel |
 | Availability Schedule | Verfügbarkeitsplan |
 | Waiting Time | Wartezeit |
 | Exclusion List | Ausschlussliste |
 | Initial Sessions | Erstgespräche |
 | Insurance Eligibility | Versicherungsberechtigung |
 | Two-Year Rule | Zwei-Jahres-Regel |
+| Accepted Patients | Angenommene_patienten |
 
 ## Therapist-Specific Terms
 
 | English | German |
 |---------|--------|
+| Therapist Name | Therapeuten_name |
 | Title | Titel |
 | Phone Availability | Telefonische Erreichbarkeit |
 | Foreign Languages | Fremdsprachen |
@@ -165,6 +210,16 @@ This document standardizes terminology used throughout the Psychotherapy Matchin
 | Full Acceptance | Vollständige Annahme |
 | Partial Acceptance | Teilweise Annahme |
 | Full Rejection | Vollständige Ablehnung |
+| Bundle IDs | Buendel_ids |
+
+## List/Collection Terms
+
+| English | German |
+|---------|--------|
+| Therapist IDs | Therapeut_ids |
+| Patient IDs | Patient_ids |
+| Bundle IDs | Buendel_ids |
+| Accepted Patients | Angenommene_patienten |
 
 ## Technical Terms
 
@@ -220,3 +275,11 @@ This document standardizes terminology used throughout the Psychotherapy Matchin
 | Time Availability | zeitliche_verfuegbarkeit |
 | Excluded Therapists | ausgeschlossene_therapeuten |
 | Preferred Therapist Gender | bevorzugtes_therapeutengeschlecht |
+
+## API Response Field Naming Convention
+
+When translating API response fields, use underscores for compound German words:
+- `bundle_history` → `buendel_verlauf`
+- `response_summary` → `antwort_zusammenfassung`
+- `days_since_sent` → `tage_seit_versand`
+- `excluded_therapists_count` → `ausgeschlossene_therapeuten_anzahl`
