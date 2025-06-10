@@ -6,11 +6,12 @@ their key columns.
 
 IMPORTANT: All field names use German terminology for consistency.
 
-Current State (after migration hcfc03j6n7n7):
+Current State (after migration icfc04k7o8o8):
 - All database fields use German names
 - placement_requests table has been removed
 - email_batches and phone_call_batches tables have been removed
 - Bundle references moved to matching_service.therapeutenanfrage
+- Search status and phone call status now use German enum values
 """
 import os
 import sys
@@ -175,6 +176,12 @@ def test_matching_service_tables(db_inspector):
     }
     missing = tap_required - tap_columns
     assert not missing, f"Missing columns in therapeut_anfrage_patient: {missing}"
+    
+    # Check that the status columns now use enum types
+    # Check platzsuche.status column type
+    ps_col_info = {col['name']: col for col in db_inspector.get_columns('platzsuche', schema='matching_service')}
+    assert 'status' in ps_col_info, "platzsuche.status column should exist"
+    # Note: SQLAlchemy inspector might not show the exact enum type, but the column should exist
 
 
 def test_communication_service_tables(db_inspector):
@@ -216,6 +223,10 @@ def test_communication_service_tables(db_inspector):
     }
     missing = pc_required - pc_columns
     assert not missing, f"Missing columns in phone_calls: {missing}"
+    
+    # Check that the status column exists and uses enum type
+    pc_col_info = {col['name']: col for col in db_inspector.get_columns('phone_calls', schema='communication_service')}
+    assert 'status' in pc_col_info, "phone_calls.status column should exist"
 
 
 def test_geocoding_service_tables(db_inspector):
@@ -267,17 +278,25 @@ def test_enum_types(db_engine):
             key = f"{row[0]}.{row[1]}" if row[0] != 'public' else row[1]
             enums[key] = row[2]
     
-    # Check required enums exist
+    # Check required enums exist with German values
     expected_enums = {
         'patientstatus': ['OPEN', 'SEARCHING', 'IN_THERAPY', 'THERAPY_COMPLETED', 
                          'SEARCH_ABORTED', 'THERAPY_ABORTED'],
         'therapistgenderpreference': ['MALE', 'FEMALE', 'ANY'],
         'therapiststatus': ['ACTIVE', 'BLOCKED', 'INACTIVE'],
-        'emailstatus': ['DRAFT', 'QUEUED', 'SENDING', 'SENT', 'FAILED']
+        'emailstatus': ['DRAFT', 'QUEUED', 'SENDING', 'SENT', 'FAILED'],
+        # New enums with German values
+        'searchstatus': ['aktiv', 'erfolgreich', 'pausiert', 'abgebrochen'],
+        'phonecallstatus': ['geplant', 'abgeschlossen', 'fehlgeschlagen', 'abgebrochen']
     }
     
     for enum_name, expected_values in expected_enums.items():
         assert enum_name in enums, f"Enum type '{enum_name}' not found"
+        # For the new German enums, verify the values match exactly
+        if enum_name in ['searchstatus', 'phonecallstatus']:
+            actual_values = enums[enum_name]
+            assert set(actual_values) == set(expected_values), \
+                   f"Enum '{enum_name}' has incorrect values. Expected: {expected_values}, Got: {actual_values}"
     
     # PlacementRequestStatus should NOT exist anymore
     assert 'placementrequeststatus' not in enums, "Enum 'placementrequeststatus' should have been removed"
@@ -303,6 +322,11 @@ def test_indexes_exist(db_inspector):
     assert 'idx_therapeutenanfrage_therapist_id' in ta_index_names, "Missing index on therapeutenanfrage.therapist_id"
     assert 'idx_therapeutenanfrage_email_id' in ta_index_names, "Missing index on therapeutenanfrage.email_id"
     assert 'idx_therapeutenanfrage_phone_call_id' in ta_index_names, "Missing index on therapeutenanfrage.phone_call_id"
+    
+    # Check phone_calls indexes
+    pc_indexes = db_inspector.get_indexes('phone_calls', schema='communication_service')
+    pc_index_names = {idx['name'] for idx in pc_indexes}
+    assert 'idx_phone_calls_status' in pc_index_names, "Missing index on phone_calls.status"
 
 
 def test_foreign_key_constraints(db_inspector):
