@@ -1,5 +1,7 @@
 # Communication Service
 
+> **Note**: For API endpoint documentation, see `API_REFERENCE.md` which contains the complete API specification.
+
 ## Summary
 This document details the implementation of the Communication Service for the Psychotherapy Matching Platform. The service handles all communication-related operations including email management, phone call scheduling, template rendering, and message dispatching. The service has been simplified to focus solely on sending communications, with bundle logic moved to the Matching Service. All models and APIs now use German field names.
 
@@ -61,42 +63,6 @@ class PhoneCall(Base):
 ### Removed Models ✅
 - ❌ **EmailBatch**: Removed (bundle logic moved to Matching Service)
 - ❌ **PhoneCallBatch**: Removed (bundle logic moved to Matching Service)
-
-## API Implementation
-
-### API Endpoints (German Field Names)
-
-#### Email Endpoints:
-- **EmailResource**: Operations on individual emails (GET, PUT)
-- **EmailListResource**: Collection operations (GET, POST)
-
-#### Phone Call Endpoints:
-- **PhoneCallResource**: Operations on individual phone calls (GET, PUT, DELETE)
-- **PhoneCallListResource**: Collection operations (GET, POST)
-
-### Example API Usage
-
-#### Create Email (POST /api/emails)
-```json
-{
-  "therapist_id": 1,
-  "betreff": "Therapieanfrage für mehrere Patienten",
-  "body_html": "<html>...</html>",
-  "body_text": "...",
-  "empfaenger_email": "therapist@example.com",
-  "empfaenger_name": "Dr. Schmidt"
-}
-```
-
-#### Create Phone Call (POST /api/phone-calls)
-```json
-{
-  "therapist_id": 1,
-  "geplantes_datum": "2025-06-10",
-  "geplante_zeit": "14:30",
-  "dauer_minuten": 5
-}
-```
 
 ## Simplified Architecture
 
@@ -269,69 +235,3 @@ The Matching Service now:
 - SMS notification support
 - Calendar integration for scheduling
 - Real-time communication dashboard
-
-## Current API Examples
-
-### Email Operations
-
-#### Get Email by ID
-```bash
-curl http://localhost:8004/api/emails/1
-```
-
-Response (with German fields):
-```json
-{
-  "id": 1,
-  "therapist_id": 123,
-  "betreff": "Therapieanfrage",
-  "empfaenger_email": "doctor@example.com",
-  "empfaenger_name": "Dr. Schmidt",
-  "absender_email": "noreply@example.com",
-  "absender_name": "Therapy Platform",
-  "status": "SENT",
-  "antwort_erhalten": false,
-  "antwortdatum": null,
-  "sent_at": "2025-06-08T10:30:00"
-}
-```
-
-#### Update Email Response
-```bash
-curl -X PUT http://localhost:8004/api/emails/1 \
-  -H "Content-Type: application/json" \
-  -d '{
-    "antwort_erhalten": true,
-    "antwortdatum": "2025-06-09T14:00:00",
-    "antwortinhalt": "Ich kann 2 Patienten aufnehmen.",
-    "nachverfolgung_erforderlich": false
-  }'
-```
-
-### Phone Call Operations
-
-#### Schedule Phone Call
-```bash
-curl -X POST http://localhost:8004/api/phone-calls \
-  -H "Content-Type: application/json" \
-  -d '{
-    "therapist_id": 123,
-    "geplantes_datum": "2025-06-15",
-    "geplante_zeit": "10:00",
-    "dauer_minuten": 5,
-    "notizen": "Follow-up für Bündel #45"
-  }'
-```
-
-#### Update Call Outcome
-```bash
-curl -X PUT http://localhost:8004/api/phone-calls/1 \
-  -H "Content-Type: application/json" \
-  -d '{
-    "tatsaechliches_datum": "2025-06-15",
-    "tatsaechliche_zeit": "10:05",
-    "status": "completed",
-    "ergebnis": "Therapeut interessiert an 1 Patient",
-    "notizen": "Will sich nächste Woche melden"
-  }'
-```

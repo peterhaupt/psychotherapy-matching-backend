@@ -1,5 +1,7 @@
 # Therapist Service
 
+> **Note**: For API endpoint documentation, see `API_REFERENCE.md` which contains the complete API specification.
+
 ## Summary
 This document details the implementation of the Therapist Service, the second microservice developed for the Psychotherapy Matching Platform. The service handles all therapist-related data and operations, including therapist profile management, availability tracking, and status management.
 
@@ -22,25 +24,6 @@ The `TherapistStatus` enum defines possible therapist states:
 - ACTIVE: Therapist is available for matching
 - BLOCKED: Therapist is temporarily blocked from receiving new matches
 - INACTIVE: Therapist is no longer active in the system
-
-## API Implementation
-
-### Flask Application
-The main Flask application is configured in `therapist_service/app.py`, establishing REST endpoints and database connectivity.
-
-### API Endpoints
-Implemented in `therapist_service/api/therapists.py`:
-
-#### TherapistResource
-Handles individual therapist operations:
-- `GET /api/therapists/<id>`: Retrieve a specific therapist
-- `PUT /api/therapists/<id>`: Update an existing therapist
-- `DELETE /api/therapists/<id>`: Delete a therapist
-
-#### TherapistListResource
-Handles collection operations:
-- `GET /api/therapists`: Retrieve all therapists with optional filtering
-- `POST /api/therapists`: Create a new therapist
 
 ## Event Management
 
@@ -69,14 +52,6 @@ The therapist service has the following key dependencies:
 - PostgreSQL driver for database connectivity
 
 All dependencies are listed in `therapist_service/requirements.txt`.
-
-## Testing
-
-### API Testing
-The Therapist API can be tested using curl commands for various operations. Examples are provided in the API documentation.
-
-### Event Testing
-Kafka events can be tested using the provided Docker-based testing approach detailed in the Kafka Integration Testing document.
 
 ## Development Best Practices
 

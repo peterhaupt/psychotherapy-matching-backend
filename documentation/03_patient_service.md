@@ -1,5 +1,7 @@
 # Patient Service
 
+> **Note**: For API endpoint documentation, see `API_REFERENCE.md` which contains the complete API specification.
+
 ## Summary
 This document details the implementation of the Patient Service, the first microservice developed for the Psychotherapy Matching Platform. The service handles all patient-related data and operations, including patient profile management, medical information handling, preference tracking, and patient state management.
 
@@ -26,25 +28,6 @@ For specific fields and implementation details, refer to the model file directly
 Two key enum types define patient states:
 - `PatientStatus`: Tracks the current phase of the patient in the process (open, searching, in therapy, etc.)
 - `TherapistGenderPreference`: Captures patient preference for therapist gender
-
-## API Implementation
-
-### Flask Application
-The main Flask application is configured in `patient_service/app.py`, establishing REST endpoints and database connectivity.
-
-### API Endpoints
-Implemented in `patient_service/api/patients.py`:
-
-#### PatientResource
-Handles individual patient operations:
-- `GET /api/patients/<id>`: Retrieve a specific patient
-- `PUT /api/patients/<id>`: Update an existing patient
-- `DELETE /api/patients/<id>`: Delete a patient
-
-#### PatientListResource
-Handles collection operations:
-- `GET /api/patients`: Retrieve all patients with optional filtering
-- `POST /api/patients`: Create a new patient
 
 ## Event Management
 The Patient Service publishes events when patient data changes, allowing other services to react to these changes without tight coupling.
