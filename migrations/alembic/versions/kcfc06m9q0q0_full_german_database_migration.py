@@ -173,11 +173,15 @@ def upgrade() -> None:
             a.attname as column_name,
             confrelid::regclass as foreign_table_name,
             af.attname as foreign_column_name,
-            connamespace::regnamespace as schema_name,
-            confnamespace::regnamespace as foreign_schema_name
+            n.nspname as schema_name,
+            nf.nspname as foreign_schema_name
         FROM pg_constraint
         JOIN pg_attribute a ON a.attnum = ANY(conkey) AND a.attrelid = conrelid
         JOIN pg_attribute af ON af.attnum = ANY(confkey) AND af.attrelid = confrelid
+        JOIN pg_class c ON c.oid = conrelid
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        JOIN pg_class cf ON cf.oid = confrelid
+        JOIN pg_namespace nf ON nf.oid = cf.relnamespace
         WHERE contype = 'f' 
         AND (conrelid::regclass::text LIKE '%.patients' 
             OR conrelid::regclass::text LIKE '%.therapists' 
@@ -219,16 +223,16 @@ def upgrade() -> None:
                 BEGIN
                     -- Update table names
                     new_table_name := CASE 
-                        WHEN r.table_name LIKE '%.patients' THEN replace(r.table_name::text, 'patients', 'patienten')
-                        WHEN r.table_name LIKE '%.therapists' THEN replace(r.table_name::text, 'therapists', 'therapeuten')
-                        WHEN r.table_name LIKE '%.phone_calls' THEN replace(r.table_name::text, 'phone_calls', 'telefonanrufe')
+                        WHEN r.table_name::text LIKE '%.patients' THEN replace(r.table_name::text, 'patients', 'patienten')
+                        WHEN r.table_name::text LIKE '%.therapists' THEN replace(r.table_name::text, 'therapists', 'therapeuten')
+                        WHEN r.table_name::text LIKE '%.phone_calls' THEN replace(r.table_name::text, 'phone_calls', 'telefonanrufe')
                         ELSE r.table_name::text
                     END;
                     
                     new_foreign_table_name := CASE 
-                        WHEN r.foreign_table_name LIKE '%.patients' THEN replace(r.foreign_table_name::text, 'patients', 'patienten')
-                        WHEN r.foreign_table_name LIKE '%.therapists' THEN replace(r.foreign_table_name::text, 'therapists', 'therapeuten')
-                        WHEN r.foreign_table_name LIKE '%.phone_calls' THEN replace(r.foreign_table_name::text, 'phone_calls', 'telefonanrufe')
+                        WHEN r.foreign_table_name::text LIKE '%.patients' THEN replace(r.foreign_table_name::text, 'patients', 'patienten')
+                        WHEN r.foreign_table_name::text LIKE '%.therapists' THEN replace(r.foreign_table_name::text, 'therapists', 'therapeuten')
+                        WHEN r.foreign_table_name::text LIKE '%.phone_calls' THEN replace(r.foreign_table_name::text, 'phone_calls', 'telefonanrufe')
                         ELSE r.foreign_table_name::text
                     END;
                     
@@ -311,16 +315,16 @@ def downgrade() -> None:
                 BEGIN
                     -- Update table names back to English
                     new_table_name := CASE 
-                        WHEN r.table_name LIKE '%.patienten' THEN replace(r.table_name::text, 'patienten', 'patients')
-                        WHEN r.table_name LIKE '%.therapeuten' THEN replace(r.table_name::text, 'therapeuten', 'therapists')
-                        WHEN r.table_name LIKE '%.telefonanrufe' THEN replace(r.table_name::text, 'telefonanrufe', 'phone_calls')
+                        WHEN r.table_name::text LIKE '%.patienten' THEN replace(r.table_name::text, 'patienten', 'patients')
+                        WHEN r.table_name::text LIKE '%.therapeuten' THEN replace(r.table_name::text, 'therapeuten', 'therapists')
+                        WHEN r.table_name::text LIKE '%.telefonanrufe' THEN replace(r.table_name::text, 'telefonanrufe', 'phone_calls')
                         ELSE r.table_name::text
                     END;
                     
                     new_foreign_table_name := CASE 
-                        WHEN r.foreign_table_name LIKE '%.patienten' THEN replace(r.foreign_table_name::text, 'patienten', 'patients')
-                        WHEN r.foreign_table_name LIKE '%.therapeuten' THEN replace(r.foreign_table_name::text, 'therapeuten', 'therapists')
-                        WHEN r.foreign_table_name LIKE '%.telefonanrufe' THEN replace(r.foreign_table_name::text, 'telefonanrufe', 'phone_calls')
+                        WHEN r.foreign_table_name::text LIKE '%.patienten' THEN replace(r.foreign_table_name::text, 'patienten', 'patients')
+                        WHEN r.foreign_table_name::text LIKE '%.therapeuten' THEN replace(r.foreign_table_name::text, 'therapeuten', 'therapists')
+                        WHEN r.foreign_table_name::text LIKE '%.telefonanrufe' THEN replace(r.foreign_table_name::text, 'telefonanrufe', 'phone_calls')
                         ELSE r.foreign_table_name::text
                     END;
                     
@@ -351,5 +355,77 @@ def downgrade() -> None:
     op.execute("ALTER TYPE telefonanrufstatus RENAME TO phonecallstatus;")
     op.execute("ALTER TYPE therapeutgeschlechtspraeferenz RENAME TO therapistgenderpreference;")
     
-    # Revert enum values to English
-    # ... (inverse of upgrade operations)
+    # Revert enum values to English (reversed order)
+    op.execute("""
+        -- Revert patientenergebnis to patientoutcome
+        CREATE TYPE patientoutcome AS ENUM ('ACCEPTED', 'REJECTED_CAPACITY', 
+            'REJECTED_NOT_SUITABLE', 'REJECTED_OTHER', 'NO_SHOW', 'IN_SESSIONS');
+        DROP TYPE IF EXISTS patientenergebnis;
+    """)
+    
+    op.execute("""
+        -- Revert antworttyp to responsetype
+        CREATE TYPE responsetype AS ENUM ('FULL_ACCEPTANCE', 'PARTIAL_ACCEPTANCE', 
+            'FULL_REJECTION', 'NO_RESPONSE');
+        DROP TYPE IF EXISTS antworttyp;
+    """)
+    
+    op.execute("""
+        -- Revert emailstatus values
+        ALTER TYPE emailstatus RENAME TO emailstatus_old;
+        CREATE TYPE emailstatus AS ENUM ('DRAFT', 'QUEUED', 'SENDING', 'SENT', 'FAILED');
+        
+        ALTER TABLE communication_service.emails 
+            ALTER COLUMN status TYPE emailstatus 
+            USING CASE status::text
+                WHEN 'Entwurf' THEN 'DRAFT'::emailstatus
+                WHEN 'In_Warteschlange' THEN 'QUEUED'::emailstatus
+                WHEN 'Wird_gesendet' THEN 'SENDING'::emailstatus
+                WHEN 'Gesendet' THEN 'SENT'::emailstatus
+                WHEN 'Fehlgeschlagen' THEN 'FAILED'::emailstatus
+            END;
+        
+        DROP TYPE emailstatus_old;
+    """)
+    
+    op.execute("""
+        -- Revert therapeutstatus
+        CREATE TYPE therapiststatus AS ENUM ('ACTIVE', 'BLOCKED', 'INACTIVE');
+        
+        ALTER TABLE therapist_service.therapists ADD COLUMN status_temp therapiststatus;
+        
+        UPDATE therapist_service.therapists 
+        SET status_temp = CASE status::text
+            WHEN 'aktiv' THEN 'ACTIVE'::therapiststatus
+            WHEN 'gesperrt' THEN 'BLOCKED'::therapiststatus
+            WHEN 'inaktiv' THEN 'INACTIVE'::therapiststatus
+        END;
+        
+        ALTER TABLE therapist_service.therapists DROP COLUMN status;
+        ALTER TABLE therapist_service.therapists RENAME COLUMN status_temp TO status;
+        
+        DROP TYPE therapeutstatus;
+    """)
+    
+    op.execute("""
+        -- Revert patientenstatus to patientstatus
+        CREATE TYPE patientstatus AS ENUM ('OPEN', 'SEARCHING', 'IN_THERAPY', 
+            'THERAPY_COMPLETED', 'SEARCH_ABORTED', 'THERAPY_ABORTED');
+        
+        ALTER TABLE patient_service.patients ADD COLUMN status_temp patientstatus;
+        
+        UPDATE patient_service.patients 
+        SET status_temp = CASE status::text
+            WHEN 'offen' THEN 'OPEN'::patientstatus
+            WHEN 'auf_der_Suche' THEN 'SEARCHING'::patientstatus
+            WHEN 'in_Therapie' THEN 'IN_THERAPY'::patientstatus
+            WHEN 'Therapie_abgeschlossen' THEN 'THERAPY_COMPLETED'::patientstatus
+            WHEN 'Suche_abgebrochen' THEN 'SEARCH_ABORTED'::patientstatus
+            WHEN 'Therapie_abgebrochen' THEN 'THERAPY_ABORTED'::patientstatus
+        END;
+        
+        ALTER TABLE patient_service.patients DROP COLUMN status;
+        ALTER TABLE patient_service.patients RENAME COLUMN status_temp TO status;
+        
+        DROP TYPE patientenstatus;
+    """)
