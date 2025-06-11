@@ -9,12 +9,15 @@ This document standardizes terminology used throughout the Psychotherapy Matchin
 - **Pagination**: `page`, `limit`, `total`
 - **System fields**: `id`, `created_at`, `updated_at`
 - **HTTP/Technical concepts**: Status codes, technical errors
+- **Foreign keys**: All fields ending in `_id`
 
 ### German (Business Domain Layer)
 - **All entity fields**: Names, addresses, preferences, etc.
 - **Enum values**: Status values, types, categories
 - **Calculated fields**: Counts, summaries, derived data
 - **Business logic fields**: All domain-specific data
+- **Table names**: Entity tables use German names
+- **Enum type names**: Use German names
 
 ### Priority Rule
 When a field exists in the database, use that exact German name throughout the API.
@@ -36,6 +39,20 @@ When a field exists in the database, use that exact German name throughout the A
 | Bundle | Bündel |
 | Contact Request | Kontaktanfrage |
 
+## Database Tables
+
+| Current Name | German Name |
+|--------------|-------------|
+| patients | patienten |
+| therapists | therapeuten |
+| phone_calls | telefonanrufe |
+| emails | emails |
+| platzsuche | platzsuche |
+| therapeutenanfrage | therapeutenanfrage |
+| therapeut_anfrage_patient | therapeut_anfrage_patient |
+| geocache | geocache |
+| distance_cache | distance_cache |
+
 ## Bundle-Based System Terms
 
 | English | German |
@@ -54,39 +71,81 @@ When a field exists in the database, use that exact German name throughout the A
 | Response Summary | Antwort_zusammenfassung |
 | Response Complete | Antwort_vollstaendig |
 
-## Status Terms
+## Enum Types and Values
 
-| English | German |
-|---------|--------|
-| Open | Offen |
-| In Progress | In Bearbeitung |
-| Completed | Abgeschlossen |
-| Rejected | Abgelehnt |
-| Accepted | Angenommen |
-| Active | Aktiv |
-| Blocked | Gesperrt |
-| Inactive | Inaktiv |
-| Draft | Entwurf |
-| Queued | In Warteschlange |
-| Sending | Wird gesendet |
-| Sent | Gesendet |
-| Failed | Fehlgeschlagen |
-| Scheduled | Geplant |
-| Successful | Erfolgreich |
-| Abandoned | Abgebrochen |
-| Canceled | Abgebrochen |
-| Paused | Pausiert |
-| In Sessions | In Sitzungen |
-| Partial | Teilweise |
-| No Response | Keine Antwort |
-| Pending | Ausstehend |
+### patientenstatus (Patient Status)
+| Enum Value | German Display |
+|------------|----------------|
+| `offen` | Offen |
+| `auf_der_Suche` | Auf der Suche |
+| `in_Therapie` | In Therapie |
+| `Therapie_abgeschlossen` | Therapie abgeschlossen |
+| `Suche_abgebrochen` | Suche abgebrochen |
+| `Therapie_abgebrochen` | Therapie abgebrochen |
+
+### therapeutstatus (Therapist Status)
+| Enum Value | German Display |
+|------------|----------------|
+| `aktiv` | Aktiv |
+| `gesperrt` | Gesperrt |
+| `inaktiv` | Inaktiv |
+
+### suchstatus (Search Status)
+| Enum Value | German Display |
+|------------|----------------|
+| `aktiv` | Aktiv |
+| `erfolgreich` | Erfolgreich |
+| `pausiert` | Pausiert |
+| `abgebrochen` | Abgebrochen |
+
+### emailstatus (Email Status)
+| Enum Value | German Display |
+|------------|----------------|
+| `Entwurf` | Entwurf |
+| `In_Warteschlange` | In Warteschlange |
+| `Wird_gesendet` | Wird gesendet |
+| `Gesendet` | Gesendet |
+| `Fehlgeschlagen` | Fehlgeschlagen |
+
+### telefonanrufstatus (Phone Call Status)
+| Enum Value | German Display |
+|------------|----------------|
+| `geplant` | Geplant |
+| `abgeschlossen` | Abgeschlossen |
+| `fehlgeschlagen` | Fehlgeschlagen |
+| `abgebrochen` | Abgebrochen |
+
+### therapeutgeschlechtspraeferenz (Therapist Gender Preference)
+| Enum Value | German Display |
+|------------|----------------|
+| `Männlich` | Männlich |
+| `Weiblich` | Weiblich |
+| `Egal` | Egal |
+
+### antworttyp (Response Type)
+| Enum Value | German Display |
+|------------|----------------|
+| `vollstaendige_Annahme` | Vollständige Annahme |
+| `teilweise_Annahme` | Teilweise Annahme |
+| `vollstaendige_Ablehnung` | Vollständige Ablehnung |
+| `keine_Antwort` | Keine Antwort |
+
+### patientenergebnis (Patient Outcome)
+| Enum Value | German Display |
+|------------|----------------|
+| `angenommen` | Angenommen |
+| `abgelehnt_Kapazitaet` | Abgelehnt - Kapazität |
+| `abgelehnt_nicht_geeignet` | Abgelehnt - Nicht geeignet |
+| `abgelehnt_sonstiges` | Abgelehnt - Sonstiges |
+| `nicht_erschienen` | Nicht erschienen |
+| `in_Sitzungen` | In Sitzungen |
 
 ## Communication Terms
 
 | English | German |
 |---------|--------|
 | Email | E-Mail |
-| Phone Call | Telefonat |
+| Phone Call | Telefonanruf |
 | Batch | Stapel |
 | Template | Vorlage |
 | Recipient | Empfänger |
@@ -94,6 +153,10 @@ When a field exists in the database, use that exact German name throughout the A
 | Response | Antwort |
 | Subject | Betreff |
 | Content | Inhalt |
+| Body HTML | Inhalt HTML |
+| Body Text | Inhalt Text |
+| Queued At | In Warteschlange am |
+| Sent At | Gesendet am |
 | Follow-up | Nachverfolgung |
 | Reminder | Erinnerung |
 | Bundle Email | Bündel-E-Mail |
@@ -128,6 +191,9 @@ When a field exists in the database, use that exact German name throughout the A
 | Pre-qualification | Vorqualifizierung |
 | Send Immediately | Sofort_senden |
 | Dry Run | Testlauf |
+| Created Date | Erstellt Datum |
+| Sent Date | Gesendet Datum |
+| Response Date | Antwort Datum |
 
 ## Count and Calculation Fields
 
@@ -275,6 +341,13 @@ When a field exists in the database, use that exact German name throughout the A
 | Time Availability | zeitliche_verfuegbarkeit |
 | Excluded Therapists | ausgeschlossene_therapeuten |
 | Preferred Therapist Gender | bevorzugtes_therapeutengeschlecht |
+| Body HTML | inhalt_html |
+| Body Text | inhalt_text |
+| Queued At | in_warteschlange_am |
+| Sent At | gesendet_am |
+| Created Date | erstellt_datum |
+| Sent Date | gesendet_datum |
+| Response Date | antwort_datum |
 
 ## API Response Field Naming Convention
 
@@ -283,3 +356,13 @@ When translating API response fields, use underscores for compound German words:
 - `response_summary` → `antwort_zusammenfassung`
 - `days_since_sent` → `tage_seit_versand`
 - `excluded_therapists_count` → `ausgeschlossene_therapeuten_anzahl`
+
+## Enum Naming Conventions
+
+All enum types and values follow these rules:
+1. **Enum type names**: Use German compound words without underscores (e.g., `patientenstatus`, `therapeutstatus`)
+2. **Enum values**: Use underscores for multi-word values (e.g., `auf_der_Suche`, `in_Therapie`)
+3. **Capitalization**: Follow German noun capitalization within enum values
+4. **Special characters**: No umlauts in database names (use `ae`, `oe`, `ue`)
+
+*Last updated: December 2024*
