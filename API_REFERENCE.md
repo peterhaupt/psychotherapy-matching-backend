@@ -2,7 +2,7 @@
 
 **Single Source of Truth for All API Integration**
 
-Last Updated: June 10, 2025
+Last Updated: December 2024
 
 ## Overview
 
@@ -49,24 +49,24 @@ This document contains the complete API specification for all microservices. All
 
 ## Enum Values
 
-### Patient Status
+### Patient Status (patientenstatus)
 ```
 "offen"
-"auf der Suche"
-"in Therapie"
-"Therapie abgeschlossen"
-"Suche abgebrochen"
-"Therapie abgebrochen"
+"auf_der_Suche"
+"in_Therapie"
+"Therapie_abgeschlossen"
+"Suche_abgebrochen"
+"Therapie_abgebrochen"
 ```
 
-### Therapist Status
+### Therapist Status (therapeutstatus)
 ```
 "aktiv"
 "gesperrt"
 "inaktiv"
 ```
 
-### Search Status
+### Search Status (suchstatus)
 ```
 "aktiv"
 "erfolgreich"
@@ -74,16 +74,16 @@ This document contains the complete API specification for all microservices. All
 "abgebrochen"
 ```
 
-### Email Status
+### Email Status (emailstatus)
 ```
-"DRAFT"
-"QUEUED"
-"SENDING"
-"SENT"
-"FAILED"
+"Entwurf"
+"In_Warteschlange"
+"Wird_gesendet"
+"Gesendet"
+"Fehlgeschlagen"
 ```
 
-### Phone Call Status
+### Phone Call Status (telefonanrufstatus)
 ```
 "geplant"
 "abgeschlossen"
@@ -91,21 +91,29 @@ This document contains the complete API specification for all microservices. All
 "abgebrochen"
 ```
 
-### Gender Preference
+### Gender Preference (therapeutgeschlechtspraeferenz)
 ```
-"MALE"
-"FEMALE"
-"ANY"
+"Männlich"
+"Weiblich"
+"Egal"
 ```
 
-### Patient Outcomes
+### Response Type (antworttyp)
+```
+"vollstaendige_Annahme"
+"teilweise_Annahme"
+"vollstaendige_Ablehnung"
+"keine_Antwort"
+```
+
+### Patient Outcomes (patientenergebnis)
 ```
 "angenommen"
-"abgelehnt_kapazitaet"
+"abgelehnt_Kapazitaet"
 "abgelehnt_nicht_geeignet"
 "abgelehnt_sonstiges"
 "nicht_erschienen"
-"in_sitzungen"
+"in_Sitzungen"
 ```
 
 ---
@@ -123,7 +131,7 @@ This document contains the complete API specification for all microservices. All
 
 **Example Request:**
 ```bash
-curl "http://localhost:8001/api/patients?status=auf%20der%20Suche&page=1&limit=20"
+curl "http://localhost:8001/api/patients?status=auf_der_Suche&page=1&limit=20"
 ```
 
 **Example Response:**
@@ -150,7 +158,7 @@ curl "http://localhost:8001/api/patients?status=auf%20der%20Suche&page=1&limit=2
       "startdatum": "2025-01-15",
       "erster_therapieplatz_am": null,
       "funktionierender_therapieplatz_am": null,
-      "status": "auf der Suche",
+      "status": "auf_der_Suche",
       "empfehler_der_unterstuetzung": "Hausarzt",
       "zeitliche_verfuegbarkeit": {
         "monday": [{"start": "09:00", "end": "17:00"}],
@@ -163,7 +171,7 @@ curl "http://localhost:8001/api/patients?status=auf%20der%20Suche&page=1&limit=2
       "offen_fuer_gruppentherapie": false,
       "offen_fuer_diga": false,
       "ausgeschlossene_therapeuten": [45, 67],
-      "bevorzugtes_therapeutengeschlecht": "FEMALE",
+      "bevorzugtes_therapeutengeschlecht": "Weiblich",
       "created_at": "2025-05-01T08:00:00",
       "updated_at": "2025-06-01T14:30:00"
     }
@@ -203,7 +211,7 @@ curl "http://localhost:8001/api/patients/1"
   "vertraege_unterschrieben": true,
   "psychotherapeutische_sprechstunde": true,
   "startdatum": "2025-01-15",
-  "status": "auf der Suche",
+  "status": "auf_der_Suche",
   "zeitliche_verfuegbarkeit": {
     "monday": [{"start": "09:00", "end": "17:00"}]
   },
@@ -212,7 +220,7 @@ curl "http://localhost:8001/api/patients/1"
   },
   "verkehrsmittel": "Auto",
   "offen_fuer_gruppentherapie": false,
-  "bevorzugtes_therapeutengeschlecht": "FEMALE",
+  "bevorzugtes_therapeutengeschlecht": "Weiblich",
   "ausgeschlossene_therapeuten": [45, 67],
   "created_at": "2025-05-01T08:00:00",
   "updated_at": "2025-06-01T14:30:00"
@@ -253,7 +261,7 @@ curl -X POST "http://localhost:8001/api/patients" \
       "max_km": 25
     },
     "verkehrsmittel": "ÖPNV",
-    "bevorzugtes_therapeutengeschlecht": "ANY",
+    "bevorzugtes_therapeutengeschlecht": "Egal",
     "offen_fuer_gruppentherapie": true,
     "ausgeschlossene_therapeuten": []
   }'
@@ -286,7 +294,7 @@ curl -X POST "http://localhost:8001/api/patients" \
 curl -X PUT "http://localhost:8001/api/patients/1" \
   -H "Content-Type: application/json" \
   -d '{
-    "status": "in Therapie",
+    "status": "in_Therapie",
     "funktionierender_therapieplatz_am": "2025-06-15"
   }'
 ```
@@ -297,7 +305,7 @@ curl -X PUT "http://localhost:8001/api/patients/1" \
   "id": 1,
   "vorname": "Anna",
   "nachname": "Müller",
-  "status": "in Therapie",
+  "status": "in_Therapie",
   "funktionierender_therapieplatz_am": "2025-06-15",
   "updated_at": "2025-06-10T10:35:00"
 }
@@ -726,7 +734,7 @@ curl -X PUT "http://localhost:8003/api/therapeutenanfragen/101/antwort" \
   -d '{
     "patient_responses": {
       "1": "angenommen",
-      "5": "abgelehnt_kapazitaet",
+      "5": "abgelehnt_Kapazitaet",
       "8": "angenommen",
       "12": "abgelehnt_nicht_geeignet"
     },
@@ -739,7 +747,7 @@ curl -X PUT "http://localhost:8003/api/therapeutenanfragen/101/antwort" \
 {
   "message": "Bundle response recorded successfully",
   "bundle_id": 101,
-  "response_type": "teilweise_annahme",
+  "response_type": "teilweise_Annahme",
   "angenommene_patienten": [
     {"patient_id": 1, "platzsuche_id": 10},
     {"patient_id": 8, "platzsuche_id": 23}
@@ -792,7 +800,7 @@ curl -X POST "http://localhost:8003/api/buendel/erstellen" \
 
 **Example Request:**
 ```bash
-curl "http://localhost:8004/api/emails?status=SENT"
+curl "http://localhost:8004/api/emails?status=Gesendet"
 ```
 
 **Example Response:**
@@ -807,7 +815,7 @@ curl "http://localhost:8004/api/emails?status=SENT"
       "empfaenger_name": "Dr. Schmidt",
       "absender_email": "info@boona.de",
       "absender_name": "Boona Team",
-      "status": "SENT",
+      "status": "Gesendet",
       "antwort_erhalten": false,
       "antwortdatum": null,
       "antwortinhalt": null,
@@ -868,7 +876,7 @@ curl -X POST "http://localhost:8004/api/emails" \
   "betreff": "Therapieanfrage für mehrere Patienten",
   "empfaenger_email": "doctor@example.com",
   "empfaenger_name": "Dr. Schmidt",
-  "status": "QUEUED",
+  "status": "In_Warteschlange",
   "created_at": "2025-06-10T12:00:00",
   "updated_at": "2025-06-10T12:00:00"
 }
@@ -1192,7 +1200,7 @@ curl "http://localhost:8001/api/patients/1"
 # 4. Update patient
 curl -X PUT "http://localhost:8001/api/patients/1" \
   -H "Content-Type: application/json" \
-  -d '{"status": "auf der Suche"}'
+  -d '{"status": "auf_der_Suche"}'
 
 # 5. Delete patient
 curl -X DELETE "http://localhost:8001/api/patients/1"
@@ -1222,4 +1230,4 @@ curl -X PUT "http://localhost:8003/api/therapeutenanfragen/1/antwort" \
 
 ---
 
-**Note:** This document represents the current API state as of June 10, 2025. All field names are in German, and the structure is flat (no nested objects). Always use the exact field names and enum values specified in this document.
+**Note:** This document represents the current API state as of December 2024. All field names are in German, and the structure is flat (no nested objects). Always use the exact field names and enum values specified in this document.

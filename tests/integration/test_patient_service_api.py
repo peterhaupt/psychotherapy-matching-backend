@@ -131,13 +131,13 @@ class TestPatientServiceAPI:
     
     def test_get_patients_with_status_filter(self):
         """Test filtering patients by status."""
-        # Create patients with different statuses
+        # Create patients with different statuses (using German values)
         patient1 = self.create_test_patient(vorname="Patient1", status="offen")
-        patient2 = self.create_test_patient(vorname="Patient2", status="auf der Suche")
-        patient3 = self.create_test_patient(vorname="Patient3", status="in Therapie")
+        patient2 = self.create_test_patient(vorname="Patient2", status="auf_der_Suche")
+        patient3 = self.create_test_patient(vorname="Patient3", status="in_Therapie")
         
-        # Filter by status "auf der Suche"
-        response = requests.get(f"{BASE_URL}/patients?status=auf der Suche")
+        # Filter by status "auf_der_Suche"
+        response = requests.get(f"{BASE_URL}/patients?status=auf_der_Suche")
         assert response.status_code == 200
         
         patients = response.json()
@@ -225,7 +225,7 @@ class TestPatientServiceAPI:
         assert patient['vorname'] == "Minimal"
         assert patient['nachname'] == "Patient"
         assert 'id' in patient
-        assert patient['status'] == "offen"  # Default status
+        assert patient['status'] == "offen"  # Default status in German
     
     def test_create_patient_full(self):
         """Test creating patient with all fields."""
@@ -246,7 +246,7 @@ class TestPatientServiceAPI:
             "vertraege_unterschrieben": True,
             "psychotherapeutische_sprechstunde": False,
             "startdatum": "2025-02-01",
-            "status": "auf der Suche",
+            "status": "auf_der_Suche",  # German enum value
             "empfehler_der_unterstuetzung": "Hausarzt",
             "zeitliche_verfuegbarkeit": {
                 "monday": [{"start": "18:00", "end": "20:00"}],
@@ -261,7 +261,7 @@ class TestPatientServiceAPI:
             "offen_fuer_gruppentherapie": True,
             "offen_fuer_diga": True,
             "ausgeschlossene_therapeuten": [123, 456, 789],
-            "bevorzugtes_therapeutengeschlecht": "Weiblich"
+            "bevorzugtes_therapeutengeschlecht": "Weiblich"  # German enum value
         }
         
         response = requests.post(
@@ -279,7 +279,7 @@ class TestPatientServiceAPI:
         assert patient['vorname'] == "Maria"
         assert patient['nachname'] == "Wagner"
         assert patient['email'] == "maria.wagner@example.com"
-        assert patient['status'] == "auf der Suche"
+        assert patient['status'] == "auf_der_Suche"
         assert patient['offen_fuer_gruppentherapie'] == True
         assert patient['bevorzugtes_therapeutengeschlecht'] == "Weiblich"
     
@@ -308,7 +308,7 @@ class TestPatientServiceAPI:
         data = {
             "vorname": "Invalid",
             "nachname": "Status",
-            "status": "invalid_status"
+            "status": "invalid_status"  # Not a valid German enum value
         }
         
         response = requests.post(
@@ -317,9 +317,11 @@ class TestPatientServiceAPI:
             headers=self.base_headers
         )
         
-        # Should either reject or ignore invalid status
-        # Implementation might vary, but should not crash
-        assert response.status_code in [201, 400]
+        # Should reject invalid status
+        assert response.status_code == 400
+        error = response.json()
+        assert 'message' in error
+        assert 'status' in error['message'].lower()
     
     # --- PUT /patients/{id} Tests ---
     
@@ -348,7 +350,7 @@ class TestPatientServiceAPI:
         patient = self.create_test_patient()
         
         update_data = {
-            "status": "in Therapie",
+            "status": "in_Therapie",  # German enum value
             "funktionierender_therapieplatz_am": "2025-06-15",
             "telefon": "+49 30 11111111",
             "offen_fuer_gruppentherapie": True
@@ -363,7 +365,7 @@ class TestPatientServiceAPI:
         assert response.status_code == 200
         
         updated = response.json()
-        assert updated['status'] == "in Therapie"
+        assert updated['status'] == "in_Therapie"
         assert updated['telefon'] == "+49 30 11111111"
         assert updated['offen_fuer_gruppentherapie'] == True
     
@@ -386,14 +388,14 @@ class TestPatientServiceAPI:
         assert 'not found' in error['message'].lower()
     
     def test_update_patient_status_transitions(self):
-        """Test various status transitions."""
+        """Test various status transitions with German values."""
         patient = self.create_test_patient(status="offen")
         
-        # Valid status transitions
+        # Valid status transitions with German values
         status_sequence = [
-            "auf der Suche",
-            "in Therapie",
-            "Therapie abgeschlossen"
+            "auf_der_Suche",
+            "in_Therapie",
+            "Therapie_abgeschlossen"
         ]
         
         for new_status in status_sequence:
@@ -467,15 +469,15 @@ class TestPatientServiceAPI:
         retrieved = get_response.json()
         assert retrieved['vorname'] == "Lifecycle"
         
-        # 3. Update
+        # 3. Update with German enum value
         update_response = requests.put(
             f"{BASE_URL}/patients/{patient_id}",
-            json={"status": "in Therapie", "email": "updated.lifecycle@test.com"},
+            json={"status": "in_Therapie", "email": "updated.lifecycle@test.com"},
             headers=self.base_headers
         )
         assert update_response.status_code == 200
         updated = update_response.json()
-        assert updated['status'] == "in Therapie"
+        assert updated['status'] == "in_Therapie"
         assert updated['email'] == "updated.lifecycle@test.com"
         
         # 4. Delete
@@ -541,11 +543,11 @@ class TestPatientServiceAPI:
         """Test all German enum values for PatientStatus."""
         status_values = [
             "offen",
-            "auf der Suche",
-            "in Therapie",
-            "Therapie abgeschlossen",
-            "Suche abgebrochen",
-            "Therapie abgebrochen"
+            "auf_der_Suche",
+            "in_Therapie",
+            "Therapie_abgeschlossen",
+            "Suche_abgebrochen",
+            "Therapie_abgebrochen"
         ]
         
         for status in status_values:
@@ -561,8 +563,8 @@ class TestPatientServiceAPI:
             assert retrieved['status'] == status
     
     def test_therapist_gender_preference_enum(self):
-        """Test TherapistGenderPreference enum values."""
-        preferences = ["Männlich", "Weiblich", "Egal"]  # Updated to German values
+        """Test TherapistGenderPreference enum values with German values."""
+        preferences = ["Männlich", "Weiblich", "Egal"]  # German values
         
         for pref in preferences:
             patient = self.create_test_patient(
@@ -597,6 +599,42 @@ class TestPatientServiceAPI:
             if field in retrieved and retrieved[field]:
                 # Should be a valid date string
                 assert isinstance(retrieved[field], str)
+    
+    def test_invalid_german_enum_values(self):
+        """Test that invalid German enum values are rejected."""
+        # Test invalid status
+        data = {
+            "vorname": "Test",
+            "nachname": "Invalid",
+            "status": "searching"  # English value, should be rejected
+        }
+        
+        response = requests.post(
+            f"{BASE_URL}/patients",
+            json=data,
+            headers=self.base_headers
+        )
+        
+        assert response.status_code == 400
+        error = response.json()
+        assert 'Invalid status value' in error['message']
+        
+        # Test invalid gender preference
+        data2 = {
+            "vorname": "Test",
+            "nachname": "Invalid2",
+            "bevorzugtes_therapeutengeschlecht": "FEMALE"  # English value, should be rejected
+        }
+        
+        response2 = requests.post(
+            f"{BASE_URL}/patients",
+            json=data2,
+            headers=self.base_headers
+        )
+        
+        assert response2.status_code == 400
+        error2 = response2.json()
+        assert 'Invalid gender preference value' in error2['message']
 
 
 if __name__ == "__main__":
