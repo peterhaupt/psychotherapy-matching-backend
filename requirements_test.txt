@@ -1,4 +1,19 @@
+# Testing dependencies
 pytest==8.3.5
+pytest-cov==6.1.1
+pytest-timeout==2.3.1
+
+# HTTP client for API testing
+requests==2.31.0
+
+# Database testing (for schema tests)
 sqlalchemy==2.0.40
 psycopg2-binary==2.9.10
+
+# Environment configuration
 python-dotenv==1.0.1
+
+# Additional testing utilities
+pytest-env==1.1.3  # For setting environment variables in tests
+pytest-mock==3.14.0  # For mocking
+responses==0.25.0  # For mocking HTTP responses (if needed)
