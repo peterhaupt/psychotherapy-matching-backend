@@ -15,11 +15,11 @@ class PatientStatus(str, Enum):
     """Enumeration for patient status values."""
 
     OPEN = "offen"
-    SEARCHING = "auf der Suche"
-    IN_THERAPY = "in Therapie"
-    THERAPY_COMPLETED = "Therapie abgeschlossen"
-    SEARCH_ABORTED = "Suche abgebrochen"
-    THERAPY_ABORTED = "Therapie abgebrochen"
+    SEARCHING = "auf_der_Suche"
+    IN_THERAPY = "in_Therapie"
+    THERAPY_COMPLETED = "Therapie_abgeschlossen"
+    SEARCH_ABORTED = "Suche_abgebrochen"
+    THERAPY_ABORTED = "Therapie_abgebrochen"
 
 
 class TherapistGenderPreference(str, Enum):
@@ -38,7 +38,7 @@ class Patient(Base):
     therapy history.
     """
 
-    __tablename__ = "patients"
+    __tablename__ = "patienten"
     __table_args__ = {"schema": "patient_service"}
 
     id = Column(Integer, primary_key=True, index=True)
@@ -67,7 +67,7 @@ class Patient(Base):
     erster_therapieplatz_am = Column(Date)
     funktionierender_therapieplatz_am = Column(Date)
     status = Column(
-        SQLAlchemyEnum(PatientStatus),
+        SQLAlchemyEnum(PatientStatus, name='patientenstatus', native_enum=True),
         default=PatientStatus.OPEN
     )
     empfehler_der_unterstuetzung = Column(Text)
@@ -104,7 +104,7 @@ class Patient(Base):
     # Therapist Exclusions and Preferences
     ausgeschlossene_therapeuten = Column(JSONB)  # Liste von Therapeuten-IDs
     bevorzugtes_therapeutengeschlecht = Column(
-        SQLAlchemyEnum(TherapistGenderPreference),
+        SQLAlchemyEnum(TherapistGenderPreference, name='therapeutgeschlechtspraeferenz', native_enum=True),
         default=TherapistGenderPreference.ANY
     )
 
