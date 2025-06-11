@@ -6,12 +6,13 @@ their key columns.
 
 IMPORTANT: All field names use German terminology for consistency.
 
-Current State (after migration icfc04k7o8o8):
+Current State (after migration jcfc05l8p9p9):
 - All database fields use German names
 - placement_requests table has been removed
 - email_batches and phone_call_batches tables have been removed
 - Bundle references moved to matching_service.therapeutenanfrage
 - Search status and phone call status now use German enum values
+- TherapistGenderPreference enum now uses German values
 """
 import os
 import sys
@@ -282,7 +283,7 @@ def test_enum_types(db_engine):
     expected_enums = {
         'patientstatus': ['OPEN', 'SEARCHING', 'IN_THERAPY', 'THERAPY_COMPLETED', 
                          'SEARCH_ABORTED', 'THERAPY_ABORTED'],
-        'therapistgenderpreference': ['MALE', 'FEMALE', 'ANY'],
+        'therapistgenderpreference': ['Männlich', 'Weiblich', 'Egal'],  # Updated to German
         'therapiststatus': ['ACTIVE', 'BLOCKED', 'INACTIVE'],
         'emailstatus': ['DRAFT', 'QUEUED', 'SENDING', 'SENT', 'FAILED'],
         # New enums with German values
@@ -293,7 +294,7 @@ def test_enum_types(db_engine):
     for enum_name, expected_values in expected_enums.items():
         assert enum_name in enums, f"Enum type '{enum_name}' not found"
         # For the new German enums, verify the values match exactly
-        if enum_name in ['searchstatus', 'phonecallstatus']:
+        if enum_name in ['searchstatus', 'phonecallstatus', 'therapistgenderpreference']:
             actual_values = enums[enum_name]
             assert set(actual_values) == set(expected_values), \
                    f"Enum '{enum_name}' has incorrect values. Expected: {expected_values}, Got: {actual_values}"

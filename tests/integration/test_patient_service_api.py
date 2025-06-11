@@ -81,7 +81,7 @@ class TestPatientServiceAPI:
             "offen_fuer_gruppentherapie": False,
             "offen_fuer_diga": False,
             "ausgeschlossene_therapeuten": [],
-            "bevorzugtes_therapeutengeschlecht": "ANY"
+            "bevorzugtes_therapeutengeschlecht": "Egal"
         }
         
         # Override with provided data
@@ -261,7 +261,7 @@ class TestPatientServiceAPI:
             "offen_fuer_gruppentherapie": True,
             "offen_fuer_diga": True,
             "ausgeschlossene_therapeuten": [123, 456, 789],
-            "bevorzugtes_therapeutengeschlecht": "FEMALE"
+            "bevorzugtes_therapeutengeschlecht": "Weiblich"
         }
         
         response = requests.post(
@@ -281,7 +281,7 @@ class TestPatientServiceAPI:
         assert patient['email'] == "maria.wagner@example.com"
         assert patient['status'] == "auf der Suche"
         assert patient['offen_fuer_gruppentherapie'] == True
-        assert patient['bevorzugtes_therapeutengeschlecht'] == "FEMALE"
+        assert patient['bevorzugtes_therapeutengeschlecht'] == "Weiblich"
     
     def test_create_patient_missing_required_field(self):
         """Test creating patient without required field returns error."""
@@ -562,7 +562,7 @@ class TestPatientServiceAPI:
     
     def test_therapist_gender_preference_enum(self):
         """Test TherapistGenderPreference enum values."""
-        preferences = ["MALE", "FEMALE", "ANY"]
+        preferences = ["Männlich", "Weiblich", "Egal"]  # Updated to German values
         
         for pref in preferences:
             patient = self.create_test_patient(

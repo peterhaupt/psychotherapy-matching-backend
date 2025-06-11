@@ -136,22 +136,35 @@ class PatientResource(Resource):
             for key, value in args.items():
                 if value is not None:
                     if key == 'status' and value:
-                        # Handle status enum - convert German value to enum
+                        # Handle status enum - find by value
                         try:
-                            # Find the enum by its value
+                            # Find the enum member by its value
+                            status_enum = None
                             for status in PatientStatus:
                                 if status.value == value:
-                                    patient.status = status
+                                    status_enum = status
                                     break
+                            
+                            if status_enum:
+                                patient.status = status_enum
                             else:
-                                # If no match found, try by name (for backwards compatibility)
-                                patient.status = PatientStatus(value)
+                                return {'message': f'Invalid status value: {value}'}, 400
                         except ValueError:
                             return {'message': f'Invalid status value: {value}'}, 400
                     elif key == 'bevorzugtes_therapeutengeschlecht' and value:
-                        # Handle gender preference enum
+                        # Handle gender preference enum - find by value
                         try:
-                            patient.bevorzugtes_therapeutengeschlecht = TherapistGenderPreference(value)
+                            # Find the enum member by its value
+                            gender_enum = None
+                            for gender in TherapistGenderPreference:
+                                if gender.value == value:
+                                    gender_enum = gender
+                                    break
+                            
+                            if gender_enum:
+                                patient.bevorzugtes_therapeutengeschlecht = gender_enum
+                            else:
+                                return {'message': f'Invalid gender preference value: {value}'}, 400
                         except ValueError:
                             return {'message': f'Invalid gender preference value: {value}'}, 400
                     elif key in ['geburtsdatum', 'startdatum', 'erster_therapieplatz_am', 'funktionierender_therapieplatz_am'] and value:
@@ -295,7 +308,7 @@ class PatientListResource(PaginatedListResource):
             for key, value in args.items():
                 if value is not None:
                     if key == 'status' and value:
-                        # Handle status enum
+                        # Handle status enum - find by value
                         status_enum = None
                         for ps in PatientStatus:
                             if ps.value == value:
@@ -307,10 +320,16 @@ class PatientListResource(PaginatedListResource):
                         else:
                             return {'message': f'Invalid status value: {value}'}, 400
                     elif key == 'bevorzugtes_therapeutengeschlecht' and value:
-                        # Handle gender preference enum
-                        try:
-                            patient_data[key] = TherapistGenderPreference(value)
-                        except ValueError:
+                        # Handle gender preference enum - find by value
+                        gender_enum = None
+                        for gender in TherapistGenderPreference:
+                            if gender.value == value:
+                                gender_enum = gender
+                                break
+                        
+                        if gender_enum:
+                            patient_data[key] = gender_enum
+                        else:
                             return {'message': f'Invalid gender preference value: {value}'}, 400
                     elif key in ['geburtsdatum', 'startdatum'] and value:
                         # Handle date fields
