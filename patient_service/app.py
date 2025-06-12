@@ -3,7 +3,7 @@ from flask import Flask
 from flask_restful import Api
 from flask_cors import CORS
 
-from api.patients import PatientResource, PatientListResource
+from api.patients import PatientResource, PatientListResource, PatientCommunicationResource
 from shared.config import get_config
 
 
@@ -30,6 +30,10 @@ def create_app():
     # Register API endpoints
     api.add_resource(PatientListResource, '/api/patients')
     api.add_resource(PatientResource, '/api/patients/<int:patient_id>')
+    
+    # NEW: Register communication history endpoint
+    api.add_resource(PatientCommunicationResource, 
+                     '/api/patients/<int:patient_id>/communication')
 
     return app
 

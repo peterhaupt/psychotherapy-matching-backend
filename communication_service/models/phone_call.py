@@ -1,4 +1,4 @@
-"""Phone call database models."""
+"""Phone call database models with patient support."""
 from datetime import datetime, date
 from enum import Enum
 from typing import Optional
@@ -21,9 +21,9 @@ class PhoneCallStatus(str, Enum):
 
 
 class PhoneCall(Base):
-    """Phone call database model with German field names.
+    """Phone call database model with German field names and patient support.
 
-    This model represents a scheduled or completed phone call to a therapist,
+    This model represents a scheduled or completed phone call to a therapist or patient,
     including call details, status tracking, and outcomes.
     """
 
@@ -31,7 +31,10 @@ class PhoneCall(Base):
     __table_args__ = {"schema": "communication_service"}
 
     id = Column(Integer, primary_key=True, index=True)
-    therapist_id = Column(Integer, nullable=False)
+    
+    # Recipients - now supports both therapist AND patient
+    therapist_id = Column(Integer, nullable=True)  # Changed from nullable=False
+    patient_id = Column(Integer, nullable=True)     # NEW field
     
     # Scheduling - German field names
     geplantes_datum = Column(Date, nullable=False)  # scheduled_date
@@ -54,11 +57,32 @@ class PhoneCall(Base):
     
     def __repr__(self):
         """Provide a string representation of the PhoneCall instance."""
+        recipient_type = "therapist" if self.therapist_id else "patient"
+        recipient_id = self.therapist_id or self.patient_id
         return (
-            f"<PhoneCall id={self.id} therapist_id={self.therapist_id} "
+            f"<PhoneCall id={self.id} to={recipient_type}:{recipient_id} "
             f"scheduled={self.geplantes_datum} {self.geplante_zeit} "
             f"status={self.status}>"
         )
+    
+    # Helper properties for patient support
+    @property
+    def recipient_type(self):
+        """Get the type of recipient (therapist or patient)."""
+        return 'therapist' if self.therapist_id else 'patient'
+
+    @property
+    def recipient_id(self):
+        """Get the ID of the recipient regardless of type."""
+        return self.therapist_id or self.patient_id
+
+    def is_for_patient(self) -> bool:
+        """Check if this phone call is for a patient."""
+        return self.patient_id is not None
+
+    def is_for_therapist(self) -> bool:
+        """Check if this phone call is for a therapist."""
+        return self.therapist_id is not None
     
     def mark_as_completed(self, 
                          actual_date: Optional[date] = None,

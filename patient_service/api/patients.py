@@ -1,18 +1,23 @@
-"""Patient API endpoints implementation with German enum support."""
+"""Patient API endpoints implementation with German enum support and communication history."""
 from flask import request, jsonify
 from flask_restful import Resource, fields, marshal_with, reqparse, marshal
 from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime
+import requests
+import logging
 
 from models.patient import Patient, PatientStatus, TherapistGenderPreference
 from shared.utils.database import SessionLocal
 from shared.api.base_resource import PaginatedListResource
+from shared.config import get_config
 from events.producers import (
     publish_patient_created,
     publish_patient_updated,
     publish_patient_deleted
 )
 
+# Get configuration
+config = get_config()
 
 # Custom field for enum serialization
 class EnumField(fields.Raw):
@@ -71,6 +76,7 @@ patient_fields = {
     'bevorzugtes_therapeutengeschlecht': EnumField,
     'created_at': DateField,
     'updated_at': DateField,
+    'letzter_kontakt': DateField,  # Last contact date
 }
 
 
@@ -189,6 +195,7 @@ class PatientResource(Resource):
         parser.add_argument('offen_fuer_diga', type=bool)
         parser.add_argument('ausgeschlossene_therapeuten', type=list, location='json')
         parser.add_argument('bevorzugtes_therapeutengeschlecht', type=str)
+        parser.add_argument('letzter_kontakt', type=str)
         
         args = parser.parse_args()
         
@@ -211,7 +218,7 @@ class PatientResource(Resource):
                             patient.bevorzugtes_therapeutengeschlecht = validate_and_get_gender_preference(value)
                         except ValueError as e:
                             return {'message': str(e)}, 400
-                    elif key in ['geburtsdatum', 'startdatum', 'erster_therapieplatz_am', 'funktionierender_therapieplatz_am']:
+                    elif key in ['geburtsdatum', 'startdatum', 'erster_therapieplatz_am', 'funktionierender_therapieplatz_am', 'letzter_kontakt']:
                         try:
                             setattr(patient, key, parse_date_field(value, key))
                         except ValueError as e:
@@ -376,3 +383,78 @@ class PatientListResource(PaginatedListResource):
             return {'message': f'Database error: {str(e)}'}, 500
         finally:
             db.close()
+
+
+class PatientCommunicationResource(Resource):
+    """REST resource for patient communication history."""
+    
+    def get(self, patient_id):
+        """Get communication history for a patient."""
+        # Verify patient exists
+        db = SessionLocal()
+        try:
+            patient = db.query(Patient).filter(Patient.id == patient_id).first()
+            if not patient:
+                return {'message': 'Patient not found'}, 404
+        finally:
+            db.close()
+        
+        # Call communication service to get emails and calls
+        comm_service_url = config.get_service_url('communication', internal=True)
+        
+        try:
+            # Get emails
+            email_response = requests.get(
+                f"{comm_service_url}/api/emails",
+                params={'patient_id': patient_id}
+            )
+            emails = email_response.json() if email_response.ok else []
+            
+            # Get phone calls
+            call_response = requests.get(
+                f"{comm_service_url}/api/phone-calls",
+                params={'patient_id': patient_id}
+            )
+            phone_calls = call_response.json() if call_response.ok else []
+            
+            # Combine and sort by date
+            all_communications = []
+            
+            # Add emails
+            for email in emails:
+                all_communications.append({
+                    'type': 'email',
+                    'id': email.get('id'),
+                    'date': email.get('gesendet_am') or email.get('created_at'),
+                    'subject': email.get('betreff'),
+                    'status': email.get('status'),
+                    'response_received': email.get('antwort_erhalten'),
+                    'data': email
+                })
+            
+            # Add phone calls
+            for call in phone_calls:
+                all_communications.append({
+                    'type': 'phone_call',
+                    'id': call.get('id'),
+                    'date': f"{call.get('geplantes_datum')} {call.get('geplante_zeit')}",
+                    'status': call.get('status'),
+                    'outcome': call.get('ergebnis'),
+                    'data': call
+                })
+            
+            # Sort by date (newest first)
+            all_communications.sort(key=lambda x: x['date'] or '', reverse=True)
+            
+            return {
+                'patient_id': patient_id,
+                'patient_name': f"{patient.vorname} {patient.nachname}",
+                'last_contact': patient.letzter_kontakt.isoformat() if patient.letzter_kontakt else None,
+                'total_emails': len(emails),
+                'total_calls': len(phone_calls),
+                'communications': all_communications
+            }
+            
+        except Exception as e:
+            logging.error(f"Error fetching communication history: {str(e)}")
+            return {'message': f'Error fetching communication history: {str(e)}'}, 500

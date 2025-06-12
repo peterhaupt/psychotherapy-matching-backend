@@ -1,4 +1,4 @@
-"""Email database models."""
+"""Email database models with patient support."""
 from datetime import datetime
 from enum import Enum
 
@@ -21,15 +21,18 @@ class EmailStatus(str, Enum):
 
 
 class Email(Base):
-    """Email database model with German field names."""
+    """Email database model with German field names and patient support."""
 
     __tablename__ = "emails"
     __table_args__ = {"schema": "communication_service"}
 
     id = Column(Integer, primary_key=True, index=True)
     
+    # Recipients - now supports both therapist AND patient
+    therapist_id = Column(Integer, nullable=True)  # Changed from nullable=False
+    patient_id = Column(Integer, nullable=True)     # NEW field
+    
     # Email metadata - German field names
-    therapist_id = Column(Integer, nullable=False)
     betreff = Column(String(255), nullable=False)  # subject
     inhalt_html = Column(Text, nullable=False)  # body_html
     inhalt_text = Column(Text, nullable=False)  # body_text
@@ -61,7 +64,28 @@ class Email(Base):
 
     def __repr__(self):
         """Provide a string representation of the Email instance."""
-        return f"<Email id={self.id} to={self.empfaenger_email} status={self.status}>"
+        recipient_type = "therapist" if self.therapist_id else "patient"
+        recipient_id = self.therapist_id or self.patient_id
+        return f"<Email id={self.id} to={recipient_type}:{recipient_id} status={self.status}>"
+    
+    # Helper properties for patient support
+    @property
+    def recipient_type(self):
+        """Get the type of recipient (therapist or patient)."""
+        return 'therapist' if self.therapist_id else 'patient'
+
+    @property
+    def recipient_id(self):
+        """Get the ID of the recipient regardless of type."""
+        return self.therapist_id or self.patient_id
+
+    def is_for_patient(self) -> bool:
+        """Check if this email is for a patient."""
+        return self.patient_id is not None
+
+    def is_for_therapist(self) -> bool:
+        """Check if this email is for a therapist."""
+        return self.therapist_id is not None
     
     def mark_as_sent(self) -> None:
         """Mark email as sent with timestamp."""

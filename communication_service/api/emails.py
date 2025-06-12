@@ -1,4 +1,4 @@
-"""Email API endpoints implementation."""
+"""Email API endpoints implementation with patient support."""
 from datetime import datetime
 from flask import request, current_app
 from flask_restful import Resource, fields, marshal_with, reqparse
@@ -30,6 +30,7 @@ class EnumField(fields.String):
 email_fields = {
     'id': fields.Integer,
     'therapist_id': fields.Integer,
+    'patient_id': fields.Integer,  # NEW field
     'betreff': fields.String,
     'empfaenger_email': fields.String,
     'empfaenger_name': fields.String,
@@ -105,13 +106,15 @@ class EmailResource(Resource):
 
 
 class EmailListResource(PaginatedListResource):
-    """REST resource for email collection operations."""
+    """REST resource for email collection operations with patient support."""
 
     @marshal_with(email_fields)
     def get(self):
         """Get a list of emails with optional filtering and pagination."""
         # Parse query parameters for filtering
         therapist_id = request.args.get('therapist_id', type=int)
+        patient_id = request.args.get('patient_id', type=int)  # NEW parameter
+        recipient_type = request.args.get('recipient_type')  # NEW parameter: 'therapist' or 'patient'
         status = request.args.get('status')
         antwort_erhalten = request.args.get('antwort_erhalten', type=bool)
         
@@ -119,15 +122,23 @@ class EmailListResource(PaginatedListResource):
         try:
             query = db.query(Email)
             
-            # Apply filters if provided
-            if therapist_id:
+            # Apply filters based on recipient type
+            if recipient_type == 'therapist' and therapist_id:
                 query = query.filter(Email.therapist_id == therapist_id)
+            elif recipient_type == 'patient' and patient_id:
+                query = query.filter(Email.patient_id == patient_id)
+            elif therapist_id:  # Backward compatibility
+                query = query.filter(Email.therapist_id == therapist_id)
+            elif patient_id:
+                query = query.filter(Email.patient_id == patient_id)
+            
             if status:
                 try:
                     query = query.filter(Email.status == EmailStatus(status))
                 except ValueError:
                     # Invalid status value, skip filter
                     pass
+            
             if antwort_erhalten is not None:
                 query = query.filter(Email.antwort_erhalten == antwort_erhalten)
             
@@ -144,14 +155,16 @@ class EmailListResource(PaginatedListResource):
 
     @marshal_with(email_fields)
     def post(self):
-        """Create a new email."""
+        """Create a new email with support for both therapist and patient recipients."""
         parser = reqparse.RequestParser()
-        # Required fields - German names
-        parser.add_argument('therapist_id', type=int, required=True,
-                           help='Therapist ID is required')
+        # Recipient fields - now both optional
+        parser.add_argument('therapist_id', type=int, required=False)
+        parser.add_argument('patient_id', type=int, required=False)  # NEW field
+        
+        # Required email fields - German names
         parser.add_argument('betreff', type=str, required=True,
                            help='Subject is required')
-        parser.add_argument('inhalt_html', type=str, required=True,  # Updated field name
+        parser.add_argument('inhalt_html', type=str, required=True,
                            help='HTML body is required')
         parser.add_argument('empfaenger_email', type=str, required=True,
                            help='Recipient email is required')
@@ -159,23 +172,30 @@ class EmailListResource(PaginatedListResource):
                            help='Recipient name is required')
         
         # Optional fields
-        parser.add_argument('inhalt_text', type=str)  # Updated field name
+        parser.add_argument('inhalt_text', type=str)
         parser.add_argument('absender_email', type=str)
         parser.add_argument('absender_name', type=str)
         parser.add_argument('status', type=str)
         
         args = parser.parse_args()
         
+        # Validate that exactly one recipient type is specified
+        if not args.get('therapist_id') and not args.get('patient_id'):
+            return {'message': 'Either therapist_id or patient_id is required'}, 400
+        if args.get('therapist_id') and args.get('patient_id'):
+            return {'message': 'Cannot specify both therapist_id and patient_id'}, 400
+        
         db = SessionLocal()
         try:
-            logging.info(f"Creating email for therapist_id={args['therapist_id']}")
+            logging.info(f"Creating email for {'therapist' if args.get('therapist_id') else 'patient'}_id={args.get('therapist_id') or args.get('patient_id')}")
             
             # Get email settings from centralized configuration
             smtp_settings = get_smtp_settings()
             
             # Create new email
             email = Email(
-                therapist_id=args['therapist_id'],
+                therapist_id=args.get('therapist_id'),
+                patient_id=args.get('patient_id'),
                 betreff=args['betreff'],
                 inhalt_html=args['inhalt_html'],
                 inhalt_text=args.get('inhalt_text', ''),
@@ -199,12 +219,32 @@ class EmailListResource(PaginatedListResource):
             try:
                 result = publish_email_created(email.id, {
                     'therapist_id': email.therapist_id,
+                    'patient_id': email.patient_id,
+                    'recipient_type': email.recipient_type,
                     'betreff': email.betreff,
                     'status': status_value
                 })
                 logging.debug(f"Event published, result={result}")
             except Exception as e:
                 logging.error(f"Error publishing email_created event: {e}", exc_info=True)
+            
+            # Update patient's last contact date if this is a patient email
+            if email.patient_id:
+                try:
+                    import requests
+                    from shared.config import get_config
+                    config = get_config()
+                    patient_service_url = config.get_service_url('patient', internal=True)
+                    
+                    # Update patient's letzter_kontakt field
+                    response = requests.put(
+                        f"{patient_service_url}/api/patients/{email.patient_id}",
+                        json={'letzter_kontakt': datetime.utcnow().date().isoformat()}
+                    )
+                    if response.ok:
+                        logging.info(f"Updated patient {email.patient_id} last contact date")
+                except Exception as e:
+                    logging.warning(f"Failed to update patient last contact date: {e}")
             
             return email, 201
         except SQLAlchemyError as e:
@@ -216,4 +256,4 @@ class EmailListResource(PaginatedListResource):
             logging.error(f"Unexpected error creating email: {str(e)}", exc_info=True)
             return {'message': f'Error: {str(e)}'}, 500
         finally:
-            db.close
+            db.close()
