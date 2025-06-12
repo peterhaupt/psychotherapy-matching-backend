@@ -11,7 +11,7 @@ from collections import defaultdict
 from sqlalchemy.orm import Session
 
 from models import Platzsuche, Therapeutenanfrage
-from models.platzsuche import SearchStatus
+from models.platzsuche import SuchStatus
 from services import (
     PatientService, 
     TherapistService, 
@@ -204,7 +204,7 @@ def get_active_patient_searches(db: Session) -> List[Platzsuche]:
         List of active Platzsuche instances
     """
     return db.query(Platzsuche).filter(
-        Platzsuche.status == SearchStatus.ACTIVE
+        Platzsuche.status == SuchStatus.aktiv
     ).all()
 
 
@@ -366,18 +366,18 @@ def check_gender_preference(
     Returns:
         True if gender matches preference or no preference
     """
-    preference = patient.get('bevorzugtes_therapeutengeschlecht', 'ANY')
+    preference = patient.get('bevorzugtes_therapeutengeschlecht', 'Egal')
     
-    if preference == 'ANY' or not preference:
+    if preference == 'Egal' or not preference:
         return True
     
-    therapist_gender = therapist.get('geschlecht', '').upper()
+    therapist_gender = therapist.get('geschlecht', '').lower()
     
     # Map therapist gender to preference format
-    if therapist_gender in ['M', 'MÄNNLICH', 'MANN']:
-        therapist_gender = 'MALE'
-    elif therapist_gender in ['F', 'W', 'WEIBLICH', 'FRAU']:
-        therapist_gender = 'FEMALE'
+    if therapist_gender in ['m', 'männlich', 'mann']:
+        therapist_gender = 'Männlich'
+    elif therapist_gender in ['f', 'w', 'weiblich', 'frau']:
+        therapist_gender = 'Weiblich'
     
     return therapist_gender == preference
 
@@ -741,8 +741,8 @@ def resolve_conflicts(
         # Get bundles for these therapists
         bundles = db.query(Therapeutenanfrage).filter(
             Therapeutenanfrage.therapist_id.in_(therapist_ids),
-            Therapeutenanfrage.response_date.isnot(None)
-        ).order_by(Therapeutenanfrage.response_date).all()
+            Therapeutenanfrage.antwort_datum.isnot(None)
+        ).order_by(Therapeutenanfrage.antwort_datum).all()
         
         if bundles:
             # First responder wins
@@ -840,7 +840,7 @@ def calculate_bundle_efficiency(bundles: List[Therapeutenanfrage]) -> Dict[str, 
     
     total_accepted = sum(b.angenommen_anzahl for b in bundles)
     total_patients = sum(b.buendelgroesse for b in bundles)
-    responded = sum(1 for b in bundles if b.response_date is not None)
+    responded = sum(1 for b in bundles if b.antwort_datum is not None)
     
     return {
         'average_acceptance_rate': total_accepted / total_patients if total_patients > 0 else 0.0,

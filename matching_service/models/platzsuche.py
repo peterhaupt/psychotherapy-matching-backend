@@ -13,13 +13,13 @@ from sqlalchemy.orm import relationship, validates
 from shared.utils.database import Base
 
 
-class SearchStatus(str, Enum):
+class SuchStatus(str, Enum):
     """Enumeration for patient search status values."""
     
-    ACTIVE = "aktiv"
-    SUCCESSFUL = "erfolgreich"
-    PAUSED = "pausiert"
-    CANCELLED = "abgebrochen"
+    aktiv = "aktiv"
+    erfolgreich = "erfolgreich"
+    pausiert = "pausiert"
+    abgebrochen = "abgebrochen"
 
 
 class Platzsuche(Base):
@@ -44,9 +44,9 @@ class Platzsuche(Base):
     
     # Search status
     status = Column(
-        SQLAlchemyEnum(SearchStatus),
+        SQLAlchemyEnum(SuchStatus, name='suchstatus', native_enum=True),
         nullable=False,
-        default=SearchStatus.ACTIVE,
+        default=SuchStatus.aktiv,
         index=True
     )
     
@@ -161,7 +161,7 @@ class Platzsuche(Base):
         Args:
             vermittlung_datum: Date of successful placement (defaults to now)
         """
-        self.status = SearchStatus.SUCCESSFUL
+        self.status = SuchStatus.erfolgreich
         self.erfolgreiche_vermittlung_datum = vermittlung_datum or datetime.utcnow()
         self.updated_at = datetime.utcnow()
     
@@ -171,7 +171,7 @@ class Platzsuche(Base):
         Args:
             reason: Optional reason for pausing
         """
-        self.status = SearchStatus.PAUSED
+        self.status = SuchStatus.pausiert
         self.updated_at = datetime.utcnow()
         if reason and self.notizen:
             self.notizen += f"\n\nPaused: {reason}"
@@ -180,8 +180,8 @@ class Platzsuche(Base):
     
     def resume_search(self) -> None:
         """Resume a paused search."""
-        if self.status == SearchStatus.PAUSED:
-            self.status = SearchStatus.ACTIVE
+        if self.status == SuchStatus.pausiert:
+            self.status = SuchStatus.aktiv
             self.updated_at = datetime.utcnow()
             if self.notizen:
                 self.notizen += "\n\nSearch resumed"
@@ -192,7 +192,7 @@ class Platzsuche(Base):
         Args:
             reason: Optional reason for cancellation
         """
-        self.status = SearchStatus.CANCELLED
+        self.status = SuchStatus.abgebrochen
         self.updated_at = datetime.utcnow()
         if reason and self.notizen:
             self.notizen += f"\n\nCancelled: {reason}"
@@ -209,7 +209,7 @@ class Platzsuche(Base):
             return 0
         
         return sum(1 for entry in self.bundle_entries 
-                  if entry.status == "pending")
+                  if entry.status == "anstehend")
     
     def get_total_bundle_count(self) -> int:
         """Get total count of bundles this search has been part of.
@@ -238,10 +238,10 @@ class Platzsuche(Base):
             
             # Define allowed transitions
             allowed_transitions = {
-                SearchStatus.ACTIVE: [SearchStatus.SUCCESSFUL, SearchStatus.PAUSED, SearchStatus.CANCELLED],
-                SearchStatus.PAUSED: [SearchStatus.ACTIVE, SearchStatus.CANCELLED],
-                SearchStatus.SUCCESSFUL: [],  # Terminal state
-                SearchStatus.CANCELLED: []    # Terminal state
+                SuchStatus.aktiv: [SuchStatus.erfolgreich, SuchStatus.pausiert, SuchStatus.abgebrochen],
+                SuchStatus.pausiert: [SuchStatus.aktiv, SuchStatus.abgebrochen],
+                SuchStatus.erfolgreich: [],  # Terminal state
+                SuchStatus.abgebrochen: []    # Terminal state
             }
             
             if new_status not in allowed_transitions.get(current, []):

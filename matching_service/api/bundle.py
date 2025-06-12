@@ -10,9 +10,9 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from shared.api import PaginatedListResource
 from db import get_db
 from models import Platzsuche, Therapeutenanfrage, TherapeutAnfragePatient
-from models.platzsuche import SearchStatus
-from models.therapeutenanfrage import ResponseType
-from models.therapeut_anfrage_patient import PatientOutcome
+from models.platzsuche import SuchStatus
+from models.therapeutenanfrage import AntwortTyp
+from models.therapeut_anfrage_patient import BuendelPatientStatus, PatientenErgebnis
 from services import BundleService, PatientService, TherapistService
 from events.producers import (
     publish_bundle_created,
@@ -55,8 +55,8 @@ class PlatzsucheResource(Resource):
                         "position": entry.position_im_buendel,
                         "status": entry.status.value,
                         "outcome": entry.antwortergebnis.value if entry.antwortergebnis else None,
-                        "sent_date": bundle.sent_date.isoformat() if bundle.sent_date else None,
-                        "response_date": bundle.response_date.isoformat() if bundle.response_date else None
+                        "sent_date": bundle.gesendet_datum.isoformat() if bundle.gesendet_datum else None,
+                        "response_date": bundle.antwort_datum.isoformat() if bundle.antwort_datum else None
                     })
                 
                 return {
@@ -99,7 +99,7 @@ class PlatzsucheResource(Resource):
                 # Update fields
                 if args.get('status'):
                     try:
-                        new_status = SearchStatus(args['status'])
+                        new_status = SuchStatus[args['status']]
                         search.status = new_status
                         
                         # Publish status change event
@@ -110,8 +110,9 @@ class PlatzsucheResource(Resource):
                                 old_status.value,
                                 new_status.value
                             )
-                    except ValueError:
-                        return {"message": f"Invalid status: {args['status']}"}, 400
+                    except KeyError:
+                        valid_values = [status.value for status in SuchStatus]
+                        return {"message": f"Invalid status '{args['status']}'. Valid values: {valid_values}"}, 400
                 
                 if args.get('notizen') is not None:
                     search.notizen = args['notizen']
@@ -153,7 +154,7 @@ class PlatzsucheResource(Resource):
                     search.id,
                     search.patient_id,
                     old_status.value,
-                    SearchStatus.CANCELLED.value
+                    SuchStatus.abgebrochen.value
                 )
                 
                 db.commit()
@@ -183,10 +184,11 @@ class PlatzsucheListResource(PaginatedListResource):
                 # Apply filters
                 if args.get('status'):
                     try:
-                        status = SearchStatus(args['status'])
+                        status = SuchStatus[args['status']]
                         query = query.filter(Platzsuche.status == status)
-                    except ValueError:
-                        return {"message": f"Invalid status: {args['status']}"}, 400
+                    except KeyError:
+                        valid_values = [s.value for s in SuchStatus]
+                        return {"message": f"Invalid status '{args['status']}'. Valid values: {valid_values}"}, 400
                 
                 if args.get('patient_id'):
                     query = query.filter(Platzsuche.patient_id == args['patient_id'])
@@ -258,7 +260,7 @@ class PlatzsucheListResource(PaginatedListResource):
                 existing = db.query(Platzsuche).filter(
                     and_(
                         Platzsuche.patient_id == args['patient_id'],
-                        Platzsuche.status == SearchStatus.ACTIVE
+                        Platzsuche.status == SuchStatus.aktiv
                     )
                 ).first()
                 
@@ -283,7 +285,7 @@ class PlatzsucheListResource(PaginatedListResource):
                     search.id,
                     search.patient_id,
                     None,
-                    SearchStatus.ACTIVE.value
+                    SuchStatus.aktiv.value
                 )
                 
                 return {
@@ -325,7 +327,7 @@ class KontaktanfrageResource(Resource):
                 if not search:
                     return {"message": f"Patient search {search_id} not found"}, 404
                 
-                if search.status != SearchStatus.ACTIVE:
+                if search.status != SuchStatus.aktiv:
                     return {
                         "message": f"Can only request contacts for active searches. Current status: {search.status.value}"
                     }, 400
@@ -412,9 +414,9 @@ class TherapeutenanfrageResource(Resource):
                     "id": bundle.id,
                     "therapist_id": bundle.therapist_id,
                     "therapist": therapist_data,
-                    "created_date": bundle.created_date.isoformat(),
-                    "sent_date": bundle.sent_date.isoformat() if bundle.sent_date else None,
-                    "response_date": bundle.response_date.isoformat() if bundle.response_date else None,
+                    "erstellt_datum": bundle.erstellt_datum.isoformat(),
+                    "gesendet_datum": bundle.gesendet_datum.isoformat() if bundle.gesendet_datum else None,
+                    "antwort_datum": bundle.antwort_datum.isoformat() if bundle.antwort_datum else None,
                     "tage_seit_versand": bundle.days_since_sent(),
                     "antworttyp": bundle.antworttyp.value if bundle.antworttyp else None,
                     "buendelgroesse": bundle.buendelgroesse,
@@ -455,20 +457,20 @@ class TherapeutenanfrageListResource(PaginatedListResource):
                 
                 if args.get('versand_status'):
                     if args['versand_status'] == 'gesendet':
-                        query = query.filter(Therapeutenanfrage.sent_date.isnot(None))
+                        query = query.filter(Therapeutenanfrage.gesendet_datum.isnot(None))
                     elif args['versand_status'] == 'ungesendet':
-                        query = query.filter(Therapeutenanfrage.sent_date.is_(None))
+                        query = query.filter(Therapeutenanfrage.gesendet_datum.is_(None))
                     else:
                         return {"message": "Invalid versand_status. Use 'gesendet' or 'ungesendet'"}, 400
                 
                 if args.get('antwort_status'):
                     if args['antwort_status'] == 'beantwortet':
-                        query = query.filter(Therapeutenanfrage.response_date.isnot(None))
+                        query = query.filter(Therapeutenanfrage.antwort_datum.isnot(None))
                     elif args['antwort_status'] == 'ausstehend':
                         query = query.filter(
                             and_(
-                                Therapeutenanfrage.sent_date.isnot(None),
-                                Therapeutenanfrage.response_date.is_(None)
+                                Therapeutenanfrage.gesendet_datum.isnot(None),
+                                Therapeutenanfrage.antwort_datum.is_(None)
                             )
                         )
                     else:
@@ -481,7 +483,7 @@ class TherapeutenanfrageListResource(PaginatedListResource):
                     query = query.filter(Therapeutenanfrage.buendelgroesse <= args['max_size'])
                 
                 # Order by creation date (newest first)
-                query = query.order_by(desc(Therapeutenanfrage.created_date))
+                query = query.order_by(desc(Therapeutenanfrage.erstellt_datum))
                 
                 # Apply pagination
                 page, limit = self.get_pagination_params()
@@ -509,9 +511,9 @@ class TherapeutenanfrageListResource(PaginatedListResource):
                         "id": b.id,
                         "therapist_id": b.therapist_id,
                         "therapeuten_name": f"{therapists.get(b.therapist_id, {}).get('vorname', '')} {therapists.get(b.therapist_id, {}).get('nachname', '')}" if b.therapist_id in therapists else "Unknown",
-                        "created_date": b.created_date.isoformat(),
-                        "sent_date": b.sent_date.isoformat() if b.sent_date else None,
-                        "response_date": b.response_date.isoformat() if b.response_date else None,
+                        "erstellt_datum": b.erstellt_datum.isoformat(),
+                        "gesendet_datum": b.gesendet_datum.isoformat() if b.gesendet_datum else None,
+                        "antwort_datum": b.antwort_datum.isoformat() if b.antwort_datum else None,
                         "tage_seit_versand": b.days_since_sent(),
                         "antworttyp": b.antworttyp.value if b.antworttyp else None,
                         "buendelgroesse": b.buendelgroesse,
@@ -526,8 +528,8 @@ class TherapeutenanfrageListResource(PaginatedListResource):
                     "total": total,
                     "summary": {
                         "total_bundles": total,
-                        "unsent_bundles": sum(1 for b in bundles if not b.sent_date),
-                        "pending_responses": sum(1 for b in bundles if b.sent_date and not b.response_date),
+                        "unsent_bundles": sum(1 for b in bundles if not b.gesendet_datum),
+                        "pending_responses": sum(1 for b in bundles if b.gesendet_datum and not b.antwort_datum),
                         "needing_follow_up": sum(1 for b in bundles if b.needs_follow_up())
                     }
                 }, 200
@@ -669,7 +671,7 @@ class BundleResponseResource(Resource):
                 if not bundle:
                     return {"message": f"Bundle {bundle_id} not found"}, 404
                 
-                if not bundle.sent_date:
+                if not bundle.gesendet_datum:
                     return {"message": "Cannot record response for unsent bundle"}, 400
                 
                 # Validate patient responses
@@ -677,12 +679,13 @@ class BundleResponseResource(Resource):
                 for patient_id_str, outcome_str in args['patient_responses'].items():
                     try:
                         patient_id = int(patient_id_str)
-                        outcome = PatientOutcome(outcome_str)
+                        outcome = PatientenErgebnis[outcome_str]
                         patient_responses[patient_id] = outcome
                     except (ValueError, KeyError):
+                        valid_values = [o.value for o in PatientenErgebnis]
                         return {
                             "message": f"Invalid patient response: {patient_id_str} -> {outcome_str}",
-                            "valid_outcomes": [o.value for o in PatientOutcome]
+                            "valid_outcomes": valid_values
                         }, 400
                 
                 # Verify all patients in bundle have responses
@@ -740,13 +743,13 @@ class BundleResponseResource(Resource):
                         
                         # Mark search as successful if patient accepted
                         search = db.query(Platzsuche).filter_by(id=bp.platzsuche_id).first()
-                        if search and search.status == SearchStatus.ACTIVE:
+                        if search and search.status == SuchStatus.aktiv:
                             search.mark_successful()
                             publish_search_status_changed(
                                 search.id,
                                 search.patient_id,
-                                SearchStatus.ACTIVE.value,
-                                SearchStatus.SUCCESSFUL.value
+                                SuchStatus.aktiv.value,
+                                SuchStatus.erfolgreich.value
                             )
                 
                 db.commit()

@@ -12,13 +12,13 @@ from sqlalchemy.orm import relationship, validates
 from shared.utils.database import Base
 
 
-class ResponseType(str, Enum):
+class AntwortTyp(str, Enum):
     """Enumeration for bundle response types."""
     
-    FULL_ACCEPTANCE = "vollstaendige_annahme"
-    PARTIAL_ACCEPTANCE = "teilweise_annahme"
-    FULL_REJECTION = "vollstaendige_ablehnung"
-    NO_RESPONSE = "keine_antwort"
+    vollstaendige_Annahme = "vollstaendige_Annahme"
+    teilweise_Annahme = "teilweise_Annahme"
+    vollstaendige_Ablehnung = "vollstaendige_Ablehnung"
+    keine_Antwort = "keine_Antwort"
 
 
 class Therapeutenanfrage(Base):
@@ -47,18 +47,18 @@ class Therapeutenanfrage(Base):
         index=True
     )
     
-    # Timestamps
-    created_date = Column(
+    # Timestamps (German field names)
+    erstellt_datum = Column(
         DateTime,
         nullable=False,
         default=datetime.utcnow
     )
-    sent_date = Column(DateTime, index=True)
-    response_date = Column(DateTime)
+    gesendet_datum = Column(DateTime, index=True)
+    antwort_datum = Column(DateTime)
     
     # Response tracking (German field names)
     antworttyp = Column(
-        SQLAlchemyEnum(ResponseType),
+        SQLAlchemyEnum(AntwortTyp, name='antworttyp', native_enum=True),
         index=True
     )
     
@@ -135,7 +135,7 @@ class Therapeutenanfrage(Base):
             email_id: ID of the email used to send the bundle
             phone_call_id: ID of the phone call used to communicate the bundle
         """
-        self.sent_date = datetime.utcnow()
+        self.gesendet_datum = datetime.utcnow()
         if email_id:
             self.email_id = email_id
         if phone_call_id:
@@ -143,7 +143,7 @@ class Therapeutenanfrage(Base):
     
     def update_response(
         self,
-        response_type: ResponseType,
+        response_type: AntwortTyp,
         accepted_count: int = 0,
         rejected_count: int = 0,
         no_response_count: int = 0,
@@ -167,7 +167,7 @@ class Therapeutenanfrage(Base):
                 f"Response counts ({total}) must equal bundle size ({self.buendelgroesse})"
             )
         
-        self.response_date = datetime.utcnow()
+        self.antwort_datum = datetime.utcnow()
         self.antworttyp = response_type
         self.angenommen_anzahl = accepted_count
         self.abgelehnt_anzahl = rejected_count
@@ -176,20 +176,20 @@ class Therapeutenanfrage(Base):
         if notes:
             self.add_note(notes)
     
-    def calculate_response_type(self) -> ResponseType:
+    def calculate_response_type(self) -> AntwortTyp:
         """Calculate the response type based on individual responses.
         
         Returns:
             The calculated response type
         """
         if self.angenommen_anzahl == self.buendelgroesse:
-            return ResponseType.FULL_ACCEPTANCE
+            return AntwortTyp.vollstaendige_Annahme
         elif self.angenommen_anzahl > 0:
-            return ResponseType.PARTIAL_ACCEPTANCE
+            return AntwortTyp.teilweise_Annahme
         elif self.abgelehnt_anzahl == self.buendelgroesse:
-            return ResponseType.FULL_REJECTION
+            return AntwortTyp.vollstaendige_Ablehnung
         else:
-            return ResponseType.NO_RESPONSE
+            return AntwortTyp.keine_Antwort
     
     def get_patient_details(self) -> List[Dict[str, Any]]:
         """Get details of all patients in the bundle.
@@ -291,10 +291,10 @@ class Therapeutenanfrage(Base):
         Returns:
             Number of days or None if not sent yet
         """
-        if not self.sent_date:
+        if not self.gesendet_datum:
             return None
         
-        delta = datetime.utcnow() - self.sent_date
+        delta = datetime.utcnow() - self.gesendet_datum
         return delta.days
     
     def needs_follow_up(self, days_threshold: int = 7) -> bool:
@@ -306,8 +306,24 @@ class Therapeutenanfrage(Base):
         Returns:
             True if follow-up is needed
         """
-        if not self.sent_date or self.response_date:
+        if not self.gesendet_datum or self.antwort_datum:
             return False
         
         days_elapsed = self.days_since_sent()
         return days_elapsed is not None and days_elapsed >= days_threshold
+    
+    # Keep these property methods for backwards compatibility
+    @property
+    def created_date(self):
+        """Backwards compatibility property."""
+        return self.erstellt_datum
+    
+    @property
+    def sent_date(self):
+        """Backwards compatibility property."""
+        return self.gesendet_datum
+    
+    @property
+    def response_date(self):
+        """Backwards compatibility property."""
+        return self.antwort_datum

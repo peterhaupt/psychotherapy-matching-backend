@@ -12,24 +12,24 @@ from sqlalchemy.orm import relationship, validates
 from shared.utils.database import Base
 
 
-class PatientStatus(str, Enum):
+class BuendelPatientStatus(str, Enum):
     """Enumeration for patient status within a bundle."""
     
-    PENDING = "pending"
-    ACCEPTED = "angenommen"
-    REJECTED = "abgelehnt"
-    NO_RESPONSE = "keine_antwort"
+    anstehend = "anstehend"
+    angenommen = "angenommen"
+    abgelehnt = "abgelehnt"
+    keine_antwort = "keine_antwort"
 
 
-class PatientOutcome(str, Enum):
+class PatientenErgebnis(str, Enum):
     """Enumeration for patient response outcomes."""
     
-    ACCEPTED = "angenommen"
-    REJECTED_CAPACITY = "abgelehnt_kapazitaet"
-    REJECTED_NOT_SUITABLE = "abgelehnt_nicht_geeignet"
-    REJECTED_OTHER = "abgelehnt_sonstiges"
-    NO_SHOW = "nicht_erschienen"
-    IN_SESSIONS = "in_sitzungen"
+    angenommen = "angenommen"
+    abgelehnt_Kapazitaet = "abgelehnt_Kapazitaet"
+    abgelehnt_nicht_geeignet = "abgelehnt_nicht_geeignet"
+    abgelehnt_sonstiges = "abgelehnt_sonstiges"
+    nicht_erschienen = "nicht_erschienen"
+    in_Sitzungen = "in_Sitzungen"
 
 
 class TherapeutAnfragePatient(Base):
@@ -80,14 +80,14 @@ class TherapeutAnfragePatient(Base):
     
     # Status tracking
     status = Column(
-        SQLAlchemyEnum(PatientStatus),
+        SQLAlchemyEnum(BuendelPatientStatus, name='buendel_patient_status', native_enum=True),
         nullable=False,
-        default=PatientStatus.PENDING,
+        default=BuendelPatientStatus.anstehend,
         index=True
     )
     
     # Outcome tracking (German field names)
-    antwortergebnis = Column(SQLAlchemyEnum(PatientOutcome))
+    antwortergebnis = Column(SQLAlchemyEnum(PatientenErgebnis, name='patientenergebnis', native_enum=True))
     antwortnotizen = Column(Text)
     
     # Timestamp
@@ -124,7 +124,7 @@ class TherapeutAnfragePatient(Base):
     
     def update_outcome(
         self,
-        outcome: PatientOutcome,
+        outcome: PatientenErgebnis,
         notes: Optional[str] = None
     ) -> None:
         """Update the patient's outcome in this bundle.
@@ -136,14 +136,14 @@ class TherapeutAnfragePatient(Base):
         self.antwortergebnis = outcome
         
         # Update status based on outcome
-        if outcome == PatientOutcome.ACCEPTED:
-            self.status = PatientStatus.ACCEPTED
-        elif outcome in [PatientOutcome.REJECTED_CAPACITY, 
-                        PatientOutcome.REJECTED_NOT_SUITABLE,
-                        PatientOutcome.REJECTED_OTHER]:
-            self.status = PatientStatus.REJECTED
-        elif outcome == PatientOutcome.NO_SHOW:
-            self.status = PatientStatus.NO_RESPONSE
+        if outcome == PatientenErgebnis.angenommen:
+            self.status = BuendelPatientStatus.angenommen
+        elif outcome in [PatientenErgebnis.abgelehnt_Kapazitaet, 
+                        PatientenErgebnis.abgelehnt_nicht_geeignet,
+                        PatientenErgebnis.abgelehnt_sonstiges]:
+            self.status = BuendelPatientStatus.abgelehnt
+        elif outcome == PatientenErgebnis.nicht_erschienen:
+            self.status = BuendelPatientStatus.keine_antwort
             
         if notes:
             self.add_outcome_note(notes)
@@ -154,14 +154,14 @@ class TherapeutAnfragePatient(Base):
         Args:
             notes: Optional acceptance notes
         """
-        self.status = PatientStatus.ACCEPTED
-        self.antwortergebnis = PatientOutcome.ACCEPTED
+        self.status = BuendelPatientStatus.angenommen
+        self.antwortergebnis = PatientenErgebnis.angenommen
         if notes:
             self.add_outcome_note(notes)
     
     def mark_rejected(
         self,
-        reason: PatientOutcome,
+        reason: PatientenErgebnis,
         notes: Optional[str] = None
     ) -> None:
         """Mark this patient as rejected by the therapist.
@@ -174,15 +174,15 @@ class TherapeutAnfragePatient(Base):
             ValueError: If reason is not a rejection outcome
         """
         rejection_reasons = [
-            PatientOutcome.REJECTED_CAPACITY,
-            PatientOutcome.REJECTED_NOT_SUITABLE,
-            PatientOutcome.REJECTED_OTHER
+            PatientenErgebnis.abgelehnt_Kapazitaet,
+            PatientenErgebnis.abgelehnt_nicht_geeignet,
+            PatientenErgebnis.abgelehnt_sonstiges
         ]
         
         if reason not in rejection_reasons:
             raise ValueError(f"Invalid rejection reason: {reason}")
         
-        self.status = PatientStatus.REJECTED
+        self.status = BuendelPatientStatus.abgelehnt
         self.antwortergebnis = reason
         if notes:
             self.add_outcome_note(notes)
@@ -193,7 +193,7 @@ class TherapeutAnfragePatient(Base):
         Args:
             notes: Optional notes
         """
-        self.status = PatientStatus.NO_RESPONSE
+        self.status = BuendelPatientStatus.keine_antwort
         if notes:
             self.add_outcome_note(notes)
     
@@ -203,7 +203,7 @@ class TherapeutAnfragePatient(Base):
         Args:
             notes: Optional notes about the sessions
         """
-        self.antwortergebnis = PatientOutcome.IN_SESSIONS
+        self.antwortergebnis = PatientenErgebnis.in_Sitzungen
         if notes:
             self.add_outcome_note(notes)
     
@@ -213,7 +213,7 @@ class TherapeutAnfragePatient(Base):
         Returns:
             True if patient was accepted
         """
-        return self.status == PatientStatus.ACCEPTED
+        return self.status == BuendelPatientStatus.angenommen
     
     def is_rejected(self) -> bool:
         """Check if this patient was rejected.
@@ -221,7 +221,7 @@ class TherapeutAnfragePatient(Base):
         Returns:
             True if patient was rejected
         """
-        return self.status == PatientStatus.REJECTED
+        return self.status == BuendelPatientStatus.abgelehnt
     
     def is_pending(self) -> bool:
         """Check if this patient's status is still pending.
@@ -229,7 +229,7 @@ class TherapeutAnfragePatient(Base):
         Returns:
             True if status is pending
         """
-        return self.status == PatientStatus.PENDING
+        return self.status == BuendelPatientStatus.anstehend
     
     def has_outcome(self) -> bool:
         """Check if this patient has any outcome recorded.
@@ -328,8 +328,8 @@ class TherapeutAnfragePatient(Base):
         """
         # Exclude if explicitly rejected or if patient didn't show up
         exclude_outcomes = [
-            PatientOutcome.REJECTED_NOT_SUITABLE,
-            PatientOutcome.NO_SHOW
+            PatientenErgebnis.abgelehnt_nicht_geeignet,
+            PatientenErgebnis.nicht_erschienen
         ]
         return self.antwortergebnis in exclude_outcomes
     
