@@ -89,17 +89,7 @@ class EmailResource(Resource):
                         try:
                             email.status = EmailStatus(value)
                         except ValueError:
-                            # Try case-insensitive matching with German values
-                            status_map = {
-                                'ENTWURF': EmailStatus.Entwurf,
-                                'IN_WARTESCHLANGE': EmailStatus.In_Warteschlange,
-                                'WIRD_GESENDET': EmailStatus.Wird_gesendet,
-                                'GESENDET': EmailStatus.Gesendet,
-                                'FEHLGESCHLAGEN': EmailStatus.Fehlgeschlagen
-                            }
-                            value_upper = value.upper()
-                            if value_upper in status_map:
-                                email.status = status_map[value_upper]
+                            return {'message': f'Invalid status value: {value}'}, 400
                     elif key == 'antwortdatum' and value:
                         email.antwortdatum = datetime.fromisoformat(value)
                     else:
@@ -134,20 +124,10 @@ class EmailListResource(PaginatedListResource):
                 query = query.filter(Email.therapist_id == therapist_id)
             if status:
                 try:
-                    # Try direct enum conversion
                     query = query.filter(Email.status == EmailStatus(status))
                 except ValueError:
-                    # Try case-insensitive matching with German values
-                    status_upper = status.upper()
-                    status_map = {
-                        'ENTWURF': EmailStatus.Entwurf,
-                        'IN_WARTESCHLANGE': EmailStatus.In_Warteschlange,
-                        'WIRD_GESENDET': EmailStatus.Wird_gesendet,
-                        'GESENDET': EmailStatus.Gesendet,
-                        'FEHLGESCHLAGEN': EmailStatus.Fehlgeschlagen
-                    }
-                    if status_upper in status_map:
-                        query = query.filter(Email.status == status_map[status_upper])
+                    # Invalid status value, skip filter
+                    pass
             if antwort_erhalten is not None:
                 query = query.filter(Email.antwort_erhalten == antwort_erhalten)
             
@@ -236,4 +216,4 @@ class EmailListResource(PaginatedListResource):
             logging.error(f"Unexpected error creating email: {str(e)}", exc_info=True)
             return {'message': f'Error: {str(e)}'}, 500
         finally:
-            db.close()
+            db.close
