@@ -91,6 +91,13 @@ def upgrade() -> None:
         )
     """)
     
+    # Bundle patient status enum (NEW!)
+    op.execute("""
+        CREATE TYPE buendel_patient_status AS ENUM (
+            'anstehend', 'angenommen', 'abgelehnt', 'keine_antwort'
+        )
+    """)
+    
     # ========== STEP 3: CREATE PATIENT SERVICE TABLES ==========
     
     # Create patienten table (German name)
@@ -232,7 +239,7 @@ def upgrade() -> None:
     op.create_index('idx_platzsuche_status', 'platzsuche', ['status'], 
                    schema='matching_service')
     
-    # Create therapeutenanfrage table
+    # Create therapeutenanfrage table (with German field names!)
     op.create_table('therapeutenanfrage',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('therapist_id', sa.Integer(), nullable=False),
@@ -240,7 +247,10 @@ def upgrade() -> None:
                   server_default=sa.text('CURRENT_TIMESTAMP')),
         sa.Column('gesendet_datum', sa.DateTime(), nullable=True),
         sa.Column('antwort_datum', sa.DateTime(), nullable=True),
-        sa.Column('antworttyp', sa.String(50), nullable=True),
+        sa.Column('antworttyp', postgresql.ENUM('vollstaendige_Annahme', 'teilweise_Annahme',
+                                                'vollstaendige_Ablehnung', 'keine_Antwort',
+                                                name='antworttyp', create_type=False), 
+                  nullable=True),
         sa.Column('buendelgroesse', sa.Integer(), nullable=False),
         sa.Column('angenommen_anzahl', sa.Integer(), nullable=False, server_default='0'),
         sa.Column('abgelehnt_anzahl', sa.Integer(), nullable=False, server_default='0'),
@@ -264,15 +274,21 @@ def upgrade() -> None:
     op.create_index('idx_therapeutenanfrage_phone_call_id', 'therapeutenanfrage', 
                    ['phone_call_id'], schema='matching_service')
     
-    # Create therapeut_anfrage_patient table
+    # Create therapeut_anfrage_patient table (UPDATED WITH ENUM!)
     op.create_table('therapeut_anfrage_patient',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('therapeutenanfrage_id', sa.Integer(), nullable=False),
         sa.Column('platzsuche_id', sa.Integer(), nullable=False),
         sa.Column('patient_id', sa.Integer(), nullable=False),
         sa.Column('position_im_buendel', sa.Integer(), nullable=False),
-        sa.Column('status', sa.String(50), nullable=False, server_default='pending'),
-        sa.Column('antwortergebnis', sa.String(50), nullable=True),
+        sa.Column('status', postgresql.ENUM('anstehend', 'angenommen', 'abgelehnt', 'keine_antwort',
+                                           name='buendel_patient_status', create_type=False), 
+                  nullable=False, server_default='anstehend'),
+        sa.Column('antwortergebnis', postgresql.ENUM('angenommen', 'abgelehnt_Kapazitaet', 
+                                                     'abgelehnt_nicht_geeignet', 'abgelehnt_sonstiges', 
+                                                     'nicht_erschienen', 'in_Sitzungen',
+                                                     name='patientenergebnis', create_type=False), 
+                  nullable=True),
         sa.Column('antwortnotizen', sa.Text(), nullable=True),
         sa.Column('created_at', sa.DateTime(), nullable=False, 
                   server_default=sa.text('CURRENT_TIMESTAMP')),
@@ -512,6 +528,7 @@ def downgrade() -> None:
     op.drop_table('patienten', schema='patient_service')
     
     # Drop all enum types
+    op.execute("DROP TYPE IF EXISTS buendel_patient_status")
     op.execute("DROP TYPE IF EXISTS patientenergebnis")
     op.execute("DROP TYPE IF EXISTS antworttyp")
     op.execute("DROP TYPE IF EXISTS telefonanrufstatus")
