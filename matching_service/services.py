@@ -7,9 +7,9 @@ import requests
 from sqlalchemy.orm import Session
 
 from models import Platzsuche, Therapeutenanfrage, TherapeutAnfragePatient
-from models.platzsuche import SearchStatus
-from models.therapeutenanfrage import ResponseType
-from models.therapeut_anfrage_patient import PatientOutcome
+from models.platzsuche import SuchStatus
+from models.therapeutenanfrage import AntwortTyp
+from models.therapeut_anfrage_patient import PatientenErgebnis
 from shared.config import get_config
 
 # Get configuration and logger
@@ -250,7 +250,7 @@ class CommunicationService:
                 <li style="margin-bottom: 15px;">
                     <strong>{patient.get('vorname', '')} {patient.get('nachname', '')}</strong><br>
                     <span style="color: #666;">
-                        Alter: {self._calculate_age(patient.get('geburtsdatum'))} Jahre<br>
+                        Alter: {CommunicationService._calculate_age(patient.get('geburtsdatum'))} Jahre<br>
                         Diagnose: {patient.get('diagnose', 'Nicht angegeben')}<br>
                         Krankenkasse: {patient.get('krankenkasse', 'Nicht angegeben')}<br>
                         PLZ/Ort: {patient.get('plz', '')} {patient.get('ort', '')}
@@ -260,7 +260,7 @@ class CommunicationService:
                 
                 # Text version
                 body_text += f"{idx}. {patient.get('vorname', '')} {patient.get('nachname', '')}\n"
-                body_text += f"   Alter: {self._calculate_age(patient.get('geburtsdatum'))} Jahre\n"
+                body_text += f"   Alter: {CommunicationService._calculate_age(patient.get('geburtsdatum'))} Jahre\n"
                 body_text += f"   Diagnose: {patient.get('diagnose', 'Nicht angegeben')}\n"
                 body_text += f"   Krankenkasse: {patient.get('krankenkasse', 'Nicht angegeben')}\n"
                 body_text += f"   PLZ/Ort: {patient.get('plz', '')} {patient.get('ort', '')}\n\n"
@@ -424,7 +424,7 @@ class BundleService:
         """
         search = Platzsuche(
             patient_id=patient_id,
-            status=SearchStatus.ACTIVE,
+            status=SuchStatus.aktiv,
             ausgeschlossene_therapeuten=[],
             gesamt_angeforderte_kontakte=0
         )
@@ -500,8 +500,8 @@ class BundleService:
             logger.error(f"Bundle {bundle_id} not found")
             return False
         
-        if bundle.sent_date:
-            logger.warning(f"Bundle {bundle_id} already sent on {bundle.sent_date}")
+        if bundle.gesendet_datum:
+            logger.warning(f"Bundle {bundle_id} already sent on {bundle.gesendet_datum}")
             return False
         
         # Get patient data
@@ -539,7 +539,7 @@ class BundleService:
     def handle_bundle_response(
         db: Session,
         bundle_id: int,
-        patient_responses: Dict[int, PatientOutcome],
+        patient_responses: Dict[int, PatientenErgebnis],
         notes: Optional[str] = None
     ) -> None:
         """Handle a therapist's response to a bundle.
@@ -564,11 +564,11 @@ class BundleService:
             if outcome:
                 bp.update_outcome(outcome)
                 
-                if outcome == PatientOutcome.ACCEPTED:
+                if outcome == PatientenErgebnis.angenommen:
                     accepted_count += 1
-                elif outcome in [PatientOutcome.REJECTED_CAPACITY, 
-                               PatientOutcome.REJECTED_NOT_SUITABLE,
-                               PatientOutcome.REJECTED_OTHER]:
+                elif outcome in [PatientenErgebnis.abgelehnt_Kapazitaet, 
+                               PatientenErgebnis.abgelehnt_nicht_geeignet,
+                               PatientenErgebnis.abgelehnt_sonstiges]:
                     rejected_count += 1
                     
                     # Add therapist to exclusion list if needed
@@ -608,7 +608,7 @@ class BundleService:
         """
         # Find all accepted patients
         accepted_entries = db.query(TherapeutAnfragePatient).filter(
-            TherapeutAnfragePatient.antwortergebnis == PatientOutcome.ACCEPTED
+            TherapeutAnfragePatient.antwortergebnis == PatientenErgebnis.angenommen
         ).all()
         
         # Group by patient
@@ -619,7 +619,7 @@ class BundleService:
             patient_acceptances[entry.patient_id].append({
                 'therapist_id': entry.get_therapist_id(),
                 'bundle_id': entry.therapeutenanfrage_id,
-                'response_date': entry.therapeutenanfrage.response_date
+                'response_date': entry.therapeutenanfrage.antwort_datum
             })
         
         # Find conflicts
