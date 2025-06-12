@@ -134,7 +134,7 @@ def is_slot_booked(
             PhoneCall.therapist_id == therapist_id,
             PhoneCall.geplantes_datum == date_obj,
             PhoneCall.geplante_zeit == time_obj,
-            PhoneCall.status != PhoneCallStatus.CANCELED.value
+            PhoneCall.status != PhoneCallStatus.abgebrochen.value
         ).count()
         
         return existing_calls > 0
@@ -179,7 +179,7 @@ def schedule_call_for_email(email_id: int) -> Optional[int]:
             geplantes_datum=scheduled_date,
             geplante_zeit=scheduled_time,
             dauer_minuten=slot["duration_minutes"],
-            status=PhoneCallStatus.SCHEDULED.value,
+            status=PhoneCallStatus.geplant.value,
             notizen=f"Follow-up for email {email_id}"
         )
         
@@ -212,8 +212,8 @@ def schedule_follow_up_calls(days_threshold: int = 7) -> int:
         threshold_date = datetime.utcnow() - timedelta(days=days_threshold)
         
         unanswered_emails = db.query(Email).filter(
-            Email.sent_at <= threshold_date,
-            Email.status == EmailStatus.SENT.value,
+            Email.gesendet_am <= threshold_date,
+            Email.status == EmailStatus.Gesendet.value,
             Email.antwort_erhalten.is_(False)
         ).all()
         
