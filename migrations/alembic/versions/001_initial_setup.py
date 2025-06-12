@@ -1,4 +1,4 @@
-"""complete database setup
+"""complete database setup with patient communication support
 
 Revision ID: 001_initial_setup
 Revises: 
@@ -91,7 +91,7 @@ def upgrade() -> None:
         )
     """)
     
-    # Bundle patient status enum (NEW!)
+    # Bundle patient status enum
     op.execute("""
         CREATE TYPE buendel_patient_status AS ENUM (
             'anstehend', 'angenommen', 'abgelehnt', 'keine_antwort'
@@ -239,7 +239,7 @@ def upgrade() -> None:
     op.create_index('idx_platzsuche_status', 'platzsuche', ['status'], 
                    schema='matching_service')
     
-    # Create therapeutenanfrage table (with German field names!)
+    # Create therapeutenanfrage table
     op.create_table('therapeutenanfrage',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('therapist_id', sa.Integer(), nullable=False),
@@ -274,7 +274,7 @@ def upgrade() -> None:
     op.create_index('idx_therapeutenanfrage_phone_call_id', 'therapeutenanfrage', 
                    ['phone_call_id'], schema='matching_service')
     
-    # Create therapeut_anfrage_patient table (UPDATED WITH ENUM!)
+    # Create therapeut_anfrage_patient table
     op.create_table('therapeut_anfrage_patient',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('therapeutenanfrage_id', sa.Integer(), nullable=False),
@@ -319,12 +319,13 @@ def upgrade() -> None:
                    'therapeut_anfrage_patient', ['status'], 
                    schema='matching_service')
     
-    # ========== STEP 6: CREATE COMMUNICATION SERVICE TABLES ==========
+    # ========== STEP 6: CREATE COMMUNICATION SERVICE TABLES (WITH PATIENT SUPPORT) ==========
     
-    # Create emails table
+    # Create emails table - NOW WITH PATIENT SUPPORT
     op.create_table('emails',
         sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('therapist_id', sa.Integer(), nullable=False),
+        sa.Column('therapist_id', sa.Integer(), nullable=True),  # Now nullable!
+        sa.Column('patient_id', sa.Integer(), nullable=True),    # NEW: patient support
         sa.Column('betreff', sa.String(255), nullable=False),
         sa.Column('inhalt_html', sa.Text(), nullable=False),
         sa.Column('inhalt_text', sa.Text(), nullable=False),
@@ -348,17 +349,26 @@ def upgrade() -> None:
         sa.Column('created_at', sa.DateTime(), nullable=True),
         sa.Column('updated_at', sa.DateTime(), nullable=True),
         sa.PrimaryKeyConstraint('id'),
+        # Add check constraint: either therapist OR patient, not both
+        sa.CheckConstraint(
+            '(therapist_id IS NOT NULL AND patient_id IS NULL) OR '
+            '(therapist_id IS NULL AND patient_id IS NOT NULL)',
+            name='email_recipient_check'
+        ),
         schema='communication_service'
     )
     op.create_index('ix_communication_service_emails_id', 'emails', ['id'], 
                    unique=False, schema='communication_service')
     op.create_index('ix_communication_service_emails_therapist_id', 'emails', 
                    ['therapist_id'], unique=False, schema='communication_service')
+    op.create_index('ix_communication_service_emails_patient_id', 'emails', 
+                   ['patient_id'], unique=False, schema='communication_service')  # NEW index
     
-    # Create telefonanrufe table (German name for phone_calls)
+    # Create telefonanrufe table - NOW WITH PATIENT SUPPORT
     op.create_table('telefonanrufe',
         sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('therapist_id', sa.Integer(), nullable=False),
+        sa.Column('therapist_id', sa.Integer(), nullable=True),  # Now nullable!
+        sa.Column('patient_id', sa.Integer(), nullable=True),    # NEW: patient support
         sa.Column('geplantes_datum', sa.Date(), nullable=False),
         sa.Column('geplante_zeit', sa.Time(), nullable=False),
         sa.Column('dauer_minuten', sa.Integer(), nullable=True, server_default='5'),
@@ -374,10 +384,18 @@ def upgrade() -> None:
                   server_default=sa.text('CURRENT_TIMESTAMP')),
         sa.Column('updated_at', sa.DateTime(), nullable=True),
         sa.PrimaryKeyConstraint('id'),
+        # Add check constraint: either therapist OR patient, not both
+        sa.CheckConstraint(
+            '(therapist_id IS NOT NULL AND patient_id IS NULL) OR '
+            '(therapist_id IS NULL AND patient_id IS NOT NULL)',
+            name='phone_call_recipient_check'
+        ),
         schema='communication_service'
     )
     op.create_index('idx_phone_calls_therapist_id', 'telefonanrufe', ['therapist_id'], 
                    schema='communication_service')
+    op.create_index('idx_phone_calls_patient_id', 'telefonanrufe', ['patient_id'], 
+                   schema='communication_service')  # NEW index
     op.create_index('idx_phone_calls_scheduled_date', 'telefonanrufe', ['geplantes_datum'], 
                    schema='communication_service')
     op.create_index('idx_phone_calls_status', 'telefonanrufe', ['status'], 
@@ -435,6 +453,37 @@ def upgrade() -> None:
     # ========== STEP 8: ADD FOREIGN KEY CONSTRAINTS ==========
     # These are added after all tables are created to avoid dependency issues
     
+    # Communication service foreign keys for email
+    op.create_foreign_key('emails_therapist_id_fkey',
+                          'emails', 'therapeuten',
+                          ['therapist_id'], ['id'],
+                          source_schema='communication_service',
+                          referent_schema='therapist_service',
+                          ondelete='CASCADE')
+    
+    op.create_foreign_key('emails_patient_id_fkey',
+                          'emails', 'patienten',
+                          ['patient_id'], ['id'],
+                          source_schema='communication_service',
+                          referent_schema='patient_service',
+                          ondelete='CASCADE')
+    
+    # Communication service foreign keys for phone calls
+    op.create_foreign_key('telefonanrufe_therapist_id_fkey',
+                          'telefonanrufe', 'therapeuten',
+                          ['therapist_id'], ['id'],
+                          source_schema='communication_service',
+                          referent_schema='therapist_service',
+                          ondelete='CASCADE')
+    
+    op.create_foreign_key('telefonanrufe_patient_id_fkey',
+                          'telefonanrufe', 'patienten',
+                          ['patient_id'], ['id'],
+                          source_schema='communication_service',
+                          referent_schema='patient_service',
+                          ondelete='CASCADE')
+    
+    # Matching service foreign keys
     op.create_foreign_key('therapeutenanfrage_email_id_fkey',
                           'therapeutenanfrage', 'emails',
                           ['email_id'], ['id'],
@@ -459,6 +508,14 @@ def downgrade() -> None:
                       schema='matching_service', type_='foreignkey')
     op.drop_constraint('therapeutenanfrage_email_id_fkey', 'therapeutenanfrage', 
                       schema='matching_service', type_='foreignkey')
+    op.drop_constraint('telefonanrufe_patient_id_fkey', 'telefonanrufe', 
+                      schema='communication_service', type_='foreignkey')
+    op.drop_constraint('telefonanrufe_therapist_id_fkey', 'telefonanrufe', 
+                      schema='communication_service', type_='foreignkey')
+    op.drop_constraint('emails_patient_id_fkey', 'emails', 
+                      schema='communication_service', type_='foreignkey')
+    op.drop_constraint('emails_therapist_id_fkey', 'emails', 
+                      schema='communication_service', type_='foreignkey')
     
     # Drop geocoding service tables
     op.drop_index('ix_distance_cache_points', table_name='distance_cache', 
@@ -478,10 +535,14 @@ def downgrade() -> None:
                  schema='communication_service')
     op.drop_index('idx_phone_calls_scheduled_date', table_name='telefonanrufe', 
                  schema='communication_service')
+    op.drop_index('idx_phone_calls_patient_id', table_name='telefonanrufe', 
+                 schema='communication_service')
     op.drop_index('idx_phone_calls_therapist_id', table_name='telefonanrufe', 
                  schema='communication_service')
     op.drop_table('telefonanrufe', schema='communication_service')
     
+    op.drop_index('ix_communication_service_emails_patient_id', table_name='emails', 
+                 schema='communication_service')
     op.drop_index('ix_communication_service_emails_therapist_id', table_name='emails', 
                  schema='communication_service')
     op.drop_index('ix_communication_service_emails_id', table_name='emails', 
