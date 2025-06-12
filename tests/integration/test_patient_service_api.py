@@ -602,7 +602,7 @@ class TestPatientServiceAPI:
     
     def test_invalid_german_enum_values(self):
         """Test that invalid German enum values are rejected."""
-        # Test invalid status
+        # Test invalid status - updated to expect new error message format
         data = {
             "vorname": "Test",
             "nachname": "Invalid",
@@ -617,9 +617,12 @@ class TestPatientServiceAPI:
         
         assert response.status_code == 400
         error = response.json()
-        assert 'Invalid status value' in error['message']
+        # Updated to expect the new, more helpful error message format
+        assert "Invalid status 'searching'" in error['message']
+        assert "Valid values:" in error['message']
+        assert "offen" in error['message']
         
-        # Test invalid gender preference
+        # Test invalid gender preference - updated to expect new error message format
         data2 = {
             "vorname": "Test",
             "nachname": "Invalid2",
@@ -634,7 +637,10 @@ class TestPatientServiceAPI:
         
         assert response2.status_code == 400
         error2 = response2.json()
-        assert 'Invalid gender preference value' in error2['message']
+        # Updated to expect the new, more helpful error message format
+        assert "Invalid gender preference 'FEMALE'" in error2['message']
+        assert "Valid values:" in error2['message']
+        assert "Egal" in error2['message']
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-"""Patient API endpoints implementation."""
+"""Patient API endpoints implementation with German enum support."""
 from flask import request, jsonify
 from flask_restful import Resource, fields, marshal_with, reqparse, marshal
 from sqlalchemy.exc import SQLAlchemyError
@@ -74,6 +74,74 @@ patient_fields = {
 }
 
 
+def validate_and_get_patient_status(status_value: str) -> PatientStatus:
+    """Validate and return PatientStatus enum.
+    
+    Args:
+        status_value: German status value from request
+        
+    Returns:
+        PatientStatus enum
+        
+    Raises:
+        ValueError: If status value is invalid
+    """
+    if not status_value:
+        return None
+    
+    # With German enums, we can directly access by name since name == value
+    try:
+        return PatientStatus[status_value]
+    except KeyError:
+        valid_values = [status.value for status in PatientStatus]
+        raise ValueError(f"Invalid status '{status_value}'. Valid values: {valid_values}")
+
+
+def validate_and_get_gender_preference(pref_value: str) -> TherapistGenderPreference:
+    """Validate and return TherapistGenderPreference enum.
+    
+    Args:
+        pref_value: German preference value from request
+        
+    Returns:
+        TherapistGenderPreference enum
+        
+    Raises:
+        ValueError: If preference value is invalid
+    """
+    if not pref_value:
+        return None
+    
+    # With German enums, we can directly access by name since name == value
+    try:
+        return TherapistGenderPreference[pref_value]
+    except KeyError:
+        valid_values = [pref.value for pref in TherapistGenderPreference]
+        raise ValueError(f"Invalid gender preference '{pref_value}'. Valid values: {valid_values}")
+
+
+def parse_date_field(date_string: str, field_name: str):
+    """Parse date string and return date object.
+    
+    Args:
+        date_string: Date in YYYY-MM-DD format
+        field_name: Name of field for error messages
+        
+    Returns:
+        date object
+        
+    Raises:
+        ValueError: If date format is invalid
+    """
+    if not date_string:
+        return None
+    
+    try:
+        return datetime.strptime(date_string, '%Y-%m-%d').date()
+    except ValueError:
+        raise ValueError(f"Invalid date format for {field_name}. Use YYYY-MM-DD")
+
+
 class PatientResource(Resource):
     """REST resource for individual patient operations."""
 
@@ -126,53 +194,28 @@ class PatientResource(Resource):
         
         db = SessionLocal()
         try:
-            patient = db.query(Patient).filter(
-                Patient.id == patient_id
-            ).first()
+            patient = db.query(Patient).filter(Patient.id == patient_id).first()
             if not patient:
                 return {'message': 'Patient not found'}, 404
             
             # Update fields from request
             for key, value in args.items():
                 if value is not None:
-                    if key == 'status' and value:
-                        # Handle status enum - find by value
+                    if key == 'status':
                         try:
-                            # Find the enum member by its value
-                            status_enum = None
-                            for status in PatientStatus:
-                                if status.value == value:
-                                    status_enum = status
-                                    break
-                            
-                            if status_enum:
-                                patient.status = status_enum
-                            else:
-                                return {'message': f'Invalid status value: {value}'}, 400
-                        except ValueError:
-                            return {'message': f'Invalid status value: {value}'}, 400
-                    elif key == 'bevorzugtes_therapeutengeschlecht' and value:
-                        # Handle gender preference enum - find by value
+                            patient.status = validate_and_get_patient_status(value)
+                        except ValueError as e:
+                            return {'message': str(e)}, 400
+                    elif key == 'bevorzugtes_therapeutengeschlecht':
                         try:
-                            # Find the enum member by its value
-                            gender_enum = None
-                            for gender in TherapistGenderPreference:
-                                if gender.value == value:
-                                    gender_enum = gender
-                                    break
-                            
-                            if gender_enum:
-                                patient.bevorzugtes_therapeutengeschlecht = gender_enum
-                            else:
-                                return {'message': f'Invalid gender preference value: {value}'}, 400
-                        except ValueError:
-                            return {'message': f'Invalid gender preference value: {value}'}, 400
-                    elif key in ['geburtsdatum', 'startdatum', 'erster_therapieplatz_am', 'funktionierender_therapieplatz_am'] and value:
-                        # Handle date fields
+                            patient.bevorzugtes_therapeutengeschlecht = validate_and_get_gender_preference(value)
+                        except ValueError as e:
+                            return {'message': str(e)}, 400
+                    elif key in ['geburtsdatum', 'startdatum', 'erster_therapieplatz_am', 'funktionierender_therapieplatz_am']:
                         try:
-                            setattr(patient, key, datetime.strptime(value, '%Y-%m-%d').date())
-                        except ValueError:
-                            return {'message': f'Invalid date format for {key}. Use YYYY-MM-DD'}, 400
+                            setattr(patient, key, parse_date_field(value, key))
+                        except ValueError as e:
+                            return {'message': str(e)}, 400
                     else:
                         setattr(patient, key, value)
             
@@ -194,9 +237,7 @@ class PatientResource(Resource):
         """Delete a patient."""
         db = SessionLocal()
         try:
-            patient = db.query(Patient).filter(
-                Patient.id == patient_id
-            ).first()
+            patient = db.query(Patient).filter(Patient.id == patient_id).first()
             if not patient:
                 return {'message': 'Patient not found'}, 404
             
@@ -228,16 +269,10 @@ class PatientListResource(PaginatedListResource):
             
             # Apply filters if provided
             if status:
-                # Find the enum by its value (German string)
-                status_enum = None
-                for ps in PatientStatus:
-                    if ps.value == status:
-                        status_enum = ps
-                        break
-                
-                if status_enum:
+                try:
+                    status_enum = validate_and_get_patient_status(status)
                     query = query.filter(Patient.status == status_enum)
-                else:
+                except ValueError:
                     # If status value not found, return empty list
                     return []
             
@@ -307,36 +342,21 @@ class PatientListResource(PaginatedListResource):
             # Process each argument
             for key, value in args.items():
                 if value is not None:
-                    if key == 'status' and value:
-                        # Handle status enum - find by value
-                        status_enum = None
-                        for ps in PatientStatus:
-                            if ps.value == value:
-                                status_enum = ps
-                                break
-                        
-                        if status_enum:
-                            patient_data['status'] = status_enum
-                        else:
-                            return {'message': f'Invalid status value: {value}'}, 400
-                    elif key == 'bevorzugtes_therapeutengeschlecht' and value:
-                        # Handle gender preference enum - find by value
-                        gender_enum = None
-                        for gender in TherapistGenderPreference:
-                            if gender.value == value:
-                                gender_enum = gender
-                                break
-                        
-                        if gender_enum:
-                            patient_data[key] = gender_enum
-                        else:
-                            return {'message': f'Invalid gender preference value: {value}'}, 400
-                    elif key in ['geburtsdatum', 'startdatum'] and value:
-                        # Handle date fields
+                    if key == 'status':
                         try:
-                            patient_data[key] = datetime.strptime(value, '%Y-%m-%d').date()
-                        except ValueError:
-                            return {'message': f'Invalid date format for {key}. Use YYYY-MM-DD'}, 400
+                            patient_data['status'] = validate_and_get_patient_status(value)
+                        except ValueError as e:
+                            return {'message': str(e)}, 400
+                    elif key == 'bevorzugtes_therapeutengeschlecht':
+                        try:
+                            patient_data[key] = validate_and_get_gender_preference(value)
+                        except ValueError as e:
+                            return {'message': str(e)}, 400
+                    elif key in ['geburtsdatum', 'startdatum']:
+                        try:
+                            patient_data[key] = parse_date_field(value, key)
+                        except ValueError as e:
+                            return {'message': str(e)}, 400
                     else:
                         patient_data[key] = value
             
