@@ -149,11 +149,11 @@ class Config:
             Service URL
         """
         service_map = {
-            "patient": ("patient-service", cls.PATIENT_SERVICE_PORT),
-            "therapist": ("therapist-service", cls.THERAPIST_SERVICE_PORT),
-            "matching": ("matching-service", cls.MATCHING_SERVICE_PORT),
-            "communication": ("communication-service", cls.COMMUNICATION_SERVICE_PORT),
-            "geocoding": ("geocoding-service", cls.GEOCODING_SERVICE_PORT),
+            "patient": ("patient_service", cls.PATIENT_SERVICE_PORT),
+            "therapist": ("therapist_service", cls.THERAPIST_SERVICE_PORT),
+            "matching": ("matching_service", cls.MATCHING_SERVICE_PORT),
+            "communication": ("communication_service", cls.COMMUNICATION_SERVICE_PORT),
+            "geocoding": ("geocoding_service", cls.GEOCODING_SERVICE_PORT),
         }
         
         if service not in service_map:
