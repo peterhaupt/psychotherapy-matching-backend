@@ -12,12 +12,12 @@ from shared.utils.database import Base
 
 
 class PhoneCallStatus(str, Enum):
-    """Enumeration for phone call status values."""
+    """Enumeration for phone call status values - fully German."""
 
-    SCHEDULED = "geplant"
-    COMPLETED = "abgeschlossen"
-    FAILED = "fehlgeschlagen"
-    CANCELED = "abgebrochen"
+    geplant = "geplant"
+    abgeschlossen = "abgeschlossen"
+    fehlgeschlagen = "fehlgeschlagen"
+    abgebrochen = "abgebrochen"
 
 
 class PhoneCall(Base):
@@ -27,7 +27,7 @@ class PhoneCall(Base):
     including call details, status tracking, and outcomes.
     """
 
-    __tablename__ = "phone_calls"
+    __tablename__ = "telefonanrufe"
     __table_args__ = {"schema": "communication_service"}
 
     id = Column(Integer, primary_key=True, index=True)
@@ -43,7 +43,7 @@ class PhoneCall(Base):
     tatsaechliche_zeit = Column(Time)  # actual_time
     
     # Status and outcome
-    status = Column(String(50), default=PhoneCallStatus.SCHEDULED.value)
+    status = Column(String(50), default=PhoneCallStatus.geplant.value)
     ergebnis = Column(Text)  # outcome
     notizen = Column(Text)  # notes
     wiederholen_nach = Column(Date)  # retry_after
@@ -73,7 +73,7 @@ class PhoneCall(Base):
             outcome: The outcome of the call
             notes: Additional notes about the call
         """
-        self.status = PhoneCallStatus.COMPLETED.value
+        self.status = PhoneCallStatus.abgeschlossen.value
         self.tatsaechliches_datum = actual_date or date.today()
         self.tatsaechliche_zeit = actual_time or self.geplante_zeit
         if outcome:
@@ -91,7 +91,7 @@ class PhoneCall(Base):
             retry_date: When to retry the call
             notes: Reason for failure
         """
-        self.status = PhoneCallStatus.FAILED.value
+        self.status = PhoneCallStatus.fehlgeschlagen.value
         if retry_date:
             self.wiederholen_nach = retry_date
         if notes:
@@ -104,13 +104,13 @@ class PhoneCall(Base):
         Args:
             reason: Reason for cancellation
         """
-        self.status = PhoneCallStatus.CANCELED.value
+        self.status = PhoneCallStatus.abgebrochen.value
         if reason:
             self.notizen = reason
         self.updated_at = datetime.utcnow()
     
     def is_overdue(self) -> bool:
         """Check if the scheduled call is overdue."""
-        if self.status != PhoneCallStatus.SCHEDULED.value:
+        if self.status != PhoneCallStatus.geplant.value:
             return False
         return self.geplantes_datum < date.today()

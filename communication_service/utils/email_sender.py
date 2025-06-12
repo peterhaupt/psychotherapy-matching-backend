@@ -130,19 +130,19 @@ def can_contact_therapist(therapist_id: int, days_threshold: int = MIN_DAYS_BETW
         
         recent_email = db.query(Email).filter(
             Email.therapist_id == therapist_id,
-            Email.sent_at > threshold_date,
-            Email.status == EmailStatus.SENT.value
+            Email.gesendet_am > threshold_date,
+            Email.status == EmailStatus.Gesendet.value
         ).first()
         
         if recent_email:
-            logger.info(f"Therapist {therapist_id} was contacted recently on {recent_email.sent_at}")
+            logger.info(f"Therapist {therapist_id} was contacted recently on {recent_email.gesendet_am}")
             return False
             
         # Also check phone calls
         recent_call = db.query(PhoneCall).filter(
             PhoneCall.therapist_id == therapist_id,
             PhoneCall.tatsaechliches_datum > threshold_date.date(),
-            PhoneCall.status == 'completed'
+            PhoneCall.status == 'abgeschlossen'
         ).first()
         
         if recent_call:
@@ -173,31 +173,31 @@ def send_queued_emails(limit: int = 10) -> int:
     try:
         # Get queued emails
         queued_emails = db.query(Email).filter(
-            Email.status == EmailStatus.QUEUED.value
+            Email.status == EmailStatus.In_Warteschlange.value
         ).limit(limit).all()
         
         for email in queued_emails:
             # Update status to sending
-            email.status = EmailStatus.SENDING
+            email.status = EmailStatus.Wird_gesendet
             db.commit()
             
             # Try to send
             success = send_email(
                 to_email=email.empfaenger_email,
                 subject=email.betreff,
-                body_html=email.body_html,
-                body_text=email.body_text,
+                body_html=email.inhalt_html,
+                body_text=email.inhalt_text,
                 sender_email=email.absender_email,
                 sender_name=email.absender_name
             )
             
             if success:
-                email.status = EmailStatus.SENT
-                email.sent_at = datetime.utcnow()
+                email.status = EmailStatus.Gesendet
+                email.gesendet_am = datetime.utcnow()
                 sent_count += 1
                 logger.info(f"Email {email.id} sent successfully")
             else:
-                email.status = EmailStatus.FAILED
+                email.status = EmailStatus.Fehlgeschlagen
                 email.fehlermeldung = "Failed to send email"
                 email.wiederholungsanzahl += 1
                 logger.error(f"Failed to send email {email.id}")
@@ -233,8 +233,8 @@ def check_unanswered_emails():
         seven_days_ago = datetime.utcnow() - timedelta(days=7)
         
         unanswered_emails = db.query(Email).filter(
-            Email.sent_at <= seven_days_ago,
-            cast(Email.status, String) == EmailStatus.SENT.value,
+            Email.gesendet_am <= seven_days_ago,
+            cast(Email.status, String) == EmailStatus.Gesendet.value,
             Email.antwort_erhalten.is_(False)
         ).all()
         

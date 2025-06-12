@@ -37,24 +37,24 @@ def handle_matching_event(event: EventSchema) -> None:
             db = SessionLocal()
             try:
                 email = db.query(Email).filter(Email.id == email_id).first()
-                if email and email.status == EmailStatus.QUEUED:
+                if email and email.status == EmailStatus.In_Warteschlange:
                     # Send the email immediately
                     from utils.email_sender import send_email
                     success = send_email(
                         to_email=email.empfaenger_email,
                         subject=email.betreff,
-                        body_html=email.body_html,
-                        body_text=email.body_text,
+                        body_html=email.inhalt_html,
+                        body_text=email.inhalt_text,
                         sender_email=email.absender_email,
                         sender_name=email.absender_name
                     )
                     
                     if success:
-                        email.status = EmailStatus.SENT
-                        email.sent_at = datetime.utcnow()
+                        email.status = EmailStatus.Gesendet
+                        email.gesendet_am = datetime.utcnow()
                         logger.info(f"Sent email {email_id}")
                     else:
-                        email.status = EmailStatus.FAILED
+                        email.status = EmailStatus.Fehlgeschlagen
                         email.fehlermeldung = "Failed to send"
                         logger.error(f"Failed to send email {email_id}")
                     
@@ -98,8 +98,8 @@ def check_unanswered_emails_worker():
         seven_days_ago = datetime.utcnow() - timedelta(days=7)
         
         unanswered_emails = db.query(Email).filter(
-            Email.sent_at <= seven_days_ago,
-            cast(Email.status, String) == EmailStatus.SENT.value,
+            Email.gesendet_am <= seven_days_ago,
+            cast(Email.status, String) == EmailStatus.Gesendet.value,
             Email.antwort_erhalten.is_(False)
         ).all()
         

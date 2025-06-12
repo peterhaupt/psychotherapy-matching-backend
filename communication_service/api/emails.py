@@ -40,8 +40,7 @@ email_fields = {
     'antwortdatum': fields.DateTime,
     'antwortinhalt': fields.String,
     'nachverfolgung_erforderlich': fields.Boolean,
-    'nachverfolgung_notizen': fields.String,
-    'sent_at': fields.DateTime,
+    'gesendet_am': fields.DateTime,  # Updated field name
     'created_at': fields.DateTime,
     'updated_at': fields.DateTime,
 }
@@ -90,13 +89,13 @@ class EmailResource(Resource):
                         try:
                             email.status = EmailStatus(value)
                         except ValueError:
-                            # Try case-insensitive matching
+                            # Try case-insensitive matching with German values
                             status_map = {
-                                'DRAFT': EmailStatus.DRAFT,
-                                'QUEUED': EmailStatus.QUEUED,
-                                'SENDING': EmailStatus.SENDING,
-                                'SENT': EmailStatus.SENT,
-                                'FAILED': EmailStatus.FAILED
+                                'ENTWURF': EmailStatus.Entwurf,
+                                'IN_WARTESCHLANGE': EmailStatus.In_Warteschlange,
+                                'WIRD_GESENDET': EmailStatus.Wird_gesendet,
+                                'GESENDET': EmailStatus.Gesendet,
+                                'FEHLGESCHLAGEN': EmailStatus.Fehlgeschlagen
                             }
                             value_upper = value.upper()
                             if value_upper in status_map:
@@ -138,14 +137,14 @@ class EmailListResource(PaginatedListResource):
                     # Try direct enum conversion
                     query = query.filter(Email.status == EmailStatus(status))
                 except ValueError:
-                    # Try case-insensitive matching
+                    # Try case-insensitive matching with German values
                     status_upper = status.upper()
                     status_map = {
-                        'DRAFT': EmailStatus.DRAFT,
-                        'QUEUED': EmailStatus.QUEUED,
-                        'SENDING': EmailStatus.SENDING,
-                        'SENT': EmailStatus.SENT,
-                        'FAILED': EmailStatus.FAILED
+                        'ENTWURF': EmailStatus.Entwurf,
+                        'IN_WARTESCHLANGE': EmailStatus.In_Warteschlange,
+                        'WIRD_GESENDET': EmailStatus.Wird_gesendet,
+                        'GESENDET': EmailStatus.Gesendet,
+                        'FEHLGESCHLAGEN': EmailStatus.Fehlgeschlagen
                     }
                     if status_upper in status_map:
                         query = query.filter(Email.status == status_map[status_upper])
@@ -172,7 +171,7 @@ class EmailListResource(PaginatedListResource):
                            help='Therapist ID is required')
         parser.add_argument('betreff', type=str, required=True,
                            help='Subject is required')
-        parser.add_argument('body_html', type=str, required=True,
+        parser.add_argument('inhalt_html', type=str, required=True,  # Updated field name
                            help='HTML body is required')
         parser.add_argument('empfaenger_email', type=str, required=True,
                            help='Recipient email is required')
@@ -180,7 +179,7 @@ class EmailListResource(PaginatedListResource):
                            help='Recipient name is required')
         
         # Optional fields
-        parser.add_argument('body_text', type=str)
+        parser.add_argument('inhalt_text', type=str)  # Updated field name
         parser.add_argument('absender_email', type=str)
         parser.add_argument('absender_name', type=str)
         parser.add_argument('status', type=str)
@@ -198,8 +197,8 @@ class EmailListResource(PaginatedListResource):
             email = Email(
                 therapist_id=args['therapist_id'],
                 betreff=args['betreff'],
-                body_html=args['body_html'],
-                body_text=args.get('body_text', ''),
+                inhalt_html=args['inhalt_html'],
+                inhalt_text=args.get('inhalt_text', ''),
                 empfaenger_email=args['empfaenger_email'],
                 empfaenger_name=args['empfaenger_name'],
                 absender_email=args.get('absender_email') or smtp_settings['sender'],

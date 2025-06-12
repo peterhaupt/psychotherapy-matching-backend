@@ -11,13 +11,13 @@ from shared.utils.database import Base
 
 
 class EmailStatus(str, Enum):
-    """Enumeration for email status values."""
+    """Enumeration for email status values - fully German."""
 
-    DRAFT = "DRAFT"
-    QUEUED = "QUEUED"
-    SENDING = "SENDING"
-    SENT = "SENT"
-    FAILED = "FAILED"
+    Entwurf = "Entwurf"
+    In_Warteschlange = "In_Warteschlange"
+    Wird_gesendet = "Wird_gesendet"
+    Gesendet = "Gesendet"
+    Fehlgeschlagen = "Fehlgeschlagen"
 
 
 class Email(Base):
@@ -31,8 +31,8 @@ class Email(Base):
     # Email metadata - German field names
     therapist_id = Column(Integer, nullable=False)
     betreff = Column(String(255), nullable=False)  # subject
-    body_html = Column(Text, nullable=False)
-    body_text = Column(Text, nullable=False)
+    inhalt_html = Column(Text, nullable=False)  # body_html
+    inhalt_text = Column(Text, nullable=False)  # body_text
     empfaenger_email = Column(String(255), nullable=False)  # recipient_email
     empfaenger_name = Column(String(255), nullable=False)  # recipient_name
     absender_email = Column(String(255), nullable=False)  # sender_email
@@ -48,10 +48,10 @@ class Email(Base):
     # Status information
     status = Column(
         SQLAlchemyEnum(EmailStatus),
-        default=EmailStatus.DRAFT
+        default=EmailStatus.Entwurf
     )
-    queued_at = Column(DateTime)
-    sent_at = Column(DateTime)
+    in_warteschlange_am = Column(DateTime)  # queued_at
+    gesendet_am = Column(DateTime)  # sent_at
     fehlermeldung = Column(Text)  # error_message
     wiederholungsanzahl = Column(Integer, default=0)  # retry_count
     
@@ -65,12 +65,12 @@ class Email(Base):
     
     def mark_as_sent(self) -> None:
         """Mark email as sent with timestamp."""
-        self.status = EmailStatus.SENT
-        self.sent_at = datetime.utcnow()
+        self.status = EmailStatus.Gesendet
+        self.gesendet_am = datetime.utcnow()
     
     def mark_as_failed(self, error_message: str) -> None:
         """Mark email as failed with error message."""
-        self.status = EmailStatus.FAILED
+        self.status = EmailStatus.Fehlgeschlagen
         self.fehlermeldung = error_message
         self.wiederholungsanzahl += 1
     
@@ -84,12 +84,12 @@ class Email(Base):
     def is_awaiting_response(self) -> bool:
         """Check if email is sent but hasn't received a response."""
         return (
-            self.status == EmailStatus.SENT and 
+            self.status == EmailStatus.Gesendet and 
             not self.antwort_erhalten
         )
     
     def days_since_sent(self) -> int:
         """Calculate days since the email was sent."""
-        if not self.sent_at:
+        if not self.gesendet_am:
             return 0
-        return (datetime.utcnow() - self.sent_at).days
+        return (datetime.utcnow() - self.gesendet_am).days

@@ -200,7 +200,7 @@ class PhoneCallListResource(PaginatedListResource):
                 geplante_zeit=call_time,
                 dauer_minuten=args.get('dauer_minuten', 5),
                 notizen=args.get('notizen'),
-                status=args.get('status', PhoneCallStatus.SCHEDULED.value)
+                status=args.get('status', PhoneCallStatus.geplant.value)
             )
             
             db.add(phone_call)
