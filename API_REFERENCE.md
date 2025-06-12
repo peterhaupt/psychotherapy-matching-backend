@@ -643,9 +643,9 @@ curl "http://localhost:8003/api/therapeutenanfragen?versand_status=gesendet&antw
       "id": 101,
       "therapist_id": 123,
       "therapeuten_name": "Dr. Max Mustermann",
-      "created_date": "2025-06-07T10:00:00",
-      "sent_date": "2025-06-07T10:30:00",
-      "response_date": null,
+      "erstellt_datum": "2025-06-07T10:00:00",
+      "gesendet_datum": "2025-06-07T10:30:00",
+      "antwort_datum": null,
       "tage_seit_versand": 2,
       "antworttyp": null,
       "buendelgroesse": 4,
@@ -687,9 +687,9 @@ curl "http://localhost:8003/api/therapeutenanfragen/101"
     "nachname": "Mustermann",
     "email": "dr.mustermann@example.com"
   },
-  "created_date": "2025-06-07T10:00:00",
-  "sent_date": "2025-06-07T10:30:00",
-  "response_date": null,
+  "erstellt_datum": "2025-06-07T10:00:00",
+  "gesendet_datum": "2025-06-07T10:30:00",
+  "antwort_datum": null,
   "tage_seit_versand": 2,
   "antworttyp": null,
   "buendelgroesse": 4,
@@ -820,7 +820,7 @@ curl "http://localhost:8004/api/emails?status=Gesendet"
       "antwortdatum": null,
       "antwortinhalt": null,
       "nachverfolgung_erforderlich": false,
-      "sent_at": "2025-06-08T10:30:00",
+      "gesendet_am": "2025-06-08T10:30:00",
       "created_at": "2025-06-08T10:25:00",
       "updated_at": "2025-06-08T10:30:00"
     }
@@ -840,7 +840,7 @@ curl "http://localhost:8004/api/emails?status=Gesendet"
 curl "http://localhost:8004/api/emails/1"
 ```
 
-**Example Response:** Same structure as single email in list response, plus `body_html` and `body_text` fields.
+**Example Response:** Same structure as single email in list response, plus `inhalt_html` and `inhalt_text` fields.
 
 ## POST /emails
 
@@ -849,8 +849,8 @@ curl "http://localhost:8004/api/emails/1"
 **Required Fields:**
 - `therapist_id` (integer)
 - `betreff` (string)
-- `body_html` (string)
-- `body_text` (string)
+- `inhalt_html` (string)
+- `inhalt_text` (string)
 - `empfaenger_email` (string)
 - `empfaenger_name` (string)
 
@@ -861,8 +861,8 @@ curl -X POST "http://localhost:8004/api/emails" \
   -d '{
     "therapist_id": 123,
     "betreff": "Therapieanfrage für mehrere Patienten",
-    "body_html": "<html><body><h1>Therapieanfrage</h1><p>Sehr geehrte/r Dr. Schmidt,</p><p>wir haben mehrere Patienten, die...</p></body></html>",
-    "body_text": "Sehr geehrte/r Dr. Schmidt,\n\nwir haben mehrere Patienten, die...",
+    "inhalt_html": "<html><body><h1>Therapieanfrage</h1><p>Sehr geehrte/r Dr. Schmidt,</p><p>wir haben mehrere Patienten, die...</p></body></html>",
+    "inhalt_text": "Sehr geehrte/r Dr. Schmidt,\n\nwir haben mehrere Patienten, die...",
     "empfaenger_email": "doctor@example.com",
     "empfaenger_name": "Dr. Schmidt"
   }'

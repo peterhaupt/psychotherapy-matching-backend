@@ -43,9 +43,9 @@ When a field exists in the database, use that exact German name throughout the A
 
 | Current Name | German Name |
 |--------------|-------------|
-| patients | patienten |
-| therapists | therapeuten |
-| phone_calls | telefonanrufe |
+| patienten | patienten |
+| therapeuten | therapeuten |
+| telefonanrufe | telefonanrufe |
 | emails | emails |
 | platzsuche | platzsuche |
 | therapeutenanfrage | therapeutenanfrage |
