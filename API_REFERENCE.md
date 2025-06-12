@@ -172,8 +172,9 @@ curl "http://localhost:8001/api/patients?status=auf_der_Suche&page=1&limit=20"
       "offen_fuer_diga": false,
       "ausgeschlossene_therapeuten": [45, 67],
       "bevorzugtes_therapeutengeschlecht": "Weiblich",
-      "created_at": "2025-05-01T08:00:00",
-      "updated_at": "2025-06-01T14:30:00"
+      "letzter_kontakt": "2025-06-15",
+      "created_at": "2025-05-01",
+      "updated_at": "2025-06-01"
     }
   ],
   "page": 1,
@@ -222,8 +223,61 @@ curl "http://localhost:8001/api/patients/1"
   "offen_fuer_gruppentherapie": false,
   "bevorzugtes_therapeutengeschlecht": "Weiblich",
   "ausgeschlossene_therapeuten": [45, 67],
-  "created_at": "2025-05-01T08:00:00",
-  "updated_at": "2025-06-01T14:30:00"
+  "letzter_kontakt": "2025-06-15",
+  "created_at": "2025-05-01",
+  "updated_at": "2025-06-01"
+}
+```
+
+## GET /patients/{id}/communication
+
+**Description:** Get complete communication history for a patient (emails and phone calls).
+
+**Example Request:**
+```bash
+curl "http://localhost:8001/api/patients/30/communication"
+```
+
+**Example Response:**
+```json
+{
+  "patient_id": 30,
+  "patient_name": "Max Mustermann",
+  "last_contact": "2025-06-15",
+  "total_emails": 3,
+  "total_calls": 1,
+  "communications": [
+    {
+      "type": "email",
+      "id": 45,
+      "date": "2025-06-15T10:30:00",
+      "subject": "Update zu Ihrer Therapieplatzsuche",
+      "status": "Gesendet",
+      "response_received": false,
+      "data": {
+        "id": 45,
+        "patient_id": 30,
+        "betreff": "Update zu Ihrer Therapieplatzsuche",
+        "empfaenger_email": "max.mustermann@email.com",
+        "status": "Gesendet",
+        "gesendet_am": "2025-06-15T10:30:00"
+      }
+    },
+    {
+      "type": "phone_call",
+      "id": 12,
+      "date": "2025-06-10 14:00",
+      "status": "abgeschlossen",
+      "outcome": "Patient informiert über Fortschritt",
+      "data": {
+        "id": 12,
+        "patient_id": 30,
+        "geplantes_datum": "2025-06-10",
+        "geplante_zeit": "14:00",
+        "status": "abgeschlossen"
+      }
+    }
+  ]
 }
 ```
 
@@ -280,8 +334,8 @@ curl -X POST "http://localhost:8001/api/patients" \
   "email": "thomas.schmidt@email.com",
   "telefon": "+49 89 87654321",
   "status": "offen",
-  "created_at": "2025-06-10T10:30:00",
-  "updated_at": "2025-06-10T10:30:00"
+  "created_at": "2025-06-10",
+  "updated_at": "2025-06-10"
 }
 ```
 
@@ -295,7 +349,8 @@ curl -X PUT "http://localhost:8001/api/patients/1" \
   -H "Content-Type: application/json" \
   -d '{
     "status": "in_Therapie",
-    "funktionierender_therapieplatz_am": "2025-06-15"
+    "funktionierender_therapieplatz_am": "2025-06-15",
+    "letzter_kontakt": "2025-06-18"
   }'
 ```
 
@@ -307,7 +362,8 @@ curl -X PUT "http://localhost:8001/api/patients/1" \
   "nachname": "Müller",
   "status": "in_Therapie",
   "funktionierender_therapieplatz_am": "2025-06-15",
-  "updated_at": "2025-06-10T10:35:00"
+  "letzter_kontakt": "2025-06-18",
+  "updated_at": "2025-06-18"
 }
 ```
 
@@ -794,13 +850,20 @@ curl -X POST "http://localhost:8003/api/buendel/erstellen" \
 
 **Query Parameters:**
 - `therapist_id` (optional): Filter by therapist
+- `patient_id` (optional): Filter by patient
+- `recipient_type` (optional): Filter by recipient type ("therapist" or "patient")
 - `status` (optional): Filter by email status
+- `antwort_erhalten` (optional): Filter by response received (boolean)
 - `page` (optional): Page number
 - `limit` (optional): Items per page
 
 **Example Request:**
 ```bash
-curl "http://localhost:8004/api/emails?status=Gesendet"
+# Get all emails for a specific patient
+curl "http://localhost:8004/api/emails?patient_id=30"
+
+# Get all emails for therapists
+curl "http://localhost:8004/api/emails?recipient_type=therapist&status=Gesendet"
 ```
 
 **Example Response:**
@@ -810,6 +873,7 @@ curl "http://localhost:8004/api/emails?status=Gesendet"
     {
       "id": 1,
       "therapist_id": 123,
+      "patient_id": null,
       "betreff": "Therapieanfrage für mehrere Patienten",
       "empfaenger_email": "doctor@example.com",
       "empfaenger_name": "Dr. Schmidt",
@@ -823,6 +887,21 @@ curl "http://localhost:8004/api/emails?status=Gesendet"
       "gesendet_am": "2025-06-08T10:30:00",
       "created_at": "2025-06-08T10:25:00",
       "updated_at": "2025-06-08T10:30:00"
+    },
+    {
+      "id": 2,
+      "therapist_id": null,
+      "patient_id": 30,
+      "betreff": "Update zu Ihrer Therapieplatzsuche",
+      "empfaenger_email": "patient@example.com",
+      "empfaenger_name": "Max Mustermann",
+      "absender_email": "info@boona.de",
+      "absender_name": "Boona Team",
+      "status": "Gesendet",
+      "antwort_erhalten": false,
+      "gesendet_am": "2025-06-15T10:30:00",
+      "created_at": "2025-06-15T10:25:00",
+      "updated_at": "2025-06-15T10:30:00"
     }
   ],
   "page": 1,
@@ -844,17 +923,28 @@ curl "http://localhost:8004/api/emails/1"
 
 ## POST /emails
 
-**Description:** Create a new email.
+**Description:** Create a new email. Must specify either `therapist_id` OR `patient_id`, not both.
 
 **Required Fields:**
-- `therapist_id` (integer)
+- Either `therapist_id` (integer) OR `patient_id` (integer) - exactly one must be provided
 - `betreff` (string)
 - `inhalt_html` (string)
-- `inhalt_text` (string)
 - `empfaenger_email` (string)
 - `empfaenger_name` (string)
 
-**Example Request:**
+**Optional Fields:**
+- `inhalt_text` (string)
+- `absender_email` (string) - defaults to system email
+- `absender_name` (string) - defaults to system name
+- `status` (string) - defaults to "Entwurf"
+
+**Validation Rules:**
+- Cannot specify both `therapist_id` and `patient_id`
+- Must specify at least one of `therapist_id` or `patient_id`
+
+**Example Requests:**
+
+### Email to Therapist
 ```bash
 curl -X POST "http://localhost:8004/api/emails" \
   -H "Content-Type: application/json" \
@@ -868,17 +958,45 @@ curl -X POST "http://localhost:8004/api/emails" \
   }'
 ```
 
+### Email to Patient
+```bash
+curl -X POST "http://localhost:8004/api/emails" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "patient_id": 30,
+    "betreff": "Update zu Ihrer Therapieplatzsuche",
+    "inhalt_html": "<p>Gute Nachrichten! Wir haben einen Therapieplatz für Sie gefunden...</p>",
+    "inhalt_text": "Gute Nachrichten! Wir haben einen Therapieplatz für Sie gefunden...",
+    "empfaenger_email": "patient@example.com",
+    "empfaenger_name": "Max Mustermann"
+  }'
+```
+
 **Example Response:**
 ```json
 {
-  "id": 2,
-  "therapist_id": 123,
-  "betreff": "Therapieanfrage für mehrere Patienten",
-  "empfaenger_email": "doctor@example.com",
-  "empfaenger_name": "Dr. Schmidt",
+  "id": 3,
+  "patient_id": 30,
+  "therapist_id": null,
+  "betreff": "Update zu Ihrer Therapieplatzsuche",
+  "empfaenger_email": "patient@example.com",
+  "empfaenger_name": "Max Mustermann",
   "status": "In_Warteschlange",
   "created_at": "2025-06-10T12:00:00",
   "updated_at": "2025-06-10T12:00:00"
+}
+```
+
+**Error Responses:**
+```json
+// Missing recipient
+{
+  "message": "Either therapist_id or patient_id is required"
+}
+
+// Both recipients specified
+{
+  "message": "Cannot specify both therapist_id and patient_id"
 }
 ```
 
@@ -916,13 +1034,20 @@ curl -X PUT "http://localhost:8004/api/emails/1" \
 
 **Query Parameters:**
 - `therapist_id` (optional): Filter by therapist
+- `patient_id` (optional): Filter by patient
+- `recipient_type` (optional): Filter by recipient type ("therapist" or "patient")
 - `status` (optional): Filter by call status
+- `geplantes_datum` (optional): Filter by scheduled date
 - `page` (optional): Page number
 - `limit` (optional): Items per page
 
 **Example Request:**
 ```bash
-curl "http://localhost:8004/api/phone-calls?status=geplant"
+# Get all phone calls for a specific patient
+curl "http://localhost:8004/api/phone-calls?patient_id=30"
+
+# Get all scheduled calls for therapists
+curl "http://localhost:8004/api/phone-calls?recipient_type=therapist&status=geplant"
 ```
 
 **Example Response:**
@@ -932,6 +1057,7 @@ curl "http://localhost:8004/api/phone-calls?status=geplant"
     {
       "id": 1,
       "therapist_id": 123,
+      "patient_id": null,
       "geplantes_datum": "2025-06-10",
       "geplante_zeit": "14:30",
       "dauer_minuten": 5,
@@ -943,6 +1069,18 @@ curl "http://localhost:8004/api/phone-calls?status=geplant"
       "wiederholen_nach": null,
       "created_at": "2025-06-09T16:00:00",
       "updated_at": "2025-06-09T16:00:00"
+    },
+    {
+      "id": 2,
+      "therapist_id": null,
+      "patient_id": 30,
+      "geplantes_datum": "2025-06-11",
+      "geplante_zeit": "10:00",
+      "dauer_minuten": 10,
+      "status": "geplant",
+      "notizen": "Status update call",
+      "created_at": "2025-06-10T16:00:00",
+      "updated_at": "2025-06-10T16:00:00"
     }
   ],
   "page": 1,
@@ -953,38 +1091,80 @@ curl "http://localhost:8004/api/phone-calls?status=geplant"
 
 ## POST /phone-calls
 
-**Description:** Schedule a new phone call.
+**Description:** Schedule a new phone call. Must specify either `therapist_id` OR `patient_id`, not both.
 
 **Required Fields:**
-- `therapist_id` (integer)
-- `geplantes_datum` (string, YYYY-MM-DD)
-- `geplante_zeit` (string, HH:MM)
+- Either `therapist_id` (integer) OR `patient_id` (integer) - exactly one must be provided
 
-**Example Request:**
+**Optional Fields:**
+- `geplantes_datum` (string, YYYY-MM-DD) - for therapists: auto-scheduled if not provided; for patients: defaults to tomorrow
+- `geplante_zeit` (string, HH:MM) - for therapists: auto-scheduled based on availability; for patients: defaults to 10:00
+- `dauer_minuten` (integer) - defaults to 5 for therapists, 10 for patients
+- `status` (string) - defaults to "geplant"
+- `notizen` (string)
+
+**Validation Rules:**
+- Cannot specify both `therapist_id` and `patient_id`
+- Must specify at least one of `therapist_id` or `patient_id`
+- For therapists: If date/time not provided, system finds next available slot based on therapist's phone availability
+
+**Example Requests:**
+
+### Phone Call to Therapist (with auto-scheduling)
 ```bash
 curl -X POST "http://localhost:8004/api/phone-calls" \
   -H "Content-Type: application/json" \
   -d '{
     "therapist_id": 123,
-    "geplantes_datum": "2025-06-15",
-    "geplante_zeit": "10:00",
     "dauer_minuten": 5,
     "notizen": "Follow-up für Bündel #45"
+  }'
+```
+
+### Phone Call to Patient (with specific time)
+```bash
+curl -X POST "http://localhost:8004/api/phone-calls" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "patient_id": 30,
+    "geplantes_datum": "2025-06-15",
+    "geplante_zeit": "14:00",
+    "dauer_minuten": 10,
+    "notizen": "Status update regarding therapy search"
   }'
 ```
 
 **Example Response:**
 ```json
 {
-  "id": 2,
-  "therapist_id": 123,
+  "id": 3,
+  "patient_id": 30,
+  "therapist_id": null,
   "geplantes_datum": "2025-06-15",
-  "geplante_zeit": "10:00",
-  "dauer_minuten": 5,
+  "geplante_zeit": "14:00",
+  "dauer_minuten": 10,
   "status": "geplant",
-  "notizen": "Follow-up für Bündel #45",
+  "notizen": "Status update regarding therapy search",
   "created_at": "2025-06-10T12:30:00",
   "updated_at": "2025-06-10T12:30:00"
+}
+```
+
+**Error Responses:**
+```json
+// Missing recipient
+{
+  "message": "Either therapist_id or patient_id is required"
+}
+
+// Both recipients specified
+{
+  "message": "Cannot specify both therapist_id and patient_id"
+}
+
+// No available slots for therapist
+{
+  "message": "No available slots found for this therapist"
 }
 ```
 
@@ -1228,6 +1408,40 @@ curl -X PUT "http://localhost:8003/api/therapeutenanfragen/1/antwort" \
   -d '{"patient_responses": {"1": "angenommen"}}'
 ```
 
+## Patient Communication Test
+
+```bash
+# 1. Send email to patient
+curl -X POST "http://localhost:8004/api/emails" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "patient_id": 30,
+    "betreff": "Welcome to therapy matching",
+    "inhalt_html": "<p>Welcome!</p>",
+    "inhalt_text": "Welcome!",
+    "empfaenger_email": "patient@example.com",
+    "empfaenger_name": "John Doe"
+  }'
+
+# 2. Schedule phone call for patient
+curl -X POST "http://localhost:8004/api/phone-calls" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "patient_id": 30,
+    "geplantes_datum": "2025-06-20",
+    "geplante_zeit": "14:00",
+    "notizen": "Follow-up call"
+  }'
+
+# 3. Get patient communication history
+curl "http://localhost:8001/api/patients/30/communication"
+
+# 4. Filter emails by recipient type
+curl "http://localhost:8004/api/emails?recipient_type=patient"
+```
+
 ---
 
-**Note:** This document represents the current API state as of December 2024. All field names are in German, and the structure is flat (no nested objects). Always use the exact field names and enum values specified in this document.
+**Note:** This document represents the current API state as of December 2024. All field names are in German, and the structure is flat (no nested objects). Always use the exact field names and enum values specified in this document. 
+
+**Important:** The communication service now supports both therapist AND patient communications. When creating emails or phone calls, you must specify exactly one recipient type (either `therapist_id` OR `patient_id`, never both).
