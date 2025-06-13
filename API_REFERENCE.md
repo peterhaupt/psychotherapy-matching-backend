@@ -1144,6 +1144,35 @@ curl "http://localhost:8004/api/phone-calls?recipient_type=therapist&status=gepl
 }
 ```
 
+## GET /phone-calls/{id}
+
+**Description:** Retrieve a specific phone call by ID.
+
+**Example Request:**
+```bash
+curl "http://localhost:8004/api/phone-calls/1"
+```
+
+**Example Response:**
+```json
+{
+  "id": 1,
+  "therapist_id": 123,
+  "patient_id": null,
+  "geplantes_datum": "2025-06-10",
+  "geplante_zeit": "14:30",
+  "dauer_minuten": 5,
+  "status": "geplant",
+  "tatsaechliches_datum": null,
+  "tatsaechliche_zeit": null,
+  "ergebnis": null,
+  "notizen": "Follow-up für Bündel #456",
+  "wiederholen_nach": null,
+  "created_at": "2025-06-09T16:00:00",
+  "updated_at": "2025-06-09T16:00:00"
+}
+```
+
 ## POST /phone-calls
 
 **Description:** Schedule a new phone call. Must specify either `therapist_id` OR `patient_id`, not both.
@@ -1250,6 +1279,22 @@ curl -X PUT "http://localhost:8004/api/phone-calls/1" \
   "ergebnis": "Therapeut interessiert an 1 Patient",
   "notizen": "Will sich nächste Woche melden",
   "updated_at": "2025-06-15T10:06:00"
+}
+```
+
+## DELETE /phone-calls/{id}
+
+**Description:** Delete a phone call.
+
+**Example Request:**
+```bash
+curl -X DELETE "http://localhost:8004/api/phone-calls/1"
+```
+
+**Example Response:**
+```json
+{
+  "message": "Phone call deleted successfully"
 }
 ```
 
@@ -1523,6 +1568,37 @@ curl "http://localhost:8002/api/therapists/123/communication"
 
 # 4. Filter phone calls by recipient type
 curl "http://localhost:8004/api/phone-calls?recipient_type=therapist&status=geplant"
+```
+
+## Phone Call CRUD Test
+
+```bash
+# 1. List phone calls
+curl "http://localhost:8004/api/phone-calls"
+
+# 2. Create phone call
+curl -X POST "http://localhost:8004/api/phone-calls" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "patient_id": 30,
+    "geplantes_datum": "2025-06-20",
+    "geplante_zeit": "14:00",
+    "notizen": "Follow-up call"
+  }'
+
+# 3. Get phone call details (assuming ID 1)
+curl "http://localhost:8004/api/phone-calls/1"
+
+# 4. Update phone call
+curl -X PUT "http://localhost:8004/api/phone-calls/1" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status": "abgeschlossen",
+    "ergebnis": "Patient contacted successfully"
+  }'
+
+# 5. Delete phone call
+curl -X DELETE "http://localhost:8004/api/phone-calls/1"
 ```
 
 ---
