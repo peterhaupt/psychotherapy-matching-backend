@@ -1,68 +1,53 @@
 # Patient Service
 
-> **Note**: For API endpoint documentation, see `API_REFERENCE.md` which contains the complete API specification.
+> **Note**: For complete API documentation, see `API_REFERENCE.md`
 
 ## Summary
-This document details the implementation of the Patient Service, the first microservice developed for the Psychotherapy Matching Platform. The service handles all patient-related data and operations, including patient profile management, medical information handling, preference tracking, and patient state management.
+First microservice developed, handles all patient-related operations including profile management, medical information, preferences, and communication tracking.
 
-## Design Approach
-The Patient Service was implemented first to establish core patterns that would be used across the platform:
-- Domain-driven design principles
-- RESTful API patterns
-- Event-based communication
-- Shared database access utilities
+## Key Components
 
-## Models Implementation
+### Models (`patient_service/models/patient.py`)
+- **Patient**: Core model with German field names
+- **PatientStatus**: German enum values (offen, auf_der_Suche, etc.)
+- **TherapistGenderPreference**: German enum values (Männlich, Weiblich, Egal)
 
-### Patient Model
-The Patient model is implemented in `patient_service/models/patient.py` and includes:
-- Personal information fields (name, contact details)
-- Medical information (diagnosis, treatment history)
-- Process status tracking fields
-- Availability and preferences
-- Therapist exclusions and gender preferences
+### API Endpoints
+1. **CRUD Operations**: Standard REST endpoints (see API_REFERENCE.md)
+2. **Communication History** (NEW): `GET /api/patients/{id}/communication`
+   - Fetches all emails and phone calls for a patient
+   - Combines data from Communication Service
+   - Returns sorted communication timeline
 
-For specific fields and implementation details, refer to the model file directly.
+### Communication Utilities (`patient_service/utils/communication.py`)
+Helper functions for patient communication:
+- `send_patient_email()`: Send emails via Communication Service
+- `schedule_patient_call()`: Schedule phone calls
+- `send_welcome_email()`: Automated welcome message
+- `send_status_update_email()`: Progress updates
+- `send_match_found_email()`: Therapy match notifications
 
-### Status Enumerations
-Two key enum types define patient states:
-- `PatientStatus`: Tracks the current phase of the patient in the process (open, searching, in therapy, etc.)
-- `TherapistGenderPreference`: Captures patient preference for therapist gender
+### Event Management
+**Publishers** (`events/producers.py`):
+- `patient.created`
+- `patient.updated` 
+- `patient.deleted`
 
-## Event Management
-The Patient Service publishes events when patient data changes, allowing other services to react to these changes without tight coupling.
+Uses `RobustKafkaProducer` for resilient messaging.
 
-### Event Types
-- `patient.created`: When a new patient is registered
-- `patient.updated`: When patient information changes
-- `patient.deleted`: When a patient is removed
+## Integration Points
+- **Communication Service**: For sending emails/scheduling calls
+- **Matching Service**: Patient data consumed for bundle creation
+- **Database**: Schema `patient_service` with `patienten` table
 
-Event producers are defined in `patient_service/events/producers.py`.
+## Configuration
+All settings managed through `shared.config`:
+- Database connection via PgBouncer
+- Service ports and URLs
+- Kafka configuration
 
-## Docker Configuration
-The Patient Service is containerized for consistent deployment using Docker. Configuration can be found in `patient_service/Dockerfile` and the service section in `docker-compose.yml`.
-
-## Dependencies
-The patient service has the following key dependencies:
-- Flask and Flask-RESTful for API implementation
-- SQLAlchemy for database operations
-- Kafka-Python for event messaging
-- PostgreSQL driver for database connectivity
-
-## Development Best Practices
-
-1. **Error Handling**:
-   - All database operations are wrapped in try-except blocks
-   - SQLAlchemy errors are properly handled and meaningful error messages returned
-   - Consistent HTTP status codes (404 for not found, 500 for database errors)
-
-2. **Code Structure**:
-   - Separation of concerns: models, API endpoints
-   - Consistent naming conventions
-   - Proper docstrings and type hints
-   - Flake8 compliance
-
-3. **Database Operations**:
-   - Proper session management (open, commit, close)
-   - Rollbacks in case of errors
-   - Transaction consistency
+## Best Practices
+1. **Error Handling**: All operations wrapped in try-except
+2. **German Consistency**: Field names and enum values in German
+3. **Date Handling**: ISO format (YYYY-MM-DD) for all dates
+4. **Last Contact Tracking**: Auto-updated when communication sent
