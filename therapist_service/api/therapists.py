@@ -3,16 +3,22 @@ from flask import request, jsonify
 from flask_restful import Resource, fields, marshal_with, reqparse, marshal
 from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime
+import requests
+import logging
 
 from models.therapist import Therapist, TherapistStatus
 from shared.utils.database import SessionLocal
 from shared.api.base_resource import PaginatedListResource
+from shared.config import get_config
 from events.producers import (
     publish_therapist_created,
     publish_therapist_updated,
     publish_therapist_blocked,
     publish_therapist_unblocked
 )
+
+# Get configuration
+config = get_config()
 
 
 # Custom field for enum serialization
@@ -399,3 +405,89 @@ class TherapistListResource(PaginatedListResource):
             return {'message': f'Database error: {str(e)}'}, 500
         finally:
             db.close()
+
+
+class TherapistCommunicationResource(Resource):
+    """REST resource for therapist communication history."""
+    
+    def get(self, therapist_id):
+        """Get communication history for a therapist."""
+        # Verify therapist exists
+        db = SessionLocal()
+        try:
+            therapist = db.query(Therapist).filter(Therapist.id == therapist_id).first()
+            if not therapist:
+                return {'message': 'Therapist not found'}, 404
+        finally:
+            db.close()
+        
+        # Call communication service to get emails and calls
+        comm_service_url = config.get_service_url('communication', internal=True)
+        
+        try:
+            # Get emails
+            email_response = requests.get(
+                f"{comm_service_url}/api/emails",
+                params={'therapist_id': therapist_id}
+            )
+            emails = email_response.json() if email_response.ok else []
+            
+            # Get phone calls
+            call_response = requests.get(
+                f"{comm_service_url}/api/phone-calls",
+                params={'therapist_id': therapist_id}
+            )
+            phone_calls = call_response.json() if call_response.ok else []
+            
+            # Combine and sort by date
+            all_communications = []
+            
+            # Add emails
+            for email in emails:
+                all_communications.append({
+                    'type': 'email',
+                    'id': email.get('id'),
+                    'date': email.get('gesendet_am') or email.get('created_at'),
+                    'subject': email.get('betreff'),
+                    'status': email.get('status'),
+                    'response_received': email.get('antwort_erhalten'),
+                    'data': email
+                })
+            
+            # Add phone calls
+            for call in phone_calls:
+                all_communications.append({
+                    'type': 'phone_call',
+                    'id': call.get('id'),
+                    'date': f"{call.get('geplantes_datum')} {call.get('geplante_zeit')}",
+                    'status': call.get('status'),
+                    'outcome': call.get('ergebnis'),
+                    'data': call
+                })
+            
+            # Sort by date (newest first)
+            all_communications.sort(key=lambda x: x['date'] or '', reverse=True)
+            
+            # Get last contact date from therapist record
+            last_email = therapist.letzter_kontakt_email.isoformat() if therapist.letzter_kontakt_email else None
+            last_phone = therapist.letzter_kontakt_telefon.isoformat() if therapist.letzter_kontakt_telefon else None
+            
+            # Determine most recent contact
+            last_contact = None
+            if last_email and last_phone:
+                last_contact = max(last_email, last_phone)
+            else:
+                last_contact = last_email or last_phone
+            
+            return {
+                'therapist_id': therapist_id,
+                'therapist_name': f"{therapist.titel or ''} {therapist.vorname} {therapist.nachname}".strip(),
+                'last_contact': last_contact,
+                'total_emails': len(emails),
+                'total_calls': len(phone_calls),
+                'communications': all_communications
+            }
+            
+        except Exception as e:
+            logging.error(f"Error fetching communication history: {str(e)}")
+            return {'message': f'Error fetching communication history: {str(e)}'}, 500

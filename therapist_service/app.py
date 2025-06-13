@@ -3,7 +3,7 @@ from flask import Flask
 from flask_restful import Api
 from flask_cors import CORS
 
-from api.therapists import TherapistResource, TherapistListResource
+from api.therapists import TherapistResource, TherapistListResource, TherapistCommunicationResource
 from shared.config import get_config
 
 
@@ -30,6 +30,10 @@ def create_app():
     # Register API endpoints
     api.add_resource(TherapistListResource, '/api/therapists')
     api.add_resource(TherapistResource, '/api/therapists/<int:therapist_id>')
+    
+    # NEW: Register communication history endpoint
+    api.add_resource(TherapistCommunicationResource, 
+                     '/api/therapists/<int:therapist_id>/communication')
 
     return app
 

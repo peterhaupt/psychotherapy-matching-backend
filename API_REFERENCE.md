@@ -468,6 +468,61 @@ curl "http://localhost:8002/api/therapists/1"
 
 **Example Response:** Same structure as single therapist in list response.
 
+## GET /therapists/{id}/communication
+
+**Description:** Get complete communication history for a therapist (emails and phone calls).
+
+**Example Request:**
+```bash
+curl "http://localhost:8002/api/therapists/123/communication"
+```
+
+**Example Response:**
+```json
+{
+  "therapist_id": 123,
+  "therapist_name": "Dr. Maria Weber",
+  "last_contact": "2025-06-18",
+  "total_emails": 5,
+  "total_calls": 2,
+  "communications": [
+    {
+      "type": "email",
+      "id": 78,
+      "date": "2025-06-18T14:30:00",
+      "subject": "Therapieanfrage für mehrere Patienten",
+      "status": "Gesendet",
+      "response_received": true,
+      "data": {
+        "id": 78,
+        "therapist_id": 123,
+        "betreff": "Therapieanfrage für mehrere Patienten",
+        "empfaenger_email": "dr.weber@praxis.de",
+        "status": "Gesendet",
+        "gesendet_am": "2025-06-18T14:30:00",
+        "antwort_erhalten": true,
+        "antwortdatum": "2025-06-19T09:00:00"
+      }
+    },
+    {
+      "type": "phone_call",
+      "id": 23,
+      "date": "2025-06-15 10:00",
+      "status": "abgeschlossen",
+      "outcome": "Therapeut kann 2 Patienten aufnehmen",
+      "data": {
+        "id": 23,
+        "therapist_id": 123,
+        "geplantes_datum": "2025-06-15",
+        "geplante_zeit": "10:00",
+        "status": "abgeschlossen",
+        "ergebnis": "Therapeut kann 2 Patienten aufnehmen"
+      }
+    }
+  ]
+}
+```
+
 ## POST /therapists
 
 **Description:** Create a new therapist.
@@ -1438,6 +1493,36 @@ curl "http://localhost:8001/api/patients/30/communication"
 
 # 4. Filter emails by recipient type
 curl "http://localhost:8004/api/emails?recipient_type=patient"
+```
+
+## Therapist Communication Test
+
+```bash
+# 1. Send email to therapist
+curl -X POST "http://localhost:8004/api/emails" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "therapist_id": 123,
+    "betreff": "Therapieanfrage für mehrere Patienten",
+    "inhalt_html": "<p>Sehr geehrte/r Dr. Weber,</p><p>Wir haben mehrere Patienten...</p>",
+    "inhalt_text": "Sehr geehrte/r Dr. Weber,\n\nWir haben mehrere Patienten...",
+    "empfaenger_email": "dr.weber@praxis.de",
+    "empfaenger_name": "Dr. Maria Weber"
+  }'
+
+# 2. Schedule phone call for therapist
+curl -X POST "http://localhost:8004/api/phone-calls" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "therapist_id": 123,
+    "notizen": "Follow-up für Bündel #101"
+  }'
+
+# 3. Get therapist communication history
+curl "http://localhost:8002/api/therapists/123/communication"
+
+# 4. Filter phone calls by recipient type
+curl "http://localhost:8004/api/phone-calls?recipient_type=therapist&status=geplant"
 ```
 
 ---
