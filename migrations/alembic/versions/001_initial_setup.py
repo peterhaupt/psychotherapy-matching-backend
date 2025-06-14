@@ -1,4 +1,4 @@
-"""complete database setup with patient communication support
+"""complete database setup with patient communication support and Phase 1 changes
 
 Revision ID: 001_initial_setup
 Revises: 
@@ -19,7 +19,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    """Create complete database schema with German naming conventions."""
+    """Create complete database schema with German naming conventions and Phase 1 changes."""
     
     # ========== STEP 1: CREATE SCHEMAS ==========
     
@@ -319,9 +319,9 @@ def upgrade() -> None:
                    'therapeut_anfrage_patient', ['status'], 
                    schema='matching_service')
     
-    # ========== STEP 6: CREATE COMMUNICATION SERVICE TABLES (WITH PATIENT SUPPORT) ==========
+    # ========== STEP 6: CREATE COMMUNICATION SERVICE TABLES (PHASE 1 CHANGES APPLIED) ==========
     
-    # Create emails table - NOW WITH PATIENT SUPPORT
+    # Create emails table - NOW WITH PATIENT SUPPORT AND WITHOUT FOLLOW-UP FIELDS
     op.create_table('emails',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('therapist_id', sa.Integer(), nullable=True),  # Now nullable!
@@ -336,8 +336,8 @@ def upgrade() -> None:
         sa.Column('antwort_erhalten', sa.Boolean(), nullable=False, server_default='false'),
         sa.Column('antwortdatum', sa.DateTime(), nullable=True),
         sa.Column('antwortinhalt', sa.Text(), nullable=True),
-        sa.Column('nachverfolgung_erforderlich', sa.Boolean(), nullable=False, server_default='false'),
-        sa.Column('nachverfolgung_notizen', sa.Text(), nullable=True),
+        # REMOVED: nachverfolgung_erforderlich
+        # REMOVED: nachverfolgung_notizen
         sa.Column('status', postgresql.ENUM('Entwurf', 'In_Warteschlange', 'Wird_gesendet', 
                                            'Gesendet', 'Fehlgeschlagen',
                                            name='emailstatus', create_type=False), 
@@ -364,7 +364,7 @@ def upgrade() -> None:
     op.create_index('ix_communication_service_emails_patient_id', 'emails', 
                    ['patient_id'], unique=False, schema='communication_service')  # NEW index
     
-    # Create telefonanrufe table - NOW WITH PATIENT SUPPORT
+    # Create telefonanrufe table - NOW WITH PATIENT SUPPORT AND WITHOUT RETRY FIELD
     op.create_table('telefonanrufe',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('therapist_id', sa.Integer(), nullable=True),  # Now nullable!
@@ -379,7 +379,7 @@ def upgrade() -> None:
                   nullable=False, server_default='geplant'),
         sa.Column('ergebnis', sa.Text(), nullable=True),
         sa.Column('notizen', sa.Text(), nullable=True),
-        sa.Column('wiederholen_nach', sa.Date(), nullable=True),
+        # REMOVED: wiederholen_nach
         sa.Column('created_at', sa.DateTime(), nullable=True, 
                   server_default=sa.text('CURRENT_TIMESTAMP')),
         sa.Column('updated_at', sa.DateTime(), nullable=True),

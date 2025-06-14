@@ -9,17 +9,24 @@ This guide outlines the migration of the Communication Service from a business-l
 3. Move scheduling algorithms to Matching/Therapist services  
 4. Implement Markdown support and legal footer injection
 5. Simplify to pure send/track functionality
+6. Replace all "Boona" references with "Curavani" (current company name)
 
 ## Pre-Migration Checklist
 - [ ] Stop all services: `docker-compose down`
 - [ ] Ensure you have latest code from all repositories
-- [ ] Have a backup of the current `001_initial_setup.py` file
+- [ ] Have the updated `001_initial_setup.py` file ready (Phase 1 changes already included)
 
 ---
 
-## Phase 1: Database Reset and Migration
+## Phase 1: Database Migration ✅ COMPLETED
 
-### Step 1.1: Delete Existing Database
+The database migration script has been updated to include all Phase 1 changes:
+
+### Changes Applied in Migration Script:
+1. **Email table**: Removed `nachverfolgung_erforderlich` and `nachverfolgung_notizen` columns
+2. **Phone call table**: Removed `wiederholen_nach` column
+
+### To Apply the Migration:
 ```bash
 # Stop all services
 docker-compose down
@@ -27,32 +34,13 @@ docker-compose down
 # Remove the database volume completely
 docker-compose down -v
 
-# This will delete ALL data - make sure this is what you want!
-```
-
-### Step 1.2: Create New Migration File
-**Replace entire file: `migrations/alembic/versions/001_initial_setup.py`**
-
-The new migration file should have these changes in the communication_service schema:
-
-**Email table changes:**
-- Remove: `nachverfolgung_erforderlich` column
-- Remove: `nachverfolgung_notizen` column
-
-**Phone call table changes:**
-- Remove: `wiederholen_nach` column
-
-All other tables and columns remain the same.
-
-### Step 1.3: Start Fresh Database and Run Migration
-```bash
 # Start only the database services
 docker-compose up -d postgres pgbouncer
 
 # Wait for postgres to be ready (about 10 seconds)
 sleep 10
 
-# Run the new migration
+# Run the updated migration (with Phase 1 changes already included)
 cd migrations
 alembic upgrade head
 
@@ -67,18 +55,14 @@ docker-compose exec postgres psql -U $DB_USER -d therapy_platform -c "\dt *.*"
 ### Step 2.1: Update Models
 **File: `communication_service/models/email.py`**
 ```python
-# Remove these lines from the Email class:
+# Remove these lines from the Email class (if they still exist):
 nachverfolgung_erforderlich = Column(Boolean, default=False)
 nachverfolgung_notizen = Column(Text)
-
-# Remove these methods if they exist:
-# - Any methods that reference nachverfolgung_erforderlich
-# - Any methods that reference nachverfolgung_notizen
 ```
 
 **File: `communication_service/models/phone_call.py`**
 ```python
-# Remove this line from the PhoneCall class:
+# Remove this line from the PhoneCall class (if it still exists):
 wiederholen_nach = Column(Date)
 
 # Update the mark_as_failed method to remove retry_date parameter:
@@ -207,16 +191,30 @@ def get_legal_footer() -> str:
     return """
     <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #ccc; font-size: 12px; color: #666;">
         <p><strong>Datenschutzhinweis:</strong> Diese E-Mail enthält vertrauliche und/oder gesundheitsbezogene Informationen und ist ausschließlich für den Adressaten bestimmt.</p>
-        <p>© 2025 Boona Therapievermittlung GmbH<br>
+        <p>© 2025 Curavani Therapievermittlung GmbH<br>
         Musterstraße 123, 12345 Berlin<br>
-        <a href="https://boona.de/datenschutz">Datenschutz</a> | 
-        <a href="https://boona.de/impressum">Impressum</a> | 
-        <a href="https://boona.de/kontakt">Kontakt</a></p>
+        <a href="https://curavani.de/datenschutz">Datenschutz</a> | 
+        <a href="https://curavani.de/impressum">Impressum</a> | 
+        <a href="https://curavani.de/kontakt">Kontakt</a></p>
     </div>
     """
 ```
 
-### Step 2.4: Update Email API
+### Step 2.4: Replace Company Name References
+
+**IMPORTANT**: Replace all "Boona" references with "Curavani" in the following files:
+
+1. **`communication_service/templates/emails/base_email.html`**
+   - Replace "Boona Therapieplatz-Vermittlung" with "Curavani Therapieplatz-Vermittlung"
+   - Replace "© {{ current_year }} Boona Therapieplatz-Vermittlung" with "© {{ current_year }} Curavani Therapieplatz-Vermittlung"
+
+2. **`communication_service/templates/emails/batch_request.html`**
+   - Replace "Wir sind Boona Therapieplatz-Vermittlung" with "Wir sind Curavani Therapieplatz-Vermittlung"
+
+3. **`communication_service/templates/emails/initial_contact.html`**
+   - Replace "Wir sind Boona Therapieplatz-Vermittlung" with "Wir sind Curavani Therapieplatz-Vermittlung"
+
+### Step 2.5: Update Email API
 **File: `communication_service/api/emails.py`**
 
 Update the POST endpoint to accept markdown:
@@ -242,7 +240,7 @@ def post(self):
         body_text = args.get('inhalt_text', '')
 ```
 
-### Step 2.5: Remove Business Logic
+### Step 2.6: Remove Business Logic
 **File: `communication_service/utils/email_sender.py`**
 - Remove: `can_contact_therapist()` function
 - Remove: `MIN_DAYS_BETWEEN_EMAILS` constant
@@ -257,11 +255,15 @@ def post(self):
 - Remove: Automated follow-up logic
 - Keep only: Basic event handling for send requests
 
-### Step 2.6: Update Configuration
+### Step 2.7: Update Configuration
 **File: `shared/config/settings.py`**
 ```python
 # Add new configuration option
 EMAIL_ADD_LEGAL_FOOTER: bool = os.environ.get("EMAIL_ADD_LEGAL_FOOTER", "true").lower() == "true"
+
+# Update any company references
+COMPANY_NAME = "Curavani Therapievermittlung GmbH"
+COMPANY_DOMAIN = "curavani.de"
 ```
 
 ---
@@ -273,6 +275,8 @@ EMAIL_ADD_LEGAL_FOOTER: bool = os.environ.get("EMAIL_ADD_LEGAL_FOOTER", "true").
 
 Move all template files from `communication_service/templates/` to `matching_service/templates/`.
 
+**IMPORTANT**: Update all "Boona" references to "Curavani" in the moved templates.
+
 ### Step 3.2: Update Matching Service Bundle Creation
 **File: `matching_service/services.py`**
 
@@ -280,6 +284,7 @@ Update `CommunicationService.create_bundle_email()` to:
 1. Generate markdown content instead of HTML
 2. Remove template references
 3. Use new markdown field in API call
+4. Use "Curavani" in any generated content
 
 ### Step 3.3: Update Patient Service Communication
 **File: `patient_service/utils/communication.py`**
@@ -288,6 +293,7 @@ Update all email functions to:
 1. Generate markdown content
 2. Use `body_markdown` field instead of `body_html`
 3. Remove template parameters
+4. Use "Curavani" in any generated content
 
 ---
 
@@ -332,6 +338,12 @@ curl -X POST http://localhost:8004/api/phone-calls \
   }'
 ```
 
+### Step 4.4: Verify Company Name
+Check that all emails show "Curavani" instead of "Boona" in:
+- Email footers
+- Email headers
+- Generated content
+
 ---
 
 ## Phase 5: Cleanup
@@ -349,6 +361,7 @@ rm -rf communication_service/templates/
 - Update API_REFERENCE.md to reflect removed fields
 - Update service documentation to reflect new responsibilities
 - Add examples of markdown usage
+- Update all company references from "Boona" to "Curavani"
 
 ---
 
@@ -356,7 +369,7 @@ rm -rf communication_service/templates/
 
 If issues arise:
 1. Stop all services: `docker-compose down`
-2. Restore original `001_initial_setup.py`
+2. Use original `001_initial_setup.py` (without Phase 1 changes)
 3. Delete database volume: `docker-compose down -v`
 4. Restore original code from git
 5. Rebuild and restart
@@ -365,6 +378,7 @@ If issues arise:
 
 ## Success Criteria
 
+- [ ] Database migration applied successfully (Phase 1 changes included)
 - [ ] Communication service starts without errors
 - [ ] Emails can be created with markdown content
 - [ ] Legal footer appears in emails when enabled
@@ -372,3 +386,14 @@ If issues arise:
 - [ ] No automated follow-up calls are created
 - [ ] No frequency limiting on emails
 - [ ] Other services can create communications successfully
+- [ ] All "Boona" references replaced with "Curavani"
+- [ ] Company name appears correctly in all emails
+
+---
+
+## Notes
+
+- Phase 1 database changes are already included in the migration script
+- No backward compatibility needed - this is a development system
+- All test data will be deleted during migration
+- Remember to update environment variables if company domain changes
