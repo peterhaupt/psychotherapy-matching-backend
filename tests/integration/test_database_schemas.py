@@ -6,7 +6,7 @@ their key columns.
 
 IMPORTANT: All field names use German terminology for consistency.
 
-Current State (after migration kcfc06m9q0q0):
+Current State (after migration with Phase 1 changes):
 - All database table names use German names (patienten, therapeuten, telefonanrufe)
 - All database fields use German names
 - All enum types use German names
@@ -14,6 +14,9 @@ Current State (after migration kcfc06m9q0q0):
 - placement_requests table has been removed
 - email_batches and phone_call_batches tables have been removed
 - Bundle references moved to matching_service.therapeutenanfrage
+- Email/phone call tables now support both therapist AND patient recipients
+- nachverfolgung_erforderlich and nachverfolgung_notizen removed from emails table
+- wiederholen_nach removed from telefonanrufe table
 """
 import os
 import sys
@@ -97,7 +100,7 @@ def test_patient_service_tables(db_inspector):
         'raeumliche_verfuegbarkeit', 'verkehrsmittel',
         'offen_fuer_gruppentherapie', 'offen_fuer_diga',
         'ausgeschlossene_therapeuten', 'bevorzugtes_therapeutengeschlecht',
-        'created_at', 'updated_at'
+        'created_at', 'updated_at', 'letzter_kontakt'
     }
     
     missing_columns = required_columns - columns
@@ -145,7 +148,7 @@ def test_matching_service_tables(db_inspector):
     """Test that matching service tables exist with correct columns."""
     tables = db_inspector.get_table_names(schema='matching_service')
     
-    # Check that placement_requests table does NOT exist (removed in migration fcfc01h4l5l5)
+    # Check that placement_requests table does NOT exist (removed in migration)
     assert 'placement_requests' not in tables, "Table 'placement_requests' should have been removed"
     
     # Check new bundle tables exist
@@ -169,7 +172,7 @@ def test_matching_service_tables(db_inspector):
         'id', 'therapist_id', 'erstellt_datum', 'gesendet_datum', 'antwort_datum',  # German column names
         'antworttyp', 'buendelgroesse', 'angenommen_anzahl', 'abgelehnt_anzahl',
         'keine_antwort_anzahl', 'notizen',
-        # New columns added in migration hcfc03j6n7n7
+        # New columns added in migration
         'email_id', 'phone_call_id'
     }
     missing = ta_required - ta_columns
@@ -195,7 +198,7 @@ def test_communication_service_tables(db_inspector):
     """Test that communication service tables exist with correct columns."""
     tables = db_inspector.get_table_names(schema='communication_service')
     
-    # Check that batch tables have been REMOVED (migration hcfc03j6n7n7)
+    # Check that batch tables have been REMOVED
     assert 'email_batches' not in tables, "Table 'email_batches' should have been removed"
     assert 'phone_call_batches' not in tables, "Table 'phone_call_batches' should have been removed"
     
@@ -206,38 +209,48 @@ def test_communication_service_tables(db_inspector):
     # Ensure old table name doesn't exist
     assert 'phone_calls' not in tables, "Old table name 'phone_calls' should not exist"
     
-    # Check emails columns (with German names and removed columns)
+    # Check emails columns (with German names and Phase 1 removed columns)
     email_columns = {col['name'] for col in db_inspector.get_columns('emails', schema='communication_service')}
     email_required = {
-        'id', 'therapist_id', 'betreff', 'inhalt_html', 'inhalt_text',  # German column names
+        'id', 'therapist_id', 'patient_id', 'betreff', 'inhalt_html', 'inhalt_text',  # Now includes patient_id
         'empfaenger_email', 'empfaenger_name', 'absender_email', 'absender_name',
         'antwort_erhalten', 'antwortdatum', 'antwortinhalt', 
-        'nachverfolgung_erforderlich', 'nachverfolgung_notizen', 
-        'status', 'in_warteschlange_am', 'gesendet_am', 'fehlermeldung', 'wiederholungsanzahl',  # German column names
+        # REMOVED: 'nachverfolgung_erforderlich', 'nachverfolgung_notizen' (Phase 1 changes)
+        'status', 'in_warteschlange_am', 'gesendet_am', 'fehlermeldung', 'wiederholungsanzahl',
         'created_at', 'updated_at'
     }
     missing = email_required - email_columns
     assert not missing, f"Missing columns in emails: {missing}"
+    
+    # Check that removed columns don't exist
+    removed_email_columns = {
+        'nachverfolgung_erforderlich', 'nachverfolgung_notizen',  # Phase 1 removals
+        'placement_request_ids', 'batch_id'  # Earlier removals
+    }
+    unexpected = removed_email_columns & email_columns
+    assert not unexpected, f"Removed columns still exist in emails table: {unexpected}"
     
     # Check that old English column names don't exist
     old_english_columns = {'body_html', 'body_text', 'queued_at', 'sent_at'}
     unexpected = old_english_columns & email_columns
     assert not unexpected, f"Old English column names still exist in emails table: {unexpected}"
     
-    # Check that removed columns don't exist
-    removed_email_columns = {'placement_request_ids', 'batch_id'}
-    unexpected = removed_email_columns & email_columns
-    assert not unexpected, f"Removed columns still exist in emails table: {unexpected}"
-    
-    # Check telefonanrufe columns (with German names)
+    # Check telefonanrufe columns (with German names and Phase 1 removed columns)
     pc_columns = {col['name'] for col in db_inspector.get_columns('telefonanrufe', schema='communication_service')}
     pc_required = {
-        'id', 'therapist_id', 'geplantes_datum', 'geplante_zeit',
+        'id', 'therapist_id', 'patient_id', 'geplantes_datum', 'geplante_zeit',  # Now includes patient_id
         'dauer_minuten', 'tatsaechliches_datum', 'tatsaechliche_zeit', 'status',
-        'ergebnis', 'notizen', 'wiederholen_nach', 'created_at', 'updated_at'
+        'ergebnis', 'notizen', 
+        # REMOVED: 'wiederholen_nach' (Phase 1 change)
+        'created_at', 'updated_at'
     }
     missing = pc_required - pc_columns
     assert not missing, f"Missing columns in telefonanrufe: {missing}"
+    
+    # Check that removed columns don't exist
+    removed_phone_columns = {'wiederholen_nach'}  # Phase 1 removal
+    unexpected = removed_phone_columns & pc_columns
+    assert not unexpected, f"Removed columns still exist in telefonanrufe table: {unexpected}"
 
 
 def test_geocoding_service_tables(db_inspector):
@@ -301,7 +314,8 @@ def test_enum_types(db_engine):
         'telefonanrufstatus': ['geplant', 'abgeschlossen', 'fehlgeschlagen', 'abgebrochen'],
         'antworttyp': ['vollstaendige_Annahme', 'teilweise_Annahme', 'vollstaendige_Ablehnung', 'keine_Antwort'],
         'patientenergebnis': ['angenommen', 'abgelehnt_Kapazitaet', 'abgelehnt_nicht_geeignet', 
-                             'abgelehnt_sonstiges', 'nicht_erschienen', 'in_Sitzungen']
+                             'abgelehnt_sonstiges', 'nicht_erschienen', 'in_Sitzungen'],
+        'buendel_patient_status': ['anstehend', 'angenommen', 'abgelehnt', 'keine_antwort']
     }
     
     for enum_name, expected_values in expected_enums.items():
@@ -402,7 +416,7 @@ def test_no_batch_tables(db_inspector):
     """Test that batch tables have been removed from communication service."""
     tables = db_inspector.get_table_names(schema='communication_service')
     
-    # These tables should not exist after migration hcfc03j6n7n7
+    # These tables should not exist after migration
     removed_tables = {'email_batches', 'phone_call_batches'}
     existing_removed_tables = removed_tables & set(tables)
     assert not existing_removed_tables, \
@@ -450,10 +464,33 @@ def test_primary_key_constraints(db_inspector):
 
 
 def test_check_constraints(db_engine):
-    """Test for any check constraints that should exist."""
-    # Currently no check constraints are defined in the migrations
-    # This test is a placeholder for future check constraints
-    pass
+    """Test for check constraints on communication tables."""
+    with db_engine.connect() as conn:
+        # Check email recipient constraint
+        email_constraints_query = text("""
+            SELECT conname 
+            FROM pg_constraint 
+            WHERE conrelid = 'communication_service.emails'::regclass 
+            AND contype = 'c'
+        """)
+        result = conn.execute(email_constraints_query)
+        constraint_names = [row[0] for row in result]
+        
+        assert 'email_recipient_check' in constraint_names, \
+            "Missing check constraint 'email_recipient_check' on emails table"
+        
+        # Check phone call recipient constraint
+        phone_constraints_query = text("""
+            SELECT conname 
+            FROM pg_constraint 
+            WHERE conrelid = 'communication_service.telefonanrufe'::regclass 
+            AND contype = 'c'
+        """)
+        result = conn.execute(phone_constraints_query)
+        constraint_names = [row[0] for row in result]
+        
+        assert 'phone_call_recipient_check' in constraint_names, \
+            "Missing check constraint 'phone_call_recipient_check' on telefonanrufe table"
 
 
 def test_table_comments_updated(db_engine):
@@ -502,6 +539,27 @@ def test_sample_data_integrity(db_engine):
             
         except Exception as e:
             pytest.fail(f"Failed to query renamed tables: {e}")
+
+
+def test_communication_service_patient_support(db_inspector):
+    """Test that communication service tables support patient communication."""
+    # Check emails table has nullable therapist_id and patient_id
+    email_columns = db_inspector.get_columns('emails', schema='communication_service')
+    
+    therapist_col = next(col for col in email_columns if col['name'] == 'therapist_id')
+    patient_col = next(col for col in email_columns if col['name'] == 'patient_id')
+    
+    assert therapist_col['nullable'] == True, "therapist_id should be nullable in emails table"
+    assert patient_col['nullable'] == True, "patient_id should be nullable in emails table"
+    
+    # Check telefonanrufe table has nullable therapist_id and patient_id
+    phone_columns = db_inspector.get_columns('telefonanrufe', schema='communication_service')
+    
+    therapist_col = next(col for col in phone_columns if col['name'] == 'therapist_id')
+    patient_col = next(col for col in phone_columns if col['name'] == 'patient_id')
+    
+    assert therapist_col['nullable'] == True, "therapist_id should be nullable in telefonanrufe table"
+    assert patient_col['nullable'] == True, "patient_id should be nullable in telefonanrufe table"
 
 
 if __name__ == "__main__":

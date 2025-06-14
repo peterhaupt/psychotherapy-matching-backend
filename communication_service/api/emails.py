@@ -1,7 +1,7 @@
 """Email API endpoints implementation with patient support and markdown support."""
 from datetime import datetime
 from flask import request, current_app
-from flask_restful import Resource, fields, marshal_with, reqparse
+from flask_restful import Resource, fields, marshal_with, reqparse, marshal
 from sqlalchemy.exc import SQLAlchemyError
 import logging
 
@@ -27,12 +27,22 @@ class EnumField(fields.String):
         return str(value)
 
 
+# Custom field for nullable foreign keys
+class NullableIntegerField(fields.Raw):
+    """Field that properly handles nullable integers."""
+    def format(self, value):
+        """Format the value, returning None for null/0 values."""
+        if value is None or value == 0:
+            return None
+        return value
+
+
 # Output fields definition for email responses - German field names
 # REMOVED: nachverfolgung_erforderlich and nachverfolgung_notizen fields
 email_fields = {
     'id': fields.Integer,
-    'therapist_id': fields.Integer,
-    'patient_id': fields.Integer,  # NEW field
+    'therapist_id': NullableIntegerField,  # Use custom field
+    'patient_id': NullableIntegerField,    # Use custom field
     'betreff': fields.String,
     'empfaenger_email': fields.String,
     'empfaenger_name': fields.String,
@@ -51,7 +61,6 @@ email_fields = {
 class EmailResource(Resource):
     """REST resource for individual email operations."""
 
-    @marshal_with(email_fields)
     def get(self, email_id):
         """Get a specific email by ID."""
         db = SessionLocal()
@@ -59,13 +68,12 @@ class EmailResource(Resource):
             email = db.query(Email).filter(Email.id == email_id).first()
             if not email:
                 return {'message': 'Email not found'}, 404
-            return email
+            return marshal(email, email_fields)
         except SQLAlchemyError as e:
             return {'message': f'Database error: {str(e)}'}, 500
         finally:
             db.close()
             
-    @marshal_with(email_fields)
     def put(self, email_id):
         """Update an email."""
         parser = reqparse.RequestParser()
@@ -88,16 +96,21 @@ class EmailResource(Resource):
                 if value is not None:
                     if key == 'status' and value:
                         try:
+                            # Convert string to EmailStatus enum
                             email.status = EmailStatus(value)
                         except ValueError:
                             return {'message': f'Invalid status value: {value}'}, 400
                     elif key == 'antwortdatum' and value:
-                        email.antwortdatum = datetime.fromisoformat(value)
+                        try:
+                            email.antwortdatum = datetime.fromisoformat(value.replace('Z', '+00:00'))
+                        except ValueError:
+                            return {'message': f'Invalid datetime format for antwortdatum: {value}'}, 400
                     else:
                         setattr(email, key, value)
             
             db.commit()
-            return email
+            db.refresh(email)
+            return marshal(email, email_fields)
         except SQLAlchemyError as e:
             db.rollback()
             return {'message': f'Database error: {str(e)}'}, 500
@@ -108,7 +121,6 @@ class EmailResource(Resource):
 class EmailListResource(PaginatedListResource):
     """REST resource for email collection operations with patient support."""
 
-    @marshal_with(email_fields)
     def get(self):
         """Get a list of emails with optional filtering and pagination."""
         # Parse query parameters for filtering
@@ -123,14 +135,24 @@ class EmailListResource(PaginatedListResource):
             query = db.query(Email)
             
             # Apply filters based on recipient type
-            if recipient_type == 'therapist' and therapist_id:
-                query = query.filter(Email.therapist_id == therapist_id)
-            elif recipient_type == 'patient' and patient_id:
-                query = query.filter(Email.patient_id == patient_id)
-            elif therapist_id:  # Backward compatibility
-                query = query.filter(Email.therapist_id == therapist_id)
-            elif patient_id:
-                query = query.filter(Email.patient_id == patient_id)
+            if recipient_type == 'therapist':
+                # Filter for emails to therapists (therapist_id NOT NULL, patient_id NULL)
+                query = query.filter(Email.therapist_id.isnot(None))
+                query = query.filter(Email.patient_id.is_(None))
+                if therapist_id:
+                    query = query.filter(Email.therapist_id == therapist_id)
+            elif recipient_type == 'patient':
+                # Filter for emails to patients (patient_id NOT NULL, therapist_id NULL)
+                query = query.filter(Email.patient_id.isnot(None))
+                query = query.filter(Email.therapist_id.is_(None))
+                if patient_id:
+                    query = query.filter(Email.patient_id == patient_id)
+            else:
+                # No recipient_type specified, use individual filters
+                if therapist_id:
+                    query = query.filter(Email.therapist_id == therapist_id)
+                if patient_id:
+                    query = query.filter(Email.patient_id == patient_id)
             
             if status:
                 try:
@@ -145,15 +167,14 @@ class EmailListResource(PaginatedListResource):
             # Apply pagination
             query = self.paginate_query(query)
             
-            # Get results
+            # Get results and marshal
             emails = query.all()
-            return emails
+            return [marshal(email, email_fields) for email in emails]
         except SQLAlchemyError as e:
             return {'message': f'Database error: {str(e)}'}, 500
         finally:
             db.close()
 
-    @marshal_with(email_fields)
     def post(self):
         """Create a new email with support for both therapist and patient recipients, and markdown support."""
         parser = reqparse.RequestParser()
@@ -269,7 +290,7 @@ class EmailListResource(PaginatedListResource):
                 except Exception as e:
                     logging.warning(f"Failed to update patient last contact date: {e}")
             
-            return email, 201
+            return marshal(email, email_fields), 201
         except SQLAlchemyError as e:
             db.rollback()
             logging.error(f"Database error creating email: {str(e)}", exc_info=True)

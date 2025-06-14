@@ -1,8 +1,8 @@
 """Phone call API endpoints implementation with patient support."""
 from flask import request
-from flask_restful import Resource, fields, marshal_with, reqparse
+from flask_restful import Resource, fields, marshal_with, reqparse, marshal
 from sqlalchemy.exc import SQLAlchemyError
-from datetime import datetime, time
+from datetime import datetime, time, date, timedelta
 import logging
 
 from models.phone_call import PhoneCall, PhoneCallStatus
@@ -10,17 +10,37 @@ from shared.utils.database import SessionLocal
 from shared.api.base_resource import PaginatedListResource
 from utils.phone_call_scheduler import find_available_slot
 
+# Custom field for nullable foreign keys
+class NullableIntegerField(fields.Raw):
+    """Field that properly handles nullable integers."""
+    def format(self, value):
+        """Format the value, returning None for null/0 values."""
+        if value is None or value == 0:
+            return None
+        return value
+
+# Custom field for time formatting
+class TimeField(fields.Raw):
+    """Field that formats time as HH:MM without seconds."""
+    def format(self, value):
+        """Format the time value as HH:MM."""
+        if value is None:
+            return None
+        if isinstance(value, time):
+            return value.strftime('%H:%M')
+        return str(value)
+
 # Output fields definition for phone call responses - German field names
 # REMOVED: wiederholen_nach field
 phone_call_fields = {
     'id': fields.Integer,
-    'therapist_id': fields.Integer,
-    'patient_id': fields.Integer,  # NEW field
+    'therapist_id': NullableIntegerField,  # Use custom field
+    'patient_id': NullableIntegerField,    # Use custom field
     'geplantes_datum': fields.String,
-    'geplante_zeit': fields.String,
+    'geplante_zeit': TimeField,  # Use custom time field
     'dauer_minuten': fields.Integer,
     'tatsaechliches_datum': fields.String,
-    'tatsaechliche_zeit': fields.String,
+    'tatsaechliche_zeit': TimeField,  # Use custom time field
     'status': fields.String,
     'ergebnis': fields.String,
     'notizen': fields.String,
@@ -32,7 +52,6 @@ phone_call_fields = {
 class PhoneCallResource(Resource):
     """REST resource for individual phone call operations."""
 
-    @marshal_with(phone_call_fields)
     def get(self, call_id):
         """Get a specific phone call by ID."""
         db = SessionLocal()
@@ -40,13 +59,12 @@ class PhoneCallResource(Resource):
             phone_call = db.query(PhoneCall).filter(PhoneCall.id == call_id).first()
             if not phone_call:
                 return {'message': 'Phone call not found'}, 404
-            return phone_call
+            return marshal(phone_call, phone_call_fields)
         except SQLAlchemyError as e:
             return {'message': f'Database error: {str(e)}'}, 500
         finally:
             db.close()
 
-    @marshal_with(phone_call_fields)
     def put(self, call_id):
         """Update an existing phone call."""
         parser = reqparse.RequestParser()
@@ -77,19 +95,32 @@ class PhoneCallResource(Resource):
                             return {'message': f'Invalid status value: {value}'}, 400
                         phone_call.status = value
                     elif key == 'geplantes_datum' and value:
-                        phone_call.geplantes_datum = datetime.fromisoformat(value).date()
+                        try:
+                            phone_call.geplantes_datum = datetime.fromisoformat(value).date()
+                        except ValueError:
+                            return {'message': f'Invalid date format for geplantes_datum: {value}'}, 400
                     elif key == 'geplante_zeit' and value:
-                        hour, minute = map(int, value.split(':'))
-                        phone_call.geplante_zeit = time(hour=hour, minute=minute)
+                        try:
+                            hour, minute = map(int, value.split(':'))
+                            phone_call.geplante_zeit = time(hour=hour, minute=minute)
+                        except (ValueError, AttributeError):
+                            return {'message': f'Invalid time format for geplante_zeit: {value}'}, 400
                     elif key == 'tatsaechliches_datum' and value:
-                        phone_call.tatsaechliches_datum = datetime.fromisoformat(value).date()
+                        try:
+                            phone_call.tatsaechliches_datum = datetime.fromisoformat(value).date()
+                        except ValueError:
+                            return {'message': f'Invalid date format for tatsaechliches_datum: {value}'}, 400
                     elif key == 'tatsaechliche_zeit' and value:
-                        hour, minute = map(int, value.split(':'))
-                        phone_call.tatsaechliche_zeit = time(hour=hour, minute=minute)
+                        try:
+                            hour, minute = map(int, value.split(':'))
+                            phone_call.tatsaechliche_zeit = time(hour=hour, minute=minute)
+                        except (ValueError, AttributeError):
+                            return {'message': f'Invalid time format for tatsaechliche_zeit: {value}'}, 400
                     else:
                         setattr(phone_call, key, value)
             
             db.commit()
+            db.refresh(phone_call)
             
             # Update patient's last contact date if this is a patient call and it's completed
             if phone_call.patient_id and phone_call.status == PhoneCallStatus.abgeschlossen.value:
@@ -109,7 +140,7 @@ class PhoneCallResource(Resource):
                 except Exception as e:
                     logging.warning(f"Failed to update patient last contact date: {e}")
             
-            return phone_call
+            return marshal(phone_call, phone_call_fields)
         except SQLAlchemyError as e:
             db.rollback()
             return {'message': f'Database error: {str(e)}'}, 500
@@ -138,7 +169,6 @@ class PhoneCallResource(Resource):
 class PhoneCallListResource(PaginatedListResource):
     """REST resource for phone call collection operations with patient support."""
 
-    @marshal_with(phone_call_fields)
     def get(self):
         """Get a list of phone calls with optional filtering and pagination."""
         # Parse query parameters for filtering
@@ -153,32 +183,45 @@ class PhoneCallListResource(PaginatedListResource):
             query = db.query(PhoneCall)
             
             # Apply filters based on recipient type
-            if recipient_type == 'therapist' and therapist_id:
-                query = query.filter(PhoneCall.therapist_id == therapist_id)
-            elif recipient_type == 'patient' and patient_id:
-                query = query.filter(PhoneCall.patient_id == patient_id)
-            elif therapist_id:  # Backward compatibility
-                query = query.filter(PhoneCall.therapist_id == therapist_id)
-            elif patient_id:
-                query = query.filter(PhoneCall.patient_id == patient_id)
+            if recipient_type == 'therapist':
+                # Filter for calls to therapists (therapist_id NOT NULL, patient_id NULL)
+                query = query.filter(PhoneCall.therapist_id.isnot(None))
+                query = query.filter(PhoneCall.patient_id.is_(None))
+                if therapist_id:
+                    query = query.filter(PhoneCall.therapist_id == therapist_id)
+            elif recipient_type == 'patient':
+                # Filter for calls to patients (patient_id NOT NULL, therapist_id NULL)
+                query = query.filter(PhoneCall.patient_id.isnot(None))
+                query = query.filter(PhoneCall.therapist_id.is_(None))
+                if patient_id:
+                    query = query.filter(PhoneCall.patient_id == patient_id)
+            else:
+                # No recipient_type specified, use individual filters
+                if therapist_id:
+                    query = query.filter(PhoneCall.therapist_id == therapist_id)
+                if patient_id:
+                    query = query.filter(PhoneCall.patient_id == patient_id)
             
             if status:
                 query = query.filter(PhoneCall.status == status)
             if geplantes_datum:
-                query = query.filter(PhoneCall.geplantes_datum == geplantes_datum)
+                try:
+                    date_obj = datetime.fromisoformat(geplantes_datum).date()
+                    query = query.filter(PhoneCall.geplantes_datum == date_obj)
+                except ValueError:
+                    pass  # Invalid date format, skip filter
             
             # Apply pagination
             query = self.paginate_query(query)
             
-            # Get results
+            # Get results and marshal
             phone_calls = query.all()
-            return phone_calls
+            return [marshal(call, phone_call_fields) for call in phone_calls]
         except SQLAlchemyError as e:
             return {'message': f'Database error: {str(e)}'}, 500
         finally:
             db.close()
 
-    @marshal_with(phone_call_fields)
     def post(self):
         """Create a new phone call with support for both therapist and patient recipients."""
         parser = reqparse.RequestParser()
@@ -203,37 +246,49 @@ class PhoneCallListResource(PaginatedListResource):
         
         db = SessionLocal()
         try:
-            # For therapists, check if we need to find an available slot
-            if args.get('therapist_id') and (not args.get('geplantes_datum') or not args.get('geplante_zeit')):
-                slot = find_available_slot(
-                    args['therapist_id'],
-                    duration_minutes=args.get('dauer_minuten', 5)
-                )
-                
-                if not slot:
-                    return {
-                        'message': 'No available slots found for this therapist'
-                    }, 400
-                    
-                scheduled_date = slot['date']
-                scheduled_time = slot['start_time']
+            # Determine defaults based on recipient type
+            if args.get('patient_id'):
+                # Default duration for patients is 10 minutes
+                if 'dauer_minuten' not in args or args['dauer_minuten'] == 5:
+                    args['dauer_minuten'] = 10
+            
+            # Handle date/time
+            if args.get('geplantes_datum'):
+                try:
+                    scheduled_date = datetime.fromisoformat(args['geplantes_datum']).date()
+                except ValueError:
+                    return {'message': f'Invalid date format: {args["geplantes_datum"]}'}, 400
             else:
-                # Use provided date/time or default to tomorrow 10:00 for patients
-                if args.get('geplantes_datum'):
-                    scheduled_date = args['geplantes_datum']
+                # Default to tomorrow
+                scheduled_date = date.today() + timedelta(days=1)
+            
+            if args.get('geplante_zeit'):
+                scheduled_time = args['geplante_zeit']
+            else:
+                # Default time based on recipient type
+                if args.get('therapist_id'):
+                    # For therapists, try to find available slot
+                    slot = find_available_slot(
+                        args['therapist_id'],
+                        start_date=scheduled_date,
+                        duration_minutes=args.get('dauer_minuten', 5)
+                    )
+                    
+                    if slot:
+                        scheduled_date = datetime.fromisoformat(slot['date']).date()
+                        scheduled_time = slot['start_time']
+                    else:
+                        return {'message': 'No available slots found for this therapist'}, 400
                 else:
-                    from datetime import date, timedelta
-                    scheduled_date = (date.today() + timedelta(days=1)).isoformat()
-                
-                scheduled_time = args.get('geplante_zeit', '10:00')
+                    # For patients, default to 10:00
+                    scheduled_time = '10:00'
             
             # Create the phone call
-            start_hour, start_minute = map(int, scheduled_time.split(':'))
-            call_time = time(hour=start_hour, minute=start_minute)
-            
-            # Parse date if it's a string
-            if isinstance(scheduled_date, str):
-                scheduled_date = datetime.fromisoformat(scheduled_date).date()
+            try:
+                start_hour, start_minute = map(int, scheduled_time.split(':'))
+                call_time = time(hour=start_hour, minute=start_minute)
+            except (ValueError, AttributeError):
+                return {'message': f'Invalid time format: {scheduled_time}'}, 400
             
             phone_call = PhoneCall(
                 therapist_id=args.get('therapist_id'),
@@ -262,12 +317,13 @@ class PhoneCallListResource(PaginatedListResource):
             except Exception as e:
                 logging.error(f"Error publishing phone_call_scheduled event: {e}")
             
-            return phone_call, 201
+            return marshal(phone_call, phone_call_fields), 201
         except SQLAlchemyError as e:
             db.rollback()
             return {'message': f'Database error: {str(e)}'}, 500
         except Exception as e:
             db.rollback()
+            logging.error(f"Error creating phone call: {str(e)}", exc_info=True)
             return {'message': f'Error creating phone call: {str(e)}'}, 500
         finally:
             db.close()
