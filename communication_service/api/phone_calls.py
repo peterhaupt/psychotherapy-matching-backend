@@ -11,6 +11,7 @@ from shared.api.base_resource import PaginatedListResource
 from utils.phone_call_scheduler import find_available_slot
 
 # Output fields definition for phone call responses - German field names
+# REMOVED: wiederholen_nach field
 phone_call_fields = {
     'id': fields.Integer,
     'therapist_id': fields.Integer,
@@ -23,7 +24,6 @@ phone_call_fields = {
     'status': fields.String,
     'ergebnis': fields.String,
     'notizen': fields.String,
-    'wiederholen_nach': fields.String,
     'created_at': fields.DateTime,
     'updated_at': fields.DateTime
 }
@@ -58,7 +58,7 @@ class PhoneCallResource(Resource):
         parser.add_argument('status', type=str)
         parser.add_argument('ergebnis', type=str)
         parser.add_argument('notizen', type=str)
-        parser.add_argument('wiederholen_nach', type=str)
+        # REMOVED: wiederholen_nach argument
         
         args = parser.parse_args()
         
@@ -86,8 +86,6 @@ class PhoneCallResource(Resource):
                     elif key == 'tatsaechliche_zeit' and value:
                         hour, minute = map(int, value.split(':'))
                         phone_call.tatsaechliche_zeit = time(hour=hour, minute=minute)
-                    elif key == 'wiederholen_nach' and value:
-                        phone_call.wiederholen_nach = datetime.fromisoformat(value).date()
                     else:
                         setattr(phone_call, key, value)
             

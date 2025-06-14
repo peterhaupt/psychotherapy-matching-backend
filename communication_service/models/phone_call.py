@@ -49,7 +49,6 @@ class PhoneCall(Base):
     status = Column(String(50), default=PhoneCallStatus.geplant.value)
     ergebnis = Column(Text)  # outcome
     notizen = Column(Text)  # notes
-    # REMOVED: wiederholen_nach (retry_after)
     
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)

@@ -28,6 +28,7 @@ class EnumField(fields.String):
 
 
 # Output fields definition for email responses - German field names
+# REMOVED: nachverfolgung_erforderlich and nachverfolgung_notizen fields
 email_fields = {
     'id': fields.Integer,
     'therapist_id': fields.Integer,
@@ -41,7 +42,6 @@ email_fields = {
     'antwort_erhalten': fields.Boolean,
     'antwortdatum': fields.DateTime,
     'antwortinhalt': fields.String,
-    'nachverfolgung_erforderlich': fields.Boolean,
     'gesendet_am': fields.DateTime,  # Updated field name
     'created_at': fields.DateTime,
     'updated_at': fields.DateTime,
@@ -73,8 +73,7 @@ class EmailResource(Resource):
         parser.add_argument('antwort_erhalten', type=bool)
         parser.add_argument('antwortdatum', type=str)
         parser.add_argument('antwortinhalt', type=str)
-        parser.add_argument('nachverfolgung_erforderlich', type=bool)
-        parser.add_argument('nachverfolgung_notizen', type=str)
+        # REMOVED: nachverfolgung_erforderlich and nachverfolgung_notizen arguments
         
         args = parser.parse_args()
         

@@ -16,9 +16,9 @@ This guide outlines the migration of the Communication Service from a business-l
 - ✅ **Phase 2.1: Update Models** - COMPLETED
 - ✅ **Phase 2.2: Add Dependencies** - COMPLETED
 - ✅ **Phase 2.3: Create New Utilities** - COMPLETED
-- 🔄 **Phase 2.5: Update Email API** - COMPLETED
-- 🔄 **Phase 2.6: Remove Business Logic** - PENDING
-- 🔄 **Phase 2.7: Update Configuration** - PENDING
+- ✅ **Phase 2.5: Update Email API** - COMPLETED
+- ✅ **Phase 2.6: Remove Business Logic** - COMPLETED
+- ✅ **Phase 2.7: Update Configuration** - COMPLETED
 - 🔄 **Phase 3: Update Other Services** - PENDING
 - 🔄 **Phase 4: Testing** - PENDING
 - 🔄 **Phase 5: Cleanup** - PENDING
@@ -104,31 +104,30 @@ Updated the POST endpoint to accept markdown:
 - Added logic to convert markdown to HTML when `body_markdown` is provided
 - Integrated with the new markdown processor utilities
 
-### Step 2.6: Remove Business Logic 🔄 PENDING
+### Step 2.6: Remove Business Logic ✅ COMPLETED
+
 **File: `communication_service/utils/email_sender.py`**
-- Remove: `can_contact_therapist()` function
-- Remove: `MIN_DAYS_BETWEEN_EMAILS` constant
-- Remove: Any frequency checking logic
+- ✅ Removed: `can_contact_therapist()` function
+- ✅ Removed: `MIN_DAYS_BETWEEN_EMAILS` constant
+- ✅ Removed: Any frequency checking logic
 
 **File: `communication_service/utils/phone_call_scheduler.py`**
-- Remove: All scheduling algorithm functions
-- Keep only: Basic database operations
+- ✅ Removed: All complex scheduling algorithm functions
+- ✅ Simplified: `find_available_slot()` to return basic default slots
+- ✅ Kept only: Basic database operations
 
 **File: `communication_service/events/consumers.py`**
-- Remove: `check_unanswered_emails_worker()` function
-- Remove: Automated follow-up logic
-- Keep only: Basic event handling for send requests
+- ✅ Removed: `check_unanswered_emails_worker()` function
+- ✅ Removed: Automated follow-up logic
+- ✅ Kept only: Basic event handling for send requests
 
-### Step 2.7: Update Configuration 🔄 PENDING
+### Step 2.7: Update Configuration ✅ COMPLETED
+
 **File: `shared/config/settings.py`**
-```python
-# Add new configuration option
-EMAIL_ADD_LEGAL_FOOTER: bool = os.environ.get("EMAIL_ADD_LEGAL_FOOTER", "true").lower() == "true"
-
-# Update any company references
-COMPANY_NAME = "Curavani Therapievermittlung GmbH"
-COMPANY_DOMAIN = "curavani.de"
-```
+- ✅ Added new configuration option: `EMAIL_ADD_LEGAL_FOOTER`
+- ✅ Updated company references to "Curavani Therapievermittlung GmbH"
+- ✅ Updated default email sender to use curavani.de domain
+- ✅ Added `COMPANY_NAME` and `COMPANY_DOMAIN` configuration
 
 ---
 
@@ -234,6 +233,8 @@ If issues arise:
 - ✅ Dependencies updated for markdown support (Phase 2.2 completed)
 - ✅ Markdown processor utility created (Phase 2.3 completed)
 - ✅ Email API updated to support markdown (Phase 2.5 completed)
+- ✅ Business logic removed from Communication service (Phase 2.6 completed)
+- ✅ Configuration updated for Curavani branding (Phase 2.7 completed)
 - [ ] Communication service starts without errors
 - [ ] Emails can be created with markdown content
 - [ ] Legal footer appears in emails when enabled
@@ -248,8 +249,9 @@ If issues arise:
 ## Notes
 
 - Phase 1 database changes are already included in the migration script
-- Phase 2.1 model updates have been completed
-- Phase 2.2, 2.3, and 2.5 are now completed
+- Phase 2 (steps 2.1 through 2.7) are now completed
 - No backward compatibility needed - this is a development system
 - All test data will be deleted during migration
 - Email templates will be completely removed from the communication service
+- Business logic has been simplified to basic infrastructure operations only
+- Complex scheduling algorithms should now be implemented in requesting services

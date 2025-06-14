@@ -67,8 +67,13 @@ class Config:
     SMTP_USERNAME: str = os.environ.get("SMTP_USERNAME", "")
     SMTP_PASSWORD: str = os.environ.get("SMTP_PASSWORD", "")
     SMTP_USE_TLS: bool = os.environ.get("SMTP_USE_TLS", "false").lower() == "true"
-    EMAIL_SENDER: str = os.environ.get("EMAIL_SENDER", "noreply@example.com")
-    EMAIL_SENDER_NAME: str = os.environ.get("EMAIL_SENDER_NAME", "Therapy Platform")
+    EMAIL_SENDER: str = os.environ.get("EMAIL_SENDER", "noreply@curavani.de")
+    EMAIL_SENDER_NAME: str = os.environ.get("EMAIL_SENDER_NAME", "Curavani Therapievermittlung")
+    EMAIL_ADD_LEGAL_FOOTER: bool = os.environ.get("EMAIL_ADD_LEGAL_FOOTER", "true").lower() == "true"
+    
+    # Company Configuration
+    COMPANY_NAME: str = "Curavani Therapievermittlung GmbH"
+    COMPANY_DOMAIN: str = "curavani.de"
     
     # Geocoding Configuration
     OSM_API_URL: str = os.environ.get("OSM_API_URL", "https://nominatim.openstreetmap.org")

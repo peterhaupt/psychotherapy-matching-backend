@@ -45,8 +45,6 @@ class Email(Base):
     antwort_erhalten = Column(Boolean, default=False)  # response_received
     antwortdatum = Column(DateTime)  # response_date
     antwortinhalt = Column(Text)  # response_content
-    # REMOVED: nachverfolgung_erforderlich (follow_up_required)
-    # REMOVED: nachverfolgung_notizen (follow_up_notes)
     
     # Status information
     status = Column(
