@@ -990,15 +990,53 @@ curl "http://localhost:8004/api/emails/1"
 - `inhalt_text` (string) - plain text version
 - `absender_email` (string) - defaults to system email
 - `absender_name` (string) - defaults to system name
-- `status` (string) - defaults to "Entwurf"
+- `status` (string) - Controls whether email is saved as draft or queued for sending
+  - `"Entwurf"` - Save as draft (will NOT be sent)
+  - `"In_Warteschlange"` - Queue for immediate sending (will be sent within 60 seconds)
+  - Default: `"Entwurf"` (if not specified)
+  - Any other value returns 400 error
 - `add_legal_footer` (boolean) - defaults to true
 
 **Validation Rules:**
 - Cannot specify both `therapist_id` and `patient_id`
 - Must specify at least one of `therapist_id` or `patient_id`
 - Must provide either `inhalt_markdown` or `inhalt_html`
+- Only `"Entwurf"` and `"In_Warteschlange"` can be set via API
+
+**Important Notes:**
+1. If no `status` is provided, emails default to `"Entwurf"` (draft) for safety
+2. Only `"Entwurf"` and `"In_Warteschlange"` can be set by users
+3. System-managed statuses (`"Wird_gesendet"`, `"Gesendet"`, `"Fehlgeschlagen"`) cannot be set via API
 
 **Example Requests:**
+
+### Save Email as Draft
+```bash
+curl -X POST "http://localhost:8004/api/emails" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "patient_id": 30,
+    "status": "Entwurf",
+    "betreff": "Draft: Update zu Ihrer Therapieplatzsuche",
+    "inhalt_markdown": "# Entwurf\n\nDieser Text wird als Entwurf gespeichert...",
+    "empfaenger_email": "patient@example.com",
+    "empfaenger_name": "Max Mustermann"
+  }'
+```
+
+### Send Email Immediately
+```bash
+curl -X POST "http://localhost:8004/api/emails" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "therapist_id": 123,
+    "status": "In_Warteschlange",
+    "betreff": "Therapieanfrage für mehrere Patienten",
+    "inhalt_markdown": "# Therapieanfrage\n\nSehr geehrte/r Dr. Schmidt...",
+    "empfaenger_email": "doctor@example.com",
+    "empfaenger_name": "Dr. Schmidt"
+  }'
+```
 
 ### Email to Therapist (with Markdown)
 ```bash
@@ -1037,7 +1075,7 @@ curl -X POST "http://localhost:8004/api/emails" \
   "betreff": "Update zu Ihrer Therapieplatzsuche",
   "empfaenger_email": "patient@example.com",
   "empfaenger_name": "Max Mustermann",
-  "status": "In_Warteschlange",
+  "status": "Entwurf",
   "created_at": "2025-06-10T12:00:00",
   "updated_at": "2025-06-10T12:00:00"
 }
@@ -1059,7 +1097,38 @@ curl -X POST "http://localhost:8004/api/emails" \
 {
   "message": "Either inhalt_markdown or inhalt_html is required"
 }
+
+// Invalid status
+{
+  "message": "Invalid status. Only 'Entwurf' or 'In_Warteschlange' allowed"
+}
 ```
+
+### Email Status Flow
+
+1. **Draft Flow:**
+   - Frontend sends with `status: "Entwurf"` or omits status
+   - Email saved with "Entwurf" status
+   - Email remains in system but is NOT sent
+   - Can be edited/updated later
+
+2. **Send Flow:**
+   - Frontend sends with `status: "In_Warteschlange"`
+   - Email saved with "In_Warteschlange" status
+   - Background worker picks it up within 60 seconds
+   - Status automatically changes: `In_Warteschlange` → `Wird_gesendet` → `Gesendet` (or `Fehlgeschlagen`)
+   - `gesendet_am` timestamp is set upon successful sending
+
+### Frontend Implementation Recommendations
+
+1. **Send Button:** Set `status: "In_Warteschlange"`
+2. **Save Draft Button:** Set `status: "Entwurf"` or omit status field
+3. **Status Display:** Show appropriate UI based on email status:
+   - `"Entwurf"` - Show as draft, allow editing
+   - `"In_Warteschlange"` - Show as pending/queued
+   - `"Wird_gesendet"` - Show as sending
+   - `"Gesendet"` - Show as sent with timestamp
+   - `"Fehlgeschlagen"` - Show as failed, allow retry
 
 ## PUT /emails/{id}
 
@@ -1612,3 +1681,4 @@ curl -X DELETE "http://localhost:8004/api/phone-calls/1"
 - Both emails and phone calls support therapist AND patient communications
 - When creating emails or phone calls, you must specify exactly one recipient type (either `therapist_id` OR `patient_id`, never both)
 - Removed fields: `nachverfolgung_erforderlich`, `nachverfolgung_notizen` from emails; `wiederholen_nach` from phone calls
+- **Email status handling:** The `POST /emails` endpoint now properly supports the `status` field to control whether emails are saved as drafts (`"Entwurf"`) or queued for immediate sending (`"In_Warteschlange"`)

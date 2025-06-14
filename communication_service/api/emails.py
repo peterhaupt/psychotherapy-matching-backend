@@ -214,6 +214,15 @@ class EmailListResource(PaginatedListResource):
         if not args.get('inhalt_markdown') and not args.get('inhalt_html'):
             return {'message': 'Either inhalt_markdown or inhalt_html is required'}, 400
         
+        # Validate status if provided
+        if args.get('status'):
+            # Only allow user-settable statuses
+            allowed_statuses = [EmailStatus.Entwurf.value, EmailStatus.In_Warteschlange.value]
+            if args['status'] not in allowed_statuses:
+                return {
+                    'message': f"Invalid status. Only '{EmailStatus.Entwurf.value}' or '{EmailStatus.In_Warteschlange.value}' allowed"
+                }, 400
+        
         db = SessionLocal()
         try:
             logging.info(f"Creating email for {'therapist' if args.get('therapist_id') else 'patient'}_id={args.get('therapist_id') or args.get('patient_id')}")
@@ -248,12 +257,16 @@ class EmailListResource(PaginatedListResource):
                 absender_email=args.get('absender_email') or smtp_settings['sender'],
                 absender_name=args.get('absender_name') or smtp_settings['sender_name'],
             )
-            # Let the status be set by the default in the model
-            # This ensures we get the expected enum with German values
+            
+            # Set status if provided and validated
+            if args.get('status'):
+                email.status = EmailStatus(args['status'])
+            # Otherwise, the default from the model (Entwurf) will be used
+            
             db.add(email)
             db.commit()
             db.refresh(email)
-            logging.debug(f"Email created with ID: {email.id}")
+            logging.debug(f"Email created with ID: {email.id}, status: {email.status.value}")
             
             # Get status value safely for the event
             status_value = email.status.value if hasattr(email.status, 'value') else str(email.status)
