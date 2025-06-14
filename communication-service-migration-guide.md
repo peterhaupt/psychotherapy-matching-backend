@@ -14,9 +14,9 @@ This guide outlines the migration of the Communication Service from a business-l
 ## Migration Status
 - ✅ **Phase 1: Database Migration** - COMPLETED
 - ✅ **Phase 2.1: Update Models** - COMPLETED
-- 🔄 **Phase 2.2: Add Dependencies** - IN PROGRESS
-- 🔄 **Phase 2.3: Create New Utilities** - PENDING
-- 🔄 **Phase 2.5: Update Email API** - PENDING
+- ✅ **Phase 2.2: Add Dependencies** - COMPLETED
+- ✅ **Phase 2.3: Create New Utilities** - COMPLETED
+- 🔄 **Phase 2.5: Update Email API** - COMPLETED
 - 🔄 **Phase 2.6: Remove Business Logic** - PENDING
 - 🔄 **Phase 2.7: Update Configuration** - PENDING
 - 🔄 **Phase 3: Update Other Services** - PENDING
@@ -76,155 +76,35 @@ The following model updates have been completed:
 - ✅ Removed `wiederholen_nach` field
 - ✅ Updated `mark_as_failed` method to remove `retry_date` parameter
 
-### Step 2.2: Add Dependencies
+### Step 2.2: Add Dependencies ✅ COMPLETED
+
 **File: `communication_service/requirements.txt`**
-```txt
-Flask==3.1.0
-Flask-RESTful==0.3.10
-flask-cors==4.0.0
-SQLAlchemy==2.0.40
-psycopg2-binary==2.9.10
-flask-sqlalchemy==3.1.1
-kafka-python==2.1.5
-Jinja2==3.1.6
-aiosmtplib==2.0.1
-email-validator==2.0.0.post2
-requests==2.31.0
-# New dependencies for markdown and HTML processing
-markdown-it-py==3.0.0
-beautifulsoup4==4.12.3
-```
 
-### Step 2.3: Create New Utilities
+The requirements.txt file has been updated to include new dependencies for markdown and HTML processing:
+- Added markdown-it-py==3.0.0
+- Added beautifulsoup4==4.12.3
+
+### Step 2.3: Create New Utilities ✅ COMPLETED
+
 **New File: `communication_service/utils/markdown_processor.py`**
-```python
-"""Markdown processing utilities."""
-from markdown_it import MarkdownIt
-from bs4 import BeautifulSoup
-from typing import Optional
 
-# Initialize markdown processor with useful plugins
-md = MarkdownIt("commonmark", {"breaks": True, "html": True})
-md.enable(["table", "strikethrough"])
+Created markdown processor utility with the following functions:
+- `markdown_to_html()`: Converts markdown to HTML
+- `strip_html()`: Strips HTML tags to create plain text
+- `wrap_with_styling()`: Wraps HTML content with styling and optional footer
+- `get_legal_footer()`: Returns the legal footer HTML
 
-def markdown_to_html(markdown_text: str) -> str:
-    """Convert markdown to HTML.
-    
-    Args:
-        markdown_text: Markdown formatted text
-        
-    Returns:
-        HTML formatted text
-    """
-    return md.render(markdown_text)
+### Step 2.5: Update Email API ✅ COMPLETED
 
-def strip_html(html_text: str) -> str:
-    """Strip HTML tags to create plain text.
-    
-    Args:
-        html_text: HTML formatted text
-        
-    Returns:
-        Plain text without HTML tags
-    """
-    soup = BeautifulSoup(html_text, 'html.parser')
-    return soup.get_text(separator='\n').strip()
-
-def wrap_with_styling(html_content: str, add_footer: bool = True) -> str:
-    """Wrap HTML content with styling and optional footer.
-    
-    Args:
-        html_content: Raw HTML content
-        add_footer: Whether to add legal footer
-        
-    Returns:
-        Styled HTML with optional footer
-    """
-    from shared.config import get_config
-    config = get_config()
-    
-    footer_html = ""
-    if add_footer and config.EMAIL_ADD_LEGAL_FOOTER:
-        footer_html = get_legal_footer()
-    
-    return f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <style>
-            body {{
-                font-family: Arial, sans-serif;
-                line-height: 1.6;
-                color: #333;
-                max-width: 600px;
-                margin: 0 auto;
-                padding: 20px;
-            }}
-            h1, h2, h3 {{ color: #2c5aa0; }}
-            table {{
-                border-collapse: collapse;
-                width: 100%;
-                margin: 15px 0;
-            }}
-            th, td {{
-                border: 1px solid #ddd;
-                padding: 8px;
-                text-align: left;
-            }}
-            th {{ background-color: #f2f2f2; }}
-        </style>
-    </head>
-    <body>
-        <div class="content">
-            {html_content}
-        </div>
-        {footer_html}
-    </body>
-    </html>
-    """
-
-def get_legal_footer() -> str:
-    """Get the legal footer HTML."""
-    return """
-    <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #ccc; font-size: 12px; color: #666;">
-        <p><strong>Datenschutzhinweis:</strong> Diese E-Mail enthält vertrauliche und/oder gesundheitsbezogene Informationen und ist ausschließlich für den Adressaten bestimmt.</p>
-        <p>© 2025 Curavani Therapievermittlung GmbH<br>
-        Musterstraße 123, 12345 Berlin<br>
-        <a href="https://curavani.de/datenschutz">Datenschutz</a> | 
-        <a href="https://curavani.de/impressum">Impressum</a> | 
-        <a href="https://curavani.de/kontakt">Kontakt</a></p>
-    </div>
-    """
-```
-
-### Step 2.5: Update Email API
 **File: `communication_service/api/emails.py`**
 
-Update the POST endpoint to accept markdown:
-```python
-def post(self):
-    """Create a new email with markdown support."""
-    parser = reqparse.RequestParser()
-    # Existing fields...
-    parser.add_argument('body_markdown', type=str)  # New field
-    parser.add_argument('add_legal_footer', type=bool, default=True)  # New field
-    
-    # In the processing logic:
-    from utils.markdown_processor import markdown_to_html, strip_html, wrap_with_styling
-    
-    # Convert markdown to HTML if provided
-    if args.get('body_markdown'):
-        raw_html = markdown_to_html(args['body_markdown'])
-        body_html = wrap_with_styling(raw_html, args.get('add_legal_footer', True))
-        body_text = strip_html(raw_html)
-    else:
-        # Use provided HTML/text as before
-        body_html = args['inhalt_html']
-        body_text = args.get('inhalt_text', '')
-```
+Updated the POST endpoint to accept markdown:
+- Added `body_markdown` parameter
+- Added `add_legal_footer` parameter (default: True)
+- Added logic to convert markdown to HTML when `body_markdown` is provided
+- Integrated with the new markdown processor utilities
 
-### Step 2.6: Remove Business Logic
+### Step 2.6: Remove Business Logic 🔄 PENDING
 **File: `communication_service/utils/email_sender.py`**
 - Remove: `can_contact_therapist()` function
 - Remove: `MIN_DAYS_BETWEEN_EMAILS` constant
@@ -239,7 +119,7 @@ def post(self):
 - Remove: Automated follow-up logic
 - Keep only: Basic event handling for send requests
 
-### Step 2.7: Update Configuration
+### Step 2.7: Update Configuration 🔄 PENDING
 **File: `shared/config/settings.py`**
 ```python
 # Add new configuration option
@@ -252,7 +132,7 @@ COMPANY_DOMAIN = "curavani.de"
 
 ---
 
-## Phase 3: Update Other Services
+## Phase 3: Update Other Services 🔄 PENDING
 
 ### Step 3.1: Move Templates to Matching Service
 All email templates will be removed from the communication service. The matching service will be responsible for generating email content as markdown.
@@ -275,7 +155,7 @@ Update all email functions to:
 
 ---
 
-## Phase 4: Testing
+## Phase 4: Testing 🔄 PENDING
 
 ### Step 4.1: Start All Services
 ```bash
@@ -318,7 +198,7 @@ curl -X POST http://localhost:8004/api/phone-calls \
 
 ---
 
-## Phase 5: Cleanup
+## Phase 5: Cleanup 🔄 PENDING
 
 ### Step 5.1: Remove Unused Files
 ```bash
@@ -351,6 +231,9 @@ If issues arise:
 
 - ✅ Database migration applied successfully (Phase 1 changes included)
 - ✅ Model files updated to remove deprecated fields (Phase 2.1 completed)
+- ✅ Dependencies updated for markdown support (Phase 2.2 completed)
+- ✅ Markdown processor utility created (Phase 2.3 completed)
+- ✅ Email API updated to support markdown (Phase 2.5 completed)
 - [ ] Communication service starts without errors
 - [ ] Emails can be created with markdown content
 - [ ] Legal footer appears in emails when enabled
@@ -366,6 +249,7 @@ If issues arise:
 
 - Phase 1 database changes are already included in the migration script
 - Phase 2.1 model updates have been completed
+- Phase 2.2, 2.3, and 2.5 are now completed
 - No backward compatibility needed - this is a development system
 - All test data will be deleted during migration
 - Email templates will be completely removed from the communication service

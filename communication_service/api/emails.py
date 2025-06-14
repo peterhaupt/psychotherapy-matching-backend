@@ -1,4 +1,4 @@
-"""Email API endpoints implementation with patient support."""
+"""Email API endpoints implementation with patient support and markdown support."""
 from datetime import datetime
 from flask import request, current_app
 from flask_restful import Resource, fields, marshal_with, reqparse
@@ -10,6 +10,7 @@ from shared.utils.database import SessionLocal
 from shared.api.base_resource import PaginatedListResource
 from events.producers import publish_email_created, publish_email_sent
 from utils.email_sender import send_email, get_smtp_settings
+from utils.markdown_processor import markdown_to_html, strip_html, wrap_with_styling
 
 
 # Custom field to properly handle enum values
@@ -155,7 +156,7 @@ class EmailListResource(PaginatedListResource):
 
     @marshal_with(email_fields)
     def post(self):
-        """Create a new email with support for both therapist and patient recipients."""
+        """Create a new email with support for both therapist and patient recipients, and markdown support."""
         parser = reqparse.RequestParser()
         # Recipient fields - now both optional
         parser.add_argument('therapist_id', type=int, required=False)
@@ -164,18 +165,22 @@ class EmailListResource(PaginatedListResource):
         # Required email fields - German names
         parser.add_argument('betreff', type=str, required=True,
                            help='Subject is required')
-        parser.add_argument('inhalt_html', type=str, required=True,
-                           help='HTML body is required')
+        
+        # Email body - either markdown OR HTML/text
+        parser.add_argument('body_markdown', type=str)  # NEW field for markdown
+        parser.add_argument('inhalt_html', type=str)
+        parser.add_argument('inhalt_text', type=str)
+        
         parser.add_argument('empfaenger_email', type=str, required=True,
                            help='Recipient email is required')
         parser.add_argument('empfaenger_name', type=str, required=True,
                            help='Recipient name is required')
         
         # Optional fields
-        parser.add_argument('inhalt_text', type=str)
         parser.add_argument('absender_email', type=str)
         parser.add_argument('absender_name', type=str)
         parser.add_argument('status', type=str)
+        parser.add_argument('add_legal_footer', type=bool, default=True)  # NEW field
         
         args = parser.parse_args()
         
@@ -185,6 +190,10 @@ class EmailListResource(PaginatedListResource):
         if args.get('therapist_id') and args.get('patient_id'):
             return {'message': 'Cannot specify both therapist_id and patient_id'}, 400
         
+        # Validate that either markdown OR HTML is provided
+        if not args.get('body_markdown') and not args.get('inhalt_html'):
+            return {'message': 'Either body_markdown or inhalt_html is required'}, 400
+        
         db = SessionLocal()
         try:
             logging.info(f"Creating email for {'therapist' if args.get('therapist_id') else 'patient'}_id={args.get('therapist_id') or args.get('patient_id')}")
@@ -192,13 +201,28 @@ class EmailListResource(PaginatedListResource):
             # Get email settings from centralized configuration
             smtp_settings = get_smtp_settings()
             
+            # Process body content
+            if args.get('body_markdown'):
+                # Convert markdown to HTML
+                raw_html = markdown_to_html(args['body_markdown'])
+                body_html = wrap_with_styling(raw_html, args.get('add_legal_footer', True))
+                body_text = strip_html(raw_html)
+            else:
+                # Use provided HTML/text
+                body_html = args['inhalt_html']
+                body_text = args.get('inhalt_text', '')
+                
+                # If add_legal_footer is requested and HTML is provided
+                if args.get('add_legal_footer', True) and body_html:
+                    body_html = wrap_with_styling(body_html, True)
+            
             # Create new email
             email = Email(
                 therapist_id=args.get('therapist_id'),
                 patient_id=args.get('patient_id'),
                 betreff=args['betreff'],
-                inhalt_html=args['inhalt_html'],
-                inhalt_text=args.get('inhalt_text', ''),
+                inhalt_html=body_html,
+                inhalt_text=body_text,
                 empfaenger_email=args['empfaenger_email'],
                 empfaenger_name=args['empfaenger_name'],
                 absender_email=args.get('absender_email') or smtp_settings['sender'],

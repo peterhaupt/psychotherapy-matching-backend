@@ -7,7 +7,8 @@ flask-sqlalchemy==3.1.1
 kafka-python==2.1.5
 Jinja2==3.1.6
 aiosmtplib==2.0.1
-# For email validation
 email-validator==2.0.0.post2
-# For making HTTP requests
 requests==2.31.0
+# New dependencies for markdown and HTML processing
+markdown-it-py==3.0.0
+beautifulsoup4==4.12.3
