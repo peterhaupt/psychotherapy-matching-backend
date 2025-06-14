@@ -2,7 +2,7 @@
 
 **Single Source of Truth for All API Integration**
 
-Last Updated: December 2024
+Last Updated: June 2025
 
 ## Overview
 
@@ -932,13 +932,12 @@ curl "http://localhost:8004/api/emails?recipient_type=therapist&status=Gesendet"
       "betreff": "Therapieanfrage für mehrere Patienten",
       "empfaenger_email": "doctor@example.com",
       "empfaenger_name": "Dr. Schmidt",
-      "absender_email": "info@boona.de",
-      "absender_name": "Boona Team",
+      "absender_email": "info@curavani.de",
+      "absender_name": "Curavani Team",
       "status": "Gesendet",
       "antwort_erhalten": false,
       "antwortdatum": null,
       "antwortinhalt": null,
-      "nachverfolgung_erforderlich": false,
       "gesendet_am": "2025-06-08T10:30:00",
       "created_at": "2025-06-08T10:25:00",
       "updated_at": "2025-06-08T10:30:00"
@@ -950,8 +949,8 @@ curl "http://localhost:8004/api/emails?recipient_type=therapist&status=Gesendet"
       "betreff": "Update zu Ihrer Therapieplatzsuche",
       "empfaenger_email": "patient@example.com",
       "empfaenger_name": "Max Mustermann",
-      "absender_email": "info@boona.de",
-      "absender_name": "Boona Team",
+      "absender_email": "info@curavani.de",
+      "absender_name": "Curavani Team",
       "status": "Gesendet",
       "antwort_erhalten": false,
       "gesendet_am": "2025-06-15T10:30:00",
@@ -983,37 +982,38 @@ curl "http://localhost:8004/api/emails/1"
 **Required Fields:**
 - Either `therapist_id` (integer) OR `patient_id` (integer) - exactly one must be provided
 - `betreff` (string)
-- `inhalt_html` (string)
+- Either `body_markdown` (string) OR `inhalt_html` (string)
 - `empfaenger_email` (string)
 - `empfaenger_name` (string)
 
 **Optional Fields:**
-- `inhalt_text` (string)
+- `inhalt_text` (string) - plain text version
 - `absender_email` (string) - defaults to system email
 - `absender_name` (string) - defaults to system name
 - `status` (string) - defaults to "Entwurf"
+- `add_legal_footer` (boolean) - defaults to true
 
 **Validation Rules:**
 - Cannot specify both `therapist_id` and `patient_id`
 - Must specify at least one of `therapist_id` or `patient_id`
+- Must provide either `body_markdown` or `inhalt_html`
 
 **Example Requests:**
 
-### Email to Therapist
+### Email to Therapist (with Markdown)
 ```bash
 curl -X POST "http://localhost:8004/api/emails" \
   -H "Content-Type: application/json" \
   -d '{
     "therapist_id": 123,
     "betreff": "Therapieanfrage für mehrere Patienten",
-    "inhalt_html": "<html><body><h1>Therapieanfrage</h1><p>Sehr geehrte/r Dr. Schmidt,</p><p>wir haben mehrere Patienten, die...</p></body></html>",
-    "inhalt_text": "Sehr geehrte/r Dr. Schmidt,\n\nwir haben mehrere Patienten, die...",
+    "body_markdown": "# Therapieanfrage\n\nSehr geehrte/r Dr. Schmidt,\n\nwir haben mehrere Patienten, die...\n\n## Patientenliste\n\n- Patient 1: Anna Müller\n- Patient 2: Max Mustermann\n\n**Bitte antworten Sie innerhalb von 7 Tagen.**",
     "empfaenger_email": "doctor@example.com",
     "empfaenger_name": "Dr. Schmidt"
   }'
 ```
 
-### Email to Patient
+### Email to Patient (with HTML)
 ```bash
 curl -X POST "http://localhost:8004/api/emails" \
   -H "Content-Type: application/json" \
@@ -1023,7 +1023,8 @@ curl -X POST "http://localhost:8004/api/emails" \
     "inhalt_html": "<p>Gute Nachrichten! Wir haben einen Therapieplatz für Sie gefunden...</p>",
     "inhalt_text": "Gute Nachrichten! Wir haben einen Therapieplatz für Sie gefunden...",
     "empfaenger_email": "patient@example.com",
-    "empfaenger_name": "Max Mustermann"
+    "empfaenger_name": "Max Mustermann",
+    "add_legal_footer": false
   }'
 ```
 
@@ -1053,6 +1054,11 @@ curl -X POST "http://localhost:8004/api/emails" \
 {
   "message": "Cannot specify both therapist_id and patient_id"
 }
+
+// Missing body content
+{
+  "message": "Either body_markdown or inhalt_html is required"
+}
 ```
 
 ## PUT /emails/{id}
@@ -1066,8 +1072,7 @@ curl -X PUT "http://localhost:8004/api/emails/1" \
   -d '{
     "antwort_erhalten": true,
     "antwortdatum": "2025-06-09T14:00:00",
-    "antwortinhalt": "Ich kann 2 Patienten aufnehmen.",
-    "nachverfolgung_erforderlich": false
+    "antwortinhalt": "Ich kann 2 Patienten aufnehmen."
   }'
 ```
 
@@ -1078,7 +1083,6 @@ curl -X PUT "http://localhost:8004/api/emails/1" \
   "antwort_erhalten": true,
   "antwortdatum": "2025-06-09T14:00:00",
   "antwortinhalt": "Ich kann 2 Patienten aufnehmen.",
-  "nachverfolgung_erforderlich": false,
   "updated_at": "2025-06-10T12:05:00"
 }
 ```
@@ -1121,7 +1125,6 @@ curl "http://localhost:8004/api/phone-calls?recipient_type=therapist&status=gepl
       "tatsaechliche_zeit": null,
       "ergebnis": null,
       "notizen": "Follow-up für Bündel #456",
-      "wiederholen_nach": null,
       "created_at": "2025-06-09T16:00:00",
       "updated_at": "2025-06-09T16:00:00"
     },
@@ -1167,7 +1170,6 @@ curl "http://localhost:8004/api/phone-calls/1"
   "tatsaechliche_zeit": null,
   "ergebnis": null,
   "notizen": "Follow-up für Bündel #456",
-  "wiederholen_nach": null,
   "created_at": "2025-06-09T16:00:00",
   "updated_at": "2025-06-09T16:00:00"
 }
@@ -1508,17 +1510,16 @@ curl -X PUT "http://localhost:8003/api/therapeutenanfragen/1/antwort" \
   -d '{"patient_responses": {"1": "angenommen"}}'
 ```
 
-## Patient Communication Test
+## Patient Communication Test with Markdown
 
 ```bash
-# 1. Send email to patient
+# 1. Send email to patient with markdown
 curl -X POST "http://localhost:8004/api/emails" \
   -H "Content-Type: application/json" \
   -d '{
     "patient_id": 30,
-    "betreff": "Welcome to therapy matching",
-    "inhalt_html": "<p>Welcome!</p>",
-    "inhalt_text": "Welcome!",
+    "betreff": "Willkommen bei der Therapievermittlung",
+    "body_markdown": "# Willkommen!\n\n**Wir freuen uns, Sie zu unterstützen.**\n\n## Nächste Schritte:\n\n1. Wir suchen passende Therapeuten\n2. Sie erhalten regelmäßige Updates\n3. Bei Fragen sind wir für Sie da\n\n*Mit freundlichen Grüßen,*\nIhr Therapievermittlungsteam",
     "empfaenger_email": "patient@example.com",
     "empfaenger_name": "John Doe"
   }'
@@ -1540,22 +1541,22 @@ curl "http://localhost:8001/api/patients/30/communication"
 curl "http://localhost:8004/api/emails?recipient_type=patient"
 ```
 
-## Therapist Communication Test
+## Therapist Communication Test with Markdown
 
 ```bash
-# 1. Send email to therapist
+# 1. Send email to therapist with markdown
 curl -X POST "http://localhost:8004/api/emails" \
   -H "Content-Type: application/json" \
   -d '{
     "therapist_id": 123,
     "betreff": "Therapieanfrage für mehrere Patienten",
-    "inhalt_html": "<p>Sehr geehrte/r Dr. Weber,</p><p>Wir haben mehrere Patienten...</p>",
-    "inhalt_text": "Sehr geehrte/r Dr. Weber,\n\nWir haben mehrere Patienten...",
+    "body_markdown": "# Therapieanfrage\n\nSehr geehrte/r Dr. Weber,\n\nWir haben mehrere Patienten, die zu Ihrem Profil passen:\n\n## Patientenliste\n\n| Name | Diagnose | Wartezeit |\n|------|----------|----------|\n| Anna Müller | F32.1 | 30 Tage |\n| Max Schmidt | F41.1 | 45 Tage |\n\n**Bitte antworten Sie innerhalb von 7 Tagen.**\n\n[Kontaktieren Sie uns](mailto:info@curavani.de) bei Fragen.",
     "empfaenger_email": "dr.weber@praxis.de",
-    "empfaenger_name": "Dr. Maria Weber"
+    "empfaenger_name": "Dr. Maria Weber",
+    "add_legal_footer": true
   }'
 
-# 2. Schedule phone call for therapist
+# 2. Schedule phone call for therapist (auto-scheduling)
 curl -X POST "http://localhost:8004/api/phone-calls" \
   -H "Content-Type: application/json" \
   -d '{
@@ -1603,6 +1604,11 @@ curl -X DELETE "http://localhost:8004/api/phone-calls/1"
 
 ---
 
-**Note:** This document represents the current API state as of December 2024. All field names are in German, and the structure is flat (no nested objects). Always use the exact field names and enum values specified in this document. 
+**Note:** This document represents the current API state as of June 2025. All field names are in German, and the structure is flat (no nested objects). Always use the exact field names and enum values specified in this document. 
 
-**Important:** The communication service now supports both therapist AND patient communications. When creating emails or phone calls, you must specify exactly one recipient type (either `therapist_id` OR `patient_id`, never both).
+**Important Updates:**
+- The communication service now supports markdown email creation via the `body_markdown` field
+- Legal footer can be added automatically to emails (controlled by `add_legal_footer` parameter)
+- Both emails and phone calls support therapist AND patient communications
+- When creating emails or phone calls, you must specify exactly one recipient type (either `therapist_id` OR `patient_id`, never both)
+- Removed fields: `nachverfolgung_erforderlich`, `nachverfolgung_notizen` from emails; `wiederholen_nach` from phone calls
