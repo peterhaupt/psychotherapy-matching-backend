@@ -481,6 +481,29 @@ class TestCommunicationServiceAPI:
         assert email['absender_email'] == "custom@curavani.de"
         assert email['absender_name'] == "Custom Sender"
     
+    def test_create_email_with_markdown(self):
+        """Test creating email with markdown content."""
+        data = {
+            "therapist_id": self.test_therapist_id,
+            "betreff": "Therapieanfrage für mehrere Patienten",
+            "inhalt_markdown": "# Therapieanfrage\n\nSehr geehrte/r Dr. Schmidt,\n\nwir haben mehrere Patienten...\n\n## Patientenliste\n\n- Patient 1: Anna Müller\n- Patient 2: Max Mustermann\n\n**Bitte antworten Sie innerhalb von 7 Tagen.**",
+            "empfaenger_email": TEST_EMAIL_RECIPIENTS[1],
+            "empfaenger_name": "Dr. Schmidt"
+        }
+        
+        response = requests.post(
+            f"{COMM_BASE_URL}/emails",
+            json=data,
+            headers=self.base_headers
+        )
+        
+        assert response.status_code == 201
+        email = response.json()
+        self.created_email_ids.append(email['id'])
+        
+        assert email['betreff'] == data['betreff']
+        assert email['therapist_id'] == self.test_therapist_id
+    
     # PUT /emails/{id} Tests
     
     def test_update_email_response(self):
@@ -1045,6 +1068,53 @@ class TestCommunicationServiceAPI:
         assert response.status_code == 400
         error = response.json()
         assert 'Invalid status value' in error['message']
+    
+    def test_create_patient_email_with_markdown(self):
+        """Test creating email with markdown for a patient."""
+        data = {
+            "patient_id": self.test_patient_id,
+            "betreff": "Willkommen bei der Therapievermittlung",
+            "inhalt_markdown": "# Willkommen!\n\n**Wir freuen uns, Sie zu unterstützen.**\n\n## Nächste Schritte:\n\n1. Wir suchen passende Therapeuten\n2. Sie erhalten regelmäßige Updates\n3. Bei Fragen sind wir für Sie da\n\n*Mit freundlichen Grüßen,*\nIhr Therapievermittlungsteam",
+            "empfaenger_email": TEST_EMAIL_RECIPIENTS[0],
+            "empfaenger_name": "John Doe"
+        }
+        
+        response = requests.post(
+            f"{COMM_BASE_URL}/emails",
+            json=data,
+            headers=self.base_headers
+        )
+        
+        assert response.status_code == 201
+        email = response.json()
+        self.created_email_ids.append(email['id'])
+        
+        assert email['patient_id'] == self.test_patient_id
+        assert email['therapist_id'] is None
+    
+    def test_create_therapist_email_with_markdown(self):
+        """Test creating email with markdown for a therapist."""
+        data = {
+            "therapist_id": self.test_therapist_id,
+            "betreff": "Therapieanfrage für mehrere Patienten",
+            "inhalt_markdown": "# Therapieanfrage\n\nSehr geehrte/r Dr. Weber,\n\nWir haben mehrere Patienten, die zu Ihrem Profil passen:\n\n## Patientenliste\n\n| Name | Diagnose | Wartezeit |\n|------|----------|----------|\n| Anna Müller | F32.1 | 30 Tage |\n| Max Schmidt | F41.1 | 45 Tage |\n\n**Bitte antworten Sie innerhalb von 7 Tagen.**\n\n[Kontaktieren Sie uns](mailto:info@curavani.de) bei Fragen.",
+            "empfaenger_email": TEST_EMAIL_RECIPIENTS[1],
+            "empfaenger_name": "Dr. Maria Weber",
+            "add_legal_footer": True
+        }
+        
+        response = requests.post(
+            f"{COMM_BASE_URL}/emails",
+            json=data,
+            headers=self.base_headers
+        )
+        
+        assert response.status_code == 201
+        email = response.json()
+        self.created_email_ids.append(email['id'])
+        
+        assert email['therapist_id'] == self.test_therapist_id
+        assert email['patient_id'] is None
 
 
 if __name__ == "__main__":

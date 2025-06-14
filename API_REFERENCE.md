@@ -982,7 +982,7 @@ curl "http://localhost:8004/api/emails/1"
 **Required Fields:**
 - Either `therapist_id` (integer) OR `patient_id` (integer) - exactly one must be provided
 - `betreff` (string)
-- Either `body_markdown` (string) OR `inhalt_html` (string)
+- Either `inhalt_markdown` (string) OR `inhalt_html` (string)
 - `empfaenger_email` (string)
 - `empfaenger_name` (string)
 
@@ -996,7 +996,7 @@ curl "http://localhost:8004/api/emails/1"
 **Validation Rules:**
 - Cannot specify both `therapist_id` and `patient_id`
 - Must specify at least one of `therapist_id` or `patient_id`
-- Must provide either `body_markdown` or `inhalt_html`
+- Must provide either `inhalt_markdown` or `inhalt_html`
 
 **Example Requests:**
 
@@ -1007,7 +1007,7 @@ curl -X POST "http://localhost:8004/api/emails" \
   -d '{
     "therapist_id": 123,
     "betreff": "Therapieanfrage für mehrere Patienten",
-    "body_markdown": "# Therapieanfrage\n\nSehr geehrte/r Dr. Schmidt,\n\nwir haben mehrere Patienten, die...\n\n## Patientenliste\n\n- Patient 1: Anna Müller\n- Patient 2: Max Mustermann\n\n**Bitte antworten Sie innerhalb von 7 Tagen.**",
+    "inhalt_markdown": "# Therapieanfrage\n\nSehr geehrte/r Dr. Schmidt,\n\nwir haben mehrere Patienten, die...\n\n## Patientenliste\n\n- Patient 1: Anna Müller\n- Patient 2: Max Mustermann\n\n**Bitte antworten Sie innerhalb von 7 Tagen.**",
     "empfaenger_email": "doctor@example.com",
     "empfaenger_name": "Dr. Schmidt"
   }'
@@ -1057,7 +1057,7 @@ curl -X POST "http://localhost:8004/api/emails" \
 
 // Missing body content
 {
-  "message": "Either body_markdown or inhalt_html is required"
+  "message": "Either inhalt_markdown or inhalt_html is required"
 }
 ```
 
@@ -1519,7 +1519,7 @@ curl -X POST "http://localhost:8004/api/emails" \
   -d '{
     "patient_id": 30,
     "betreff": "Willkommen bei der Therapievermittlung",
-    "body_markdown": "# Willkommen!\n\n**Wir freuen uns, Sie zu unterstützen.**\n\n## Nächste Schritte:\n\n1. Wir suchen passende Therapeuten\n2. Sie erhalten regelmäßige Updates\n3. Bei Fragen sind wir für Sie da\n\n*Mit freundlichen Grüßen,*\nIhr Therapievermittlungsteam",
+    "inhalt_markdown": "# Willkommen!\n\n**Wir freuen uns, Sie zu unterstützen.**\n\n## Nächste Schritte:\n\n1. Wir suchen passende Therapeuten\n2. Sie erhalten regelmäßige Updates\n3. Bei Fragen sind wir für Sie da\n\n*Mit freundlichen Grüßen,*\nIhr Therapievermittlungsteam",
     "empfaenger_email": "patient@example.com",
     "empfaenger_name": "John Doe"
   }'
@@ -1550,7 +1550,7 @@ curl -X POST "http://localhost:8004/api/emails" \
   -d '{
     "therapist_id": 123,
     "betreff": "Therapieanfrage für mehrere Patienten",
-    "body_markdown": "# Therapieanfrage\n\nSehr geehrte/r Dr. Weber,\n\nWir haben mehrere Patienten, die zu Ihrem Profil passen:\n\n## Patientenliste\n\n| Name | Diagnose | Wartezeit |\n|------|----------|----------|\n| Anna Müller | F32.1 | 30 Tage |\n| Max Schmidt | F41.1 | 45 Tage |\n\n**Bitte antworten Sie innerhalb von 7 Tagen.**\n\n[Kontaktieren Sie uns](mailto:info@curavani.de) bei Fragen.",
+    "inhalt_markdown": "# Therapieanfrage\n\nSehr geehrte/r Dr. Weber,\n\nWir haben mehrere Patienten, die zu Ihrem Profil passen:\n\n## Patientenliste\n\n| Name | Diagnose | Wartezeit |\n|------|----------|----------|\n| Anna Müller | F32.1 | 30 Tage |\n| Max Schmidt | F41.1 | 45 Tage |\n\n**Bitte antworten Sie innerhalb von 7 Tagen.**\n\n[Kontaktieren Sie uns](mailto:info@curavani.de) bei Fragen.",
     "empfaenger_email": "dr.weber@praxis.de",
     "empfaenger_name": "Dr. Maria Weber",
     "add_legal_footer": true
@@ -1607,7 +1607,7 @@ curl -X DELETE "http://localhost:8004/api/phone-calls/1"
 **Note:** This document represents the current API state as of June 2025. All field names are in German, and the structure is flat (no nested objects). Always use the exact field names and enum values specified in this document. 
 
 **Important Updates:**
-- The communication service now supports markdown email creation via the `body_markdown` field
+- The communication service now supports markdown email creation via the `inhalt_markdown` field
 - Legal footer can be added automatically to emails (controlled by `add_legal_footer` parameter)
 - Both emails and phone calls support therapist AND patient communications
 - When creating emails or phone calls, you must specify exactly one recipient type (either `therapist_id` OR `patient_id`, never both)

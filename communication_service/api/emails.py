@@ -187,7 +187,7 @@ class EmailListResource(PaginatedListResource):
                            help='Subject is required')
         
         # Email body - either markdown OR HTML/text
-        parser.add_argument('body_markdown', type=str)  # NEW field for markdown
+        parser.add_argument('inhalt_markdown', type=str)  # NEW field for markdown
         parser.add_argument('inhalt_html', type=str)
         parser.add_argument('inhalt_text', type=str)
         
@@ -211,8 +211,8 @@ class EmailListResource(PaginatedListResource):
             return {'message': 'Cannot specify both therapist_id and patient_id'}, 400
         
         # Validate that either markdown OR HTML is provided
-        if not args.get('body_markdown') and not args.get('inhalt_html'):
-            return {'message': 'Either body_markdown or inhalt_html is required'}, 400
+        if not args.get('inhalt_markdown') and not args.get('inhalt_html'):
+            return {'message': 'Either inhalt_markdown or inhalt_html is required'}, 400
         
         db = SessionLocal()
         try:
@@ -222,9 +222,9 @@ class EmailListResource(PaginatedListResource):
             smtp_settings = get_smtp_settings()
             
             # Process body content
-            if args.get('body_markdown'):
+            if args.get('inhalt_markdown'):
                 # Convert markdown to HTML
-                raw_html = markdown_to_html(args['body_markdown'])
+                raw_html = markdown_to_html(args['inhalt_markdown'])
                 body_html = wrap_with_styling(raw_html, args.get('add_legal_footer', True))
                 body_text = strip_html(raw_html)
             else:
