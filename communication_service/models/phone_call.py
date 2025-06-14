@@ -49,7 +49,7 @@ class PhoneCall(Base):
     status = Column(String(50), default=PhoneCallStatus.geplant.value)
     ergebnis = Column(Text)  # outcome
     notizen = Column(Text)  # notes
-    wiederholen_nach = Column(Date)  # retry_after
+    # REMOVED: wiederholen_nach (retry_after)
     
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -106,18 +106,13 @@ class PhoneCall(Base):
             self.notizen = notes
         self.updated_at = datetime.utcnow()
     
-    def mark_as_failed(self, 
-                      retry_date: Optional[date] = None,
-                      notes: Optional[str] = None) -> None:
+    def mark_as_failed(self, notes: Optional[str] = None) -> None:
         """Mark the phone call as failed.
         
         Args:
-            retry_date: When to retry the call
             notes: Reason for failure
         """
         self.status = PhoneCallStatus.fehlgeschlagen.value
-        if retry_date:
-            self.wiederholen_nach = retry_date
         if notes:
             self.notizen = notes
         self.updated_at = datetime.utcnow()

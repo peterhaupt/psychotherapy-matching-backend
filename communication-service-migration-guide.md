@@ -9,12 +9,24 @@ This guide outlines the migration of the Communication Service from a business-l
 3. Move scheduling algorithms to Matching/Therapist services  
 4. Implement Markdown support and legal footer injection
 5. Simplify to pure send/track functionality
-6. Replace all "Boona" references with "Curavani" (current company name)
+6. Remove all email templates from the service
+
+## Migration Status
+- ✅ **Phase 1: Database Migration** - COMPLETED
+- ✅ **Phase 2.1: Update Models** - COMPLETED
+- 🔄 **Phase 2.2: Add Dependencies** - IN PROGRESS
+- 🔄 **Phase 2.3: Create New Utilities** - PENDING
+- 🔄 **Phase 2.5: Update Email API** - PENDING
+- 🔄 **Phase 2.6: Remove Business Logic** - PENDING
+- 🔄 **Phase 2.7: Update Configuration** - PENDING
+- 🔄 **Phase 3: Update Other Services** - PENDING
+- 🔄 **Phase 4: Testing** - PENDING
+- 🔄 **Phase 5: Cleanup** - PENDING
 
 ## Pre-Migration Checklist
-- [ ] Stop all services: `docker-compose down`
-- [ ] Ensure you have latest code from all repositories
-- [ ] Have the updated `001_initial_setup.py` file ready (Phase 1 changes already included)
+- ✅ Stop all services: `docker-compose down`
+- ✅ Ensure you have latest code from all repositories
+- ✅ Have the updated `001_initial_setup.py` file ready (Phase 1 changes already included)
 
 ---
 
@@ -52,31 +64,17 @@ docker-compose exec postgres psql -U $DB_USER -d therapy_platform -c "\dt *.*"
 
 ## Phase 2: Update Communication Service Code
 
-### Step 2.1: Update Models
-**File: `communication_service/models/email.py`**
-```python
-# Remove these lines from the Email class (if they still exist):
-nachverfolgung_erforderlich = Column(Boolean, default=False)
-nachverfolgung_notizen = Column(Text)
-```
+### Step 2.1: Update Models ✅ COMPLETED
 
-**File: `communication_service/models/phone_call.py`**
-```python
-# Remove this line from the PhoneCall class (if it still exists):
-wiederholen_nach = Column(Date)
+The following model updates have been completed:
 
-# Update the mark_as_failed method to remove retry_date parameter:
-def mark_as_failed(self, notes: Optional[str] = None) -> None:
-    """Mark the phone call as failed.
-    
-    Args:
-        notes: Reason for failure
-    """
-    self.status = PhoneCallStatus.fehlgeschlagen.value
-    if notes:
-        self.notizen = notes
-    self.updated_at = datetime.utcnow()
-```
+**Email Model (`communication_service/models/email.py`)**:
+- ✅ Removed `nachverfolgung_erforderlich` field
+- ✅ Removed `nachverfolgung_notizen` field
+
+**Phone Call Model (`communication_service/models/phone_call.py`)**:
+- ✅ Removed `wiederholen_nach` field
+- ✅ Updated `mark_as_failed` method to remove `retry_date` parameter
 
 ### Step 2.2: Add Dependencies
 **File: `communication_service/requirements.txt`**
@@ -200,20 +198,6 @@ def get_legal_footer() -> str:
     """
 ```
 
-### Step 2.4: Replace Company Name References
-
-**IMPORTANT**: Replace all "Boona" references with "Curavani" in the following files:
-
-1. **`communication_service/templates/emails/base_email.html`**
-   - Replace "Boona Therapieplatz-Vermittlung" with "Curavani Therapieplatz-Vermittlung"
-   - Replace "© {{ current_year }} Boona Therapieplatz-Vermittlung" with "© {{ current_year }} Curavani Therapieplatz-Vermittlung"
-
-2. **`communication_service/templates/emails/batch_request.html`**
-   - Replace "Wir sind Boona Therapieplatz-Vermittlung" with "Wir sind Curavani Therapieplatz-Vermittlung"
-
-3. **`communication_service/templates/emails/initial_contact.html`**
-   - Replace "Wir sind Boona Therapieplatz-Vermittlung" with "Wir sind Curavani Therapieplatz-Vermittlung"
-
 ### Step 2.5: Update Email API
 **File: `communication_service/api/emails.py`**
 
@@ -271,11 +255,7 @@ COMPANY_DOMAIN = "curavani.de"
 ## Phase 3: Update Other Services
 
 ### Step 3.1: Move Templates to Matching Service
-**New Directory: `matching_service/templates/`**
-
-Move all template files from `communication_service/templates/` to `matching_service/templates/`.
-
-**IMPORTANT**: Update all "Boona" references to "Curavani" in the moved templates.
+All email templates will be removed from the communication service. The matching service will be responsible for generating email content as markdown.
 
 ### Step 3.2: Update Matching Service Bundle Creation
 **File: `matching_service/services.py`**
@@ -284,7 +264,6 @@ Update `CommunicationService.create_bundle_email()` to:
 1. Generate markdown content instead of HTML
 2. Remove template references
 3. Use new markdown field in API call
-4. Use "Curavani" in any generated content
 
 ### Step 3.3: Update Patient Service Communication
 **File: `patient_service/utils/communication.py`**
@@ -293,7 +272,6 @@ Update all email functions to:
 1. Generate markdown content
 2. Use `body_markdown` field instead of `body_html`
 3. Remove template parameters
-4. Use "Curavani" in any generated content
 
 ---
 
@@ -338,12 +316,6 @@ curl -X POST http://localhost:8004/api/phone-calls \
   }'
 ```
 
-### Step 4.4: Verify Company Name
-Check that all emails show "Curavani" instead of "Boona" in:
-- Email footers
-- Email headers
-- Generated content
-
 ---
 
 ## Phase 5: Cleanup
@@ -361,7 +333,6 @@ rm -rf communication_service/templates/
 - Update API_REFERENCE.md to reflect removed fields
 - Update service documentation to reflect new responsibilities
 - Add examples of markdown usage
-- Update all company references from "Boona" to "Curavani"
 
 ---
 
@@ -378,7 +349,8 @@ If issues arise:
 
 ## Success Criteria
 
-- [ ] Database migration applied successfully (Phase 1 changes included)
+- ✅ Database migration applied successfully (Phase 1 changes included)
+- ✅ Model files updated to remove deprecated fields (Phase 2.1 completed)
 - [ ] Communication service starts without errors
 - [ ] Emails can be created with markdown content
 - [ ] Legal footer appears in emails when enabled
@@ -386,14 +358,14 @@ If issues arise:
 - [ ] No automated follow-up calls are created
 - [ ] No frequency limiting on emails
 - [ ] Other services can create communications successfully
-- [ ] All "Boona" references replaced with "Curavani"
-- [ ] Company name appears correctly in all emails
+- [ ] All email templates removed from the service
 
 ---
 
 ## Notes
 
 - Phase 1 database changes are already included in the migration script
+- Phase 2.1 model updates have been completed
 - No backward compatibility needed - this is a development system
 - All test data will be deleted during migration
-- Remember to update environment variables if company domain changes
+- Email templates will be completely removed from the communication service
