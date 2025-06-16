@@ -558,6 +558,37 @@ class TestCommunicationServiceAPI:
         
         assert response.status_code == 404
     
+    # DELETE /emails/{id} Tests
+    
+    def test_delete_email_success(self):
+        """Test deleting an existing email."""
+        email = self.create_test_email()
+        email_id = email['id']
+        
+        # Delete the email
+        response = requests.delete(f"{COMM_BASE_URL}/emails/{email_id}")
+        assert response.status_code == 200
+        
+        result = response.json()
+        assert 'message' in result
+        assert 'deleted successfully' in result['message'].lower()
+        
+        # Verify email is deleted
+        get_response = requests.get(f"{COMM_BASE_URL}/emails/{email_id}")
+        assert get_response.status_code == 404
+        
+        # Remove from cleanup list since already deleted
+        self.created_email_ids.remove(email_id)
+    
+    def test_delete_email_not_found(self):
+        """Test deleting non-existent email returns 404."""
+        response = requests.delete(f"{COMM_BASE_URL}/emails/99999999")
+        assert response.status_code == 404
+        
+        error = response.json()
+        assert 'message' in error
+        assert 'not found' in error['message'].lower()
+    
     # --- Phone Call Tests ---
     
     # GET /phone-calls Tests

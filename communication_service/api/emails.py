@@ -116,6 +116,24 @@ class EmailResource(Resource):
             return {'message': f'Database error: {str(e)}'}, 500
         finally:
             db.close()
+    
+    def delete(self, email_id):
+        """Delete an email."""
+        db = SessionLocal()
+        try:
+            email = db.query(Email).filter(Email.id == email_id).first()
+            if not email:
+                return {'message': 'Email not found'}, 404
+            
+            db.delete(email)
+            db.commit()
+            
+            return {'message': 'Email deleted successfully'}, 200
+        except SQLAlchemyError as e:
+            db.rollback()
+            return {'message': f'Database error: {str(e)}'}, 500
+        finally:
+            db.close()
 
 
 class EmailListResource(PaginatedListResource):
