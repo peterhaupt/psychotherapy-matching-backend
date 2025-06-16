@@ -1156,6 +1156,30 @@ curl -X PUT "http://localhost:8004/api/emails/1" \
 }
 ```
 
+## DELETE /emails/{id}
+
+**Description:** Delete an email.
+
+**Example Request:**
+```bash
+curl -X DELETE "http://localhost:8004/api/emails/1"
+```
+
+**Example Response:**
+```json
+{
+  "message": "Email deleted successfully"
+}
+```
+
+**Error Responses:**
+```json
+// Email not found
+{
+  "message": "Email not found"
+}
+```
+
 ## GET /phone-calls
 
 **Description:** Retrieve all phone calls with filtering.
