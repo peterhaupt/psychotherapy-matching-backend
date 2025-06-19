@@ -171,10 +171,10 @@ class PlatzsucheListResource(PaginatedListResource):
     def get(self):
         """Get all patient searches with optional filtering."""
         parser = reqparse.RequestParser()
-        parser.add_argument('status', type=str)
-        parser.add_argument('patient_id', type=int)
-        parser.add_argument('min_bundles', type=int)
-        parser.add_argument('max_bundles', type=int)
+        parser.add_argument('status', type=str, location='args')
+        parser.add_argument('patient_id', type=int, location='args')
+        parser.add_argument('min_bundles', type=int, location='args')
+        parser.add_argument('max_bundles', type=int, location='args')
         args = parser.parse_args()
         
         try:
@@ -439,12 +439,12 @@ class TherapeutenanfrageListResource(PaginatedListResource):
     def get(self):
         """Get all bundles with optional filtering."""
         parser = reqparse.RequestParser()
-        parser.add_argument('therapist_id', type=int)
-        parser.add_argument('versand_status', type=str)  # Changed from sent_status
-        parser.add_argument('antwort_status', type=str)  # Changed from response_status
-        parser.add_argument('nachverfolgung_erforderlich', type=bool)  # Changed from needs_follow_up
-        parser.add_argument('min_size', type=int)
-        parser.add_argument('max_size', type=int)
+        parser.add_argument('therapist_id', type=int, location='args')
+        parser.add_argument('versand_status', type=str, location='args')
+        parser.add_argument('antwort_status', type=str, location='args')
+        parser.add_argument('nachverfolgung_erforderlich', type=bool, location='args')
+        parser.add_argument('min_size', type=int, location='args')
+        parser.add_argument('max_size', type=int, location='args')
         args = parser.parse_args()
         
         try:
