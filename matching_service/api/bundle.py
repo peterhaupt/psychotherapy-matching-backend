@@ -8,7 +8,7 @@ from sqlalchemy import and_, or_, desc
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from shared.api import PaginatedListResource
-from db import get_db
+from db import get_db_context
 from models import Platzsuche, Therapeutenanfrage, TherapeutAnfragePatient
 from models.platzsuche import SuchStatus
 from models.therapeutenanfrage import AntwortTyp
@@ -31,7 +31,7 @@ class PlatzsucheResource(Resource):
     def get(self, search_id):
         """Get a specific patient search by ID."""
         try:
-            with get_db() as db:
+            with get_db_context() as db:
                 search = db.query(Platzsuche).filter_by(id=search_id).first()
                 
                 if not search:
@@ -88,7 +88,7 @@ class PlatzsucheResource(Resource):
         args = parser.parse_args()
         
         try:
-            with get_db() as db:
+            with get_db_context() as db:
                 search = db.query(Platzsuche).filter_by(id=search_id).first()
                 
                 if not search:
@@ -139,7 +139,7 @@ class PlatzsucheResource(Resource):
     def delete(self, search_id):
         """Cancel a patient search."""
         try:
-            with get_db() as db:
+            with get_db_context() as db:
                 search = db.query(Platzsuche).filter_by(id=search_id).first()
                 
                 if not search:
@@ -178,7 +178,7 @@ class PlatzsucheListResource(PaginatedListResource):
         args = parser.parse_args()
         
         try:
-            with get_db() as db:
+            with get_db_context() as db:
                 query = db.query(Platzsuche)
                 
                 # Apply filters
@@ -250,7 +250,7 @@ class PlatzsucheListResource(PaginatedListResource):
         args = parser.parse_args()
         
         try:
-            with get_db() as db:
+            with get_db_context() as db:
                 # Verify patient exists
                 patient = PatientService.get_patient(args['patient_id'])
                 if not patient:
@@ -321,7 +321,7 @@ class KontaktanfrageResource(Resource):
             return {"message": "Requested count too high (max: 100)"}, 400
         
         try:
-            with get_db() as db:
+            with get_db_context() as db:
                 search = db.query(Platzsuche).filter_by(id=search_id).first()
                 
                 if not search:
@@ -368,7 +368,7 @@ class TherapeutenanfrageResource(Resource):
     def get(self, bundle_id):
         """Get a specific bundle by ID with full details."""
         try:
-            with get_db() as db:
+            with get_db_context() as db:
                 bundle = db.query(Therapeutenanfrage).filter_by(id=bundle_id).first()
                 
                 if not bundle:
@@ -448,7 +448,7 @@ class TherapeutenanfrageListResource(PaginatedListResource):
         args = parser.parse_args()
         
         try:
-            with get_db() as db:
+            with get_db_context() as db:
                 query = db.query(Therapeutenanfrage)
                 
                 # Apply filters
@@ -551,7 +551,7 @@ class BundleCreationResource(Resource):
         args = parser.parse_args()
         
         try:
-            with get_db() as db:
+            with get_db_context() as db:
                 # Create bundles
                 logger.info(f"Starting bundle creation (testlauf={args.get('testlauf')})")
                 
@@ -665,7 +665,7 @@ class BundleResponseResource(Resource):
         args = parser.parse_args()
         
         try:
-            with get_db() as db:
+            with get_db_context() as db:
                 # Validate bundle exists
                 bundle = db.query(Therapeutenanfrage).filter_by(id=bundle_id).first()
                 if not bundle:
