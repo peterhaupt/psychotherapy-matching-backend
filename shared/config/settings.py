@@ -5,7 +5,7 @@ across the microservices architecture. It reads from environment variables
 with sensible defaults for development.
 """
 import os
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 # Try to load .env file if python-dotenv is available
 try:
@@ -127,6 +127,11 @@ class Config:
     REACT_APP_COMMUNICATION_API: str = os.environ.get("REACT_APP_COMMUNICATION_API", "http://localhost:8004/api")
     REACT_APP_GEOCODING_API: str = os.environ.get("REACT_APP_GEOCODING_API", "http://localhost:8005/api")
     
+    # Anfrage (Inquiry) Configuration - PHASE 4 ADDITIONS
+    MAX_ANFRAGE_SIZE: int = int(os.environ.get("MAX_ANFRAGE_SIZE", "6"))
+    MIN_ANFRAGE_SIZE: int = int(os.environ.get("MIN_ANFRAGE_SIZE", "1"))
+    PLZ_MATCH_DIGITS: int = int(os.environ.get("PLZ_MATCH_DIGITS", "2"))
+    
     @classmethod
     def get_database_uri(cls, use_pgbouncer: bool = True) -> str:
         """Get the database connection URI.
@@ -200,6 +205,19 @@ class Config:
             "methods": cls.CORS_ALLOWED_METHODS,
             "allow_headers": cls.CORS_ALLOWED_HEADERS,
             "supports_credentials": cls.CORS_SUPPORTS_CREDENTIALS
+        }
+    
+    @classmethod
+    def get_anfrage_config(cls) -> Dict[str, int]:
+        """Get Anfrage (Inquiry) configuration as a dictionary.
+        
+        Returns:
+            Dictionary with Anfrage-related configuration
+        """
+        return {
+            "max_size": cls.MAX_ANFRAGE_SIZE,
+            "min_size": cls.MIN_ANFRAGE_SIZE,
+            "plz_match_digits": cls.PLZ_MATCH_DIGITS
         }
 
 
