@@ -20,7 +20,9 @@ from api.anfrage import (
 )
 from events.consumers import start_consumers
 from shared.config import get_config
-from db import init_db, close_db
+# Commented out for Option 1: Use only Alembic migrations
+# from db import init_db, close_db
+from db import close_db
 
 # Initialize Flask-SQLAlchemy (for potential future use with Flask-SQLAlchemy features)
 db = SQLAlchemy()
@@ -49,6 +51,13 @@ def create_app():
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     app.logger.setLevel(config.LOG_LEVEL)
+    
+    # Reduce Kafka logging verbosity
+    logging.getLogger('kafka').setLevel(logging.WARNING)
+    logging.getLogger('kafka.consumer').setLevel(logging.WARNING)
+    logging.getLogger('kafka.conn').setLevel(logging.WARNING)
+    logging.getLogger('kafka.client').setLevel(logging.WARNING)
+    logging.getLogger('kafka.protocol').setLevel(logging.WARNING)
 
     # Initialize RESTful API
     api = Api(app)
@@ -98,14 +107,15 @@ if __name__ == "__main__":
     # Get configuration
     config = get_config()
     
+    # COMMENTED OUT - Option 1: Use only Alembic migrations
     # Initialize database (ensure tables exist)
     # Note: In production, use Alembic migrations instead
-    try:
-        init_db()
-        logging.info("Database initialized successfully")
-    except Exception as e:
-        logging.error(f"Failed to initialize database: {str(e)}")
-        # Continue anyway - migrations might handle this
+    # try:
+    #     init_db()
+    #     logging.info("Database initialized successfully")
+    # except Exception as e:
+    #     logging.error(f"Failed to initialize database: {str(e)}")
+    #     # Continue anyway - migrations might handle this
     
     # Create and run app
     app = create_app()
