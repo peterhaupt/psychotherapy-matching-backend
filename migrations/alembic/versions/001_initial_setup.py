@@ -1,4 +1,4 @@
-"""complete database setup with patient communication support and Phase 1 changes
+"""complete database setup with patient communication support and Phase 2 model updates
 
 Revision ID: 001_initial_setup
 Revises: 
@@ -19,7 +19,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    """Create complete database schema with German naming conventions and Phase 1 changes."""
+    """Create complete database schema with German naming conventions and Phase 2 model updates."""
     
     # ========== STEP 1: CREATE SCHEMAS ==========
     
@@ -44,6 +44,13 @@ def upgrade() -> None:
     op.execute("""
         CREATE TYPE therapeutgeschlechtspraeferenz AS ENUM (
             'Männlich', 'Weiblich', 'Egal'
+        )
+    """)
+    
+    # Therapy procedures enum (NEW - Phase 2)
+    op.execute("""
+        CREATE TYPE therapieverfahren AS ENUM (
+            'egal', 'Verhaltenstherapie', 'tiefenpsychologisch_fundierte_Psychotherapie'
         )
     """)
     
@@ -91,16 +98,16 @@ def upgrade() -> None:
         )
     """)
     
-    # Bundle patient status enum
+    # Anfrage patient status enum (renamed from buendel_patient_status - Phase 2)
     op.execute("""
-        CREATE TYPE buendel_patient_status AS ENUM (
+        CREATE TYPE anfrage_patient_status AS ENUM (
             'anstehend', 'angenommen', 'abgelehnt', 'keine_antwort'
         )
     """)
     
     # ========== STEP 3: CREATE PATIENT SERVICE TABLES ==========
     
-    # Create patienten table (German name)
+    # Create patienten table (German name) with Phase 2 additions
     op.create_table('patienten',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('anrede', sa.String(10), nullable=True),
@@ -116,6 +123,10 @@ def upgrade() -> None:
         sa.Column('krankenversicherungsnummer', sa.String(50), nullable=True),
         sa.Column('geburtsdatum', sa.Date(), nullable=True),
         sa.Column('diagnose', sa.String(50), nullable=True),
+        # NEW Phase 2 fields
+        sa.Column('symptome', sa.Text(), nullable=True),
+        sa.Column('erfahrung_mit_psychotherapie', sa.Text(), nullable=True),
+        # End NEW Phase 2 fields
         sa.Column('vertraege_unterschrieben', sa.Boolean(), default=False),
         sa.Column('psychotherapeutische_sprechstunde', sa.Boolean(), default=False),
         sa.Column('startdatum', sa.Date(), nullable=True),
@@ -154,6 +165,15 @@ def upgrade() -> None:
                   postgresql.ENUM('Männlich', 'Weiblich', 'Egal', 
                                  name='therapeutgeschlechtspraeferenz', create_type=False), 
                   nullable=True, server_default='Egal'),
+        # NEW Phase 2 fields
+        sa.Column('bevorzugtes_therapieverfahren', 
+                  postgresql.ARRAY(postgresql.ENUM('egal', 'Verhaltenstherapie', 
+                                                   'tiefenpsychologisch_fundierte_Psychotherapie',
+                                                   name='therapieverfahren', create_type=False)), 
+                  nullable=True),
+        sa.Column('bevorzugtes_therapeutenalter_min', sa.Integer(), nullable=True),
+        sa.Column('bevorzugtes_therapeutenalter_max', sa.Integer(), nullable=True),
+        # End NEW Phase 2 fields
         sa.Column('created_at', sa.Date(), nullable=True),
         sa.Column('updated_at', sa.Date(), nullable=True),
         sa.PrimaryKeyConstraint('id'),
@@ -164,7 +184,7 @@ def upgrade() -> None:
     
     # ========== STEP 4: CREATE THERAPIST SERVICE TABLES ==========
     
-    # Create therapeuten table (German name)
+    # Create therapeuten table (German name) with Phase 2 addition
     op.create_table('therapeuten',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('anrede', sa.String(10), nullable=True),
@@ -190,6 +210,9 @@ def upgrade() -> None:
         sa.Column('letztes_persoenliches_gespraech', sa.Date(), nullable=True),
         sa.Column('potenziell_verfuegbar', sa.Boolean(), default=False),
         sa.Column('potenziell_verfuegbar_notizen', sa.Text(), nullable=True),
+        # NEW Phase 2 field
+        sa.Column('ueber_curavani_informiert', sa.Boolean(), default=False),
+        # End NEW Phase 2 field
         sa.Column('naechster_kontakt_moeglich', sa.Date(), nullable=True),
         sa.Column('bevorzugte_diagnosen', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column('alter_min', sa.Integer(), nullable=True),
@@ -239,7 +262,7 @@ def upgrade() -> None:
     op.create_index('idx_platzsuche_status', 'platzsuche', ['status'], 
                    schema='matching_service')
     
-    # Create therapeutenanfrage table
+    # Create therapeutenanfrage table with updated column names (Phase 2)
     op.create_table('therapeutenanfrage',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('therapist_id', sa.Integer(), nullable=False),
@@ -251,7 +274,8 @@ def upgrade() -> None:
                                                 'vollstaendige_Ablehnung', 'keine_Antwort',
                                                 name='antworttyp', create_type=False), 
                   nullable=True),
-        sa.Column('buendelgroesse', sa.Integer(), nullable=False),
+        # RENAMED from buendelgroesse (Phase 2)
+        sa.Column('anfragegroesse', sa.Integer(), nullable=False),
         sa.Column('angenommen_anzahl', sa.Integer(), nullable=False, server_default='0'),
         sa.Column('abgelehnt_anzahl', sa.Integer(), nullable=False, server_default='0'),
         sa.Column('keine_antwort_anzahl', sa.Integer(), nullable=False, server_default='0'),
@@ -261,6 +285,12 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint('id'),
         sa.ForeignKeyConstraint(['therapist_id'], ['therapist_service.therapeuten.id'], 
                                ondelete='CASCADE'),
+        # RENAMED constraint from bundle_size_check (Phase 2)
+        sa.CheckConstraint('anfragegroesse >= 3 AND anfragegroesse <= 6', 
+                          name='anfrage_size_check'),
+        sa.CheckConstraint('angenommen_anzahl >= 0', name='accepted_count_check'),
+        sa.CheckConstraint('abgelehnt_anzahl >= 0', name='rejected_count_check'),
+        sa.CheckConstraint('keine_antwort_anzahl >= 0', name='no_response_count_check'),
         schema='matching_service'
     )
     op.create_index('idx_therapeutenanfrage_therapist_id', 'therapeutenanfrage', 
@@ -274,15 +304,17 @@ def upgrade() -> None:
     op.create_index('idx_therapeutenanfrage_phone_call_id', 'therapeutenanfrage', 
                    ['phone_call_id'], schema='matching_service')
     
-    # Create therapeut_anfrage_patient table
+    # Create therapeut_anfrage_patient table with updated column names (Phase 2)
     op.create_table('therapeut_anfrage_patient',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('therapeutenanfrage_id', sa.Integer(), nullable=False),
         sa.Column('platzsuche_id', sa.Integer(), nullable=False),
         sa.Column('patient_id', sa.Integer(), nullable=False),
-        sa.Column('position_im_buendel', sa.Integer(), nullable=False),
+        # RENAMED from position_im_buendel (Phase 2)
+        sa.Column('position_in_anfrage', sa.Integer(), nullable=False),
+        # Using renamed enum type (Phase 2)
         sa.Column('status', postgresql.ENUM('anstehend', 'angenommen', 'abgelehnt', 'keine_antwort',
-                                           name='buendel_patient_status', create_type=False), 
+                                           name='anfrage_patient_status', create_type=False), 
                   nullable=False, server_default='anstehend'),
         sa.Column('antwortergebnis', postgresql.ENUM('angenommen', 'abgelehnt_Kapazitaet', 
                                                      'abgelehnt_nicht_geeignet', 'abgelehnt_sonstiges', 
@@ -302,8 +334,9 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(['patient_id'], 
                                ['patient_service.patienten.id'], 
                                ondelete='CASCADE'),
+        # RENAMED constraint (Phase 2)
         sa.UniqueConstraint('therapeutenanfrage_id', 'platzsuche_id', 
-                          name='uq_therapeut_anfrage_patient_bundle_search'),
+                          name='uq_therapeut_anfrage_patient_anfrage_search'),
         schema='matching_service'
     )
     op.create_index('idx_therapeut_anfrage_patient_therapeutenanfrage_id', 
@@ -588,14 +621,15 @@ def downgrade() -> None:
                  schema='patient_service')
     op.drop_table('patienten', schema='patient_service')
     
-    # Drop all enum types
-    op.execute("DROP TYPE IF EXISTS buendel_patient_status")
+    # Drop all enum types (including new ones)
+    op.execute("DROP TYPE IF EXISTS anfrage_patient_status")
     op.execute("DROP TYPE IF EXISTS patientenergebnis")
     op.execute("DROP TYPE IF EXISTS antworttyp")
     op.execute("DROP TYPE IF EXISTS telefonanrufstatus")
     op.execute("DROP TYPE IF EXISTS suchstatus")
     op.execute("DROP TYPE IF EXISTS emailstatus")
     op.execute("DROP TYPE IF EXISTS therapeutstatus")
+    op.execute("DROP TYPE IF EXISTS therapieverfahren")  # NEW enum type
     op.execute("DROP TYPE IF EXISTS therapeutgeschlechtspraeferenz")
     op.execute("DROP TYPE IF EXISTS patientenstatus")
     

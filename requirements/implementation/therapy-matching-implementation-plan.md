@@ -121,24 +121,59 @@ All five model files have been successfully updated with:
 - PostgreSQL ARRAY support added for therapy procedures
 - Full German consistency maintained throughout
 
-## Phase 3: Database Migration
+# Phase 3: Database Migration ✅ COMPLETED
 
-### 3.1 Clean Database
+## Summary
+Successfully performed a clean database setup with all Phase 2 model updates applied in a single migration.
+
+## Actions Taken
+
+### 3.1 Clean Database Setup ✅
+Instead of creating a separate migration, we opted for a clean development setup:
 ```bash
+# Removed all existing data and volumes
 docker-compose down -v
+
+# Started fresh PostgreSQL instance
 docker-compose up -d postgres
 ```
 
-### 3.2 Create Migration: `002_terminology_and_model_updates.py`
-```python
-# Create new enum type for therapy procedures
-op.execute("CREATE TYPE therapieverfahren AS ENUM ('egal', 'Verhaltenstherapie', 'tiefenpsychologisch_fundierte_Psychotherapie')")
+### 3.2 Migration File Update ✅
+Created updated `001_initial_setup.py` with:
+- **New Enum Type**: `therapieverfahren` with values:
+  - `'egal'`
+  - `'Verhaltenstherapie'`
+  - `'tiefenpsychologisch_fundierte_Psychotherapie'`
 
-# Rename columns and constraints
-# Add new fields including:
-op.add_column('patienten', sa.Column('bevorzugtes_therapieverfahren', 
-              sa.ARRAY(sa.Enum(Therapieverfahren)), nullable=True), schema='patient_service')
+- **Patient Table Additions**:
+  - `symptome` (Text)
+  - `erfahrung_mit_psychotherapie` (Text)
+  - `bevorzugtes_therapieverfahren` (ARRAY of therapieverfahren enum)
+  - `bevorzugtes_therapeutenalter_min` (Integer)
+  - `bevorzugtes_therapeutenalter_max` (Integer)
+
+- **Therapist Table Addition**:
+  - `ueber_curavani_informiert` (Boolean, default=False)
+
+- **Terminology Updates**:
+  - `buendelgroesse` → `anfragegroesse`
+  - `position_im_buendel` → `position_in_anfrage`
+  - `buendel_patient_status` → `anfrage_patient_status`
+  - Constraint: `bundle_size_check` → `anfrage_size_check`
+  - Constraint: `uq_therapeut_anfrage_patient_bundle_search` → `uq_therapeut_anfrage_patient_anfrage_search`
+
+### 3.3 Import Fix ✅
+Fixed `matching_service/models/__init__.py`:
+- Changed import from `BuendelPatientStatus` to `AnfragePatientStatus`
+
+### 3.4 Migration Execution ✅
+```bash
+cd migrations
+alembic upgrade head
 ```
+
+## Status
+✅ **Phase 3 COMPLETE** - Database is now running with all Phase 2 model updates and terminology changes applied.
 
 ## Phase 4: Configuration Updates
 
