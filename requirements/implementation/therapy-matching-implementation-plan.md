@@ -66,8 +66,7 @@ class Therapieverfahren(str, Enum):
 - `symptome = Column(Text)` - Symptoms description
 - `erfahrung_mit_psychotherapie = Column(Text)` - Experience with psychotherapy
 - `bevorzugtes_therapieverfahren = Column(ARRAY(SQLAlchemyEnum(Therapieverfahren)))` - PostgreSQL Array of therapy procedures
-- `bevorzugtes_therapeutenalter_min = Column(Integer)` - Minimum therapist age preference
-- `bevorzugtes_therapeutenalter_max = Column(Integer)` - Maximum therapist age preference
+- REMOVED: `bevorzugtes_therapeutenalter_min` and `bevorzugtes_therapeutenalter_max` (therapist age preferences)
 
 ### 2.2 Therapist Model Additions ✅ COMPLETED
 **File: `therapist_service/models/therapist.py`**
@@ -114,7 +113,8 @@ class Therapieverfahren(str, Enum):
 
 ### 2.4 Summary of Phase 2 Completion
 All five model files have been successfully updated with:
-- New patient preference fields for therapy procedures and therapist age
+- New patient preference fields for therapy procedures
+- REMOVED: Patient therapist age preference fields
 - New therapist field for Curavani awareness
 - Complete terminology migration from bundle → inquiry/Anfrage
 - All method names, docstrings, and constraints updated
@@ -149,8 +149,7 @@ Created updated `001_initial_setup.py` with:
   - `symptome` (Text)
   - `erfahrung_mit_psychotherapie` (Text)
   - `bevorzugtes_therapieverfahren` (ARRAY of therapieverfahren enum)
-  - `bevorzugtes_therapeutenalter_min` (Integer)
-  - `bevorzugtes_therapeutenalter_max` (Integer)
+  - REMOVED: `bevorzugtes_therapeutenalter_min` and `bevorzugtes_therapeutenalter_max`
 
 - **Therapist Table Addition**:
   - `ueber_curavani_informiert` (Boolean, default=False)
@@ -218,7 +217,6 @@ def create_therapeutenanfrage_for_therapist(db, therapist_id, plz_prefix):
 ### 5.4 Hard Constraints Implementation ✅ COMPLETED
 Patient preferences (ALL must match or be null):
 - Gender preference ✅
-- Age preference (min/max) ✅
 - Therapy procedures (at least one match) ✅
 - Group therapy compatibility ✅
 
@@ -337,3 +335,4 @@ Clear documentation of all hard constraints and their logic.
 - German consistency throughout
 - Phase 2 models prepared for PostgreSQL ARRAY support for therapy procedures
 - Phase 5 complete with full manual selection implementation
+- Patient therapist age preferences completely removed from the system

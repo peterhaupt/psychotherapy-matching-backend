@@ -4,8 +4,6 @@
 
 ### 1.1 Patient - Neue/Erweiterte Felder
 - `bevorzugtes_therapieverfahren` (JSONB Array) - **NEU**
-- `bevorzugtes_therapeutenalter_min` (Integer) - **NEU**
-- `bevorzugtes_therapeutenalter_max` (Integer) - **NEU**
 - Bestehende relevante Felder:
   - `bevorzugtes_therapeutengeschlecht` (Enum: Männlich/Weiblich/Egal)
   - `offen_fuer_gruppentherapie` (Boolean)
@@ -59,11 +57,6 @@
    - **Geschlecht**: 
      - WENN Patient.bevorzugtes_therapeutengeschlecht != 'Egal' 
      - DANN muss Therapeut.geschlecht matchen
-   - **Alter**:
-     - WENN Patient.bevorzugtes_therapeutenalter_min != NULL
-     - DANN Therapeut-Alter ≥ min
-     - WENN Patient.bevorzugtes_therapeutenalter_max != NULL
-     - DANN Therapeut-Alter ≤ max
    - **Therapieverfahren**:
      - WENN Patient.bevorzugtes_therapieverfahren != NULL
      - DANN mindestens ein Verfahren muss in Therapeut.psychotherapieverfahren sein
