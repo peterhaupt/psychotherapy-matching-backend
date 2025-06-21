@@ -1,4 +1,4 @@
-"""Producer for matching-related Kafka events - Bundle System."""
+"""Producer for matching-related Kafka events - Anfrage System."""
 import logging
 from typing import Dict, Any, List, Optional
 
@@ -14,45 +14,45 @@ producer = RobustKafkaProducer(service_name="matching-service")
 MATCHING_TOPIC = "matching-events"
 
 
-def publish_bundle_created(
-    bundle_id: int,
+def publish_anfrage_created(
+    anfrage_id: int,
     therapist_id: int,
     patient_ids: List[int],
-    bundle_size: int
+    anfrage_size: int
 ) -> bool:
-    """Publish an event when a new bundle is created.
+    """Publish an event when a new anfrage is created.
 
     Args:
-        bundle_id: ID of the created bundle (therapeutenanfrage)
+        anfrage_id: ID of the created anfrage (therapeutenanfrage)
         therapist_id: ID of the therapist
-        patient_ids: List of patient IDs in the bundle
-        bundle_size: Number of patients in the bundle
+        patient_ids: List of patient IDs in the anfrage
+        anfrage_size: Number of patients in the anfrage
 
     Returns:
         bool: True if publishing was successful, False otherwise
     """
     return producer.send_event(
         topic=MATCHING_TOPIC,
-        event_type="bundle.created",
+        event_type="therapeutenanfrage.created",
         payload={
-            "bundle_id": bundle_id,
+            "anfrage_id": anfrage_id,
             "therapist_id": therapist_id,
             "patient_ids": patient_ids,
-            "bundle_size": bundle_size
+            "anfrage_size": anfrage_size
         },
-        key=str(bundle_id)
+        key=str(anfrage_id)
     )
 
 
-def publish_bundle_sent(
-    bundle_id: int,
+def publish_anfrage_sent(
+    anfrage_id: int,
     communication_type: str,
     communication_id: Optional[int] = None
 ) -> bool:
-    """Publish an event when a bundle is sent to therapist.
+    """Publish an event when an anfrage is sent to therapist.
 
     Args:
-        bundle_id: ID of the bundle
+        anfrage_id: ID of the anfrage
         communication_type: Type of communication (email/phone)
         communication_id: ID of the email or phone call
 
@@ -61,28 +61,28 @@ def publish_bundle_sent(
     """
     return producer.send_event(
         topic=MATCHING_TOPIC,
-        event_type="bundle.sent",
+        event_type="therapeutenanfrage.sent",
         payload={
-            "bundle_id": bundle_id,
+            "anfrage_id": anfrage_id,
             "communication_type": communication_type,
             "communication_id": communication_id
         },
-        key=str(bundle_id)
+        key=str(anfrage_id)
     )
 
 
-def publish_bundle_response_received(
-    bundle_id: int,
+def publish_anfrage_response_received(
+    anfrage_id: int,
     response_type: str,
     accepted_count: int,
     rejected_count: int,
     no_response_count: int
 ) -> bool:
-    """Publish an event when a bundle response is received.
+    """Publish an event when an anfrage response is received.
 
     Args:
-        bundle_id: ID of the bundle
-        response_type: Type of response (full_acceptance/partial_acceptance/full_rejection)
+        anfrage_id: ID of the anfrage
+        response_type: Type of response (vollstaendige_Annahme/teilweise_Annahme/vollstaendige_Ablehnung)
         accepted_count: Number of accepted patients
         rejected_count: Number of rejected patients
         no_response_count: Number of patients with no response
@@ -92,15 +92,15 @@ def publish_bundle_response_received(
     """
     return producer.send_event(
         topic=MATCHING_TOPIC,
-        event_type="bundle.response_received",
+        event_type="therapeutenanfrage.response_received",
         payload={
-            "bundle_id": bundle_id,
+            "anfrage_id": anfrage_id,
             "response_type": response_type,
             "accepted_count": accepted_count,
             "rejected_count": rejected_count,
             "no_response_count": no_response_count
         },
-        key=str(bundle_id)
+        key=str(anfrage_id)
     )
 
 

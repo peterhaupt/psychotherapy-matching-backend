@@ -12,6 +12,7 @@ from api.anfrage import (
     PlatzsucheResource,
     PlatzsucheListResource,
     KontaktanfrageResource,
+    TherapeutenZurAuswahlResource,
     TherapeutenanfrageResource,
     TherapeutenanfrageListResource,
     AnfrageCreationResource,
@@ -56,9 +57,14 @@ def create_app():
     api.add_resource(PlatzsucheListResource, '/api/platzsuchen')
     api.add_resource(PlatzsucheResource, '/api/platzsuchen/<int:search_id>')
     api.add_resource(KontaktanfrageResource, '/api/platzsuchen/<int:search_id>/kontaktanfrage')
+    
+    # Therapist selection endpoint
+    api.add_resource(TherapeutenZurAuswahlResource, '/api/therapeuten-zur-auswahl')
+    
+    # Anfrage management endpoints
     api.add_resource(TherapeutenanfrageListResource, '/api/therapeutenanfragen')
     api.add_resource(TherapeutenanfrageResource, '/api/therapeutenanfragen/<int:anfrage_id>')
-    api.add_resource(AnfrageCreationResource, '/api/anfragen/erstellen')
+    api.add_resource(AnfrageCreationResource, '/api/therapeutenanfragen/erstellen-fuer-therapeut')
     api.add_resource(AnfrageResponseResource, '/api/therapeutenanfragen/<int:anfrage_id>/antwort')
 
     # Health check endpoint

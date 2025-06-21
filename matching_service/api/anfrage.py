@@ -1,4 +1,4 @@
-"""Bundle system API endpoints - FULLY IMPLEMENTED."""
+"""Anfrage system API endpoints - FULLY IMPLEMENTED."""
 import logging
 from datetime import datetime
 
@@ -12,15 +12,18 @@ from db import get_db_context
 from models import Platzsuche, Therapeutenanfrage, TherapeutAnfragePatient
 from models.platzsuche import SuchStatus
 from models.therapeutenanfrage import AntwortTyp
-from models.therapeut_anfrage_patient import BuendelPatientStatus, PatientenErgebnis
-from services import BundleService, PatientService, TherapistService
+from models.therapeut_anfrage_patient import AnfragePatientStatus, PatientenErgebnis
+from services import AnfrageService, PatientService, TherapistService
 from events.producers import (
-    publish_bundle_created,
-    publish_bundle_sent,
-    publish_bundle_response_received,
+    publish_anfrage_created,
+    publish_anfrage_sent,
+    publish_anfrage_response_received,
     publish_search_status_changed
 )
-from algorithms.bundle_creator import create_bundles_for_all_therapists
+from algorithms.anfrage_creator import (
+    get_therapists_for_selection,
+    create_anfrage_for_therapist
+)
 
 logger = logging.getLogger(__name__)
 
@@ -42,21 +45,21 @@ class PlatzsucheResource(Resource):
                 if not patient_data:
                     logger.warning(f"Could not fetch patient data for patient_id {search.patient_id}")
                 
-                # Get bundle history
-                bundle_entries = []
-                for entry in search.bundle_entries:
-                    bundle = entry.therapeutenanfrage
-                    therapist = TherapistService.get_therapist(bundle.therapist_id)
+                # Get anfrage history
+                anfrage_entries = []
+                for entry in search.anfrage_entries:
+                    anfrage = entry.therapeutenanfrage
+                    therapist = TherapistService.get_therapist(anfrage.therapist_id)
                     
-                    bundle_entries.append({
-                        "bundle_id": bundle.id,
-                        "therapist_id": bundle.therapist_id,
+                    anfrage_entries.append({
+                        "anfrage_id": anfrage.id,
+                        "therapist_id": anfrage.therapist_id,
                         "therapeuten_name": f"{therapist.get('vorname', '')} {therapist.get('nachname', '')}" if therapist else "Unknown",
-                        "position": entry.position_im_buendel,
+                        "position": entry.position_in_anfrage,
                         "status": entry.status.value,
                         "outcome": entry.antwortergebnis.value if entry.antwortergebnis else None,
-                        "sent_date": bundle.gesendet_datum.isoformat() if bundle.gesendet_datum else None,
-                        "response_date": bundle.antwort_datum.isoformat() if bundle.antwort_datum else None
+                        "sent_date": anfrage.gesendet_datum.isoformat() if anfrage.gesendet_datum else None,
+                        "response_date": anfrage.antwort_datum.isoformat() if anfrage.antwort_datum else None
                     })
                 
                 return {
@@ -70,9 +73,9 @@ class PlatzsucheResource(Resource):
                     "gesamt_angeforderte_kontakte": search.gesamt_angeforderte_kontakte,
                     "erfolgreiche_vermittlung_datum": search.erfolgreiche_vermittlung_datum.isoformat() if search.erfolgreiche_vermittlung_datum else None,
                     "notizen": search.notizen,
-                    "aktive_buendel": search.get_active_bundle_count(),
-                    "gesamt_buendel": search.get_total_bundle_count(),
-                    "buendel_verlauf": bundle_entries
+                    "aktive_anfragen": search.get_active_anfrage_count(),
+                    "gesamt_anfragen": search.get_total_anfrage_count(),
+                    "anfrage_verlauf": anfrage_entries
                 }, 200
                 
         except Exception as e:
@@ -173,8 +176,8 @@ class PlatzsucheListResource(PaginatedListResource):
         parser = reqparse.RequestParser()
         parser.add_argument('status', type=str, location='args')
         parser.add_argument('patient_id', type=int, location='args')
-        parser.add_argument('min_bundles', type=int, location='args')
-        parser.add_argument('max_bundles', type=int, location='args')
+        parser.add_argument('min_anfragen', type=int, location='args')
+        parser.add_argument('max_anfragen', type=int, location='args')
         args = parser.parse_args()
         
         try:
@@ -203,14 +206,14 @@ class PlatzsucheListResource(PaginatedListResource):
                 
                 searches = query.all()
                 
-                # Filter by bundle count if specified
-                if args.get('min_bundles') is not None or args.get('max_bundles') is not None:
+                # Filter by anfrage count if specified
+                if args.get('min_anfragen') is not None or args.get('max_anfragen') is not None:
                     filtered_searches = []
                     for s in searches:
-                        bundle_count = s.get_total_bundle_count()
-                        if args.get('min_bundles') is not None and bundle_count < args['min_bundles']:
+                        anfrage_count = s.get_total_anfrage_count()
+                        if args.get('min_anfragen') is not None and anfrage_count < args['min_anfragen']:
                             continue
-                        if args.get('max_bundles') is not None and bundle_count > args['max_bundles']:
+                        if args.get('max_anfragen') is not None and anfrage_count > args['max_anfragen']:
                             continue
                         filtered_searches.append(s)
                     searches = filtered_searches
@@ -229,8 +232,8 @@ class PlatzsucheListResource(PaginatedListResource):
                         "created_at": s.created_at.isoformat(),
                         "updated_at": s.updated_at.isoformat() if s.updated_at else None,
                         "gesamt_angeforderte_kontakte": s.gesamt_angeforderte_kontakte,
-                        "aktive_buendel": s.get_active_bundle_count(),
-                        "gesamt_buendel": s.get_total_bundle_count(),
+                        "aktive_anfragen": s.get_active_anfrage_count(),
+                        "gesamt_anfragen": s.get_total_anfrage_count(),
                         "ausgeschlossene_therapeuten_anzahl": len(s.ausgeschlossene_therapeuten) if s.ausgeschlossene_therapeuten else 0
                     } for s in searches],
                     "page": page,
@@ -271,7 +274,7 @@ class PlatzsucheListResource(PaginatedListResource):
                     }, 400
                 
                 # Create new search
-                search = BundleService.create_patient_search(
+                search = AnfrageService.create_patient_search(
                     db,
                     patient_id=args['patient_id']
                 )
@@ -362,41 +365,87 @@ class KontaktanfrageResource(Resource):
             return {"message": "Internal server error"}, 500
 
 
-class TherapeutenanfrageResource(Resource):
-    """REST resource for individual bundle operations."""
+class TherapeutenZurAuswahlResource(Resource):
+    """REST resource for therapist selection."""
 
-    def get(self, bundle_id):
-        """Get a specific bundle by ID with full details."""
+    def get(self):
+        """Get therapists for manual selection."""
+        parser = reqparse.RequestParser()
+        parser.add_argument('plz_prefix', type=str, required=True, location='args')
+        args = parser.parse_args()
+        
+        plz_prefix = args['plz_prefix']
+        
+        # Validate PLZ prefix
+        if not plz_prefix or len(plz_prefix) != 2 or not plz_prefix.isdigit():
+            return {"message": "Invalid PLZ prefix. Must be exactly 2 digits."}, 400
+        
+        try:
+            # Get filtered and sorted therapists
+            therapists = get_therapists_for_selection(plz_prefix)
+            
+            return {
+                "plz_prefix": plz_prefix,
+                "total": len(therapists),
+                "data": [{
+                    "id": t['id'],
+                    "anrede": t.get('anrede'),
+                    "titel": t.get('titel'),
+                    "vorname": t.get('vorname'),
+                    "nachname": t.get('nachname'),
+                    "strasse": t.get('strasse'),
+                    "plz": t.get('plz'),
+                    "ort": t.get('ort'),
+                    "telefon": t.get('telefon'),
+                    "email": t.get('email'),
+                    "potenziell_verfuegbar": t.get('potenziell_verfuegbar', False),
+                    "ueber_curavani_informiert": t.get('ueber_curavani_informiert', False),
+                    "naechster_kontakt_moeglich": t.get('naechster_kontakt_moeglich'),
+                    "bevorzugte_diagnosen": t.get('bevorzugte_diagnosen', []),
+                    "psychotherapieverfahren": t.get('psychotherapieverfahren', [])
+                } for t in therapists]
+            }, 200
+            
+        except Exception as e:
+            logger.error(f"Error fetching therapists for selection: {str(e)}")
+            return {"message": "Internal server error"}, 500
+
+
+class TherapeutenanfrageResource(Resource):
+    """REST resource for individual anfrage operations."""
+
+    def get(self, anfrage_id):
+        """Get a specific anfrage by ID with full details."""
         try:
             with get_db_context() as db:
-                bundle = db.query(Therapeutenanfrage).filter_by(id=bundle_id).first()
+                anfrage = db.query(Therapeutenanfrage).filter_by(id=anfrage_id).first()
                 
-                if not bundle:
-                    return {"message": f"Bundle {bundle_id} not found"}, 404
+                if not anfrage:
+                    return {"message": f"Anfrage {anfrage_id} not found"}, 404
                 
                 # Get therapist data
-                therapist_data = TherapistService.get_therapist(bundle.therapist_id)
+                therapist_data = TherapistService.get_therapist(anfrage.therapist_id)
                 if not therapist_data:
-                    logger.warning(f"Could not fetch therapist data for therapist_id {bundle.therapist_id}")
+                    logger.warning(f"Could not fetch therapist data for therapist_id {anfrage.therapist_id}")
                 
                 # Get patient details
                 patients = []
-                for bp in bundle.bundle_patients:
-                    patient_data = PatientService.get_patient(bp.patient_id)
+                for ap in anfrage.anfrage_patients:
+                    patient_data = PatientService.get_patient(ap.patient_id)
                     
                     # Get the platzsuche data
-                    search = db.query(Platzsuche).filter_by(id=bp.platzsuche_id).first()
+                    search = db.query(Platzsuche).filter_by(id=ap.platzsuche_id).first()
                     
                     patients.append({
-                        "position": bp.position_im_buendel,
-                        "patient_id": bp.patient_id,
+                        "position": ap.position_in_anfrage,
+                        "patient_id": ap.patient_id,
                         "patient": patient_data,
-                        "platzsuche_id": bp.platzsuche_id,
+                        "platzsuche_id": ap.platzsuche_id,
                         "search_created_at": search.created_at.isoformat() if search else None,
                         "wartezeit_tage": (datetime.utcnow() - search.created_at).days if search else None,
-                        "status": bp.status.value,
-                        "antwortergebnis": bp.antwortergebnis.value if bp.antwortergebnis else None,
-                        "antwortnotizen": bp.antwortnotizen
+                        "status": ap.status.value,
+                        "antwortergebnis": ap.antwortergebnis.value if ap.antwortergebnis else None,
+                        "antwortnotizen": ap.antwortnotizen
                     })
                 
                 # Sort patients by position
@@ -404,40 +453,40 @@ class TherapeutenanfrageResource(Resource):
                 
                 # Calculate response summary
                 response_summary = {
-                    "total_accepted": bundle.angenommen_anzahl,
-                    "total_rejected": bundle.abgelehnt_anzahl,
-                    "total_no_response": bundle.keine_antwort_anzahl,
-                    "antwort_vollstaendig": bundle.is_response_complete()
+                    "total_accepted": anfrage.angenommen_anzahl,
+                    "total_rejected": anfrage.abgelehnt_anzahl,
+                    "total_no_response": anfrage.keine_antwort_anzahl,
+                    "antwort_vollstaendig": anfrage.is_response_complete()
                 }
                 
                 return {
-                    "id": bundle.id,
-                    "therapist_id": bundle.therapist_id,
+                    "id": anfrage.id,
+                    "therapist_id": anfrage.therapist_id,
                     "therapist": therapist_data,
-                    "erstellt_datum": bundle.erstellt_datum.isoformat(),
-                    "gesendet_datum": bundle.gesendet_datum.isoformat() if bundle.gesendet_datum else None,
-                    "antwort_datum": bundle.antwort_datum.isoformat() if bundle.antwort_datum else None,
-                    "tage_seit_versand": bundle.days_since_sent(),
-                    "antworttyp": bundle.antworttyp.value if bundle.antworttyp else None,
-                    "buendelgroesse": bundle.buendelgroesse,
+                    "erstellt_datum": anfrage.erstellt_datum.isoformat(),
+                    "gesendet_datum": anfrage.gesendet_datum.isoformat() if anfrage.gesendet_datum else None,
+                    "antwort_datum": anfrage.antwort_datum.isoformat() if anfrage.antwort_datum else None,
+                    "tage_seit_versand": anfrage.days_since_sent(),
+                    "antworttyp": anfrage.antworttyp.value if anfrage.antworttyp else None,
+                    "anfragegroesse": anfrage.anfragegroesse,
                     "antwort_zusammenfassung": response_summary,
-                    "notizen": bundle.notizen,
-                    "email_id": bundle.email_id,
-                    "phone_call_id": bundle.phone_call_id,
+                    "notizen": anfrage.notizen,
+                    "email_id": anfrage.email_id,
+                    "phone_call_id": anfrage.phone_call_id,
                     "patients": patients,
-                    "nachverfolgung_erforderlich": bundle.needs_follow_up()
+                    "nachverfolgung_erforderlich": anfrage.needs_follow_up()
                 }, 200
                 
         except Exception as e:
-            logger.error(f"Error fetching bundle {bundle_id}: {str(e)}")
+            logger.error(f"Error fetching anfrage {anfrage_id}: {str(e)}")
             return {"message": "Internal server error"}, 500
 
 
 class TherapeutenanfrageListResource(PaginatedListResource):
-    """REST resource for bundle collection operations."""
+    """REST resource for anfrage collection operations."""
 
     def get(self):
-        """Get all bundles with optional filtering."""
+        """Get all anfragen with optional filtering."""
         parser = reqparse.RequestParser()
         parser.add_argument('therapist_id', type=int, location='args')
         parser.add_argument('versand_status', type=str, location='args')
@@ -477,10 +526,10 @@ class TherapeutenanfrageListResource(PaginatedListResource):
                         return {"message": "Invalid antwort_status. Use 'beantwortet' or 'ausstehend'"}, 400
                 
                 if args.get('min_size'):
-                    query = query.filter(Therapeutenanfrage.buendelgroesse >= args['min_size'])
+                    query = query.filter(Therapeutenanfrage.anfragegroesse >= args['min_size'])
                 
                 if args.get('max_size'):
-                    query = query.filter(Therapeutenanfrage.buendelgroesse <= args['max_size'])
+                    query = query.filter(Therapeutenanfrage.anfragegroesse <= args['max_size'])
                 
                 # Order by creation date (newest first)
                 query = query.order_by(desc(Therapeutenanfrage.erstellt_datum))
@@ -490,16 +539,16 @@ class TherapeutenanfrageListResource(PaginatedListResource):
                 total = query.count()
                 query = self.paginate_query(query)
                 
-                bundles = query.all()
+                anfragen = query.all()
                 
                 # Filter by nachverfolgung_erforderlich if specified
                 if args.get('nachverfolgung_erforderlich') is not None:
-                    bundles = [b for b in bundles if b.needs_follow_up() == args['nachverfolgung_erforderlich']]
+                    anfragen = [a for a in anfragen if a.needs_follow_up() == args['nachverfolgung_erforderlich']]
                     if args['nachverfolgung_erforderlich']:
-                        total = len(bundles)  # Adjust total for filtered results
+                        total = len(anfragen)  # Adjust total for filtered results
                 
                 # Get therapist data
-                therapist_ids = list(set(b.therapist_id for b in bundles))
+                therapist_ids = list(set(a.therapist_id for a in anfragen))
                 therapists = {}
                 for tid in therapist_ids:
                     therapist_data = TherapistService.get_therapist(tid)
@@ -508,156 +557,120 @@ class TherapeutenanfrageListResource(PaginatedListResource):
                 
                 return {
                     "data": [{
-                        "id": b.id,
-                        "therapist_id": b.therapist_id,
-                        "therapeuten_name": f"{therapists.get(b.therapist_id, {}).get('vorname', '')} {therapists.get(b.therapist_id, {}).get('nachname', '')}" if b.therapist_id in therapists else "Unknown",
-                        "erstellt_datum": b.erstellt_datum.isoformat(),
-                        "gesendet_datum": b.gesendet_datum.isoformat() if b.gesendet_datum else None,
-                        "antwort_datum": b.antwort_datum.isoformat() if b.antwort_datum else None,
-                        "tage_seit_versand": b.days_since_sent(),
-                        "antworttyp": b.antworttyp.value if b.antworttyp else None,
-                        "buendelgroesse": b.buendelgroesse,
-                        "angenommen_anzahl": b.angenommen_anzahl,
-                        "abgelehnt_anzahl": b.abgelehnt_anzahl,
-                        "keine_antwort_anzahl": b.keine_antwort_anzahl,
-                        "nachverfolgung_erforderlich": b.needs_follow_up(),
-                        "antwort_vollstaendig": b.is_response_complete()
-                    } for b in bundles],
+                        "id": a.id,
+                        "therapist_id": a.therapist_id,
+                        "therapeuten_name": f"{therapists.get(a.therapist_id, {}).get('vorname', '')} {therapists.get(a.therapist_id, {}).get('nachname', '')}" if a.therapist_id in therapists else "Unknown",
+                        "erstellt_datum": a.erstellt_datum.isoformat(),
+                        "gesendet_datum": a.gesendet_datum.isoformat() if a.gesendet_datum else None,
+                        "antwort_datum": a.antwort_datum.isoformat() if a.antwort_datum else None,
+                        "tage_seit_versand": a.days_since_sent(),
+                        "antworttyp": a.antworttyp.value if a.antworttyp else None,
+                        "anfragegroesse": a.anfragegroesse,
+                        "angenommen_anzahl": a.angenommen_anzahl,
+                        "abgelehnt_anzahl": a.abgelehnt_anzahl,
+                        "keine_antwort_anzahl": a.keine_antwort_anzahl,
+                        "nachverfolgung_erforderlich": a.needs_follow_up(),
+                        "antwort_vollstaendig": a.is_response_complete()
+                    } for a in anfragen],
                     "page": page,
                     "limit": limit,
                     "total": total,
                     "summary": {
-                        "total_bundles": total,
-                        "unsent_bundles": sum(1 for b in bundles if not b.gesendet_datum),
-                        "pending_responses": sum(1 for b in bundles if b.gesendet_datum and not b.antwort_datum),
-                        "needing_follow_up": sum(1 for b in bundles if b.needs_follow_up())
+                        "total_anfragen": total,
+                        "unsent_anfragen": sum(1 for a in anfragen if not a.gesendet_datum),
+                        "pending_responses": sum(1 for a in anfragen if a.gesendet_datum and not a.antwort_datum),
+                        "needing_follow_up": sum(1 for a in anfragen if a.needs_follow_up())
                     }
                 }, 200
                 
         except Exception as e:
-            logger.error(f"Error fetching bundles: {str(e)}")
+            logger.error(f"Error fetching anfragen: {str(e)}")
             return {"message": "Internal server error"}, 500
 
 
-class BundleCreationResource(Resource):
-    """REST resource for triggering bundle creation."""
+class AnfrageCreationResource(Resource):
+    """REST resource for creating anfragen for manually selected therapist."""
 
     def post(self):
-        """Trigger bundle creation for all eligible therapists."""
+        """Create anfrage for manually selected therapist."""
         parser = reqparse.RequestParser()
-        parser.add_argument('sofort_senden', type=bool, default=False)  # Changed from send_immediately
-        parser.add_argument('testlauf', type=bool, default=False)  # Changed from dry_run
-        parser.add_argument('therapist_ids', type=list, location='json')  # Optional: specific therapists
+        parser.add_argument('therapist_id', type=int, required=True)
+        parser.add_argument('plz_prefix', type=str, required=True)
+        parser.add_argument('sofort_senden', type=bool, default=False)
         args = parser.parse_args()
+        
+        plz_prefix = args['plz_prefix']
+        
+        # Validate PLZ prefix
+        if not plz_prefix or len(plz_prefix) != 2 or not plz_prefix.isdigit():
+            return {"message": "Invalid PLZ prefix. Must be exactly 2 digits."}, 400
         
         try:
             with get_db_context() as db:
-                # Create bundles
-                logger.info(f"Starting bundle creation (testlauf={args.get('testlauf')})")
+                # Create anfrage
+                logger.info(f"Creating anfrage for therapist {args['therapist_id']} with PLZ prefix {plz_prefix}")
                 
-                bundles = create_bundles_for_all_therapists(db)
+                anfrage = create_anfrage_for_therapist(
+                    db,
+                    args['therapist_id'],
+                    plz_prefix
+                )
                 
-                # Filter by specific therapist IDs if provided
-                if args.get('therapist_ids'):
-                    bundles = [b for b in bundles if b.therapist_id in args['therapist_ids']]
-                
-                logger.info(f"Created {len(bundles)} bundles")
-                
-                if args.get('testlauf'):
-                    # Don't commit in test run mode
-                    bundle_data = []
-                    for b in bundles:
-                        # Get patient IDs for this bundle
-                        patient_ids = [bp.patient_id for bp in b.bundle_patients]
-                        
-                        # Get therapist name
-                        therapist = TherapistService.get_therapist(b.therapist_id)
-                        therapist_name = f"{therapist.get('vorname', '')} {therapist.get('nachname', '')}" if therapist else "Unknown"
-                        
-                        bundle_data.append({
-                            "therapist_id": b.therapist_id,
-                            "therapeuten_name": therapist_name,
-                            "bundle_size": b.buendelgroesse,
-                            "patient_ids": patient_ids
-                        })
-                    
-                    db.rollback()
+                if not anfrage:
                     return {
-                        "message": "Testlauf completed - no data was saved",
-                        "buendel_erstellt": len(bundles),
-                        "bundles": bundle_data
+                        "message": "No eligible patients found for this therapist",
+                        "therapist_id": args['therapist_id'],
+                        "plz_prefix": plz_prefix
                     }, 200
                 
-                # Commit the bundles
+                # Commit the anfrage
                 db.commit()
                 
-                # Publish creation events
-                for bundle in bundles:
-                    patient_ids = [bp.patient_id for bp in bundle.bundle_patients]
-                    publish_bundle_created(
-                        bundle.id,
-                        bundle.therapist_id,
-                        patient_ids,
-                        bundle.buendelgroesse
-                    )
+                # Publish creation event
+                patient_ids = [ap.patient_id for ap in anfrage.anfrage_patients]
+                publish_anfrage_created(
+                    anfrage.id,
+                    anfrage.therapist_id,
+                    patient_ids,
+                    anfrage.anfragegroesse
+                )
                 
-                # Send bundles if requested
-                sent_count = 0
-                send_errors = []
+                # Send anfrage if requested
+                if args.get('sofort_senden'):
+                    try:
+                        success = AnfrageService.send_anfrage(db, anfrage.id)
+                        if success:
+                            # Publish sent event
+                            publish_anfrage_sent(
+                                anfrage.id,
+                                "email",
+                                anfrage.email_id
+                            )
+                    except Exception as e:
+                        logger.error(f"Failed to send anfrage {anfrage.id}: {str(e)}")
                 
-                if args.get('sofort_senden') and bundles:
-                    logger.info(f"Sending {len(bundles)} bundles immediately")
-                    
-                    for bundle in bundles:
-                        try:
-                            success = BundleService.send_bundle(db, bundle.id)
-                            if success:
-                                sent_count += 1
-                                # Publish sent event
-                                publish_bundle_sent(
-                                    bundle.id,
-                                    "email",
-                                    bundle.email_id
-                                )
-                            else:
-                                send_errors.append({
-                                    "bundle_id": bundle.id,
-                                    "therapist_id": bundle.therapist_id,
-                                    "error": "Failed to send email"
-                                })
-                        except Exception as e:
-                            logger.error(f"Failed to send bundle {bundle.id}: {str(e)}")
-                            send_errors.append({
-                                "bundle_id": bundle.id,
-                                "therapist_id": bundle.therapist_id,
-                                "error": str(e)
-                            })
-                
-                response = {
-                    "message": f"Created {len(bundles)} bundles",
-                    "buendel_erstellt": len(bundles),
-                    "buendel_gesendet": sent_count,
-                    "buendel_ids": [b.id for b in bundles]
-                }
-                
-                if send_errors:
-                    response["send_errors"] = send_errors
-                
-                return response, 201
+                return {
+                    "message": f"Created anfrage with {anfrage.anfragegroesse} patients",
+                    "anfrage_id": anfrage.id,
+                    "therapist_id": anfrage.therapist_id,
+                    "anfragegroesse": anfrage.anfragegroesse,
+                    "patient_ids": patient_ids,
+                    "gesendet": bool(anfrage.gesendet_datum)
+                }, 201
                 
         except Exception as e:
-            logger.error(f"Bundle creation failed: {str(e)}", exc_info=True)
+            logger.error(f"Anfrage creation failed: {str(e)}", exc_info=True)
             return {
-                "message": "Bundle creation failed",
+                "message": "Anfrage creation failed",
                 "error": str(e)
             }, 500
 
 
-class BundleResponseResource(Resource):
-    """REST resource for recording therapist responses to bundles."""
+class AnfrageResponseResource(Resource):
+    """REST resource for recording therapist responses to anfragen."""
 
-    def put(self, bundle_id):
-        """Record a therapist's response to a bundle."""
+    def put(self, anfrage_id):
+        """Record a therapist's response to an anfrage."""
         parser = reqparse.RequestParser()
         parser.add_argument('patient_responses', type=dict, required=True, location='json')
         parser.add_argument('notizen', type=str)
@@ -666,13 +679,13 @@ class BundleResponseResource(Resource):
         
         try:
             with get_db_context() as db:
-                # Validate bundle exists
-                bundle = db.query(Therapeutenanfrage).filter_by(id=bundle_id).first()
-                if not bundle:
-                    return {"message": f"Bundle {bundle_id} not found"}, 404
+                # Validate anfrage exists
+                anfrage = db.query(Therapeutenanfrage).filter_by(id=anfrage_id).first()
+                if not anfrage:
+                    return {"message": f"Anfrage {anfrage_id} not found"}, 404
                 
-                if not bundle.gesendet_datum:
-                    return {"message": "Cannot record response for unsent bundle"}, 400
+                if not anfrage.gesendet_datum:
+                    return {"message": "Cannot record response for unsent anfrage"}, 400
                 
                 # Validate patient responses
                 patient_responses = {}
@@ -688,12 +701,12 @@ class BundleResponseResource(Resource):
                             "valid_outcomes": valid_values
                         }, 400
                 
-                # Verify all patients in bundle have responses
-                bundle_patient_ids = {bp.patient_id for bp in bundle.bundle_patients}
+                # Verify all patients in anfrage have responses
+                anfrage_patient_ids = {ap.patient_id for ap in anfrage.anfrage_patients}
                 response_patient_ids = set(patient_responses.keys())
                 
-                missing_patients = bundle_patient_ids - response_patient_ids
-                extra_patients = response_patient_ids - bundle_patient_ids
+                missing_patients = anfrage_patient_ids - response_patient_ids
+                extra_patients = response_patient_ids - anfrage_patient_ids
                 
                 if missing_patients:
                     return {
@@ -703,46 +716,46 @@ class BundleResponseResource(Resource):
                 
                 if extra_patients:
                     return {
-                        "message": "Responses provided for patients not in bundle",
+                        "message": "Responses provided for patients not in anfrage",
                         "extra_patient_ids": list(extra_patients)
                     }, 400
                 
                 # Handle the response
-                old_response_type = bundle.antworttyp
+                old_response_type = anfrage.antworttyp
                 
-                BundleService.handle_bundle_response(
+                AnfrageService.handle_anfrage_response(
                     db,
-                    bundle_id=bundle_id,
+                    anfrage_id=anfrage_id,
                     patient_responses=patient_responses,
                     notes=args.get('notizen')
                 )
                 
-                # Refresh bundle to get updated data
-                db.refresh(bundle)
+                # Refresh anfrage to get updated data
+                db.refresh(anfrage)
                 
                 # Set cooling period for therapist
-                TherapistService.set_cooling_period(bundle.therapist_id)
+                TherapistService.set_cooling_period(anfrage.therapist_id)
                 
                 # Publish response event
-                publish_bundle_response_received(
-                    bundle.id,
-                    bundle.antworttyp.value if bundle.antworttyp else None,
-                    bundle.angenommen_anzahl,
-                    bundle.abgelehnt_anzahl,
-                    bundle.keine_antwort_anzahl
+                publish_anfrage_response_received(
+                    anfrage.id,
+                    anfrage.antworttyp.value if anfrage.antworttyp else None,
+                    anfrage.angenommen_anzahl,
+                    anfrage.abgelehnt_anzahl,
+                    anfrage.keine_antwort_anzahl
                 )
                 
                 # Handle accepted patients
                 accepted_patients = []
-                for bp in bundle.bundle_patients:
-                    if bp.is_accepted():
+                for ap in anfrage.anfrage_patients:
+                    if ap.is_accepted():
                         accepted_patients.append({
-                            "patient_id": bp.patient_id,
-                            "platzsuche_id": bp.platzsuche_id
+                            "patient_id": ap.patient_id,
+                            "platzsuche_id": ap.platzsuche_id
                         })
                         
                         # Mark search as successful if patient accepted
-                        search = db.query(Platzsuche).filter_by(id=bp.platzsuche_id).first()
+                        search = db.query(Platzsuche).filter_by(id=ap.platzsuche_id).first()
                         if search and search.status == SuchStatus.aktiv:
                             search.mark_successful()
                             publish_search_status_changed(
@@ -755,20 +768,20 @@ class BundleResponseResource(Resource):
                 db.commit()
                 
                 return {
-                    "message": "Bundle response recorded successfully",
-                    "bundle_id": bundle.id,
-                    "response_type": bundle.antworttyp.value if bundle.antworttyp else None,
+                    "message": "Anfrage response recorded successfully",
+                    "anfrage_id": anfrage.id,
+                    "response_type": anfrage.antworttyp.value if anfrage.antworttyp else None,
                     "angenommene_patienten": accepted_patients,
                     "antwort_zusammenfassung": {
-                        "accepted": bundle.angenommen_anzahl,
-                        "rejected": bundle.abgelehnt_anzahl,
-                        "no_response": bundle.keine_antwort_anzahl
+                        "accepted": anfrage.angenommen_anzahl,
+                        "rejected": anfrage.abgelehnt_anzahl,
+                        "no_response": anfrage.keine_antwort_anzahl
                     }
                 }, 200
                 
         except IntegrityError as e:
-            logger.error(f"Integrity error recording bundle response: {str(e)}")
+            logger.error(f"Integrity error recording anfrage response: {str(e)}")
             return {"message": "Data integrity error"}, 400
         except Exception as e:
-            logger.error(f"Error recording bundle response: {str(e)}", exc_info=True)
+            logger.error(f"Error recording anfrage response: {str(e)}", exc_info=True)
             return {"message": "Internal server error"}, 500

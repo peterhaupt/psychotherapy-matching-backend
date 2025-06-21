@@ -1,16 +1,15 @@
 """Anfrage creation algorithm for the therapy matching platform.
 
-This module implements the core anfrage-based matching algorithm that creates
-groups of 1-6 patients for each manually selected therapist using hard constraints only.
+This module implements the manual therapist selection and anfrage creation
+with hard constraints only (no scoring or progressive filtering).
 """
 import logging
 from datetime import datetime, date
-from typing import Dict, List, Set, Optional, Any
-from collections import defaultdict
+from typing import Dict, List, Optional, Any, Tuple
 
 from sqlalchemy.orm import Session
 
-from models import Platzsuche, Therapeutenanfrage
+from models import Platzsuche, Therapeutenanfrage, TherapeutAnfragePatient
 from models.platzsuche import SuchStatus
 from services import (
     PatientService, 
@@ -27,95 +26,114 @@ logger = logging.getLogger(__name__)
 anfrage_config = config.get_anfrage_config()
 MIN_ANFRAGE_SIZE = anfrage_config['min_size']  # 1
 MAX_ANFRAGE_SIZE = anfrage_config['max_size']  # 6
+PLZ_MATCH_DIGITS = anfrage_config['plz_match_digits']  # 2
 DEFAULT_MAX_DISTANCE_KM = 50  # Default if patient doesn't specify
 
 
-def get_eligible_patients_for_therapist(
+def get_therapists_for_selection(plz_prefix: str) -> List[Dict[str, Any]]:
+    """Get therapists for manual selection filtered by PLZ prefix.
+    
+    Args:
+        plz_prefix: Two-digit PLZ prefix (e.g., "52")
+        
+    Returns:
+        List of therapist data dictionaries sorted by criteria
+    """
+    # Get all active therapists
+    therapists = TherapistService.get_all_therapists(status='aktiv')
+    
+    # Filter by PLZ prefix
+    filtered = []
+    for therapist in therapists:
+        if therapist.get('plz', '').startswith(plz_prefix):
+            # Check if contactable today
+            next_contact = therapist.get('naechster_kontakt_moeglich')
+            if not next_contact or datetime.fromisoformat(next_contact).date() <= date.today():
+                filtered.append(therapist)
+    
+    # Sort according to business rules
+    def sort_key(t):
+        is_available = t.get('potenziell_verfuegbar', False)
+        is_informed = t.get('ueber_curavani_informiert', False)
+        
+        # Priority order:
+        # 1. Available AND informed (return 0)
+        # 2. Available AND not informed (return 1)
+        # 3. Not available AND informed (return 2)
+        # 4. Others (return 3)
+        if is_available and is_informed:
+            return (0, t.get('nachname', ''), t.get('vorname', ''))
+        elif is_available and not is_informed:
+            return (1, t.get('nachname', ''), t.get('vorname', ''))
+        elif not is_available and is_informed:
+            return (2, t.get('nachname', ''), t.get('vorname', ''))
+        else:
+            return (3, t.get('nachname', ''), t.get('vorname', ''))
+    
+    filtered.sort(key=sort_key)
+    return filtered
+
+
+def create_anfrage_for_therapist(
     db: Session,
-    therapist_id: int
-) -> List[Platzsuche]:
-    """Get all eligible patients for a specific therapist.
+    therapist_id: int,
+    plz_prefix: str
+) -> Optional[Therapeutenanfrage]:
+    """Create anfrage for manually selected therapist.
     
     Args:
         db: Database session
-        therapist_id: ID of the therapist
+        therapist_id: ID of the selected therapist
+        plz_prefix: PLZ prefix for patient filtering
         
     Returns:
-        List of eligible patient searches
+        Created Therapeutenanfrage or None if no matching patients
     """
     # Get therapist data
     therapist = TherapistService.get_therapist(therapist_id)
     if not therapist:
-        logger.warning(f"Therapist {therapist_id} not found")
-        return []
+        logger.error(f"Therapist {therapist_id} not found")
+        return None
     
-    # Get all active searches
-    all_searches = get_active_patient_searches(db)
-    
-    # Apply hard constraints only
-    return apply_hard_constraints(therapist, all_searches)
-
-
-def get_contactable_therapists() -> List[Dict[str, Any]]:
-    """Get all therapists who can be contacted (not in cooling period).
-    
-    Returns:
-        List of therapist data dictionaries
-    """
-    return TherapistService.get_contactable_therapists()
-
-
-def get_active_patient_searches(db: Session) -> List[Platzsuche]:
-    """Get all active patient searches from the database.
-    
-    Args:
-        db: Database session
-        
-    Returns:
-        List of active Platzsuche instances
-    """
-    return db.query(Platzsuche).filter(
+    # Get active patient searches with matching PLZ
+    patient_searches = db.query(Platzsuche).filter(
         Platzsuche.status == SuchStatus.aktiv
-    ).all()
-
-
-def apply_hard_constraints(
-    therapist: Dict[str, Any],
-    patient_searches: List[Platzsuche]
-) -> List[Platzsuche]:
-    """Apply hard constraints that MUST be satisfied.
+    ).order_by(Platzsuche.created_at).all()  # Oldest first
     
-    Hard constraints:
-    1. Distance constraint - patient within travel distance
-    2. Exclusion constraint - therapist not excluded by patient
-    3. Gender preference - therapist gender matches patient preference
-    
-    Args:
-        therapist: Therapist data dictionary
-        patient_searches: List of patient searches to filter
-        
-    Returns:
-        List of patient searches that pass all hard constraints
-    """
-    eligible = []
-    
+    # Filter by PLZ prefix
+    matching_searches = []
     for search in patient_searches:
-        # Get patient data
         patient = PatientService.get_patient(search.patient_id)
-        if not patient:
-            logger.warning(f"Could not fetch patient {search.patient_id}")
-            continue
-        
-        # Check all hard constraints
-        if not check_hard_constraints(therapist, patient, search):
-            continue
-        
-        eligible.append(search)
+        if patient and patient.get('plz', '').startswith(plz_prefix):
+            matching_searches.append((search, patient))
     
-    return eligible
+    # Apply hard constraints and collect eligible patients
+    eligible_patients = []
+    for search, patient in matching_searches:
+        if check_all_hard_constraints(therapist, patient, search):
+            eligible_patients.append((search.id, patient['id']))
+    
+    # If no eligible patients, return None
+    if not eligible_patients:
+        logger.info(f"No eligible patients found for therapist {therapist_id}")
+        return None
+    
+    # Take up to MAX_ANFRAGE_SIZE patients
+    selected_patients = eligible_patients[:MAX_ANFRAGE_SIZE]
+    
+    # Create the anfrage
+    from services import AnfrageService
+    anfrage = AnfrageService.create_anfrage(db, therapist_id, selected_patients)
+    
+    logger.info(
+        f"Created anfrage {anfrage.id} for therapist {therapist_id} "
+        f"with {len(selected_patients)} patients"
+    )
+    
+    return anfrage
 
 
-def check_hard_constraints(
+def check_all_hard_constraints(
     therapist: Dict[str, Any],
     patient: Dict[str, Any],
     search: Platzsuche
@@ -130,26 +148,20 @@ def check_hard_constraints(
     Returns:
         True if all hard constraints pass, False otherwise
     """
-    # 1. Exclusion check
-    if not check_exclusion_constraint(search, therapist['id']):
-        logger.debug(
-            f"Patient {patient['id']} has excluded therapist {therapist['id']}"
-        )
-        return False
-    
-    # 2. Gender preference check
-    if not check_gender_preference(therapist, patient):
-        logger.debug(
-            f"Therapist {therapist['id']} gender doesn't match "
-            f"patient {patient['id']} preference"
-        )
-        return False
-    
-    # 3. Distance check
+    # 1. Distance check
     if not check_distance_constraint(patient, therapist):
-        logger.debug(
-            f"Therapist {therapist['id']} too far for patient {patient['id']}"
-        )
+        return False
+    
+    # 2. Exclusion check
+    if not check_exclusion_constraint(search, therapist['id']):
+        return False
+    
+    # 3. Patient preferences (ALL must be satisfied or null)
+    if not check_patient_preferences(therapist, patient):
+        return False
+    
+    # 4. Therapist preferences (ALL must be satisfied or null)
+    if not check_therapist_preferences(therapist, patient):
         return False
     
     return True
@@ -224,122 +236,127 @@ def check_exclusion_constraint(
     return not search.is_therapist_excluded(therapist_id)
 
 
-def check_gender_preference(
+def check_patient_preferences(
     therapist: Dict[str, Any],
     patient: Dict[str, Any]
 ) -> bool:
-    """Check if therapist gender matches patient preference.
+    """Check if therapist satisfies all patient preferences.
+    
+    All preferences must be satisfied if specified (not null/Egal).
     
     Args:
         therapist: Therapist data
         patient: Patient data
         
     Returns:
-        True if gender matches preference or no preference
+        True if all preferences satisfied or not specified
     """
-    preference = patient.get('bevorzugtes_therapeutengeschlecht', 'Egal')
+    # Gender preference
+    gender_pref = patient.get('bevorzugtes_therapeutengeschlecht')
+    if gender_pref and gender_pref != 'Egal':
+        therapist_gender = therapist.get('geschlecht', '').lower()
+        # Map therapist gender to preference format
+        if therapist_gender in ['m', 'männlich', 'mann']:
+            therapist_gender = 'Männlich'
+        elif therapist_gender in ['f', 'w', 'weiblich', 'frau']:
+            therapist_gender = 'Weiblich'
+        
+        if therapist_gender != gender_pref:
+            logger.debug(f"Gender preference not met: wanted {gender_pref}, got {therapist_gender}")
+            return False
     
-    if preference == 'Egal' or not preference:
-        return True
+    # Age preference
+    min_age = patient.get('bevorzugtes_therapeutenalter_min')
+    max_age = patient.get('bevorzugtes_therapeutenalter_max')
+    if min_age is not None or max_age is not None:
+        # Calculate therapist age if birthdate available
+        therapist_birthdate = therapist.get('geburtsdatum')
+        if therapist_birthdate:
+            therapist_age = calculate_age(datetime.fromisoformat(therapist_birthdate).date())
+            if min_age is not None and therapist_age < min_age:
+                logger.debug(f"Therapist too young: {therapist_age} < {min_age}")
+                return False
+            if max_age is not None and therapist_age > max_age:
+                logger.debug(f"Therapist too old: {therapist_age} > {max_age}")
+                return False
+        else:
+            # If we can't determine age, we can't verify preference
+            logger.debug("Cannot verify age preference - therapist birthdate missing")
+            return False
     
-    therapist_gender = therapist.get('geschlecht', '').lower()
+    # Therapy procedure preference
+    preferred_procedures = patient.get('bevorzugtes_therapieverfahren', [])
+    if preferred_procedures and 'egal' not in preferred_procedures:
+        therapist_procedures = therapist.get('psychotherapieverfahren', [])
+        # Check if at least one preferred procedure matches
+        if not any(proc in therapist_procedures for proc in preferred_procedures):
+            logger.debug(f"No matching therapy procedures")
+            return False
     
-    # Map therapist gender to preference format
-    if therapist_gender in ['m', 'männlich', 'mann']:
-        therapist_gender = 'Männlich'
-    elif therapist_gender in ['f', 'w', 'weiblich', 'frau']:
-        therapist_gender = 'Weiblich'
+    # Group therapy preference
+    if patient.get('offen_fuer_gruppentherapie') is False:
+        if therapist.get('bevorzugt_gruppentherapie') is True:
+            logger.debug("Patient not open for group therapy but therapist prefers it")
+            return False
     
-    return therapist_gender == preference
+    return True
 
 
-def select_anfrage_patients(
-    filtered_searches: List[Platzsuche],
-    min_size: int = MIN_ANFRAGE_SIZE,
-    max_size: int = MAX_ANFRAGE_SIZE
-) -> List[Platzsuche]:
-    """Select patients for anfrage based on filtering results.
+def check_therapist_preferences(
+    therapist: Dict[str, Any],
+    patient: Dict[str, Any]
+) -> bool:
+    """Check if patient satisfies all therapist preferences.
+    
+    All preferences must be satisfied if specified.
     
     Args:
-        filtered_searches: Pre-filtered patient searches
-        min_size: Minimum anfrage size
-        max_size: Maximum anfrage size
+        therapist: Therapist data
+        patient: Patient data
         
     Returns:
-        Selected patient searches for the anfrage
+        True if all preferences satisfied or not specified
     """
-    # Simply take the top patients up to max_size
-    return filtered_searches[:max_size]
-
-
-def detect_conflicts(
-    new_acceptances: List[Tuple[int, int]]
-) -> List[Dict[str, Any]]:
-    """Detect patients accepted by multiple therapists.
+    # Diagnosis preference
+    preferred_diagnoses = therapist.get('bevorzugte_diagnosen', [])
+    if preferred_diagnoses:
+        patient_diagnosis = patient.get('diagnose')
+        if patient_diagnosis not in preferred_diagnoses:
+            logger.debug(f"Patient diagnosis {patient_diagnosis} not in preferred list")
+            return False
     
-    Args:
-        new_acceptances: List of tuples (patient_id, therapist_id)
+    # Age preference
+    min_age = therapist.get('alter_min')
+    max_age = therapist.get('alter_max')
+    if min_age is not None or max_age is not None:
+        patient_birthdate = patient.get('geburtsdatum')
+        if patient_birthdate:
+            patient_age = calculate_age(datetime.fromisoformat(patient_birthdate).date())
+            if min_age is not None and patient_age < min_age:
+                logger.debug(f"Patient too young: {patient_age} < {min_age}")
+                return False
+            if max_age is not None and patient_age > max_age:
+                logger.debug(f"Patient too old: {patient_age} > {max_age}")
+                return False
+        else:
+            logger.debug("Cannot verify age preference - patient birthdate missing")
+            return False
+    
+    # Gender preference
+    gender_pref = therapist.get('geschlechtspraeferenz')
+    if gender_pref and gender_pref != 'Egal':
+        patient_gender = patient.get('geschlecht', '').lower()
+        # Normalize gender values
+        if patient_gender in ['m', 'männlich', 'mann']:
+            patient_gender = 'Männlich'
+        elif patient_gender in ['f', 'w', 'weiblich', 'frau']:
+            patient_gender = 'Weiblich'
         
-    Returns:
-        List of conflict dictionaries
-    """
-    # Track patient acceptances
-    patient_therapists = defaultdict(list)
+        if patient_gender != gender_pref:
+            logger.debug(f"Therapist gender preference not met: wanted {gender_pref}, got {patient_gender}")
+            return False
     
-    for patient_id, therapist_id in new_acceptances:
-        patient_therapists[patient_id].append(therapist_id)
-    
-    # Find conflicts
-    conflicts = []
-    for patient_id, therapist_ids in patient_therapists.items():
-        if len(therapist_ids) > 1:
-            conflicts.append({
-                'patient_id': patient_id,
-                'therapist_ids': therapist_ids,
-                'conflict_count': len(therapist_ids)
-            })
-    
-    return conflicts
-
-
-def resolve_conflicts(
-    db: Session,
-    conflicts: List[Dict[str, Any]]
-) -> Dict[int, int]:
-    """Resolve conflicts when patient accepted by multiple therapists.
-    
-    First therapist to respond gets the patient.
-    
-    Args:
-        db: Database session
-        conflicts: List of conflict dictionaries
-        
-    Returns:
-        Dictionary mapping patient_id to winning therapist_id
-    """
-    resolutions = {}
-    
-    for conflict in conflicts:
-        patient_id = conflict['patient_id']
-        therapist_ids = conflict['therapist_ids']
-        
-        # Get anfragen for these therapists
-        anfragen = db.query(Therapeutenanfrage).filter(
-            Therapeutenanfrage.therapist_id.in_(therapist_ids),
-            Therapeutenanfrage.antwort_datum.isnot(None)
-        ).order_by(Therapeutenanfrage.antwort_datum).all()
-        
-        if anfragen:
-            # First responder wins
-            winning_therapist_id = anfragen[0].therapist_id
-            resolutions[patient_id] = winning_therapist_id
-            
-            logger.info(
-                f"Resolved conflict for patient {patient_id}: "
-                f"therapist {winning_therapist_id} wins"
-            )
-    
-    return resolutions
+    return True
 
 
 # Helper functions
@@ -370,22 +387,6 @@ def build_address(entity: Dict[str, Any]) -> Optional[str]:
     return ', '.join(parts)
 
 
-def parse_time(time_str: str) -> datetime:
-    """Parse time string to datetime object.
-    
-    Args:
-        time_str: Time in HH:MM format
-        
-    Returns:
-        datetime object with today's date
-    """
-    try:
-        hour, minute = map(int, time_str.split(':'))
-        return datetime.now().replace(hour=hour, minute=minute, second=0, microsecond=0)
-    except:
-        return datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-
-
 def calculate_age(birthdate: date) -> int:
     """Calculate age from birthdate.
     
@@ -405,7 +406,7 @@ def calculate_age(birthdate: date) -> int:
     return age
 
 
-# Analytics functions
+# Analytics functions (kept for compatibility)
 
 def calculate_anfrage_efficiency(anfragen: List[Therapeutenanfrage]) -> Dict[str, float]:
     """Calculate efficiency metrics for anfragen.

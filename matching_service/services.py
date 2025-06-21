@@ -126,6 +126,36 @@ class TherapistService:
             return None
     
     @staticmethod
+    def get_all_therapists(status: Optional[str] = None, limit: int = 1000) -> List[Dict[str, Any]]:
+        """Get all therapists from the Therapist Service.
+        
+        Args:
+            status: Optional status filter (e.g., 'aktiv')
+            limit: Maximum number of therapists to retrieve
+            
+        Returns:
+            List of therapist data dictionaries
+        """
+        try:
+            url = f"{config.get_service_url('therapist', internal=True)}/api/therapists"
+            params = {"limit": limit}
+            if status:
+                params["status"] = status
+            
+            response = requests.get(url, params=params, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                return data.get("data", [])
+            else:
+                logger.error(f"Error fetching therapists: {response.status_code}")
+                return []
+                
+        except requests.RequestException as e:
+            logger.error(f"Failed to fetch therapists: {str(e)}")
+            return []
+    
+    @staticmethod
     def get_contactable_therapists() -> List[Dict[str, Any]]:
         """Get all therapists who can be contacted (not in cooling period).
         
@@ -200,17 +230,17 @@ class CommunicationService:
     """Service for interacting with the Communication Service."""
     
     @staticmethod
-    def create_bundle_email(
+    def create_anfrage_email(
         therapist_id: int,
         patient_data: List[Dict[str, Any]],
-        bundle_id: int
+        anfrage_id: int
     ) -> Optional[int]:
-        """Create an email for a bundle of patients.
+        """Create an email for an anfrage of patients.
         
         Args:
             therapist_id: ID of the therapist
             patient_data: List of patient information dictionaries
-            bundle_id: ID of the bundle (for reference in email)
+            anfrage_id: ID of the anfrage (for reference in email)
             
         Returns:
             Email ID if created successfully, None otherwise
@@ -269,18 +299,18 @@ class CommunicationService:
                 </ol>
                 <p>Bitte teilen Sie uns mit, welche Patienten Sie übernehmen können. Sie können uns einfach auf diese E-Mail antworten.</p>
                 <p style="color: #666; font-size: 0.9em;">
-                    Referenz-Nr: B{bundle_id}<br>
+                    Referenz-Nr: A{anfrage_id}<br>
                     Diese Anfrage wurde automatisch generiert.
                 </p>
                 <p>Mit freundlichen Grüßen,<br>
                 <strong>Ihr Curavani Team</strong></p>
             </body>
             </html>
-            """.format(bundle_id=bundle_id)
+            """.format(anfrage_id=anfrage_id)
             
             body_text += f"\nBitte teilen Sie uns mit, welche Patienten Sie übernehmen können.\n"
             body_text += f"Sie können uns einfach auf diese E-Mail antworten.\n\n"
-            body_text += f"Referenz-Nr: B{bundle_id}\n\n"
+            body_text += f"Referenz-Nr: A{anfrage_id}\n\n"
             body_text += "Mit freundlichen Grüßen,\nIhr Curavani Team"
             
             # Create email via Communication Service
@@ -299,7 +329,7 @@ class CommunicationService:
             if response.status_code in [200, 201]:
                 email_data = response.json()
                 email_id = email_data.get('id')
-                logger.info(f"Created email {email_id} for bundle {bundle_id}")
+                logger.info(f"Created email {email_id} for anfrage {anfrage_id}")
                 return email_id
             else:
                 logger.error(f"Failed to create email: {response.status_code} - {response.text}")
@@ -336,12 +366,12 @@ class CommunicationService:
             return "Unbekannt"
     
     @staticmethod
-    def schedule_follow_up_call(therapist_id: int, bundle_id: int) -> Optional[int]:
-        """Schedule a follow-up phone call for a bundle.
+    def schedule_follow_up_call(therapist_id: int, anfrage_id: int) -> Optional[int]:
+        """Schedule a follow-up phone call for an anfrage.
         
         Args:
             therapist_id: ID of the therapist
-            bundle_id: ID of the bundle
+            anfrage_id: ID of the anfrage
             
         Returns:
             Phone call ID if scheduled successfully, None otherwise
@@ -350,7 +380,7 @@ class CommunicationService:
             url = f"{config.get_service_url('communication', internal=True)}/api/phone-calls"
             data = {
                 'therapist_id': therapist_id,
-                'notizen': f"Follow-up für Bündel B{bundle_id}"
+                'notizen': f"Follow-up für Anfrage A{anfrage_id}"
             }
             
             response = requests.post(url, json=data, timeout=5)
@@ -408,8 +438,8 @@ class GeoCodingService:
             return None
 
 
-class BundleService:
-    """Service for bundle-related operations."""
+class AnfrageService:
+    """Service for anfrage-related operations."""
     
     @staticmethod
     def create_patient_search(db: Session, patient_id: int) -> Platzsuche:
@@ -436,12 +466,12 @@ class BundleService:
         return search
     
     @staticmethod
-    def create_bundle(
+    def create_anfrage(
         db: Session,
         therapist_id: int,
         patient_searches: List[Tuple[int, int]]
     ) -> Therapeutenanfrage:
-        """Create a new bundle for a therapist.
+        """Create a new anfrage for a therapist.
         
         Args:
             db: Database session
@@ -452,117 +482,121 @@ class BundleService:
             Created Therapeutenanfrage instance
             
         Raises:
-            ValueError: If bundle size is invalid
+            ValueError: If anfrage size is invalid
         """
-        if len(patient_searches) < 3 or len(patient_searches) > 6:
-            raise ValueError("Bundle must contain between 3 and 6 patients")
+        anfrage_config = config.get_anfrage_config()
+        min_size = anfrage_config['min_size']
+        max_size = anfrage_config['max_size']
         
-        # Create the bundle
-        bundle = Therapeutenanfrage(
+        if len(patient_searches) < min_size or len(patient_searches) > max_size:
+            raise ValueError(f"Anfrage must contain between {min_size} and {max_size} patients")
+        
+        # Create the anfrage
+        anfrage = Therapeutenanfrage(
             therapist_id=therapist_id,
-            buendelgroesse=len(patient_searches)
+            anfragegroesse=len(patient_searches)
         )
-        db.add(bundle)
+        db.add(anfrage)
         db.flush()  # Get the ID without committing
         
-        # Add patients to bundle
+        # Add patients to anfrage
         for position, (platzsuche_id, patient_id) in enumerate(patient_searches, 1):
-            bundle_patient = TherapeutAnfragePatient(
-                therapeutenanfrage_id=bundle.id,
+            anfrage_patient = TherapeutAnfragePatient(
+                therapeutenanfrage_id=anfrage.id,
                 platzsuche_id=platzsuche_id,
                 patient_id=patient_id,
-                position_im_buendel=position
+                position_in_anfrage=position
             )
-            db.add(bundle_patient)
+            db.add(anfrage_patient)
         
         db.commit()
-        db.refresh(bundle)
+        db.refresh(anfrage)
         
-        logger.info(f"Created bundle {bundle.id} for therapist {therapist_id} with {len(patient_searches)} patients")
-        return bundle
+        logger.info(f"Created anfrage {anfrage.id} for therapist {therapist_id} with {len(patient_searches)} patients")
+        return anfrage
     
     @staticmethod
-    def send_bundle(
+    def send_anfrage(
         db: Session,
-        bundle_id: int
+        anfrage_id: int
     ) -> bool:
-        """Send a bundle to the therapist via email.
+        """Send an anfrage to the therapist via email.
         
         Args:
             db: Database session
-            bundle_id: ID of the bundle
+            anfrage_id: ID of the anfrage
             
         Returns:
             True if sent successfully, False otherwise
         """
-        bundle = db.query(Therapeutenanfrage).filter_by(id=bundle_id).first()
-        if not bundle:
-            logger.error(f"Bundle {bundle_id} not found")
+        anfrage = db.query(Therapeutenanfrage).filter_by(id=anfrage_id).first()
+        if not anfrage:
+            logger.error(f"Anfrage {anfrage_id} not found")
             return False
         
-        if bundle.gesendet_datum:
-            logger.warning(f"Bundle {bundle_id} already sent on {bundle.gesendet_datum}")
+        if anfrage.gesendet_datum:
+            logger.warning(f"Anfrage {anfrage_id} already sent on {anfrage.gesendet_datum}")
             return False
         
         # Get patient data
-        patient_ids = [bp.patient_id for bp in bundle.bundle_patients]
+        patient_ids = [ap.patient_id for ap in anfrage.anfrage_patients]
         patients = PatientService.get_patients(patient_ids)
         
-        if len(patients) != bundle.buendelgroesse:
-            logger.error(f"Could not fetch all patients for bundle {bundle_id}")
+        if len(patients) != anfrage.anfragegroesse:
+            logger.error(f"Could not fetch all patients for anfrage {anfrage_id}")
             return False
         
-        # Create patient data list in bundle order
+        # Create patient data list in anfrage order
         patient_data = []
-        for bp in bundle.bundle_patients:
-            if bp.patient_id in patients:
-                patient_data.append(patients[bp.patient_id])
+        for ap in anfrage.anfrage_patients:
+            if ap.patient_id in patients:
+                patient_data.append(patients[ap.patient_id])
         
         # Create and send email
-        email_id = CommunicationService.create_bundle_email(
-            bundle.therapist_id,
+        email_id = CommunicationService.create_anfrage_email(
+            anfrage.therapist_id,
             patient_data,
-            bundle.id
+            anfrage.id
         )
         
         if email_id:
-            bundle.mark_as_sent(email_id=email_id)
+            anfrage.mark_as_sent(email_id=email_id)
             db.commit()
             
-            logger.info(f"Bundle {bundle_id} sent successfully via email {email_id}")
+            logger.info(f"Anfrage {anfrage_id} sent successfully via email {email_id}")
             return True
         else:
-            logger.error(f"Failed to send bundle {bundle_id}")
+            logger.error(f"Failed to send anfrage {anfrage_id}")
             return False
     
     @staticmethod
-    def handle_bundle_response(
+    def handle_anfrage_response(
         db: Session,
-        bundle_id: int,
+        anfrage_id: int,
         patient_responses: Dict[int, PatientenErgebnis],
         notes: Optional[str] = None
     ) -> None:
-        """Handle a therapist's response to a bundle.
+        """Handle a therapist's response to an anfrage.
         
         Args:
             db: Database session
-            bundle_id: ID of the bundle
+            anfrage_id: ID of the anfrage
             patient_responses: Dictionary mapping patient_id to outcome
             notes: Optional notes about the response
         """
-        bundle = db.query(Therapeutenanfrage).filter_by(id=bundle_id).first()
-        if not bundle:
-            raise ValueError(f"Bundle {bundle_id} not found")
+        anfrage = db.query(Therapeutenanfrage).filter_by(id=anfrage_id).first()
+        if not anfrage:
+            raise ValueError(f"Anfrage {anfrage_id} not found")
         
         # Update individual patient outcomes
         accepted_count = 0
         rejected_count = 0
         no_response_count = 0
         
-        for bp in bundle.bundle_patients:
-            outcome = patient_responses.get(bp.patient_id)
+        for ap in anfrage.anfrage_patients:
+            outcome = patient_responses.get(ap.patient_id)
             if outcome:
-                bp.update_outcome(outcome)
+                ap.update_outcome(outcome)
                 
                 if outcome == PatientenErgebnis.angenommen:
                     accepted_count += 1
@@ -572,20 +606,20 @@ class BundleService:
                     rejected_count += 1
                     
                     # Add therapist to exclusion list if needed
-                    if bp.should_exclude_therapist():
-                        search = db.query(Platzsuche).filter_by(id=bp.platzsuche_id).first()
+                    if ap.should_exclude_therapist():
+                        search = db.query(Platzsuche).filter_by(id=ap.platzsuche_id).first()
                         if search:
                             search.exclude_therapist(
-                                bundle.therapist_id,
+                                anfrage.therapist_id,
                                 reason=f"Rejected: {outcome.value}"
                             )
             else:
                 no_response_count += 1
-                bp.mark_no_response()
+                ap.mark_no_response()
         
-        # Update bundle response
-        response_type = bundle.calculate_response_type()
-        bundle.update_response(
+        # Update anfrage response
+        response_type = anfrage.calculate_response_type()
+        anfrage.update_response(
             response_type=response_type,
             accepted_count=accepted_count,
             rejected_count=rejected_count,
@@ -594,7 +628,7 @@ class BundleService:
         )
         
         db.commit()
-        logger.info(f"Updated bundle {bundle_id} response: {response_type.value}")
+        logger.info(f"Updated anfrage {anfrage_id} response: {response_type.value}")
     
     @staticmethod
     def check_for_conflicts(db: Session) -> List[Dict[str, Any]]:
@@ -618,7 +652,7 @@ class BundleService:
                 patient_acceptances[entry.patient_id] = []
             patient_acceptances[entry.patient_id].append({
                 'therapist_id': entry.get_therapist_id(),
-                'bundle_id': entry.therapeutenanfrage_id,
+                'anfrage_id': entry.therapeutenanfrage_id,
                 'response_date': entry.therapeutenanfrage.antwort_datum
             })
         
