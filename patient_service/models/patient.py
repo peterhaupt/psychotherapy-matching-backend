@@ -121,8 +121,7 @@ class Patient(Base):
         default=TherapistGenderPreference.Egal
     )
     bevorzugtes_therapieverfahren = Column(ARRAY(SQLAlchemyEnum(Therapieverfahren, name='therapieverfahren', native_enum=True)))  # NEW: PostgreSQL Array
-    bevorzugtes_therapeutenalter_min = Column(Integer)  # NEW: Minimum therapist age preference
-    bevorzugtes_therapeutenalter_max = Column(Integer)  # NEW: Maximum therapist age preference
+    # REMOVED: bevorzugtes_therapeutenalter_min and bevorzugtes_therapeutenalter_max
 
     # Timestamps (technical fields remain in English)
     created_at = Column(Date, default=date.today)

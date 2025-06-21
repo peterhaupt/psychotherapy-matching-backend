@@ -107,7 +107,7 @@ def upgrade() -> None:
     
     # ========== STEP 3: CREATE PATIENT SERVICE TABLES ==========
     
-    # Create patienten table (German name) with Phase 2 additions
+    # Create patienten table (German name) with Phase 2 additions (REMOVED therapist age preferences)
     op.create_table('patienten',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('anrede', sa.String(10), nullable=True),
@@ -171,8 +171,7 @@ def upgrade() -> None:
                                                    'tiefenpsychologisch_fundierte_Psychotherapie',
                                                    name='therapieverfahren', create_type=False)), 
                   nullable=True),
-        sa.Column('bevorzugtes_therapeutenalter_min', sa.Integer(), nullable=True),
-        sa.Column('bevorzugtes_therapeutenalter_max', sa.Integer(), nullable=True),
+        # REMOVED: bevorzugtes_therapeutenalter_min and bevorzugtes_therapeutenalter_max
         # End NEW Phase 2 fields
         sa.Column('created_at', sa.Date(), nullable=True),
         sa.Column('updated_at', sa.Date(), nullable=True),

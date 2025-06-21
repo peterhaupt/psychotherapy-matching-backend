@@ -196,6 +196,7 @@ class PatientResource(Resource):
         parser.add_argument('ausgeschlossene_therapeuten', type=list, location='json')
         parser.add_argument('bevorzugtes_therapeutengeschlecht', type=str)
         parser.add_argument('letzter_kontakt', type=str)
+        # REMOVED: bevorzugtes_therapeutenalter_min and bevorzugtes_therapeutenalter_max
         
         args = parser.parse_args()
         
@@ -328,6 +329,7 @@ class PatientListResource(PaginatedListResource):
         parser.add_argument('offen_fuer_diga', type=bool)
         parser.add_argument('ausgeschlossene_therapeuten', type=list, location='json')
         parser.add_argument('bevorzugtes_therapeutengeschlecht', type=str)
+        # REMOVED: bevorzugtes_therapeutenalter_min and bevorzugtes_therapeutenalter_max
         
         try:
             args = parser.parse_args()

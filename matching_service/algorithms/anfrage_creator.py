@@ -265,24 +265,7 @@ def check_patient_preferences(
             logger.debug(f"Gender preference not met: wanted {gender_pref}, got {therapist_gender}")
             return False
     
-    # Age preference
-    min_age = patient.get('bevorzugtes_therapeutenalter_min')
-    max_age = patient.get('bevorzugtes_therapeutenalter_max')
-    if min_age is not None or max_age is not None:
-        # Calculate therapist age if birthdate available
-        therapist_birthdate = therapist.get('geburtsdatum')
-        if therapist_birthdate:
-            therapist_age = calculate_age(datetime.fromisoformat(therapist_birthdate).date())
-            if min_age is not None and therapist_age < min_age:
-                logger.debug(f"Therapist too young: {therapist_age} < {min_age}")
-                return False
-            if max_age is not None and therapist_age > max_age:
-                logger.debug(f"Therapist too old: {therapist_age} > {max_age}")
-                return False
-        else:
-            # If we can't determine age, we can't verify preference
-            logger.debug("Cannot verify age preference - therapist birthdate missing")
-            return False
+    # REMOVED: Age preference check for therapist age
     
     # Therapy procedure preference
     preferred_procedures = patient.get('bevorzugtes_therapieverfahren', [])
@@ -325,7 +308,7 @@ def check_therapist_preferences(
             logger.debug(f"Patient diagnosis {patient_diagnosis} not in preferred list")
             return False
     
-    # Age preference
+    # Age preference (PATIENT age, not therapist age - this stays)
     min_age = therapist.get('alter_min')
     max_age = therapist.get('alter_max')
     if min_age is not None or max_age is not None:
