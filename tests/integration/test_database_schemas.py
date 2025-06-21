@@ -19,6 +19,7 @@ Current State (after Phase 2 migration):
 - wiederholen_nach removed from telefonanrufe table
 - New patient preference fields added (Phase 2)
 - New therapist field for Curavani awareness added (Phase 2)
+- Patient therapist age preferences removed
 """
 import os
 import sys
@@ -99,8 +100,8 @@ def test_patient_service_tables(db_inspector):
         'krankenversicherungsnummer', 'geburtsdatum', 'diagnose',
         # NEW Phase 2 fields
         'symptome', 'erfahrung_mit_psychotherapie',
-        'bevorzugtes_therapieverfahren', 'bevorzugtes_therapeutenalter_min',
-        'bevorzugtes_therapeutenalter_max',
+        'bevorzugtes_therapieverfahren',
+        # REMOVED: bevorzugtes_therapeutenalter_min and bevorzugtes_therapeutenalter_max
         # End NEW Phase 2 fields
         'vertraege_unterschrieben', 'psychotherapeutische_sprechstunde',
         'startdatum', 'status', 'zeitliche_verfuegbarkeit',
@@ -118,6 +119,11 @@ def test_patient_service_tables(db_inspector):
         if col['name'] == 'bevorzugtes_therapieverfahren':
             assert 'ARRAY' in str(col['type']), \
                 f"bevorzugtes_therapieverfahren should be ARRAY type, got: {col['type']}"
+    
+    # Verify removed columns don't exist
+    removed_columns = {'bevorzugtes_therapeutenalter_min', 'bevorzugtes_therapeutenalter_max'}
+    unexpected_columns = removed_columns & columns
+    assert not unexpected_columns, f"Removed columns still exist in patienten table: {unexpected_columns}"
 
 
 def test_therapist_service_tables(db_inspector):
