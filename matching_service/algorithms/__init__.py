@@ -1,51 +1,55 @@
-"""Matching algorithms package - Bundle System."""
-# Import all functions from the bundle creator
-from .bundle_creator import (
-    # Bundle creation functions
-    create_bundles_for_all_therapists,
-    create_bundle_for_therapist,
+"""Matching algorithms package - Anfrage System."""
+# Import all functions from the anfrage creator
+from .anfrage_creator import (
+    # Core functions
     get_eligible_patients_for_therapist,
+    get_contactable_therapists,
+    get_active_patient_searches,
     apply_hard_constraints,
-    apply_progressive_filtering,
-    select_bundle_patients,
+    check_hard_constraints,
+    select_anfrage_patients,
     
-    # Helper functions
+    # Constraint functions
     check_distance_constraint,
     check_exclusion_constraint,
     check_gender_preference,
-    score_by_availability,
-    score_by_therapist_preferences,
     
     # Conflict resolution
     detect_conflicts,
     resolve_conflicts,
     
     # Analytics
-    calculate_bundle_efficiency,
-    analyze_therapist_preferences
+    calculate_anfrage_efficiency,
+    
+    # Helper functions
+    build_address,
+    parse_time,
+    calculate_age
 )
 
 __all__ = [
-    # Bundle creation functions
-    'create_bundles_for_all_therapists',
-    'create_bundle_for_therapist',
+    # Core functions
     'get_eligible_patients_for_therapist',
+    'get_contactable_therapists',
+    'get_active_patient_searches',
     'apply_hard_constraints',
-    'apply_progressive_filtering',
-    'select_bundle_patients',
+    'check_hard_constraints',
+    'select_anfrage_patients',
     
-    # Helper functions
+    # Constraint functions
     'check_distance_constraint',
     'check_exclusion_constraint',
     'check_gender_preference',
-    'score_by_availability',
-    'score_by_therapist_preferences',
     
     # Conflict resolution
     'detect_conflicts',
     'resolve_conflicts',
     
     # Analytics
-    'calculate_bundle_efficiency',
-    'analyze_therapist_preferences'
+    'calculate_anfrage_efficiency',
+    
+    # Helper functions
+    'build_address',
+    'parse_time',
+    'calculate_age'
 ]

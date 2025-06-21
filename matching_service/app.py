@@ -8,15 +8,14 @@ from flask_restful import Api
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 
-from api.matching import PlacementRequestResource, PlacementRequestListResource
-from api.bundle import (
+from api.anfrage import (
     PlatzsucheResource,
     PlatzsucheListResource,
     KontaktanfrageResource,
     TherapeutenanfrageResource,
     TherapeutenanfrageListResource,
-    BundleCreationResource,
-    BundleResponseResource
+    AnfrageCreationResource,
+    AnfrageResponseResource
 )
 from events.consumers import start_consumers
 from shared.config import get_config
@@ -52,19 +51,15 @@ def create_app():
 
     # Initialize RESTful API
     api = Api(app)
-
-    # Register legacy API endpoints (return 501)
-    api.add_resource(PlacementRequestListResource, '/api/placement-requests')
-    api.add_resource(PlacementRequestResource, '/api/placement-requests/<int:request_id>')
     
-    # Register bundle system API endpoints
+    # Register anfrage system API endpoints
     api.add_resource(PlatzsucheListResource, '/api/platzsuchen')
     api.add_resource(PlatzsucheResource, '/api/platzsuchen/<int:search_id>')
     api.add_resource(KontaktanfrageResource, '/api/platzsuchen/<int:search_id>/kontaktanfrage')
     api.add_resource(TherapeutenanfrageListResource, '/api/therapeutenanfragen')
-    api.add_resource(TherapeutenanfrageResource, '/api/therapeutenanfragen/<int:bundle_id>')
-    api.add_resource(BundleCreationResource, '/api/buendel/erstellen')
-    api.add_resource(BundleResponseResource, '/api/therapeutenanfragen/<int:bundle_id>/antwort')
+    api.add_resource(TherapeutenanfrageResource, '/api/therapeutenanfragen/<int:anfrage_id>')
+    api.add_resource(AnfrageCreationResource, '/api/anfragen/erstellen')
+    api.add_resource(AnfrageResponseResource, '/api/therapeutenanfragen/<int:anfrage_id>/antwort')
 
     # Health check endpoint
     @app.route('/health')

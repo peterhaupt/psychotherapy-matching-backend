@@ -1,26 +1,21 @@
 """Matching service API package."""
-from .matching import PlacementRequestResource, PlacementRequestListResource
-from .bundle import (
+from .anfrage import (
     PlatzsucheResource,
     PlatzsucheListResource,
     KontaktanfrageResource,
     TherapeutenanfrageResource,
     TherapeutenanfrageListResource,
-    BundleCreationResource,
-    BundleResponseResource
+    AnfrageCreationResource,
+    AnfrageResponseResource
 )
 
 __all__ = [
-    # Legacy endpoints (return 501)
-    'PlacementRequestResource',
-    'PlacementRequestListResource',
-    
-    # Bundle system endpoints
+    # Anfrage system endpoints
     'PlatzsucheResource',
     'PlatzsucheListResource',
     'KontaktanfrageResource',
     'TherapeutenanfrageResource',
     'TherapeutenanfrageListResource',
-    'BundleCreationResource',
-    'BundleResponseResource'
+    'AnfrageCreationResource',
+    'AnfrageResponseResource'
 ]
