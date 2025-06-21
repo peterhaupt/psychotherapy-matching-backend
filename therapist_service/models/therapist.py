@@ -24,7 +24,7 @@ class Therapist(Base):
 
     This model represents a therapist in the psychotherapy matching platform,
     including personal information, professional details, availability,
-    bundle preferences, and contact history.
+    inquiry preferences, and contact history.
     
     All field names use German terminology for consistency with the database
     schema and overall architecture.
@@ -65,8 +65,9 @@ class Therapist(Base):
     # Availability (German field names)
     potenziell_verfuegbar = Column(Boolean, default=False)
     potenziell_verfuegbar_notizen = Column(Text)
+    ueber_curavani_informiert = Column(Boolean, default=False)  # NEW: Whether therapist is informed about Curavani
 
-    # Bundle System Fields (German field names)
+    # Inquiry System Fields (German field names - renamed from Bundle)
     naechster_kontakt_moeglich = Column(Date)
     bevorzugte_diagnosen = Column(JSONB)
     alter_min = Column(Integer)

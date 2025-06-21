@@ -1,4 +1,4 @@
-"""TherapeutAnfragePatient (Bundle Composition) database model."""
+"""TherapeutAnfragePatient (Inquiry Composition) database model."""
 from datetime import datetime
 from enum import Enum
 from typing import Optional
@@ -12,8 +12,8 @@ from sqlalchemy.orm import relationship, validates
 from shared.utils.database import Base
 
 
-class BuendelPatientStatus(str, Enum):
-    """Enumeration for patient status within a bundle."""
+class AnfragePatientStatus(str, Enum):
+    """Enumeration for patient status within an inquiry."""
     
     anstehend = "anstehend"
     angenommen = "angenommen"
@@ -33,10 +33,10 @@ class PatientenErgebnis(str, Enum):
 
 
 class TherapeutAnfragePatient(Base):
-    """Bundle composition model.
+    """Inquiry composition model.
     
-    Links patients to therapist inquiries (bundles) and tracks
-    individual patient outcomes within the bundle.
+    Links patients to therapist inquiries and tracks
+    individual patient outcomes within the inquiry.
     """
     
     __tablename__ = "therapeut_anfrage_patient"
@@ -44,14 +44,14 @@ class TherapeutAnfragePatient(Base):
         UniqueConstraint(
             'therapeutenanfrage_id', 
             'platzsuche_id',
-            name='uq_therapeut_anfrage_patient_bundle_search'
+            name='uq_therapeut_anfrage_patient_anfrage_search'
         ),
         {"schema": "matching_service"}
     )
     
     id = Column(Integer, primary_key=True, index=True)
     
-    # Bundle reference
+    # Inquiry reference
     therapeutenanfrage_id = Column(
         Integer,
         ForeignKey("matching_service.therapeutenanfrage.id", ondelete="CASCADE"),
@@ -75,14 +75,14 @@ class TherapeutAnfragePatient(Base):
         index=True
     )
     
-    # Position tracking (German field name)
-    position_im_buendel = Column(Integer, nullable=False)
+    # Position tracking (German field name - renamed from bundle)
+    position_in_anfrage = Column(Integer, nullable=False)
     
     # Status tracking
     status = Column(
-        SQLAlchemyEnum(BuendelPatientStatus, name='buendel_patient_status', native_enum=True),
+        SQLAlchemyEnum(AnfragePatientStatus, name='anfrage_patient_status', native_enum=True),
         nullable=False,
-        default=BuendelPatientStatus.anstehend,
+        default=AnfragePatientStatus.anstehend,
         index=True
     )
     
@@ -100,12 +100,12 @@ class TherapeutAnfragePatient(Base):
     # Relationships
     therapeutenanfrage = relationship(
         "Therapeutenanfrage",
-        back_populates="bundle_patients"
+        back_populates="anfrage_patients"
     )
     
     platzsuche = relationship(
         "Platzsuche",
-        back_populates="bundle_entries"
+        back_populates="anfrage_entries"
     )
     
     # Note: Patient relationship removed due to cross-service boundary
@@ -115,7 +115,7 @@ class TherapeutAnfragePatient(Base):
         """String representation."""
         return (
             f"<TherapeutAnfragePatient "
-            f"bundle={self.therapeutenanfrage_id} "
+            f"anfrage={self.therapeutenanfrage_id} "
             f"patient={self.patient_id} "
             f"status={self.status}>"
         )
@@ -127,7 +127,7 @@ class TherapeutAnfragePatient(Base):
         outcome: PatientenErgebnis,
         notes: Optional[str] = None
     ) -> None:
-        """Update the patient's outcome in this bundle.
+        """Update the patient's outcome in this inquiry.
         
         Args:
             outcome: The outcome of the therapist's response for this patient
@@ -137,13 +137,13 @@ class TherapeutAnfragePatient(Base):
         
         # Update status based on outcome
         if outcome == PatientenErgebnis.angenommen:
-            self.status = BuendelPatientStatus.angenommen
+            self.status = AnfragePatientStatus.angenommen
         elif outcome in [PatientenErgebnis.abgelehnt_Kapazitaet, 
                         PatientenErgebnis.abgelehnt_nicht_geeignet,
                         PatientenErgebnis.abgelehnt_sonstiges]:
-            self.status = BuendelPatientStatus.abgelehnt
+            self.status = AnfragePatientStatus.abgelehnt
         elif outcome == PatientenErgebnis.nicht_erschienen:
-            self.status = BuendelPatientStatus.keine_antwort
+            self.status = AnfragePatientStatus.keine_antwort
             
         if notes:
             self.add_outcome_note(notes)
@@ -154,7 +154,7 @@ class TherapeutAnfragePatient(Base):
         Args:
             notes: Optional acceptance notes
         """
-        self.status = BuendelPatientStatus.angenommen
+        self.status = AnfragePatientStatus.angenommen
         self.antwortergebnis = PatientenErgebnis.angenommen
         if notes:
             self.add_outcome_note(notes)
@@ -182,7 +182,7 @@ class TherapeutAnfragePatient(Base):
         if reason not in rejection_reasons:
             raise ValueError(f"Invalid rejection reason: {reason}")
         
-        self.status = BuendelPatientStatus.abgelehnt
+        self.status = AnfragePatientStatus.abgelehnt
         self.antwortergebnis = reason
         if notes:
             self.add_outcome_note(notes)
@@ -193,7 +193,7 @@ class TherapeutAnfragePatient(Base):
         Args:
             notes: Optional notes
         """
-        self.status = BuendelPatientStatus.keine_antwort
+        self.status = AnfragePatientStatus.keine_antwort
         if notes:
             self.add_outcome_note(notes)
     
@@ -213,7 +213,7 @@ class TherapeutAnfragePatient(Base):
         Returns:
             True if patient was accepted
         """
-        return self.status == BuendelPatientStatus.angenommen
+        return self.status == AnfragePatientStatus.angenommen
     
     def is_rejected(self) -> bool:
         """Check if this patient was rejected.
@@ -221,7 +221,7 @@ class TherapeutAnfragePatient(Base):
         Returns:
             True if patient was rejected
         """
-        return self.status == BuendelPatientStatus.abgelehnt
+        return self.status == AnfragePatientStatus.abgelehnt
     
     def is_pending(self) -> bool:
         """Check if this patient's status is still pending.
@@ -229,7 +229,7 @@ class TherapeutAnfragePatient(Base):
         Returns:
             True if status is pending
         """
-        return self.status == BuendelPatientStatus.anstehend
+        return self.status == AnfragePatientStatus.anstehend
     
     def has_outcome(self) -> bool:
         """Check if this patient has any outcome recorded.
@@ -254,7 +254,7 @@ class TherapeutAnfragePatient(Base):
             self.antwortnotizen = new_note
     
     def get_therapist_id(self) -> Optional[int]:
-        """Get the therapist ID from the parent bundle.
+        """Get the therapist ID from the parent inquiry.
         
         Returns:
             Therapist ID or None if relationships not loaded
@@ -263,28 +263,28 @@ class TherapeutAnfragePatient(Base):
             return self.therapeutenanfrage.therapist_id
         return None
     
-    def get_bundle_size(self) -> Optional[int]:
-        """Get the size of the parent bundle.
+    def get_anfrage_size(self) -> Optional[int]:
+        """Get the size of the parent inquiry.
         
         Returns:
-            Bundle size or None if relationships not loaded
+            Inquiry size or None if relationships not loaded
         """
         if self.therapeutenanfrage:
-            return self.therapeutenanfrage.buendelgroesse
+            return self.therapeutenanfrage.anfragegroesse
         return None
     
-    def get_bundle_position_info(self) -> str:
-        """Get a string describing this patient's position in the bundle.
+    def get_anfrage_position_info(self) -> str:
+        """Get a string describing this patient's position in the inquiry.
         
         Returns:
             String like "Position 2 of 5"
         """
-        bundle_size = self.get_bundle_size()
-        if bundle_size:
-            return f"Position {self.position_im_buendel} of {bundle_size}"
-        return f"Position {self.position_im_buendel}"
+        anfrage_size = self.get_anfrage_size()
+        if anfrage_size:
+            return f"Position {self.position_in_anfrage} of {anfrage_size}"
+        return f"Position {self.position_in_anfrage}"
     
-    @validates('position_im_buendel')
+    @validates('position_in_anfrage')
     def validate_position(self, key, value):
         """Validate position is positive.
         
@@ -300,8 +300,8 @@ class TherapeutAnfragePatient(Base):
         """
         if value < 1:
             raise ValueError(f"Position must be >= 1, got {value}")
-        if value > 6:  # Max bundle size
-            raise ValueError(f"Position must be <= 6 (max bundle size), got {value}")
+        if value > 6:  # Max inquiry size
+            raise ValueError(f"Position must be <= 6 (max inquiry size), got {value}")
         return value
     
     @validates('status')
@@ -333,11 +333,11 @@ class TherapeutAnfragePatient(Base):
         ]
         return self.antwortergebnis in exclude_outcomes
     
-    def create_conflict_with(self, other_bundle_id: int) -> dict:
-        """Create a conflict record when patient is accepted in multiple bundles.
+    def create_conflict_with(self, other_anfrage_id: int) -> dict:
+        """Create a conflict record when patient is accepted in multiple inquiries.
         
         Args:
-            other_bundle_id: ID of the other bundle where patient was accepted
+            other_anfrage_id: ID of the other inquiry where patient was accepted
             
         Returns:
             Dictionary with conflict information
@@ -345,7 +345,7 @@ class TherapeutAnfragePatient(Base):
         return {
             'patient_id': self.patient_id,
             'platzsuche_id': self.platzsuche_id,
-            'bundle_1_id': self.therapeutenanfrage_id,
-            'bundle_2_id': other_bundle_id,
+            'anfrage_1_id': self.therapeutenanfrage_id,
+            'anfrage_2_id': other_anfrage_id,
             'detected_at': datetime.utcnow().isoformat()
         }

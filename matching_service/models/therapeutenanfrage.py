@@ -1,4 +1,4 @@
-"""Therapeutenanfrage (Therapist Inquiry/Bundle) database model."""
+"""Therapeutenanfrage (Therapist Inquiry) database model."""
 from datetime import datetime
 from enum import Enum
 from typing import List, Optional, Dict, Any
@@ -13,7 +13,7 @@ from shared.utils.database import Base
 
 
 class AntwortTyp(str, Enum):
-    """Enumeration for bundle response types."""
+    """Enumeration for inquiry response types."""
     
     vollstaendige_Annahme = "vollstaendige_Annahme"
     teilweise_Annahme = "teilweise_Annahme"
@@ -22,15 +22,15 @@ class AntwortTyp(str, Enum):
 
 
 class Therapeutenanfrage(Base):
-    """Therapist inquiry (bundle) model.
+    """Therapist inquiry model.
     
-    Represents a bundle of patients sent to a therapist.
-    Tracks the response and outcome of the bundle.
+    Represents an inquiry of patients sent to a therapist.
+    Tracks the response and outcome of the inquiry.
     """
     
     __tablename__ = "therapeutenanfrage"
     __table_args__ = (
-        CheckConstraint('buendelgroesse >= 3 AND buendelgroesse <= 6', name='bundle_size_check'),
+        CheckConstraint('anfragegroesse >= 3 AND anfragegroesse <= 6', name='anfrage_size_check'),
         CheckConstraint('angenommen_anzahl >= 0', name='accepted_count_check'),
         CheckConstraint('abgelehnt_anzahl >= 0', name='rejected_count_check'),
         CheckConstraint('keine_antwort_anzahl >= 0', name='no_response_count_check'),
@@ -62,8 +62,8 @@ class Therapeutenanfrage(Base):
         index=True
     )
     
-    # Bundle composition (German field names)
-    buendelgroesse = Column(Integer, nullable=False)
+    # Inquiry composition (German field names - renamed from bundle)
+    anfragegroesse = Column(Integer, nullable=False)
     angenommen_anzahl = Column(Integer, nullable=False, default=0)
     abgelehnt_anzahl = Column(Integer, nullable=False, default=0)
     keine_antwort_anzahl = Column(Integer, nullable=False, default=0)
@@ -89,21 +89,21 @@ class Therapeutenanfrage(Base):
     # These relationships work only if all models are in same SQLAlchemy session
     # Otherwise, use service layer for cross-service data access
     
-    bundle_patients = relationship(
+    anfrage_patients = relationship(
         "TherapeutAnfragePatient",
         back_populates="therapeutenanfrage",
         cascade="all, delete-orphan",
-        order_by="TherapeutAnfragePatient.position_im_buendel"
+        order_by="TherapeutAnfragePatient.position_in_anfrage"
     )
     
     def __repr__(self):
         """String representation."""
-        return f"<Therapeutenanfrage therapist_id={self.therapist_id} size={self.buendelgroesse}>"
+        return f"<Therapeutenanfrage therapist_id={self.therapist_id} size={self.anfragegroesse}>"
     
     # Business Logic Methods
     
     def add_patients(self, patient_searches: List[tuple]) -> None:
-        """Add patients to the bundle.
+        """Add patients to the inquiry.
         
         Args:
             patient_searches: List of tuples (platzsuche_id, patient_id)
@@ -112,28 +112,28 @@ class Therapeutenanfrage(Base):
             ValueError: If trying to add more than 6 patients or less than 3
         """
         if len(patient_searches) < 3 or len(patient_searches) > 6:
-            raise ValueError("Bundle must contain between 3 and 6 patients")
+            raise ValueError("Inquiry must contain between 3 and 6 patients")
         
         # Import here to avoid circular imports
         from .therapeut_anfrage_patient import TherapeutAnfragePatient
         
         for position, (platzsuche_id, patient_id) in enumerate(patient_searches, 1):
-            bundle_patient = TherapeutAnfragePatient(
+            anfrage_patient = TherapeutAnfragePatient(
                 therapeutenanfrage_id=self.id,
                 platzsuche_id=platzsuche_id,
                 patient_id=patient_id,
-                position_im_buendel=position
+                position_in_anfrage=position
             )
-            self.bundle_patients.append(bundle_patient)
+            self.anfrage_patients.append(anfrage_patient)
         
-        self.buendelgroesse = len(patient_searches)
+        self.anfragegroesse = len(patient_searches)
     
     def mark_as_sent(self, email_id: Optional[int] = None, phone_call_id: Optional[int] = None) -> None:
-        """Mark the bundle as sent.
+        """Mark the inquiry as sent.
         
         Args:
-            email_id: ID of the email used to send the bundle
-            phone_call_id: ID of the phone call used to communicate the bundle
+            email_id: ID of the email used to send the inquiry
+            phone_call_id: ID of the phone call used to communicate the inquiry
         """
         self.gesendet_datum = datetime.utcnow()
         if email_id:
@@ -149,7 +149,7 @@ class Therapeutenanfrage(Base):
         no_response_count: int = 0,
         notes: Optional[str] = None
     ) -> None:
-        """Update the bundle response.
+        """Update the inquiry response.
         
         Args:
             response_type: Type of response received
@@ -159,12 +159,12 @@ class Therapeutenanfrage(Base):
             notes: Optional notes about the response
             
         Raises:
-            ValueError: If counts don't add up to bundle size
+            ValueError: If counts don't add up to inquiry size
         """
         total = accepted_count + rejected_count + no_response_count
-        if total != self.buendelgroesse:
+        if total != self.anfragegroesse:
             raise ValueError(
-                f"Response counts ({total}) must equal bundle size ({self.buendelgroesse})"
+                f"Response counts ({total}) must equal inquiry size ({self.anfragegroesse})"
             )
         
         self.antwort_datum = datetime.utcnow()
@@ -182,29 +182,29 @@ class Therapeutenanfrage(Base):
         Returns:
             The calculated response type
         """
-        if self.angenommen_anzahl == self.buendelgroesse:
+        if self.angenommen_anzahl == self.anfragegroesse:
             return AntwortTyp.vollstaendige_Annahme
         elif self.angenommen_anzahl > 0:
             return AntwortTyp.teilweise_Annahme
-        elif self.abgelehnt_anzahl == self.buendelgroesse:
+        elif self.abgelehnt_anzahl == self.anfragegroesse:
             return AntwortTyp.vollstaendige_Ablehnung
         else:
             return AntwortTyp.keine_Antwort
     
     def get_patient_details(self) -> List[Dict[str, Any]]:
-        """Get details of all patients in the bundle.
+        """Get details of all patients in the inquiry.
         
         Returns:
             List of dictionaries with patient details
         """
         details = []
-        for bundle_patient in self.bundle_patients:
+        for anfrage_patient in self.anfrage_patients:
             details.append({
-                'position': bundle_patient.position_im_buendel,
-                'patient_id': bundle_patient.patient_id,
-                'platzsuche_id': bundle_patient.platzsuche_id,
-                'status': bundle_patient.status,
-                'outcome': bundle_patient.antwortergebnis
+                'position': anfrage_patient.position_in_anfrage,
+                'patient_id': anfrage_patient.patient_id,
+                'platzsuche_id': anfrage_patient.platzsuche_id,
+                'status': anfrage_patient.status,
+                'outcome': anfrage_patient.antwortergebnis
             })
         return details
     
@@ -214,8 +214,8 @@ class Therapeutenanfrage(Base):
         Returns:
             List of TherapeutAnfragePatient entries that were accepted
         """
-        return [bp for bp in self.bundle_patients 
-                if bp.antwortergebnis and 'angenommen' in bp.antwortergebnis]
+        return [ap for ap in self.anfrage_patients 
+                if ap.antwortergebnis and 'angenommen' in ap.antwortergebnis]
     
     def get_rejected_patients(self) -> List['TherapeutAnfragePatient']:
         """Get list of rejected patients.
@@ -223,8 +223,8 @@ class Therapeutenanfrage(Base):
         Returns:
             List of TherapeutAnfragePatient entries that were rejected
         """
-        return [bp for bp in self.bundle_patients 
-                if bp.antwortergebnis and 'abgelehnt' in bp.antwortergebnis]
+        return [ap for ap in self.anfrage_patients 
+                if ap.antwortergebnis and 'abgelehnt' in ap.antwortergebnis]
     
     def is_response_complete(self) -> bool:
         """Check if all patient responses have been recorded.
@@ -232,10 +232,10 @@ class Therapeutenanfrage(Base):
         Returns:
             True if all patients have a response, False otherwise
         """
-        return all(bp.antwortergebnis is not None for bp in self.bundle_patients)
+        return all(ap.antwortergebnis is not None for ap in self.anfrage_patients)
     
     def add_note(self, note: str, author: Optional[str] = None) -> None:
-        """Add a timestamped note to the bundle.
+        """Add a timestamped note to the inquiry.
         
         Args:
             note: The note to add
@@ -250,9 +250,9 @@ class Therapeutenanfrage(Base):
         else:
             self.notizen = new_note
     
-    @validates('buendelgroesse')
-    def validate_bundle_size(self, key, value):
-        """Validate bundle size is between 3 and 6.
+    @validates('anfragegroesse')
+    def validate_anfrage_size(self, key, value):
+        """Validate inquiry size is between 3 and 6.
         
         Args:
             key: The attribute key
@@ -262,10 +262,10 @@ class Therapeutenanfrage(Base):
             The value if valid
             
         Raises:
-            ValueError: If bundle size is invalid
+            ValueError: If inquiry size is invalid
         """
         if value < 3 or value > 6:
-            raise ValueError(f"Bundle size must be between 3 and 6, got {value}")
+            raise ValueError(f"Inquiry size must be between 3 and 6, got {value}")
         return value
     
     def set_cooling_period_for_therapist(self, weeks: int = 4) -> None:
@@ -286,7 +286,7 @@ class Therapeutenanfrage(Base):
         )
     
     def days_since_sent(self) -> Optional[int]:
-        """Calculate days since the bundle was sent.
+        """Calculate days since the inquiry was sent.
         
         Returns:
             Number of days or None if not sent yet
@@ -298,7 +298,7 @@ class Therapeutenanfrage(Base):
         return delta.days
     
     def needs_follow_up(self, days_threshold: int = 7) -> bool:
-        """Check if bundle needs follow-up (e.g., phone call).
+        """Check if inquiry needs follow-up (e.g., phone call).
         
         Args:
             days_threshold: Number of days after which follow-up is needed

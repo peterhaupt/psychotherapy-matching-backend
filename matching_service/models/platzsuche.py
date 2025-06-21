@@ -84,7 +84,7 @@ class Platzsuche(Base):
     # This relationship can be used if models are in same session
     # Otherwise, use service layer for cross-service data
     
-    bundle_entries = relationship(
+    anfrage_entries = relationship(
         "TherapeutAnfragePatient",
         back_populates="platzsuche",
         cascade="all, delete-orphan"
@@ -199,25 +199,25 @@ class Platzsuche(Base):
         elif reason:
             self.notizen = f"Cancelled: {reason}"
     
-    def get_active_bundle_count(self) -> int:
-        """Get count of active bundles this search is part of.
+    def get_active_anfrage_count(self) -> int:
+        """Get count of active inquiries this search is part of.
         
         Returns:
-            Number of active bundles
+            Number of active inquiries
         """
-        if not self.bundle_entries:
+        if not self.anfrage_entries:
             return 0
         
-        return sum(1 for entry in self.bundle_entries 
+        return sum(1 for entry in self.anfrage_entries 
                   if entry.status == "anstehend")
     
-    def get_total_bundle_count(self) -> int:
-        """Get total count of bundles this search has been part of.
+    def get_total_anfrage_count(self) -> int:
+        """Get total count of inquiries this search has been part of.
         
         Returns:
-            Total number of bundles
+            Total number of inquiries
         """
-        return len(self.bundle_entries) if self.bundle_entries else 0
+        return len(self.anfrage_entries) if self.anfrage_entries else 0
     
     @validates('status')
     def validate_status_transition(self, key, new_status):
