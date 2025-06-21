@@ -6,17 +6,19 @@ their key columns.
 
 IMPORTANT: All field names use German terminology for consistency.
 
-Current State (after migration with Phase 1 changes):
+Current State (after Phase 2 migration):
 - All database table names use German names (patienten, therapeuten, telefonanrufe)
 - All database fields use German names
 - All enum types use German names
 - All enum values use German values
 - placement_requests table has been removed
 - email_batches and phone_call_batches tables have been removed
-- Bundle references moved to matching_service.therapeutenanfrage
-- Email/phone call tables now support both therapist AND patient recipients
+- Bundle references renamed to anfrage/inquiry (Phase 2)
+- Email/phone call tables support both therapist AND patient recipients
 - nachverfolgung_erforderlich and nachverfolgung_notizen removed from emails table
 - wiederholen_nach removed from telefonanrufe table
+- New patient preference fields added (Phase 2)
+- New therapist field for Curavani awareness added (Phase 2)
 """
 import os
 import sys
@@ -80,7 +82,7 @@ def test_schemas_exist(db_engine):
 
 
 def test_patient_service_tables(db_inspector):
-    """Test that patient service tables exist with correct columns."""
+    """Test that patient service tables exist with correct columns including Phase 2 additions."""
     # Check patienten table exists (German name)
     tables = db_inspector.get_table_names(schema='patient_service')
     assert 'patienten' in tables, "Table 'patienten' not found in patient_service schema"
@@ -95,6 +97,11 @@ def test_patient_service_tables(db_inspector):
         'id', 'anrede', 'vorname', 'nachname', 'strasse', 'plz', 'ort',
         'email', 'telefon', 'hausarzt', 'krankenkasse', 
         'krankenversicherungsnummer', 'geburtsdatum', 'diagnose',
+        # NEW Phase 2 fields
+        'symptome', 'erfahrung_mit_psychotherapie',
+        'bevorzugtes_therapieverfahren', 'bevorzugtes_therapeutenalter_min',
+        'bevorzugtes_therapeutenalter_max',
+        # End NEW Phase 2 fields
         'vertraege_unterschrieben', 'psychotherapeutische_sprechstunde',
         'startdatum', 'status', 'zeitliche_verfuegbarkeit',
         'raeumliche_verfuegbarkeit', 'verkehrsmittel',
@@ -105,10 +112,16 @@ def test_patient_service_tables(db_inspector):
     
     missing_columns = required_columns - columns
     assert not missing_columns, f"Missing columns in patienten table: {missing_columns}"
+    
+    # Check bevorzugtes_therapieverfahren is an ARRAY type
+    for col in db_inspector.get_columns('patienten', schema='patient_service'):
+        if col['name'] == 'bevorzugtes_therapieverfahren':
+            assert 'ARRAY' in str(col['type']), \
+                f"bevorzugtes_therapieverfahren should be ARRAY type, got: {col['type']}"
 
 
 def test_therapist_service_tables(db_inspector):
-    """Test that therapist service tables exist with correct columns."""
+    """Test that therapist service tables exist with correct columns including Phase 2 addition."""
     # Check therapeuten table exists (German name)
     tables = db_inspector.get_table_names(schema='therapist_service')
     assert 'therapeuten' in tables, "Table 'therapeuten' not found in therapist_service schema"
@@ -128,7 +141,9 @@ def test_therapist_service_tables(db_inspector):
         'letztes_persoenliches_gespraech',
         'status', 'sperrgrund', 'sperrdatum',
         'potenziell_verfuegbar', 'potenziell_verfuegbar_notizen',
-        # Bundle-related fields (German names)
+        # NEW Phase 2 field
+        'ueber_curavani_informiert',
+        # Inquiry-related fields (German names)
         'naechster_kontakt_moeglich', 'bevorzugte_diagnosen',
         'alter_min', 'alter_max', 'geschlechtspraeferenz', 'arbeitszeiten',
         'bevorzugt_gruppentherapie',
@@ -145,13 +160,13 @@ def test_therapist_service_tables(db_inspector):
 
 
 def test_matching_service_tables(db_inspector):
-    """Test that matching service tables exist with correct columns."""
+    """Test that matching service tables exist with correct columns including Phase 2 renames."""
     tables = db_inspector.get_table_names(schema='matching_service')
     
     # Check that placement_requests table does NOT exist (removed in migration)
     assert 'placement_requests' not in tables, "Table 'placement_requests' should have been removed"
     
-    # Check new bundle tables exist
+    # Check new inquiry tables exist
     assert 'platzsuche' in tables, "Table 'platzsuche' not found"
     assert 'therapeutenanfrage' in tables, "Table 'therapeutenanfrage' not found"
     assert 'therapeut_anfrage_patient' in tables, "Table 'therapeut_anfrage_patient' not found"
@@ -166,32 +181,39 @@ def test_matching_service_tables(db_inspector):
     missing = ps_required - ps_columns
     assert not missing, f"Missing columns in platzsuche: {missing}"
     
-    # Check therapeutenanfrage columns (with German names and new communication references)
+    # Check therapeutenanfrage columns (with German names and Phase 2 rename)
     ta_columns = {col['name'] for col in db_inspector.get_columns('therapeutenanfrage', schema='matching_service')}
     ta_required = {
         'id', 'therapist_id', 'erstellt_datum', 'gesendet_datum', 'antwort_datum',  # German column names
-        'antworttyp', 'buendelgroesse', 'angenommen_anzahl', 'abgelehnt_anzahl',
+        'antworttyp', 
+        'anfragegroesse',  # RENAMED from buendelgroesse (Phase 2)
+        'angenommen_anzahl', 'abgelehnt_anzahl',
         'keine_antwort_anzahl', 'notizen',
-        # New columns added in migration
+        # Communication references
         'email_id', 'phone_call_id'
     }
     missing = ta_required - ta_columns
     assert not missing, f"Missing columns in therapeutenanfrage: {missing}"
     
-    # Check that old English column names don't exist
-    old_english_columns = {'created_date', 'sent_date', 'response_date'}
-    unexpected = old_english_columns & ta_columns
-    assert not unexpected, f"Old English column names still exist in therapeutenanfrage: {unexpected}"
+    # Check that old column names don't exist
+    old_column_names = {'buendelgroesse', 'created_date', 'sent_date', 'response_date'}
+    unexpected = old_column_names & ta_columns
+    assert not unexpected, f"Old column names still exist in therapeutenanfrage: {unexpected}"
     
-    # Check therapeut_anfrage_patient columns (with German names)
+    # Check therapeut_anfrage_patient columns (with German names and Phase 2 rename)
     tap_columns = {col['name'] for col in db_inspector.get_columns('therapeut_anfrage_patient', schema='matching_service')}
     tap_required = {
         'id', 'therapeutenanfrage_id', 'platzsuche_id', 'patient_id',
-        'position_im_buendel', 'status', 'antwortergebnis', 'antwortnotizen',
+        'position_in_anfrage',  # RENAMED from position_im_buendel (Phase 2)
+        'status', 'antwortergebnis', 'antwortnotizen',
         'created_at'
     }
     missing = tap_required - tap_columns
     assert not missing, f"Missing columns in therapeut_anfrage_patient: {missing}"
+    
+    # Check that old column name doesn't exist
+    assert 'position_im_buendel' not in tap_columns, \
+        "Old column name 'position_im_buendel' should have been renamed to 'position_in_anfrage'"
 
 
 def test_communication_service_tables(db_inspector):
@@ -283,7 +305,7 @@ def test_geocoding_service_tables(db_inspector):
 
 
 def test_enum_types(db_engine):
-    """Test that all enum types exist with correct German values."""
+    """Test that all enum types exist with correct German values including Phase 2 additions."""
     with db_engine.connect() as conn:
         # Get all enum types
         result = conn.execute(text("""
@@ -308,6 +330,8 @@ def test_enum_types(db_engine):
         'patientenstatus': ['offen', 'auf_der_Suche', 'in_Therapie', 
                            'Therapie_abgeschlossen', 'Suche_abgebrochen', 'Therapie_abgebrochen'],
         'therapeutgeschlechtspraeferenz': ['Männlich', 'Weiblich', 'Egal'],
+        # NEW Phase 2 enum
+        'therapieverfahren': ['egal', 'Verhaltenstherapie', 'tiefenpsychologisch_fundierte_Psychotherapie'],
         'therapeutstatus': ['aktiv', 'gesperrt', 'inaktiv'],
         'emailstatus': ['Entwurf', 'In_Warteschlange', 'Wird_gesendet', 'Gesendet', 'Fehlgeschlagen'],
         'suchstatus': ['aktiv', 'erfolgreich', 'pausiert', 'abgebrochen'],
@@ -315,7 +339,8 @@ def test_enum_types(db_engine):
         'antworttyp': ['vollstaendige_Annahme', 'teilweise_Annahme', 'vollstaendige_Ablehnung', 'keine_Antwort'],
         'patientenergebnis': ['angenommen', 'abgelehnt_Kapazitaet', 'abgelehnt_nicht_geeignet', 
                              'abgelehnt_sonstiges', 'nicht_erschienen', 'in_Sitzungen'],
-        'buendel_patient_status': ['anstehend', 'angenommen', 'abgelehnt', 'keine_antwort']
+        # RENAMED from buendel_patient_status (Phase 2)
+        'anfrage_patient_status': ['anstehend', 'angenommen', 'abgelehnt', 'keine_antwort']
     }
     
     for enum_name, expected_values in expected_enums.items():
@@ -333,7 +358,8 @@ def test_enum_types(db_engine):
         'phonecallstatus',  # Should be telefonanrufstatus
         'placementrequeststatus',  # Should not exist at all
         'responsetype',  # Should be antworttyp
-        'patientoutcome'  # Should be patientenergebnis
+        'patientoutcome',  # Should be patientenergebnis
+        'buendel_patient_status'  # Should be anfrage_patient_status (Phase 2)
     ]
     
     for old_name in old_enum_names:
@@ -349,7 +375,7 @@ def test_indexes_exist(db_inspector):
     assert 'idx_therapists_naechster_kontakt_moeglich' in therapeuten_index_names, \
            "Missing index on therapeuten.naechster_kontakt_moeglich"
     
-    # Check bundle table indexes
+    # Check inquiry table indexes
     ps_indexes = db_inspector.get_indexes('platzsuche', schema='matching_service')
     ps_index_names = {idx['name'] for idx in ps_indexes}
     assert 'idx_platzsuche_patient_id' in ps_index_names, "Missing index on platzsuche.patient_id"
@@ -385,7 +411,7 @@ def test_foreign_key_constraints(db_inspector):
             # Should reference telefonanrufe table (German name)
             assert 'telefonanrufe' in fk['referred_table'], f"phone_call_id should reference telefonanrufe table, got: {fk['referred_table']}"
     
-    # Check bundle table foreign keys
+    # Check inquiry table foreign keys
     tap_fks = db_inspector.get_foreign_keys('therapeut_anfrage_patient', schema='matching_service')
     tap_fk_columns = {fk['constrained_columns'][0] for fk in tap_fks}
     assert 'therapeutenanfrage_id' in tap_fk_columns, "Missing FK on therapeut_anfrage_patient.therapeutenanfrage_id"
@@ -437,34 +463,21 @@ def test_no_old_table_names(db_inspector):
 
 
 def test_unique_constraints(db_inspector):
-    """Test that important unique constraints exist."""
-    # Check therapeut_anfrage_patient unique constraint
+    """Test that important unique constraints exist with Phase 2 renamed constraints."""
+    # Check therapeut_anfrage_patient unique constraint (renamed in Phase 2)
     tap_constraints = db_inspector.get_unique_constraints('therapeut_anfrage_patient', 
                                                          schema='matching_service')
     constraint_names = {c['name'] for c in tap_constraints}
-    assert 'uq_therapeut_anfrage_patient_bundle_search' in constraint_names, \
-           "Missing unique constraint on therapeut_anfrage_patient(therapeutenanfrage_id, platzsuche_id)"
-
-
-def test_primary_key_constraints(db_inspector):
-    """Test that primary keys exist on renamed tables."""
-    tables_to_check = [
-        ('patient_service', 'patienten'),
-        ('therapist_service', 'therapeuten'),
-        ('communication_service', 'telefonanrufe'),
-        ('matching_service', 'platzsuche'),
-        ('matching_service', 'therapeutenanfrage'),
-        ('matching_service', 'therapeut_anfrage_patient')
-    ]
+    assert 'uq_therapeut_anfrage_patient_anfrage_search' in constraint_names, \
+           "Missing renamed unique constraint on therapeut_anfrage_patient(therapeutenanfrage_id, platzsuche_id)"
     
-    for schema, table in tables_to_check:
-        pk = db_inspector.get_pk_constraint(table, schema=schema)
-        assert pk['constrained_columns'], f"Missing primary key on {schema}.{table}"
-        assert 'id' in pk['constrained_columns'], f"Primary key should be 'id' on {schema}.{table}"
+    # Old constraint name should not exist
+    assert 'uq_therapeut_anfrage_patient_bundle_search' not in constraint_names, \
+           "Old constraint name 'uq_therapeut_anfrage_patient_bundle_search' should have been renamed"
 
 
 def test_check_constraints(db_engine):
-    """Test for check constraints on communication tables."""
+    """Test for check constraints on tables including Phase 2 renamed constraints."""
     with db_engine.connect() as conn:
         # Check email recipient constraint
         email_constraints_query = text("""
@@ -491,6 +504,40 @@ def test_check_constraints(db_engine):
         
         assert 'phone_call_recipient_check' in constraint_names, \
             "Missing check constraint 'phone_call_recipient_check' on telefonanrufe table"
+        
+        # Check therapeutenanfrage constraints (Phase 2 renamed)
+        ta_constraints_query = text("""
+            SELECT conname 
+            FROM pg_constraint 
+            WHERE conrelid = 'matching_service.therapeutenanfrage'::regclass 
+            AND contype = 'c'
+        """)
+        result = conn.execute(ta_constraints_query)
+        constraint_names = [row[0] for row in result]
+        
+        assert 'anfrage_size_check' in constraint_names, \
+            "Missing renamed check constraint 'anfrage_size_check' on therapeutenanfrage table"
+        
+        # Old constraint name should not exist
+        assert 'bundle_size_check' not in constraint_names, \
+            "Old constraint name 'bundle_size_check' should have been renamed"
+
+
+def test_primary_key_constraints(db_inspector):
+    """Test that primary keys exist on renamed tables."""
+    tables_to_check = [
+        ('patient_service', 'patienten'),
+        ('therapist_service', 'therapeuten'),
+        ('communication_service', 'telefonanrufe'),
+        ('matching_service', 'platzsuche'),
+        ('matching_service', 'therapeutenanfrage'),
+        ('matching_service', 'therapeut_anfrage_patient')
+    ]
+    
+    for schema, table in tables_to_check:
+        pk = db_inspector.get_pk_constraint(table, schema=schema)
+        assert pk['constrained_columns'], f"Missing primary key on {schema}.{table}"
+        assert 'id' in pk['constrained_columns'], f"Primary key should be 'id' on {schema}.{table}"
 
 
 def test_table_comments_updated(db_engine):
@@ -509,11 +556,11 @@ def test_table_comments_updated(db_engine):
         
         for row in result:
             comment = row[2] or ""
-            # Check that comments don't reference old English table names
-            old_names = ['patients', 'therapists', 'phone_calls']
+            # Check that comments don't reference old English table names or bundle
+            old_names = ['patients', 'therapists', 'phone_calls', 'bundle']
             for old_name in old_names:
                 assert old_name not in comment.lower(), \
-                       f"Table comment for {row[0]}.{row[1]} still references old table name '{old_name}': {comment}"
+                       f"Table comment for {row[0]}.{row[1]} still references old term '{old_name}': {comment}"
 
 
 def test_sample_data_integrity(db_engine):
@@ -560,6 +607,19 @@ def test_communication_service_patient_support(db_inspector):
     
     assert therapist_col['nullable'] == True, "therapist_id should be nullable in telefonanrufe table"
     assert patient_col['nullable'] == True, "patient_id should be nullable in telefonanrufe table"
+
+
+def test_phase2_column_renames(db_inspector):
+    """Test that Phase 2 column renames were applied correctly."""
+    # Check therapeutenanfrage has anfragegroesse (not buendelgroesse)
+    ta_columns = {col['name'] for col in db_inspector.get_columns('therapeutenanfrage', schema='matching_service')}
+    assert 'anfragegroesse' in ta_columns, "Column 'anfragegroesse' not found in therapeutenanfrage"
+    assert 'buendelgroesse' not in ta_columns, "Old column 'buendelgroesse' should not exist"
+    
+    # Check therapeut_anfrage_patient has position_in_anfrage (not position_im_buendel)
+    tap_columns = {col['name'] for col in db_inspector.get_columns('therapeut_anfrage_patient', schema='matching_service')}
+    assert 'position_in_anfrage' in tap_columns, "Column 'position_in_anfrage' not found in therapeut_anfrage_patient"
+    assert 'position_im_buendel' not in tap_columns, "Old column 'position_im_buendel' should not exist"
 
 
 if __name__ == "__main__":
