@@ -5,11 +5,57 @@ Complete refactoring of the therapy matching system to implement the new manual 
 
 ## Phase 1: Terminology Unification
 
-### 1.1 Update TERMINOLOGY.md
-- [ ] Replace ALL instances of "Bündel" with "Therapeutenanfrage"
-- [ ] Remove "Bundle" as English translation, use only "Therapist Inquiry"
-- [ ] Fix any other terminology inconsistencies found during review
-- [ ] Update all compound terms (e.g., "Bündelgröße" → "Anfragegröße")
+### 1.1 Update TERMINOLOGY.md ✅ COMPLETED
+
+The TERMINOLOGY.md file has been updated with the following changes:
+
+#### Core Terminology Changes:
+- [x] **Bundle** → **Inquiry** (English)
+- [x] **Bündel** → **Anfrage** (German)
+- [x] **Bundle-Based System Terms** → **Therapist Inquiry System Terms**
+- [x] **Bundle Email** → **Therapist Inquiry Email**
+
+#### Compound Terms Updated:
+| Old (Bundle-based) | New (Inquiry-based) |
+|-------------------|---------------------|
+| Bundle Composition | Inquiry Composition |
+| Bundle Size | Inquiry Size |
+| Bundle Priority | Inquiry Priority |
+| Bundle Efficiency | Inquiry Efficiency |
+| Optimal Bundle | Optimal Inquiry |
+| Bundle Preview | Inquiry Preview |
+| Bundle Response | Inquiry Response |
+| Bundle IDs | Inquiry IDs |
+| Bündelgröße | Anfragegröße |
+| Bündelzusammensetzung | Anfragezusammensetzung |
+| Bündelpriorität | Anfragepriorität |
+| Bündeleffizienz | Anfrageeffizienz |
+| Optimales Bündel | Optimale Anfrage |
+| Bündelvorschau | Anfragevorschau |
+| Bündelantwort | Anfrageantwort |
+| Bündel-E-Mail | Therapeutenanfrage-E-Mail |
+| Bündelerstellung | Therapeutenanfrage-Erstellung |
+
+#### API/Database Field Changes:
+| Old | New |
+|-----|-----|
+| buendel_verlauf | anfrage_verlauf |
+| aktive_buendel | aktive_anfragen |
+| gesamt_buendel | gesamt_anfragen |
+| buendel_erstellt | anfragen_erstellt |
+| buendel_gesendet | anfragen_gesendet |
+| buendel_ids | anfrage_ids |
+
+#### Count Fields Updated:
+- Active Bundles → Active Inquiries (Aktive_anfragen)
+- Total Bundles → Total Inquiries (Gesamt_anfragen)
+- Bundles Created → Inquiries Created (Anfragen_erstellt)
+- Bundles Sent → Inquiries Sent (Anfragen_gesendet)
+
+#### Business Process Terms:
+- Bundle Creation → Therapist Inquiry Creation
+- Bundle Efficiency → Inquiry Efficiency
+- Position in Bundle → Position in Inquiry
 
 ### 1.2 Code Terminology Updates
 - [ ] Rename database fields:
@@ -215,7 +261,7 @@ def test_cooling_period_enforcement():
 
 ## Execution Order
 
-1. **Day 1**: Terminology unification (Phase 1)
+1. **Day 1**: ~~Terminology unification (Phase 1)~~ ✅ COMPLETED
 2. **Day 2**: Data model updates and migration (Phases 2-3)
 3. **Day 3**: Configuration and matching service refactoring (Phases 4-5)
 4. **Day 4**: Testing implementation (Phase 6)
@@ -223,7 +269,7 @@ def test_cooling_period_enforcement():
 
 ## Success Criteria
 
-- [ ] All "Bündel" references replaced with "Therapeutenanfrage"
+- [x] All "Bündel" references replaced with "Therapeutenanfrage" in TERMINOLOGY.md
 - [ ] New patient and therapist fields implemented
 - [ ] Manual therapist selection working with PLZ filter
 - [ ] All hard constraints properly enforced
@@ -238,3 +284,4 @@ def test_cooling_period_enforcement():
 - This is a development system - no data migration needed
 - No API versioning - direct replacement
 - Feature flags not needed - hard cutover
+- TERMINOLOGY.md update completed - old terminology file can be safely deleted
