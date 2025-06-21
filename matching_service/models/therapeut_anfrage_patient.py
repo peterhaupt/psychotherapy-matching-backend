@@ -51,7 +51,7 @@ class TherapeutAnfragePatient(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     
-    # Inquiry reference
+    # Inquiry reference - KEEP this ForeignKey (intra-service)
     therapeutenanfrage_id = Column(
         Integer,
         ForeignKey("matching_service.therapeutenanfrage.id", ondelete="CASCADE"),
@@ -59,7 +59,7 @@ class TherapeutAnfragePatient(Base):
         index=True
     )
     
-    # Search reference
+    # Search reference - KEEP this ForeignKey (intra-service)
     platzsuche_id = Column(
         Integer,
         ForeignKey("matching_service.platzsuche.id", ondelete="CASCADE"),
@@ -67,13 +67,12 @@ class TherapeutAnfragePatient(Base):
         index=True
     )
     
-    # Patient reference
+    # Patient reference - Using simple Integer instead of ForeignKey
     patient_id = Column(
         Integer,
-        ForeignKey("patient_service.patients.id", ondelete="CASCADE"),
         nullable=False,
         index=True
-    )
+    )  # References patient_service.patienten.id
     
     # Position tracking (German field name - renamed from bundle)
     position_in_anfrage = Column(Integer, nullable=False)

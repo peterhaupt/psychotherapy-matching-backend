@@ -39,13 +39,12 @@ class Therapeutenanfrage(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     
-    # Therapist reference
+    # Therapist reference - Using simple Integer instead of ForeignKey
     therapist_id = Column(
         Integer,
-        ForeignKey("therapist_service.therapists.id", ondelete="CASCADE"),
         nullable=False,
         index=True
-    )
+    )  # References therapist_service.therapeuten.id
     
     # Timestamps (German field names)
     erstellt_datum = Column(
@@ -71,17 +70,16 @@ class Therapeutenanfrage(Base):
     # Notes (German field name)
     notizen = Column(Text)
     
-    # Communication references
+    # Communication references - Using simple Integer instead of ForeignKey
     email_id = Column(
         Integer,
-        ForeignKey("communication_service.emails.id", ondelete="SET NULL"),
         index=True
-    )
+    )  # References communication_service.emails.id
+    
     phone_call_id = Column(
         Integer,
-        ForeignKey("communication_service.phone_calls.id", ondelete="SET NULL"),
         index=True
-    )
+    )  # References communication_service.telefonanrufe.id
     
     # Relationships
     # Note: Using string references to avoid cross-service imports

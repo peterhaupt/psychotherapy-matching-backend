@@ -29,8 +29,9 @@ class Email(Base):
     id = Column(Integer, primary_key=True, index=True)
     
     # Recipients - now supports both therapist AND patient
-    therapist_id = Column(Integer, nullable=True)  # Changed from nullable=False
-    patient_id = Column(Integer, nullable=True)     # NEW field
+    # Using simple Integer instead of ForeignKey
+    therapist_id = Column(Integer, nullable=True)  # References therapist_service.therapeuten.id
+    patient_id = Column(Integer, nullable=True)     # References patient_service.patienten.id
     
     # Email metadata - German field names
     betreff = Column(String(255), nullable=False)  # subject

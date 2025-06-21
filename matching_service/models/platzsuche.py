@@ -34,13 +34,12 @@ class Platzsuche(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     
-    # Patient reference - FIXED: Using German table name 'patienten'
+    # Patient reference - Using simple Integer instead of ForeignKey
     patient_id = Column(
         Integer,
-        ForeignKey("patient_service.patienten.id", ondelete="CASCADE"),
         nullable=False,
         index=True
-    )
+    )  # References patient_service.patienten.id
     
     # Search status
     status = Column(
