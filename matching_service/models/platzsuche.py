@@ -34,10 +34,10 @@ class Platzsuche(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     
-    # Patient reference
+    # Patient reference - FIXED: Using German table name 'patienten'
     patient_id = Column(
         Integer,
-        ForeignKey("patient_service.patients.id", ondelete="CASCADE"),
+        ForeignKey("patient_service.patienten.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
