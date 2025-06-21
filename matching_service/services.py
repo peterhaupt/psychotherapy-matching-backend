@@ -18,33 +18,30 @@ logger = logging.getLogger(__name__)
 
 
 class PatientService:
-    """Service for interacting with the Patient Service."""
-    
     @staticmethod
     def get_patient(patient_id: int) -> Optional[Dict[str, Any]]:
-        """Fetch patient data from the Patient Service.
-        
-        Args:
-            patient_id: ID of the patient
-            
-        Returns:
-            Patient data dictionary or None if not found
-        """
         try:
             url = f"{config.get_service_url('patient', internal=True)}/api/patients/{patient_id}"
+            logger.info(f"Fetching patient {patient_id} from URL: {url}")  # ADD THIS
+            
             response = requests.get(url, timeout=5)
+            logger.info(f"Response status: {response.status_code}")  # ADD THIS
             
             if response.status_code == 200:
-                return response.json()
+                data = response.json()
+                logger.info(f"Successfully fetched patient {patient_id}")  # ADD THIS
+                return data
             elif response.status_code == 404:
                 logger.warning(f"Patient {patient_id} not found")
                 return None
             else:
                 logger.error(f"Error fetching patient {patient_id}: {response.status_code}")
+                logger.error(f"Response body: {response.text}")  # ADD THIS
                 return None
                 
         except requests.RequestException as e:
             logger.error(f"Failed to fetch patient {patient_id}: {str(e)}")
+            logger.error(f"URL was: {url}")  # ADD THIS
             return None
     
     @staticmethod

@@ -353,9 +353,9 @@ def build_address(entity: Dict[str, Any]) -> Optional[str]:
     Returns:
         Address string or None if incomplete
     """
-    street = entity.get('strasse', '').strip()
-    postal = entity.get('plz', '').strip()
-    city = entity.get('ort', '').strip()
+    street = (entity.get('strasse') or '').strip()
+    postal = (entity.get('plz') or '').strip()
+    city = (entity.get('ort') or '').strip()
     
     if not city:  # Minimum requirement
         return None
