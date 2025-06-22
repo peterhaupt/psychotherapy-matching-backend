@@ -31,39 +31,123 @@ class TestCommunicationServiceAPI:
         else:
             pytest.fail("Communication service did not start in time")
 
-    def create_test_email(self, **kwargs):
-        """Helper method to create a test email."""
+    def create_test_patient(self, **kwargs):
+        """Helper to create a test patient in patient service."""
         default_data = {
-            "therapist_id": 1,
+            "vorname": "Test",
+            "nachname": "Patient",
+            "email": "test.patient@example.com",
+            "telefon": "+49 123 456789",
+            "plz": "12345",
+            "ort": "Berlin",
+            "diagnose": "F32.1"
+        }
+        data = {**default_data, **kwargs}
+        
+        response = requests.post(f"{PATIENT_BASE_URL}/patients", json=data)
+        assert response.status_code == 201
+        return response.json()
+
+    def create_test_therapist(self, **kwargs):
+        """Helper to create a test therapist in therapist service."""
+        default_data = {
+            "vorname": "Test",
+            "nachname": "Therapeut",
+            "email": "test.therapeut@example.com",
+            "telefon": "+49 123 456789",
+            "strasse": "Therapiestraße 1",
+            "plz": "10115",
+            "ort": "Berlin",
+            "status": "aktiv"
+        }
+        data = {**default_data, **kwargs}
+        
+        response = requests.post(f"{THERAPIST_BASE_URL}/therapists", json=data)
+        assert response.status_code == 201
+        return response.json()
+
+    def create_test_email(self, therapist_id=None, patient_id=None, **kwargs):
+        """Helper method to create a test email."""
+        # Ensure we have either a therapist or patient
+        if not therapist_id and not patient_id:
+            # Create a default therapist if none provided
+            therapist = self.create_test_therapist()
+            therapist_id = therapist['id']
+            # Store for cleanup
+            if not hasattr(self, '_temp_therapists'):
+                self._temp_therapists = []
+            self._temp_therapists.append(therapist_id)
+        
+        default_data = {
             "betreff": "Test Email",
             "inhalt_text": "This is a test email",
             "empfaenger_email": "test@example.com",
             "empfaenger_name": "Test Recipient"
         }
+        
+        if therapist_id:
+            default_data["therapist_id"] = therapist_id
+        if patient_id:
+            default_data["patient_id"] = patient_id
+            
         data = {**default_data, **kwargs}
         
         response = requests.post(f"{BASE_URL}/emails", json=data)
         assert response.status_code == 201
         return response.json()
 
-    def create_test_phone_call(self, **kwargs):
+    def create_test_phone_call(self, therapist_id=None, patient_id=None, **kwargs):
         """Helper method to create a test phone call."""
+        # Ensure we have either a therapist or patient
+        if not therapist_id and not patient_id:
+            # Create a default therapist if none provided
+            therapist = self.create_test_therapist()
+            therapist_id = therapist['id']
+            # Store for cleanup
+            if not hasattr(self, '_temp_therapists'):
+                self._temp_therapists = []
+            self._temp_therapists.append(therapist_id)
+        
         default_data = {
-            "therapist_id": 1,
             "notizen": "Test phone call"
         }
+        
+        if therapist_id:
+            default_data["therapist_id"] = therapist_id
+        if patient_id:
+            default_data["patient_id"] = patient_id
+            
         data = {**default_data, **kwargs}
         
         response = requests.post(f"{BASE_URL}/phone-calls", json=data)
         assert response.status_code == 201
         return response.json()
 
+    def teardown_method(self, method):
+        """Clean up any temporary therapists/patients created by helpers."""
+        if hasattr(self, '_temp_therapists'):
+            for therapist_id in self._temp_therapists:
+                requests.delete(f"{THERAPIST_BASE_URL}/therapists/{therapist_id}")
+            self._temp_therapists = []
+        
+        if hasattr(self, '_temp_patients'):
+            for patient_id in self._temp_patients:
+                requests.delete(f"{PATIENT_BASE_URL}/patients/{patient_id}")
+            self._temp_patients = []
+
     # Email Tests
 
     def test_create_email_for_therapist(self):
         """Test creating an email for a therapist."""
+        # Create a therapist first
+        therapist = self.create_test_therapist(
+            vorname="Max",
+            nachname="Mustermann",
+            email="therapist@example.com"
+        )
+        
         email_data = {
-            "therapist_id": 123,
+            "therapist_id": therapist['id'],
             "betreff": "Neue Therapieanfrage",
             "inhalt_markdown": "Sehr geehrte/r Therapeut/in,\n\nwir haben neue Anfragen für Sie.",
             "empfaenger_email": "therapist@example.com",
@@ -74,18 +158,26 @@ class TestCommunicationServiceAPI:
         assert response.status_code == 201
         
         created_email = response.json()
-        assert created_email["therapist_id"] == 123
+        assert created_email["therapist_id"] == therapist['id']
         assert created_email["betreff"] == "Neue Therapieanfrage"
         assert created_email["status"] == "Entwurf"
         assert "id" in created_email
         
         # Cleanup
         requests.delete(f"{BASE_URL}/emails/{created_email['id']}")
+        requests.delete(f"{THERAPIST_BASE_URL}/therapists/{therapist['id']}")
 
     def test_create_email_for_patient(self):
         """Test creating an email for a patient."""
+        # Create a patient first
+        patient = self.create_test_patient(
+            vorname="Anna",
+            nachname="Schmidt",
+            email="patient@example.com"
+        )
+        
         email_data = {
-            "patient_id": 456,
+            "patient_id": patient['id'],
             "betreff": "Therapieplatz Update",
             "inhalt_markdown": "Liebe/r Patient/in,\n\nwir haben Neuigkeiten zu Ihrer Therapieplatzsuche.",
             "empfaenger_email": "patient@example.com",
@@ -96,13 +188,14 @@ class TestCommunicationServiceAPI:
         assert response.status_code == 201
         
         created_email = response.json()
-        assert created_email["patient_id"] == 456
+        assert created_email["patient_id"] == patient['id']
         assert created_email["betreff"] == "Therapieplatz Update"
         assert created_email["status"] == "Entwurf"
         assert "id" in created_email
         
         # Cleanup
         requests.delete(f"{BASE_URL}/emails/{created_email['id']}")
+        requests.delete(f"{PATIENT_BASE_URL}/patients/{patient['id']}")
 
     def test_get_emails_list_empty(self):
         """Test getting empty email list with pagination."""
@@ -120,9 +213,12 @@ class TestCommunicationServiceAPI:
 
     def test_get_emails_list_with_data(self):
         """Test getting email list with data and pagination."""
+        # Create a therapist for the emails
+        therapist = self.create_test_therapist()
+        
         # Create test emails
-        email1 = self.create_test_email(betreff="Email 1")
-        email2 = self.create_test_email(betreff="Email 2")
+        email1 = self.create_test_email(therapist_id=therapist['id'], betreff="Email 1")
+        email2 = self.create_test_email(therapist_id=therapist['id'], betreff="Email 2")
         
         response = requests.get(f"{BASE_URL}/emails")
         assert response.status_code == 200
@@ -146,13 +242,18 @@ class TestCommunicationServiceAPI:
         # Cleanup
         requests.delete(f"{BASE_URL}/emails/{email1['id']}")
         requests.delete(f"{BASE_URL}/emails/{email2['id']}")
+        requests.delete(f"{THERAPIST_BASE_URL}/therapists/{therapist['id']}")
 
     def test_get_emails_with_pagination(self):
         """Test email pagination parameters."""
+        # Create a therapist for all emails
+        therapist = self.create_test_therapist()
+        
         # Create multiple emails
         created_emails = []
         for i in range(5):
             email = self.create_test_email(
+                therapist_id=therapist['id'],
                 betreff=f"Test Email {i}",
                 empfaenger_email=f"test{i}@example.com"
             )
@@ -180,16 +281,22 @@ class TestCommunicationServiceAPI:
         # Cleanup
         for email in created_emails:
             requests.delete(f"{BASE_URL}/emails/{email['id']}")
+        requests.delete(f"{THERAPIST_BASE_URL}/therapists/{therapist['id']}")
 
     def test_get_emails_filtered_by_therapist(self):
         """Test filtering emails by therapist_id with pagination."""
-        # Create emails for different therapists
-        email1 = self.create_test_email(therapist_id=100, betreff="Therapist 100 Email")
-        email2 = self.create_test_email(therapist_id=200, betreff="Therapist 200 Email")
-        email3 = self.create_test_email(patient_id=300, therapist_id=None, betreff="Patient Email")
+        # Create different therapists
+        therapist1 = self.create_test_therapist(email="therapist1@example.com")
+        therapist2 = self.create_test_therapist(email="therapist2@example.com")
+        patient = self.create_test_patient()
+        
+        # Create emails for different recipients
+        email1 = self.create_test_email(therapist_id=therapist1['id'], betreff="Therapist 1 Email")
+        email2 = self.create_test_email(therapist_id=therapist2['id'], betreff="Therapist 2 Email")
+        email3 = self.create_test_email(patient_id=patient['id'], betreff="Patient Email")
         
         # Filter by therapist_id
-        response = requests.get(f"{BASE_URL}/emails?therapist_id=100")
+        response = requests.get(f"{BASE_URL}/emails?therapist_id={therapist1['id']}")
         assert response.status_code == 200
         
         data = response.json()
@@ -197,7 +304,7 @@ class TestCommunicationServiceAPI:
         
         # Check that all returned emails are for the correct therapist
         for email in emails:
-            assert email['therapist_id'] == 100
+            assert email['therapist_id'] == therapist1['id']
         
         # Verify only email1 is in results
         email_ids = [e['id'] for e in emails]
@@ -209,11 +316,17 @@ class TestCommunicationServiceAPI:
         requests.delete(f"{BASE_URL}/emails/{email1['id']}")
         requests.delete(f"{BASE_URL}/emails/{email2['id']}")
         requests.delete(f"{BASE_URL}/emails/{email3['id']}")
+        requests.delete(f"{THERAPIST_BASE_URL}/therapists/{therapist1['id']}")
+        requests.delete(f"{THERAPIST_BASE_URL}/therapists/{therapist2['id']}")
+        requests.delete(f"{PATIENT_BASE_URL}/patients/{patient['id']}")
 
     def test_get_emails_filtered_by_status(self):
         """Test filtering emails by status with pagination."""
+        # Create a therapist
+        therapist = self.create_test_therapist()
+        
         # Create email and update its status
-        email = self.create_test_email()
+        email = self.create_test_email(therapist_id=therapist['id'])
         
         # Update status to In_Warteschlange
         update_response = requests.put(
@@ -235,13 +348,17 @@ class TestCommunicationServiceAPI:
         
         # Cleanup
         requests.delete(f"{BASE_URL}/emails/{email['id']}")
+        requests.delete(f"{THERAPIST_BASE_URL}/therapists/{therapist['id']}")
 
     # Phone Call Tests
 
     def test_create_phone_call_for_therapist(self):
         """Test creating a phone call for a therapist."""
+        # Create a therapist first
+        therapist = self.create_test_therapist()
+        
         call_data = {
-            "therapist_id": 123,
+            "therapist_id": therapist['id'],
             "notizen": "Follow-up für Anfrage A456",
             "dauer_minuten": 5
         }
@@ -250,7 +367,7 @@ class TestCommunicationServiceAPI:
         assert response.status_code == 201
         
         created_call = response.json()
-        assert created_call["therapist_id"] == 123
+        assert created_call["therapist_id"] == therapist['id']
         assert created_call["dauer_minuten"] == 5
         assert created_call["status"] == "geplant"
         assert "id" in created_call
@@ -259,11 +376,15 @@ class TestCommunicationServiceAPI:
         
         # Cleanup
         requests.delete(f"{BASE_URL}/phone-calls/{created_call['id']}")
+        requests.delete(f"{THERAPIST_BASE_URL}/therapists/{therapist['id']}")
 
     def test_create_phone_call_for_patient(self):
         """Test creating a phone call for a patient."""
+        # Create a patient first
+        patient = self.create_test_patient()
+        
         call_data = {
-            "patient_id": 456,
+            "patient_id": patient['id'],
             "notizen": "Erstgespräch mit Patient",
             "dauer_minuten": 10
         }
@@ -272,13 +393,14 @@ class TestCommunicationServiceAPI:
         assert response.status_code == 201
         
         created_call = response.json()
-        assert created_call["patient_id"] == 456
+        assert created_call["patient_id"] == patient['id']
         assert created_call["dauer_minuten"] == 10
         assert created_call["status"] == "geplant"
         assert "id" in created_call
         
         # Cleanup
         requests.delete(f"{BASE_URL}/phone-calls/{created_call['id']}")
+        requests.delete(f"{PATIENT_BASE_URL}/patients/{patient['id']}")
 
     def test_get_phone_calls_list_empty(self):
         """Test getting empty phone call list with pagination."""
@@ -296,9 +418,12 @@ class TestCommunicationServiceAPI:
 
     def test_get_phone_calls_list_with_data(self):
         """Test getting phone call list with data and pagination."""
+        # Create a therapist for the calls
+        therapist = self.create_test_therapist()
+        
         # Create test phone calls
-        call1 = self.create_test_phone_call(notizen="Call 1")
-        call2 = self.create_test_phone_call(notizen="Call 2")
+        call1 = self.create_test_phone_call(therapist_id=therapist['id'], notizen="Call 1")
+        call2 = self.create_test_phone_call(therapist_id=therapist['id'], notizen="Call 2")
         
         response = requests.get(f"{BASE_URL}/phone-calls")
         assert response.status_code == 200
@@ -322,14 +447,25 @@ class TestCommunicationServiceAPI:
         # Cleanup
         requests.delete(f"{BASE_URL}/phone-calls/{call1['id']}")
         requests.delete(f"{BASE_URL}/phone-calls/{call2['id']}")
+        requests.delete(f"{THERAPIST_BASE_URL}/therapists/{therapist['id']}")
 
     def test_get_phone_calls_with_pagination(self):
         """Test phone call pagination parameters."""
-        # Create multiple phone calls
+        # Create a therapist for all calls
+        therapist = self.create_test_therapist()
+        
+        # Create multiple phone calls with explicit scheduling to avoid conflicts
         created_calls = []
+        base_date = (date.today() + timedelta(days=1)).isoformat()
+        
         for i in range(5):
+            # Give each call a different time slot
+            hour = 9 + i  # 9:00, 10:00, 11:00, 12:00, 13:00
             call = self.create_test_phone_call(
-                notizen=f"Test Call {i}"
+                therapist_id=therapist['id'],
+                notizen=f"Test Call {i}",
+                geplantes_datum=base_date,
+                geplante_zeit=f"{hour:02d}:00"
             )
             created_calls.append(call)
         
@@ -355,12 +491,17 @@ class TestCommunicationServiceAPI:
         # Cleanup
         for call in created_calls:
             requests.delete(f"{BASE_URL}/phone-calls/{call['id']}")
+        requests.delete(f"{THERAPIST_BASE_URL}/therapists/{therapist['id']}")
 
     def test_get_phone_calls_filtered_by_recipient_type(self):
         """Test filtering phone calls by recipient type with pagination."""
+        # Create different recipients
+        therapist = self.create_test_therapist()
+        patient = self.create_test_patient()
+        
         # Create calls for different recipients
-        call1 = self.create_test_phone_call(therapist_id=100, notizen="Therapist Call")
-        call2 = self.create_test_phone_call(patient_id=200, therapist_id=None, notizen="Patient Call")
+        call1 = self.create_test_phone_call(therapist_id=therapist['id'], notizen="Therapist Call")
+        call2 = self.create_test_phone_call(patient_id=patient['id'], notizen="Patient Call")
         
         # Filter by recipient_type=therapist
         response = requests.get(f"{BASE_URL}/phone-calls?recipient_type=therapist")
@@ -394,11 +535,16 @@ class TestCommunicationServiceAPI:
         # Cleanup
         requests.delete(f"{BASE_URL}/phone-calls/{call1['id']}")
         requests.delete(f"{BASE_URL}/phone-calls/{call2['id']}")
+        requests.delete(f"{THERAPIST_BASE_URL}/therapists/{therapist['id']}")
+        requests.delete(f"{PATIENT_BASE_URL}/patients/{patient['id']}")
 
     def test_get_phone_calls_filtered_by_status(self):
         """Test filtering phone calls by status with pagination."""
+        # Create a therapist
+        therapist = self.create_test_therapist()
+        
         # Create call and update its status
-        call = self.create_test_phone_call()
+        call = self.create_test_phone_call(therapist_id=therapist['id'])
         
         # Update status to abgeschlossen
         update_response = requests.put(
@@ -424,11 +570,15 @@ class TestCommunicationServiceAPI:
         
         # Cleanup
         requests.delete(f"{BASE_URL}/phone-calls/{call['id']}")
+        requests.delete(f"{THERAPIST_BASE_URL}/therapists/{therapist['id']}")
 
     def test_email_markdown_support(self):
         """Test that markdown is properly converted to HTML."""
+        # Create a therapist
+        therapist = self.create_test_therapist()
+        
         email_data = {
-            "therapist_id": 123,
+            "therapist_id": therapist['id'],
             "betreff": "Markdown Test",
             "inhalt_markdown": "# Heading\n\n**Bold text** and *italic text*\n\n[Link](https://example.com)",
             "empfaenger_email": "test@example.com",
@@ -446,6 +596,7 @@ class TestCommunicationServiceAPI:
         
         # Cleanup
         requests.delete(f"{BASE_URL}/emails/{created_email['id']}")
+        requests.delete(f"{THERAPIST_BASE_URL}/therapists/{therapist['id']}")
 
     def test_pagination_limits(self):
         """Test pagination limit constraints for both emails and phone calls."""
@@ -495,10 +646,14 @@ class TestCommunicationServiceAPI:
 
     def test_both_recipients_error(self):
         """Test that specifying both therapist and patient fails."""
+        # Create both
+        therapist = self.create_test_therapist()
+        patient = self.create_test_patient()
+        
         # Email with both recipients
         email_data = {
-            "therapist_id": 123,
-            "patient_id": 456,
+            "therapist_id": therapist['id'],
+            "patient_id": patient['id'],
             "betreff": "Both Recipients",
             "inhalt_text": "This should fail",
             "empfaenger_email": "test@example.com",
@@ -508,6 +663,10 @@ class TestCommunicationServiceAPI:
         response = requests.post(f"{BASE_URL}/emails", json=email_data)
         assert response.status_code == 400
         assert "Cannot specify both therapist_id and patient_id" in response.json()["message"]
+        
+        # Cleanup
+        requests.delete(f"{THERAPIST_BASE_URL}/therapists/{therapist['id']}")
+        requests.delete(f"{PATIENT_BASE_URL}/patients/{patient['id']}")
 
 
 if __name__ == "__main__":
