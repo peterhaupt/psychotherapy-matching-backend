@@ -209,14 +209,20 @@ class PhoneCallListResource(PaginatedListResource):
                     date_obj = datetime.fromisoformat(geplantes_datum).date()
                     query = query.filter(PhoneCall.geplantes_datum == date_obj)
                 except ValueError:
-                    pass  # Invalid date format, skip filter
+                    # Invalid date format, return empty result
+                    return {
+                        "data": [],
+                        "page": 1,
+                        "limit": self.DEFAULT_LIMIT,
+                        "total": 0
+                    }
             
-            # Apply pagination
-            query = self.paginate_query(query)
+            # Order by scheduled date and time (newest first)
+            query = query.order_by(PhoneCall.geplantes_datum.desc(), PhoneCall.geplante_zeit.desc())
             
-            # Get results and marshal
-            phone_calls = query.all()
-            return [marshal(call, phone_call_fields) for call in phone_calls]
+            # Use the new helper method to create paginated response
+            return self.create_paginated_response(query, marshal, phone_call_fields)
+            
         except SQLAlchemyError as e:
             return {'message': f'Database error: {str(e)}'}, 500
         finally:

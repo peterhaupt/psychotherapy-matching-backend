@@ -22,26 +22,26 @@ class PatientService:
     def get_patient(patient_id: int) -> Optional[Dict[str, Any]]:
         try:
             url = f"{config.get_service_url('patient', internal=True)}/api/patients/{patient_id}"
-            logger.info(f"Fetching patient {patient_id} from URL: {url}")  # ADD THIS
+            logger.info(f"Fetching patient {patient_id} from URL: {url}")
             
             response = requests.get(url, timeout=5)
-            logger.info(f"Response status: {response.status_code}")  # ADD THIS
+            logger.info(f"Response status: {response.status_code}")
             
             if response.status_code == 200:
                 data = response.json()
-                logger.info(f"Successfully fetched patient {patient_id}")  # ADD THIS
+                logger.info(f"Successfully fetched patient {patient_id}")
                 return data
             elif response.status_code == 404:
                 logger.warning(f"Patient {patient_id} not found")
                 return None
             else:
                 logger.error(f"Error fetching patient {patient_id}: {response.status_code}")
-                logger.error(f"Response body: {response.text}")  # ADD THIS
+                logger.error(f"Response body: {response.text}")
                 return None
                 
         except requests.RequestException as e:
             logger.error(f"Failed to fetch patient {patient_id}: {str(e)}")
-            logger.error(f"URL was: {url}")  # ADD THIS
+            logger.error(f"URL was: {url}")
             return None
     
     @staticmethod
@@ -81,8 +81,9 @@ class PatientService:
             response = requests.get(url, params=params, timeout=10)
             
             if response.status_code == 200:
-                data = response.json()
-                return data.get("data", [])
+                result = response.json()
+                # Now expecting paginated structure
+                return result.get("data", [])
             else:
                 logger.error(f"Error fetching patients: {response.status_code}")
                 return []
@@ -142,8 +143,9 @@ class TherapistService:
             response = requests.get(url, params=params, timeout=10)
             
             if response.status_code == 200:
-                data = response.json()
-                return data.get("data", [])
+                result = response.json()
+                # Now expecting paginated structure
+                return result.get("data", [])
             else:
                 logger.error(f"Error fetching therapists: {response.status_code}")
                 return []
@@ -168,8 +170,8 @@ class TherapistService:
             response = requests.get(url, params=params, timeout=10)
             
             if response.status_code == 200:
-                data = response.json()
-                therapists = data.get("data", [])
+                result = response.json()
+                therapists = result.get("data", [])
                 
                 # Filter out therapists in cooling period
                 today = datetime.utcnow().date()
@@ -315,8 +317,8 @@ class CommunicationService:
             data = {
                 'therapist_id': therapist_id,
                 'betreff': subject,
-                'body_html': body_html,
-                'body_text': body_text,
+                'inhalt_html': body_html,
+                'inhalt_text': body_text,
                 'empfaenger_email': therapist.get('email'),
                 'empfaenger_name': f"{therapist.get('vorname', '')} {therapist.get('nachname', '')}"
             }
@@ -392,6 +394,92 @@ class CommunicationService:
         except requests.RequestException as e:
             logger.error(f"Failed to schedule phone call: {str(e)}")
             return None
+    
+    @staticmethod
+    def get_emails_for_recipient(
+        therapist_id: Optional[int] = None,
+        patient_id: Optional[int] = None,
+        status: Optional[str] = None,
+        limit: int = 100
+    ) -> List[Dict[str, Any]]:
+        """Get emails for a specific recipient.
+        
+        Args:
+            therapist_id: ID of the therapist recipient
+            patient_id: ID of the patient recipient
+            status: Optional status filter
+            limit: Maximum number of emails to retrieve
+            
+        Returns:
+            List of email data dictionaries
+        """
+        try:
+            url = f"{config.get_service_url('communication', internal=True)}/api/emails"
+            params = {"limit": limit}
+            
+            if therapist_id:
+                params["therapist_id"] = therapist_id
+            if patient_id:
+                params["patient_id"] = patient_id
+            if status:
+                params["status"] = status
+            
+            response = requests.get(url, params=params, timeout=10)
+            
+            if response.status_code == 200:
+                result = response.json()
+                # Now expecting paginated structure
+                return result.get("data", [])
+            else:
+                logger.error(f"Error fetching emails: {response.status_code}")
+                return []
+                
+        except requests.RequestException as e:
+            logger.error(f"Failed to fetch emails: {str(e)}")
+            return []
+    
+    @staticmethod
+    def get_phone_calls_for_recipient(
+        therapist_id: Optional[int] = None,
+        patient_id: Optional[int] = None,
+        status: Optional[str] = None,
+        limit: int = 100
+    ) -> List[Dict[str, Any]]:
+        """Get phone calls for a specific recipient.
+        
+        Args:
+            therapist_id: ID of the therapist recipient
+            patient_id: ID of the patient recipient
+            status: Optional status filter
+            limit: Maximum number of calls to retrieve
+            
+        Returns:
+            List of phone call data dictionaries
+        """
+        try:
+            url = f"{config.get_service_url('communication', internal=True)}/api/phone-calls"
+            params = {"limit": limit}
+            
+            if therapist_id:
+                params["therapist_id"] = therapist_id
+            if patient_id:
+                params["patient_id"] = patient_id
+            if status:
+                params["status"] = status
+            
+            response = requests.get(url, params=params, timeout=10)
+            
+            if response.status_code == 200:
+                result = response.json()
+                # Now expecting paginated structure
+                return result.get("data", [])
+            else:
+                logger.error(f"Error fetching phone calls: {response.status_code}")
+                return []
+                
+        except requests.RequestException as e:
+            logger.error(f"Failed to fetch phone calls: {str(e)}")
+            return []
 
 
 class GeoCodingService:
