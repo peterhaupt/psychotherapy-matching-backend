@@ -18,19 +18,12 @@ def handle_patient_event(event: EventSchema) -> None:
     Args:
         event: The event to process
     """
-    logger.info(
-        f"Processing patient event: {event.event_type}",
-        extra={"event_id": event.event_id}
-    )
-
     # Handle patient deletion
     if event.event_type == "patient.deleted":
         patient_id = event.payload.get("patient_id")
         if not patient_id:
             logger.error("Patient deletion event missing patient_id")
             return
-            
-        logger.info(f"Handling deletion of patient {patient_id}")
         
         try:
             with get_db_context() as db:
@@ -42,24 +35,22 @@ def handle_patient_event(event: EventSchema) -> None:
                 
                 for search in active_searches:
                     search.cancel_search("Patient deleted from system")
-                    logger.info(f"Cancelled search {search.id} for deleted patient {patient_id}")
                 
                 # Note: We don't remove patients from existing Therapeutenanfrage
                 # because we want to maintain history. The anfrage stays as-is.
                 
                 db.commit()
-                logger.info(f"Successfully handled deletion of patient {patient_id}")
                 
         except Exception as e:
             logger.error(f"Error handling patient deletion: {str(e)}", exc_info=True)
     
     elif event.event_type == "patient.updated":
         # Log for future implementation
-        patient_id = event.payload.get("patient_id")
-        logger.info(f"Patient {patient_id} updated - no action taken (future enhancement)")
+        pass
     
     else:
-        logger.debug(f"Ignoring patient event type: {event.event_type}")
+        # Ignoring other patient event types
+        pass
 
 
 def handle_therapist_event(event: EventSchema) -> None:
@@ -68,11 +59,6 @@ def handle_therapist_event(event: EventSchema) -> None:
     Args:
         event: The event to process
     """
-    logger.info(
-        f"Processing therapist event: {event.event_type}",
-        extra={"event_id": event.event_id}
-    )
-
     # Handle therapist blocking
     if event.event_type == "therapist.blocked":
         therapist_id = event.payload.get("therapist_id")
@@ -81,8 +67,6 @@ def handle_therapist_event(event: EventSchema) -> None:
         if not therapist_id:
             logger.error("Therapist blocked event missing therapist_id")
             return
-            
-        logger.info(f"Handling blocking of therapist {therapist_id}: {reason}")
         
         try:
             with get_db_context() as db:
@@ -98,7 +82,6 @@ def handle_therapist_event(event: EventSchema) -> None:
                     
                     # Note: We don't delete the anfrage, just mark it with a note
                     # This preserves the audit trail
-                    logger.info(f"Marked anfrage {anfrage.id} as cancelled due to therapist block")
                 
                 # Add therapist to exclusion lists of patients in active searches
                 # who have pending anfragen with this therapist
@@ -115,25 +98,20 @@ def handle_therapist_event(event: EventSchema) -> None:
                                 therapist_id, 
                                 reason=f"Therapist blocked: {reason}"
                             )
-                            logger.info(
-                                f"Added therapist {therapist_id} to exclusion list "
-                                f"for patient search {ap.platzsuche_id}"
-                            )
                 
                 db.commit()
-                logger.info(f"Successfully handled blocking of therapist {therapist_id}")
                 
         except Exception as e:
             logger.error(f"Error handling therapist blocking: {str(e)}", exc_info=True)
     
     elif event.event_type == "therapist.unblocked":
-        therapist_id = event.payload.get("therapist_id")
-        logger.info(f"Therapist {therapist_id} unblocked - no automatic action taken")
         # Note: We don't automatically remove from exclusion lists
         # This requires manual review
+        pass
     
     else:
-        logger.debug(f"Ignoring therapist event type: {event.event_type}")
+        # Ignoring other therapist event types
+        pass
 
 
 def handle_communication_event(event: EventSchema) -> None:
@@ -142,26 +120,21 @@ def handle_communication_event(event: EventSchema) -> None:
     Args:
         event: The event to process
     """
-    logger.info(
-        f"Processing communication event: {event.event_type}",
-        extra={"event_id": event.event_id}
-    )
-    
-    # For now, just log these events
+    # For now, just process these events without logging
     # Future implementation would handle email responses
     if event.event_type == "communication.email_sent":
-        logger.debug("Email sent event - no action needed")
+        pass
     elif event.event_type == "communication.email_response_received":
-        logger.info("Email response received - manual processing required (future enhancement)")
+        # Email response received - manual processing required (future enhancement)
+        pass
     else:
-        logger.debug(f"Ignoring communication event type: {event.event_type}")
+        # Ignoring other communication event types
+        pass
 
 
 def start_consumers():
     """Start all Kafka consumers for the Matching Service."""
     try:
-        logger.info("Starting Kafka consumers for Matching Service")
-        
         # Consumer for patient events
         patient_consumer = KafkaConsumer(
             topics=["patient-events"],
@@ -209,10 +182,6 @@ def start_consumers():
             name="communication-event-consumer"
         )
         communication_thread.start()
-        
-        logger.info("Kafka consumers started successfully")
-        logger.info("Listening for patient deletion and therapist blocking events")
-        logger.info("Other events are logged for future implementation")
         
     except Exception as e:
         logger.error(f"Failed to start Kafka consumers: {str(e)}", exc_info=True)
