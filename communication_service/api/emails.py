@@ -3,16 +3,20 @@ from flask import request, jsonify
 from flask_restful import Resource, fields, marshal_with, reqparse, marshal
 from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime
-import markdown2
 import re
+import logging
 
 from models.email import Email, EmailStatus
 from shared.utils.database import SessionLocal
 from shared.api.base_resource import PaginatedListResource
 from shared.config import get_config
+from utils.markdown_processor import markdown_to_html, strip_html
 
 # Get configuration
 config = get_config()
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 
 # Custom field for enum serialization
@@ -109,6 +113,32 @@ def parse_datetime_field(datetime_string: str, field_name: str):
         raise ValueError(f"Invalid datetime format for {field_name}. Use ISO format")
 
 
+def preprocess_markdown_urls(markdown_text: str) -> str:
+    """Detect and convert URLs to markdown links before processing.
+    
+    Args:
+        markdown_text: Raw markdown text
+        
+    Returns:
+        Markdown text with URLs converted to links
+    """
+    if not markdown_text:
+        return ""
+    
+    # This regex finds URLs that are not already in markdown link format
+    url_pattern = r'(?<!\[)(?<!\()https?://[^\s\)]+(?!\))'
+    
+    def replace_url(match):
+        url = match.group(0)
+        # Remove trailing punctuation
+        if url[-1] in '.,:;!?':
+            url = url[:-1]
+        return f'[{url}]({url})'
+    
+    # Replace URLs with markdown links
+    return re.sub(url_pattern, replace_url, markdown_text)
+
+
 def convert_markdown_to_html(markdown_text: str) -> str:
     """Convert markdown text to HTML with link detection.
     
@@ -121,27 +151,17 @@ def convert_markdown_to_html(markdown_text: str) -> str:
     if not markdown_text:
         return ""
     
-    # First, detect and convert URLs to markdown links
-    # This regex finds URLs that are not already in markdown link format
-    url_pattern = r'(?<!\[)(?<!\()https?://[^\s\)]+(?!\))'
-    
-    def replace_url(match):
-        url = match.group(0)
-        # Remove trailing punctuation
-        if url[-1] in '.,:;!?':
-            url = url[:-1]
-        return f'[{url}]({url})'
-    
-    # Replace URLs with markdown links
-    text_with_links = re.sub(url_pattern, replace_url, markdown_text)
-    
-    # Convert to HTML with tables extension
-    html = markdown2.markdown(
-        text_with_links,
-        extras=['tables', 'fenced-code-blocks']
-    )
-    
-    return html
+    try:
+        # First, detect and convert URLs to markdown links
+        text_with_links = preprocess_markdown_urls(markdown_text)
+        
+        # Use the markdown processor utility
+        html = markdown_to_html(text_with_links)
+        
+        return html
+    except Exception as e:
+        logger.error(f"Error converting markdown to HTML: {str(e)}", exc_info=True)
+        raise
 
 
 def convert_markdown_to_text(markdown_text: str) -> str:
@@ -156,34 +176,17 @@ def convert_markdown_to_text(markdown_text: str) -> str:
     if not markdown_text:
         return ""
     
-    # Remove markdown formatting
-    text = markdown_text
-    
-    # Headers
-    text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
-    
-    # Bold and italic
-    text = re.sub(r'\*\*([^\*]+)\*\*', r'\1', text)
-    text = re.sub(r'\*([^\*]+)\*', r'\1', text)
-    text = re.sub(r'__([^_]+)__', r'\1', text)
-    text = re.sub(r'_([^_]+)_', r'\1', text)
-    
-    # Links
-    text = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', text)
-    
-    # Lists
-    text = re.sub(r'^\s*[\*\-\+]\s+', '• ', text, flags=re.MULTILINE)
-    text = re.sub(r'^\s*\d+\.\s+', '', text, flags=re.MULTILINE)
-    
-    # Tables (simple approach)
-    text = re.sub(r'\|', ' ', text)
-    text = re.sub(r'\n[\-\+]+\n', '\n', text)
-    
-    # Code blocks
-    text = re.sub(r'```[^\n]*\n([^`]+)\n```', r'\1', text, flags=re.DOTALL)
-    text = re.sub(r'`([^`]+)`', r'\1', text)
-    
-    return text.strip()
+    try:
+        # First convert to HTML
+        html = convert_markdown_to_html(markdown_text)
+        
+        # Then strip HTML tags
+        text = strip_html(html)
+        
+        return text.strip()
+    except Exception as e:
+        logger.error(f"Error converting markdown to text: {str(e)}", exc_info=True)
+        raise
 
 
 def add_legal_footer(body_html: str, body_text: str) -> tuple:
@@ -414,11 +417,13 @@ class EmailListResource(PaginatedListResource):
         try:
             # Handle markdown content
             if args.get('inhalt_markdown'):
+                logger.debug(f"Processing markdown content: {args['inhalt_markdown'][:100]}...")
                 html_content = convert_markdown_to_html(args['inhalt_markdown'])
                 text_content = convert_markdown_to_text(args['inhalt_markdown'])
             else:
-                html_content = args.get('inhalt_html', '')
-                text_content = args.get('inhalt_text', '')
+                # Ensure we have strings, not None
+                html_content = args.get('inhalt_html') or ''
+                text_content = args.get('inhalt_text') or ''
             
             # Add legal footer if requested
             if args.get('add_legal_footer', True):
@@ -449,6 +454,11 @@ class EmailListResource(PaginatedListResource):
             return marshal(email, email_fields), 201
         except SQLAlchemyError as e:
             db.rollback()
+            logger.error(f"Database error creating email: {str(e)}", exc_info=True)
             return {'message': f'Database error: {str(e)}'}, 500
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Unexpected error creating email: {str(e)}", exc_info=True)
+            return {'message': f'Internal server error: {str(e)}'}, 500
         finally:
             db.close()
