@@ -2,7 +2,7 @@
 
 **Single Source of Truth for All API Integration**
 
-Last Updated: June 2025
+Last Updated: December 2024
 
 ## Overview
 
@@ -37,7 +37,7 @@ This document contains the complete API specification for all microservices. All
 }
 ```
 
-### Pagination Response
+### Pagination Response (All List Endpoints)
 ```json
 {
   "data": [...],
@@ -98,6 +98,13 @@ This document contains the complete API specification for all microservices. All
 "Egal"
 ```
 
+### Therapy Procedures (therapieverfahren)
+```
+"egal"
+"Verhaltenstherapie"
+"tiefenpsychologisch_fundierte_Psychotherapie"
+```
+
 ### Response Type (antworttyp)
 ```
 "vollstaendige_Annahme"
@@ -153,6 +160,8 @@ curl "http://localhost:8001/api/patients?status=auf_der_Suche&page=1&limit=20"
       "krankenversicherungsnummer": "A123456789",
       "geburtsdatum": "1985-03-15",
       "diagnose": "F32.1",
+      "symptome": "Niedergeschlagenheit, Schlafstörungen",
+      "erfahrung_mit_psychotherapie": "Keine Vorerfahrung",
       "vertraege_unterschrieben": true,
       "psychotherapeutische_sprechstunde": true,
       "startdatum": "2025-01-15",
@@ -172,6 +181,7 @@ curl "http://localhost:8001/api/patients?status=auf_der_Suche&page=1&limit=20"
       "offen_fuer_diga": false,
       "ausgeschlossene_therapeuten": [45, 67],
       "bevorzugtes_therapeutengeschlecht": "Weiblich",
+      "bevorzugtes_therapieverfahren": ["Verhaltenstherapie"],
       "letzter_kontakt": "2025-06-15",
       "created_at": "2025-05-01",
       "updated_at": "2025-06-01"
@@ -209,6 +219,8 @@ curl "http://localhost:8001/api/patients/1"
   "krankenversicherungsnummer": "A123456789",
   "geburtsdatum": "1985-03-15",
   "diagnose": "F32.1",
+  "symptome": "Niedergeschlagenheit, Schlafstörungen",
+  "erfahrung_mit_psychotherapie": "Keine Vorerfahrung",
   "vertraege_unterschrieben": true,
   "psychotherapeutische_sprechstunde": true,
   "startdatum": "2025-01-15",
@@ -222,6 +234,7 @@ curl "http://localhost:8001/api/patients/1"
   "verkehrsmittel": "Auto",
   "offen_fuer_gruppentherapie": false,
   "bevorzugtes_therapeutengeschlecht": "Weiblich",
+  "bevorzugtes_therapieverfahren": ["Verhaltenstherapie"],
   "ausgeschlossene_therapeuten": [45, 67],
   "letzter_kontakt": "2025-06-15",
   "created_at": "2025-05-01",
@@ -306,6 +319,7 @@ curl -X POST "http://localhost:8001/api/patients" \
     "krankenkasse": "TK",
     "geburtsdatum": "1978-11-22",
     "diagnose": "F41.1",
+    "symptome": "Angstgefühle, Panikattacken",
     "vertraege_unterschrieben": false,
     "zeitliche_verfuegbarkeit": {
       "monday": [{"start": "18:00", "end": "20:00"}],
@@ -316,6 +330,7 @@ curl -X POST "http://localhost:8001/api/patients" \
     },
     "verkehrsmittel": "ÖPNV",
     "bevorzugtes_therapeutengeschlecht": "Egal",
+    "bevorzugtes_therapieverfahren": ["Verhaltenstherapie", "tiefenpsychologisch_fundierte_Psychotherapie"],
     "offen_fuer_gruppentherapie": true,
     "ausgeschlossene_therapeuten": []
   }'
@@ -434,6 +449,7 @@ curl "http://localhost:8002/api/therapists?status=aktiv&potenziell_verfuegbar=tr
       "letztes_persoenliches_gespraech": "2025-04-10",
       "potenziell_verfuegbar": true,
       "potenziell_verfuegbar_notizen": "Ab Juli 2025 verfügbar",
+      "ueber_curavani_informiert": true,
       "naechster_kontakt_moeglich": "2025-07-01",
       "bevorzugte_diagnosen": ["F32", "F41", "F43"],
       "alter_min": 18,
@@ -549,6 +565,7 @@ curl -X POST "http://localhost:8002/api/therapists" \
     "geschlecht": "männlich",
     "psychotherapieverfahren": ["Tiefenpsychologie"],
     "potenziell_verfuegbar": true,
+    "ueber_curavani_informiert": false,
     "bevorzugte_diagnosen": ["F32", "F33"],
     "alter_min": 25,
     "alter_max": 55,
@@ -566,6 +583,7 @@ curl -X POST "http://localhost:8002/api/therapists" \
   "email": "m.becker@therapie.de",
   "status": "aktiv",
   "potenziell_verfuegbar": true,
+  "ueber_curavani_informiert": false,
   "created_at": "2025-06-10T11:00:00",
   "updated_at": "2025-06-10T11:00:00"
 }
@@ -606,8 +624,10 @@ curl -X DELETE "http://localhost:8002/api/therapists/1"
 **Query Parameters:**
 - `status` (optional): Filter by search status ("aktiv", "erfolgreich", "pausiert", "abgebrochen")
 - `patient_id` (optional): Filter by specific patient
-- `min_bundles` (optional): Minimum bundle count
-- `max_bundles` (optional): Maximum bundle count
+- `min_anfragen` (optional): Minimum inquiry count
+- `max_anfragen` (optional): Maximum inquiry count
+- `page` (optional): Page number (default: 1)
+- `limit` (optional): Items per page (default: 20, max: 100)
 
 **Example Request:**
 ```bash
@@ -625,8 +645,8 @@ curl "http://localhost:8003/api/platzsuchen?status=aktiv"
       "status": "aktiv",
       "created_at": "2025-06-07T10:00:00",
       "gesamt_angeforderte_kontakte": 25,
-      "aktive_buendel": 3,
-      "gesamt_buendel": 8,
+      "aktive_anfragen": 3,
+      "gesamt_anfragen": 8,
       "ausgeschlossene_therapeuten_anzahl": 2
     }
   ],
@@ -638,7 +658,7 @@ curl "http://localhost:8003/api/platzsuchen?status=aktiv"
 
 ## GET /platzsuchen/{id}
 
-**Description:** Get patient search details with bundle history.
+**Description:** Get patient search details with inquiry history.
 
 **Example Request:**
 ```bash
@@ -660,15 +680,15 @@ curl "http://localhost:8003/api/platzsuchen/1"
   "created_at": "2025-06-07T10:00:00",
   "ausgeschlossene_therapeuten": [45, 67],
   "gesamt_angeforderte_kontakte": 25,
-  "aktive_buendel": 3,
-  "gesamt_buendel": 8,
-  "buendel_verlauf": [
+  "aktive_anfragen": 3,
+  "gesamt_anfragen": 8,
+  "anfrage_verlauf": [
     {
-      "bundle_id": 101,
+      "anfrage_id": 101,
       "therapist_id": 123,
       "therapeuten_name": "Dr. Schmidt",
       "position": 2,
-      "status": "pending",
+      "status": "anstehend",
       "outcome": null,
       "sent_date": "2025-06-07T10:30:00",
       "response_date": null
@@ -729,17 +749,64 @@ curl -X POST "http://localhost:8003/api/platzsuchen/1/kontaktanfrage" \
 }
 ```
 
+## GET /therapeuten-zur-auswahl
+
+**Description:** Get therapists available for manual selection, filtered by PLZ prefix.
+
+**Query Parameters:**
+- `plz_prefix` (required): Two-digit PLZ prefix (e.g., "52")
+
+**Sorting Order:**
+1. Available AND informed about Curavani
+2. Available AND NOT informed about Curavani
+3. Not available AND informed about Curavani
+4. Others (alphabetically by name)
+
+**Example Request:**
+```bash
+curl "http://localhost:8003/api/therapeuten-zur-auswahl?plz_prefix=52"
+```
+
+**Example Response:**
+```json
+{
+  "plz_prefix": "52",
+  "total": 15,
+  "data": [
+    {
+      "id": 123,
+      "anrede": "Dr.",
+      "titel": "Dr. med.",
+      "vorname": "Maria",
+      "nachname": "Weber",
+      "strasse": "Praxis Str. 12",
+      "plz": "52062",
+      "ort": "Aachen",
+      "telefon": "+49 241 98765432",
+      "email": "dr.weber@praxis.de",
+      "potenziell_verfuegbar": true,
+      "ueber_curavani_informiert": true,
+      "naechster_kontakt_moeglich": null,
+      "bevorzugte_diagnosen": ["F32", "F41"],
+      "psychotherapieverfahren": ["Verhaltenstherapie"]
+    }
+  ]
+}
+```
+
 ## GET /therapeutenanfragen
 
-**Description:** Get all bundles with filtering.
+**Description:** Get all inquiries with filtering.
 
 **Query Parameters:**
 - `therapist_id` (optional): Filter by therapist
 - `versand_status` (optional): "gesendet" or "ungesendet"
 - `antwort_status` (optional): "beantwortet" or "ausstehend"
 - `nachverfolgung_erforderlich` (optional): boolean
-- `min_size` (optional): minimum bundle size
-- `max_size` (optional): maximum bundle size
+- `min_size` (optional): minimum inquiry size
+- `max_size` (optional): maximum inquiry size
+- `page` (optional): Page number (default: 1)
+- `limit` (optional): Items per page (default: 20, max: 100)
 
 **Example Request:**
 ```bash
@@ -759,7 +826,7 @@ curl "http://localhost:8003/api/therapeutenanfragen?versand_status=gesendet&antw
       "antwort_datum": null,
       "tage_seit_versand": 2,
       "antworttyp": null,
-      "buendelgroesse": 4,
+      "anfragegroesse": 4,
       "angenommen_anzahl": 0,
       "abgelehnt_anzahl": 0,
       "keine_antwort_anzahl": 0,
@@ -771,8 +838,8 @@ curl "http://localhost:8003/api/therapeutenanfragen?versand_status=gesendet&antw
   "limit": 20,
   "total": 150,
   "summary": {
-    "total_bundles": 150,
-    "unsent_bundles": 15,
+    "total_anfragen": 150,
+    "unsent_anfragen": 15,
     "pending_responses": 38,
     "needing_follow_up": 12
   }
@@ -781,7 +848,7 @@ curl "http://localhost:8003/api/therapeutenanfragen?versand_status=gesendet&antw
 
 ## GET /therapeutenanfragen/{id}
 
-**Description:** Get bundle details with patient list.
+**Description:** Get inquiry details with patient list.
 
 **Example Request:**
 ```bash
@@ -803,7 +870,7 @@ curl "http://localhost:8003/api/therapeutenanfragen/101"
   "antwort_datum": null,
   "tage_seit_versand": 2,
   "antworttyp": null,
-  "buendelgroesse": 4,
+  "anfragegroesse": 4,
   "antwort_zusammenfassung": {
     "total_accepted": 0,
     "total_rejected": 0,
@@ -825,12 +892,56 @@ curl "http://localhost:8003/api/therapeutenanfragen/101"
       "platzsuche_id": 10,
       "search_created_at": "2025-05-01T08:00:00",
       "wartezeit_tage": 37,
-      "status": "pending",
+      "status": "anstehend",
       "antwortergebnis": null,
       "antwortnotizen": null
     }
   ],
   "nachverfolgung_erforderlich": false
+}
+```
+
+## POST /therapeutenanfragen/erstellen-fuer-therapeut
+
+**Description:** Create inquiry for manually selected therapist.
+
+**Required Fields:**
+- `therapist_id` (integer): ID of the selected therapist
+- `plz_prefix` (string): Two-digit PLZ prefix
+
+**Optional Fields:**
+- `sofort_senden` (boolean): Send immediately if true (default: false)
+
+**Algorithm:**
+1. Filters patients by PLZ prefix
+2. Applies ALL hard constraints (no scoring):
+   - Distance within patient's max travel distance
+   - Therapist not in patient's exclusion list
+   - All patient preferences must match or be null
+   - All therapist preferences must match or be null
+3. Selects oldest patients first (by search creation date)
+4. Creates inquiry with 1-6 patients (configurable max)
+
+**Example Request:**
+```bash
+curl -X POST "http://localhost:8003/api/therapeutenanfragen/erstellen-fuer-therapeut" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "therapist_id": 123,
+    "plz_prefix": "52",
+    "sofort_senden": true
+  }'
+```
+
+**Example Response:**
+```json
+{
+  "message": "Created anfrage with 4 patients",
+  "anfrage_id": 101,
+  "therapist_id": 123,
+  "anfragegroesse": 4,
+  "patient_ids": [1, 5, 8, 12],
+  "gesendet": true
 }
 ```
 
@@ -856,8 +967,8 @@ curl -X PUT "http://localhost:8003/api/therapeutenanfragen/101/antwort" \
 **Example Response:**
 ```json
 {
-  "message": "Bundle response recorded successfully",
-  "bundle_id": 101,
+  "message": "Anfrage response recorded successfully",
+  "anfrage_id": 101,
   "response_type": "teilweise_Annahme",
   "angenommene_patienten": [
     {"patient_id": 1, "platzsuche_id": 10},
@@ -868,30 +979,6 @@ curl -X PUT "http://localhost:8003/api/therapeutenanfragen/101/antwort" \
     "rejected": 2,
     "no_response": 0
   }
-}
-```
-
-## POST /buendel/erstellen
-
-**Description:** Triggers bundle creation for all eligible therapists.
-
-**Example Request:**
-```bash
-curl -X POST "http://localhost:8003/api/buendel/erstellen" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "sofort_senden": false,
-    "testlauf": false
-  }'
-```
-
-**Example Response:**
-```json
-{
-  "message": "Created 5 bundles",
-  "buendel_erstellt": 5,
-  "buendel_gesendet": 0,
-  "buendel_ids": [101, 102, 103, 104, 105]
 }
 ```
 
@@ -909,8 +996,8 @@ curl -X POST "http://localhost:8003/api/buendel/erstellen" \
 - `recipient_type` (optional): Filter by recipient type ("therapist" or "patient")
 - `status` (optional): Filter by email status
 - `antwort_erhalten` (optional): Filter by response received (boolean)
-- `page` (optional): Page number
-- `limit` (optional): Items per page
+- `page` (optional): Page number (default: 1)
+- `limit` (optional): Items per page (default: 20, max: 100)
 
 **Example Request:**
 ```bash
@@ -941,21 +1028,6 @@ curl "http://localhost:8004/api/emails?recipient_type=therapist&status=Gesendet"
       "gesendet_am": "2025-06-08T10:30:00",
       "created_at": "2025-06-08T10:25:00",
       "updated_at": "2025-06-08T10:30:00"
-    },
-    {
-      "id": 2,
-      "therapist_id": null,
-      "patient_id": 30,
-      "betreff": "Update zu Ihrer Therapieplatzsuche",
-      "empfaenger_email": "patient@example.com",
-      "empfaenger_name": "Max Mustermann",
-      "absender_email": "info@curavani.de",
-      "absender_name": "Curavani Team",
-      "status": "Gesendet",
-      "antwort_erhalten": false,
-      "gesendet_am": "2025-06-15T10:30:00",
-      "created_at": "2025-06-15T10:25:00",
-      "updated_at": "2025-06-15T10:30:00"
     }
   ],
   "page": 1,
@@ -1190,8 +1262,8 @@ curl -X DELETE "http://localhost:8004/api/emails/1"
 - `recipient_type` (optional): Filter by recipient type ("therapist" or "patient")
 - `status` (optional): Filter by call status
 - `geplantes_datum` (optional): Filter by scheduled date
-- `page` (optional): Page number
-- `limit` (optional): Items per page
+- `page` (optional): Page number (default: 1)
+- `limit` (optional): Items per page (default: 20, max: 100)
 
 **Example Request:**
 ```bash
@@ -1217,21 +1289,9 @@ curl "http://localhost:8004/api/phone-calls?recipient_type=therapist&status=gepl
       "tatsaechliches_datum": null,
       "tatsaechliche_zeit": null,
       "ergebnis": null,
-      "notizen": "Follow-up für Bündel #456",
+      "notizen": "Follow-up für Anfrage #456",
       "created_at": "2025-06-09T16:00:00",
       "updated_at": "2025-06-09T16:00:00"
-    },
-    {
-      "id": 2,
-      "therapist_id": null,
-      "patient_id": 30,
-      "geplantes_datum": "2025-06-11",
-      "geplante_zeit": "10:00",
-      "dauer_minuten": 10,
-      "status": "geplant",
-      "notizen": "Status update call",
-      "created_at": "2025-06-10T16:00:00",
-      "updated_at": "2025-06-10T16:00:00"
     }
   ],
   "page": 1,
@@ -1262,7 +1322,7 @@ curl "http://localhost:8004/api/phone-calls/1"
   "tatsaechliches_datum": null,
   "tatsaechliche_zeit": null,
   "ergebnis": null,
-  "notizen": "Follow-up für Bündel #456",
+  "notizen": "Follow-up für Anfrage #456",
   "created_at": "2025-06-09T16:00:00",
   "updated_at": "2025-06-09T16:00:00"
 }
@@ -1296,7 +1356,7 @@ curl -X POST "http://localhost:8004/api/phone-calls" \
   -d '{
     "therapist_id": 123,
     "dauer_minuten": 5,
-    "notizen": "Follow-up für Bündel #45"
+    "notizen": "Follow-up für Anfrage #45"
   }'
 ```
 
@@ -1547,13 +1607,6 @@ curl -X POST "http://localhost:8005/api/find-therapists" \
 }
 ```
 
-### Not Implemented (501)
-```json
-{
-  "message": "Bundle system not yet implemented"
-}
-```
-
 ---
 
 # Testing Quick Reference
@@ -1581,7 +1634,7 @@ curl -X PUT "http://localhost:8001/api/patients/1" \
 curl -X DELETE "http://localhost:8001/api/patients/1"
 ```
 
-## Bundle Workflow Test
+## Inquiry Workflow Test
 
 ```bash
 # 1. Create patient search
@@ -1589,15 +1642,18 @@ curl -X POST "http://localhost:8003/api/platzsuchen" \
   -H "Content-Type: application/json" \
   -d '{"patient_id": 1}'
 
-# 2. Create bundles
-curl -X POST "http://localhost:8003/api/buendel/erstellen" \
-  -H "Content-Type: application/json" \
-  -d '{"testlauf": false}'
+# 2. Get therapists for selection
+curl "http://localhost:8003/api/therapeuten-zur-auswahl?plz_prefix=52"
 
-# 3. Check bundles
+# 3. Create inquiry for selected therapist
+curl -X POST "http://localhost:8003/api/therapeutenanfragen/erstellen-fuer-therapeut" \
+  -H "Content-Type: application/json" \
+  -d '{"therapist_id": 123, "plz_prefix": "52", "sofort_senden": true}'
+
+# 4. Check inquiries
 curl "http://localhost:8003/api/therapeutenanfragen"
 
-# 4. Record response
+# 5. Record response
 curl -X PUT "http://localhost:8003/api/therapeutenanfragen/1/antwort" \
   -H "Content-Type: application/json" \
   -d '{"patient_responses": {"1": "angenommen"}}'
@@ -1611,6 +1667,7 @@ curl -X POST "http://localhost:8004/api/emails" \
   -H "Content-Type: application/json" \
   -d '{
     "patient_id": 30,
+    "status": "In_Warteschlange",
     "betreff": "Willkommen bei der Therapievermittlung",
     "inhalt_markdown": "# Willkommen!\n\n**Wir freuen uns, Sie zu unterstützen.**\n\n## Nächste Schritte:\n\n1. Wir suchen passende Therapeuten\n2. Sie erhalten regelmäßige Updates\n3. Bei Fragen sind wir für Sie da\n\n*Mit freundlichen Grüßen,*\nIhr Therapievermittlungsteam",
     "empfaenger_email": "patient@example.com",
@@ -1642,6 +1699,7 @@ curl -X POST "http://localhost:8004/api/emails" \
   -H "Content-Type: application/json" \
   -d '{
     "therapist_id": 123,
+    "status": "In_Warteschlange",
     "betreff": "Therapieanfrage für mehrere Patienten",
     "inhalt_markdown": "# Therapieanfrage\n\nSehr geehrte/r Dr. Weber,\n\nWir haben mehrere Patienten, die zu Ihrem Profil passen:\n\n## Patientenliste\n\n| Name | Diagnose | Wartezeit |\n|------|----------|----------|\n| Anna Müller | F32.1 | 30 Tage |\n| Max Schmidt | F41.1 | 45 Tage |\n\n**Bitte antworten Sie innerhalb von 7 Tagen.**\n\n[Kontaktieren Sie uns](mailto:info@curavani.de) bei Fragen.",
     "empfaenger_email": "dr.weber@praxis.de",
@@ -1654,7 +1712,7 @@ curl -X POST "http://localhost:8004/api/phone-calls" \
   -H "Content-Type: application/json" \
   -d '{
     "therapist_id": 123,
-    "notizen": "Follow-up für Bündel #101"
+    "notizen": "Follow-up für Anfrage #101"
   }'
 
 # 3. Get therapist communication history
@@ -1697,12 +1755,15 @@ curl -X DELETE "http://localhost:8004/api/phone-calls/1"
 
 ---
 
-**Note:** This document represents the current API state as of June 2025. All field names are in German, and the structure is flat (no nested objects). Always use the exact field names and enum values specified in this document. 
+**Note:** This document represents the current API state as of December 2024. All field names are in German, and the structure is flat (no nested objects). Always use the exact field names and enum values specified in this document. 
 
 **Important Updates:**
-- The communication service now supports markdown email creation via the `inhalt_markdown` field
-- Legal footer can be added automatically to emails (controlled by `add_legal_footer` parameter)
-- Both emails and phone calls support therapist AND patient communications
-- When creating emails or phone calls, you must specify exactly one recipient type (either `therapist_id` OR `patient_id`, never both)
-- Removed fields: `nachverfolgung_erforderlich`, `nachverfolgung_notizen` from emails; `wiederholen_nach` from phone calls
-- **Email status handling:** The `POST /emails` endpoint now properly supports the `status` field to control whether emails are saved as drafts (`"Entwurf"`) or queued for immediate sending (`"In_Warteschlange"`)
+- All "Bundle/Bündel" terminology has been replaced with "Inquiry/Anfrage"
+- The matching service now uses manual therapist selection with PLZ-based filtering
+- New endpoints for therapist selection and manual inquiry creation
+- All list endpoints now return paginated responses with `data`, `page`, `limit`, and `total` fields
+- Minimum inquiry size is now 1 (was 3)
+- New patient fields: `symptome`, `erfahrung_mit_psychotherapie`, `bevorzugtes_therapieverfahren`
+- Removed patient fields: `bevorzugtes_therapeutenalter_min`, `bevorzugtes_therapeutenalter_max`
+- New therapist field: `ueber_curavani_informiert`
+- Email status handling: The `POST /emails` endpoint now properly supports the `status` field to control whether emails are saved as drafts (`"Entwurf"`) or queued for immediate sending (`"In_Warteschlange"`)
