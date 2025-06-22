@@ -1,6 +1,6 @@
 """Base resource classes for the therapy platform API."""
 from flask import request
-from flask_restful import Resource
+from flask_restful import Resource, marshal
 
 
 class PaginatedListResource(Resource):
@@ -67,3 +67,36 @@ class PaginatedListResource(Resource):
         limit = min(max(1, limit), self.MAX_LIMIT)
         
         return page, limit
+    
+    def create_paginated_response(self, query, marshal_func, resource_fields):
+        """Create a standardized paginated response.
+        
+        Args:
+            query: SQLAlchemy query object (before pagination)
+            marshal_func: Flask-RESTful marshal function
+            resource_fields: Field definition for marshalling
+            
+        Returns:
+            dict: Paginated response with data, page, limit, and total
+        """
+        # Get pagination parameters
+        page, limit = self.get_pagination_params()
+        
+        # Get total count before pagination
+        total = query.count()
+        
+        # Apply pagination
+        paginated_query = self.paginate_query(query)
+        
+        # Get results
+        items = paginated_query.all()
+        
+        # Marshal the results
+        data = [marshal_func(item, resource_fields) for item in items]
+        
+        return {
+            "data": data,
+            "page": page,
+            "limit": limit,
+            "total": total
+        }

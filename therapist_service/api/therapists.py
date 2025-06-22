@@ -76,6 +76,8 @@ therapist_fields = {
     # Availability (German field names)
     'potenziell_verfuegbar': fields.Boolean,
     'potenziell_verfuegbar_notizen': fields.String,
+    # NEW: Phase 2 field
+    'ueber_curavani_informiert': fields.Boolean,
     # Bundle System Fields (German field names)
     'naechster_kontakt_moeglich': DateField,
     'bevorzugte_diagnosen': fields.Raw,  # JSONB field
@@ -186,6 +188,7 @@ class TherapistResource(Resource):
         # Availability (German field names)
         parser.add_argument('potenziell_verfuegbar', type=bool)
         parser.add_argument('potenziell_verfuegbar_notizen', type=str)
+        parser.add_argument('ueber_curavani_informiert', type=bool)
         # Bundle System Fields (German field names)
         parser.add_argument('naechster_kontakt_moeglich', type=str)
         parser.add_argument('bevorzugte_diagnosen', type=list, location='json')
@@ -294,20 +297,20 @@ class TherapistListResource(PaginatedListResource):
                     status_enum = validate_and_get_therapist_status(status)
                     query = query.filter(Therapist.status == status_enum)
                 except ValueError:
-                    # If status value not found, return empty list
-                    return []
+                    # If status value not found, return empty result
+                    return {
+                        "data": [],
+                        "page": 1,
+                        "limit": self.DEFAULT_LIMIT,
+                        "total": 0
+                    }
             
             if potenziell_verfuegbar is not None:
                 query = query.filter(Therapist.potenziell_verfuegbar == potenziell_verfuegbar)
             
-            # Apply pagination
-            query = self.paginate_query(query)
+            # Use the new helper method
+            return self.create_paginated_response(query, marshal, therapist_fields)
             
-            # Get results
-            therapists = query.all()
-            
-            # Marshal the results
-            return [marshal(therapist, therapist_fields) for therapist in therapists]
         except SQLAlchemyError as e:
             return {'message': f'Database error: {str(e)}'}, 500
         finally:
@@ -343,6 +346,7 @@ class TherapistListResource(PaginatedListResource):
         parser.add_argument('letztes_persoenliches_gespraech', type=str)
         parser.add_argument('potenziell_verfuegbar', type=bool)
         parser.add_argument('potenziell_verfuegbar_notizen', type=str)
+        parser.add_argument('ueber_curavani_informiert', type=bool)
         parser.add_argument('naechster_kontakt_moeglich', type=str)
         parser.add_argument('bevorzugte_diagnosen', type=list, location='json')
         parser.add_argument('alter_min', type=int)

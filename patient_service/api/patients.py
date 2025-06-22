@@ -281,17 +281,17 @@ class PatientListResource(PaginatedListResource):
                     status_enum = validate_and_get_patient_status(status)
                     query = query.filter(Patient.status == status_enum)
                 except ValueError:
-                    # If status value not found, return empty list
-                    return []
+                    # If status value not found, return empty result
+                    return {
+                        "data": [],
+                        "page": 1,
+                        "limit": self.DEFAULT_LIMIT,
+                        "total": 0
+                    }
             
-            # Apply pagination
-            query = self.paginate_query(query)
+            # Use the new helper method
+            return self.create_paginated_response(query, marshal, patient_fields)
             
-            # Get results
-            patients = query.all()
-            
-            # Marshal the results
-            return [marshal(patient, patient_fields) for patient in patients]
         except SQLAlchemyError as e:
             return {'message': f'Database error: {str(e)}'}, 500
         finally:
