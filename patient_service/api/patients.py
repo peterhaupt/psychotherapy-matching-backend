@@ -44,6 +44,20 @@ class DateField(fields.Raw):
         return value.strftime('%Y-%m-%d')
 
 
+# Custom field for PostgreSQL ARRAY serialization
+class ArrayField(fields.Raw):
+    """Custom field for PostgreSQL ARRAY serialization."""
+    def format(self, value):
+        if value is None:
+            return None
+        # If it's already a list, return as is
+        if isinstance(value, list):
+            # If the list contains enums, convert them to values
+            return [item.value if hasattr(item, 'value') else item for item in value]
+        # If it's a single value, wrap in a list
+        return [value]
+
+
 # Complete output fields definition for patient responses
 patient_fields = {
     'id': fields.Integer,
@@ -74,6 +88,7 @@ patient_fields = {
     'offen_fuer_diga': fields.Boolean,
     'ausgeschlossene_therapeuten': fields.Raw,  # JSONB field
     'bevorzugtes_therapeutengeschlecht': EnumField,
+    'bevorzugtes_therapieverfahren': ArrayField,  # PostgreSQL ARRAY field
     'created_at': DateField,
     'updated_at': DateField,
     'letzter_kontakt': DateField,  # Last contact date
@@ -196,6 +211,7 @@ class PatientResource(Resource):
         parser.add_argument('ausgeschlossene_therapeuten', type=list, location='json')
         parser.add_argument('bevorzugtes_therapeutengeschlecht', type=str)
         parser.add_argument('letzter_kontakt', type=str)
+        parser.add_argument('bevorzugtes_therapieverfahren', type=list, location='json')
         # REMOVED: bevorzugtes_therapeutenalter_min and bevorzugtes_therapeutenalter_max
         
         args = parser.parse_args()
@@ -329,6 +345,7 @@ class PatientListResource(PaginatedListResource):
         parser.add_argument('offen_fuer_diga', type=bool)
         parser.add_argument('ausgeschlossene_therapeuten', type=list, location='json')
         parser.add_argument('bevorzugtes_therapeutengeschlecht', type=str)
+        parser.add_argument('bevorzugtes_therapieverfahren', type=list, location='json')
         # REMOVED: bevorzugtes_therapeutenalter_min and bevorzugtes_therapeutenalter_max
         
         try:
@@ -410,14 +427,22 @@ class PatientCommunicationResource(Resource):
                 f"{comm_service_url}/api/emails",
                 params={'patient_id': patient_id}
             )
-            emails = email_response.json() if email_response.ok else []
+            # Extract data from paginated response
+            emails = []
+            if email_response.ok:
+                email_result = email_response.json()
+                emails = email_result.get('data', []) if isinstance(email_result, dict) else email_result
             
             # Get phone calls
             call_response = requests.get(
                 f"{comm_service_url}/api/phone-calls",
                 params={'patient_id': patient_id}
             )
-            phone_calls = call_response.json() if call_response.ok else []
+            # Extract data from paginated response
+            phone_calls = []
+            if call_response.ok:
+                call_result = call_response.json()
+                phone_calls = call_result.get('data', []) if isinstance(call_result, dict) else call_result
             
             # Combine and sort by date
             all_communications = []

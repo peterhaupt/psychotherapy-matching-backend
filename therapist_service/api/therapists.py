@@ -434,14 +434,22 @@ class TherapistCommunicationResource(Resource):
                 f"{comm_service_url}/api/emails",
                 params={'therapist_id': therapist_id}
             )
-            emails = email_response.json() if email_response.ok else []
+            # Extract data from paginated response
+            emails = []
+            if email_response.ok:
+                email_result = email_response.json()
+                emails = email_result.get('data', []) if isinstance(email_result, dict) else email_result
             
             # Get phone calls
             call_response = requests.get(
                 f"{comm_service_url}/api/phone-calls",
                 params={'therapist_id': therapist_id}
             )
-            phone_calls = call_response.json() if call_response.ok else []
+            # Extract data from paginated response
+            phone_calls = []
+            if call_response.ok:
+                call_result = call_response.json()
+                phone_calls = call_result.get('data', []) if isinstance(call_result, dict) else call_result
             
             # Combine and sort by date
             all_communications = []
