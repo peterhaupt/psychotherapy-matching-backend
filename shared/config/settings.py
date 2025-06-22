@@ -131,6 +131,7 @@ class Config:
     MAX_ANFRAGE_SIZE: int = int(os.environ.get("MAX_ANFRAGE_SIZE", "6"))
     MIN_ANFRAGE_SIZE: int = int(os.environ.get("MIN_ANFRAGE_SIZE", "1"))
     PLZ_MATCH_DIGITS: int = int(os.environ.get("PLZ_MATCH_DIGITS", "2"))
+    DEFAULT_MAX_DISTANCE_KM: int = int(os.environ.get("DEFAULT_MAX_DISTANCE_KM", "25"))
     
     @classmethod
     def get_database_uri(cls, use_pgbouncer: bool = True) -> str:
@@ -217,7 +218,8 @@ class Config:
         return {
             "max_size": cls.MAX_ANFRAGE_SIZE,
             "min_size": cls.MIN_ANFRAGE_SIZE,
-            "plz_match_digits": cls.PLZ_MATCH_DIGITS
+            "plz_match_digits": cls.PLZ_MATCH_DIGITS,
+            "default_max_distance_km": cls.DEFAULT_MAX_DISTANCE_KM
         }
 
 

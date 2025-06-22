@@ -359,7 +359,7 @@ class CommunicationService:
                 age -= 1
             
             return str(age)
-        except:
+        except (ValueError, TypeError):
             return "Unbekannt"
     
     @staticmethod

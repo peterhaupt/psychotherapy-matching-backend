@@ -27,7 +27,7 @@ anfrage_config = config.get_anfrage_config()
 MIN_ANFRAGE_SIZE = anfrage_config['min_size']  # 1
 MAX_ANFRAGE_SIZE = anfrage_config['max_size']  # 6
 PLZ_MATCH_DIGITS = anfrage_config['plz_match_digits']  # 2
-DEFAULT_MAX_DISTANCE_KM = 50  # Default if patient doesn't specify
+DEFAULT_MAX_DISTANCE_KM = anfrage_config['default_max_distance_km']  # 25
 
 
 def get_therapists_for_selection(plz_prefix: str) -> List[Dict[str, Any]]:
@@ -45,10 +45,13 @@ def get_therapists_for_selection(plz_prefix: str) -> List[Dict[str, Any]]:
     # Filter by PLZ prefix
     filtered = []
     for therapist in therapists:
-        if therapist.get('plz', '').startswith(plz_prefix):
+        # Safe PLZ comparison with None handling
+        therapist_plz = therapist.get('plz') or ''
+        if therapist_plz.startswith(plz_prefix):
             # Check if contactable today
             next_contact = therapist.get('naechster_kontakt_moeglich')
-            if not next_contact or datetime.fromisoformat(next_contact).date() <= date.today():
+            # None means contactable
+            if next_contact is None or datetime.fromisoformat(next_contact).date() <= date.today():
                 filtered.append(therapist)
     
     # Sort according to business rules
@@ -104,7 +107,7 @@ def create_anfrage_for_therapist(
     matching_searches = []
     for search in patient_searches:
         patient = PatientService.get_patient(search.patient_id)
-        if patient and patient.get('plz', '').startswith(plz_prefix):
+        if patient and (patient.get('plz') or '').startswith(plz_prefix):
             matching_searches.append((search, patient))
     
     # Apply hard constraints and collect eligible patients
@@ -180,8 +183,8 @@ def check_distance_constraint(
     Returns:
         True if within distance, False otherwise
     """
-    # Get max travel distance
-    max_distance = patient.get('raeumliche_verfuegbarkeit', {}).get(
+    # Get max travel distance with None handling
+    max_distance = (patient.get('raeumliche_verfuegbarkeit') or {}).get(
         'max_km', 
         DEFAULT_MAX_DISTANCE_KM
     )
@@ -197,8 +200,8 @@ def check_distance_constraint(
         )
         return True  # Allow if we can't calculate
     
-    # Calculate distance
-    travel_mode = patient.get('verkehrsmittel', 'car').lower()
+    # Calculate distance with None handling
+    travel_mode = (patient.get('verkehrsmittel') or 'car').lower()
     if travel_mode == 'öpnv':
         travel_mode = 'transit'
     elif travel_mode not in ['car', 'transit']:
@@ -254,7 +257,7 @@ def check_patient_preferences(
     # Gender preference
     gender_pref = patient.get('bevorzugtes_therapeutengeschlecht')
     if gender_pref and gender_pref != 'Egal':
-        therapist_gender = therapist.get('geschlecht', '').lower()
+        therapist_gender = (therapist.get('geschlecht') or '').lower()
         # Map therapist gender to preference format
         if therapist_gender in ['m', 'männlich', 'mann']:
             therapist_gender = 'Männlich'
@@ -268,16 +271,16 @@ def check_patient_preferences(
     # REMOVED: Age preference check for therapist age
     
     # Therapy procedure preference
-    preferred_procedures = patient.get('bevorzugtes_therapieverfahren', [])
+    preferred_procedures = patient.get('bevorzugtes_therapieverfahren') or []
     if preferred_procedures and 'egal' not in preferred_procedures:
-        therapist_procedures = therapist.get('psychotherapieverfahren', [])
+        therapist_procedures = therapist.get('psychotherapieverfahren') or []
         # Check if at least one preferred procedure matches
         if not any(proc in therapist_procedures for proc in preferred_procedures):
             logger.debug(f"No matching therapy procedures")
             return False
     
-    # Group therapy preference
-    if patient.get('offen_fuer_gruppentherapie') is False:
+    # Group therapy preference - None treated as False
+    if patient.get('offen_fuer_gruppentherapie', False) is False:
         if therapist.get('bevorzugt_gruppentherapie') is True:
             logger.debug("Patient not open for group therapy but therapist prefers it")
             return False
@@ -301,7 +304,7 @@ def check_therapist_preferences(
         True if all preferences satisfied or not specified
     """
     # Diagnosis preference
-    preferred_diagnoses = therapist.get('bevorzugte_diagnosen', [])
+    preferred_diagnoses = therapist.get('bevorzugte_diagnosen') or []
     if preferred_diagnoses:
         patient_diagnosis = patient.get('diagnose')
         if patient_diagnosis not in preferred_diagnoses:
@@ -314,12 +317,16 @@ def check_therapist_preferences(
     if min_age is not None or max_age is not None:
         patient_birthdate = patient.get('geburtsdatum')
         if patient_birthdate:
-            patient_age = calculate_age(datetime.fromisoformat(patient_birthdate).date())
-            if min_age is not None and patient_age < min_age:
-                logger.debug(f"Patient too young: {patient_age} < {min_age}")
-                return False
-            if max_age is not None and patient_age > max_age:
-                logger.debug(f"Patient too old: {patient_age} > {max_age}")
+            try:
+                patient_age = calculate_age(datetime.fromisoformat(patient_birthdate).date())
+                if min_age is not None and patient_age < min_age:
+                    logger.debug(f"Patient too young: {patient_age} < {min_age}")
+                    return False
+                if max_age is not None and patient_age > max_age:
+                    logger.debug(f"Patient too old: {patient_age} > {max_age}")
+                    return False
+            except (ValueError, TypeError):
+                logger.debug("Cannot verify age preference - invalid patient birthdate")
                 return False
         else:
             logger.debug("Cannot verify age preference - patient birthdate missing")
@@ -328,7 +335,7 @@ def check_therapist_preferences(
     # Gender preference
     gender_pref = therapist.get('geschlechtspraeferenz')
     if gender_pref and gender_pref != 'Egal':
-        patient_gender = patient.get('geschlecht', '').lower()
+        patient_gender = (patient.get('geschlecht') or '').lower()
         # Normalize gender values
         if patient_gender in ['m', 'männlich', 'mann']:
             patient_gender = 'Männlich'
@@ -379,6 +386,9 @@ def calculate_age(birthdate: date) -> int:
     Returns:
         Age in years
     """
+    if birthdate is None:
+        raise ValueError("Birthdate cannot be None")
+        
     today = date.today()
     age = today.year - birthdate.year
     
