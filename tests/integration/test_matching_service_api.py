@@ -282,7 +282,9 @@ class TestMatchingServiceAPI:
         assert detailed['patient']['vorname'] == patient['vorname']
         assert 'anfrage_verlauf' in detailed  # Not bundle_verlauf
         assert isinstance(detailed['anfrage_verlauf'], list)
-        assert detailed['notizen'] == "Detailed test search"
+        assert detailed['notizen'].endswith("Detailed test search")
+        assert "[" in detailed['notizen']  # Has timestamp
+        assert "(API)" in detailed['notizen']  # Has author
     
     def test_get_platzsuche_not_found(self):
         """Test getting non-existent platzsuche returns 404."""
