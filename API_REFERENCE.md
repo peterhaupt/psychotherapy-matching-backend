@@ -320,6 +320,7 @@ curl -X POST "http://localhost:8001/api/patients" \
     "geburtsdatum": "1978-11-22",
     "diagnose": "F41.1",
     "symptome": "Angstgefühle, Panikattacken",
+    "erfahrung_mit_psychotherapie": "Eine Kurzzeittherapie vor 3 Jahren",
     "vertraege_unterschrieben": false,
     "zeitliche_verfuegbarkeit": {
       "monday": [{"start": "18:00", "end": "20:00"}],
@@ -1063,9 +1064,9 @@ curl "http://localhost:8004/api/emails/1"
 - `absender_email` (string) - defaults to system email
 - `absender_name` (string) - defaults to system name
 - `status` (string) - Controls whether email is saved as draft or queued for sending
-  - `"Entwurf"` - Save as draft (will NOT be sent)
+  - `"Entwurf"` - Save as draft (will NOT be sent) 
   - `"In_Warteschlange"` - Queue for immediate sending (will be sent within 60 seconds)
-  - Default: `"Entwurf"` (if not specified)
+  - **Default: `"Entwurf"`** (if not specified, emails are saved as drafts for safety)
   - Any other value returns 400 error
 - `add_legal_footer` (boolean) - defaults to true
 
@@ -1076,9 +1077,10 @@ curl "http://localhost:8004/api/emails/1"
 - Only `"Entwurf"` and `"In_Warteschlange"` can be set via API
 
 **Important Notes:**
-1. If no `status` is provided, emails default to `"Entwurf"` (draft) for safety
-2. Only `"Entwurf"` and `"In_Warteschlange"` can be set by users
-3. System-managed statuses (`"Wird_gesendet"`, `"Gesendet"`, `"Fehlgeschlagen"`) cannot be set via API
+1. **Safety First**: If no `status` is provided, emails default to `"Entwurf"` (draft) for safety
+2. **Limited Status Control**: Only `"Entwurf"` and `"In_Warteschlange"` can be set by users
+3. **System-Managed Statuses**: `"Wird_gesendet"`, `"Gesendet"`, `"Fehlgeschlagen"` cannot be set via API
+4. **Markdown Processing**: URLs in markdown content are automatically detected and converted to clickable links
 
 **Example Requests:**
 
@@ -1117,7 +1119,7 @@ curl -X POST "http://localhost:8004/api/emails" \
   -d '{
     "therapist_id": 123,
     "betreff": "Therapieanfrage für mehrere Patienten",
-    "inhalt_markdown": "# Therapieanfrage\n\nSehr geehrte/r Dr. Schmidt,\n\nwir haben mehrere Patienten, die...\n\n## Patientenliste\n\n- Patient 1: Anna Müller\n- Patient 2: Max Mustermann\n\n**Bitte antworten Sie innerhalb von 7 Tagen.**",
+    "inhalt_markdown": "# Therapieanfrage\n\nSehr geehrte/r Dr. Schmidt,\n\nwir haben mehrere Patienten, die...\n\n## Patientenliste\n\n- Patient 1: Anna Müller\n- Patient 2: Max Mustermann\n\n**Bitte antworten Sie innerhalb von 7 Tagen.**\n\nBesuchen Sie unsere Website: https://curavani.de",
     "empfaenger_email": "doctor@example.com",
     "empfaenger_name": "Dr. Schmidt"
   }'
@@ -1346,6 +1348,11 @@ curl "http://localhost:8004/api/phone-calls/1"
 - Cannot specify both `therapist_id` and `patient_id`
 - Must specify at least one of `therapist_id` or `patient_id`
 - For therapists: If date/time not provided, system finds next available slot based on therapist's phone availability
+
+**Auto-Scheduling Behavior:**
+- **For Therapists**: System checks `telefonische_erreichbarkeit` field and finds the next available slot
+- **For Patients**: Defaults to tomorrow at 10:00 AM
+- **Fallback**: If no therapist slots available, returns error message
 
 **Example Requests:**
 
@@ -1766,4 +1773,8 @@ curl -X DELETE "http://localhost:8004/api/phone-calls/1"
 - New patient fields: `symptome`, `erfahrung_mit_psychotherapie`, `bevorzugtes_therapieverfahren`
 - Removed patient fields: `bevorzugtes_therapeutenalter_min`, `bevorzugtes_therapeutenalter_max`
 - New therapist field: `ueber_curavani_informiert`
-- Email status handling: The `POST /emails` endpoint now properly supports the `status` field to control whether emails are saved as drafts (`"Entwurf"`) or queued for immediate sending (`"In_Warteschlange"`)
+- Communication Service supports both therapist and patient recipients
+- Email creation with markdown support and auto-link detection
+- Phone call auto-scheduling for therapists based on availability
+- Email status handling: Draft mode is default for safety, immediate sending requires explicit status
+- New communication history endpoints for both patients and therapists
