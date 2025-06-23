@@ -1,14 +1,12 @@
 # Anforderungsspezifikation: Psychotherapie-Vermittlungsplattform
 
-[English: Business requirements for the bundle-based therapy matching platform. German terminology preserved for domain accuracy. See TERMINOLOGY.md for translations.]
-
 ## 1. Projektübersicht
 
 Curavani ist eine Vermittlungsplattform für Psychotherapieplätze im deutschen Gesundheitssystem mit dem Ziel, Patienten innerhalb von **Wochen** (nicht Monaten) einen Therapieplatz zu vermitteln.
 
 **Kernwertversprechen:**
 - **Patienten**: Therapieplatz in Wochen durch parallele Suche
-- **Therapeuten**: Vorqualifizierte Patienten in effizienten Bündeln
+- **Therapeuten**: Vorqualifizierte Patienten in effizienten Anfragen
 - **Curavani**: Bevorzugter Kanal für Therapeuten werden
 
 ## 2. Geschäftskontext
@@ -38,139 +36,190 @@ Curavani ist eine Vermittlungsplattform für Psychotherapieplätze im deutschen 
 
 ### 3.1 Platzsuche (Patient Search)
 - **Definition**: Fortlaufender Prozess zur Therapieplatzvermittlung
-- **Ziel**: Vermittlung in Wochen
+- **Ziel**: Vermittlung in Wochen durch parallele Suche
 - **Erfolg**: Patient nimmt 1-2 Probesitzungen wahr UND stimmt Fortsetzung zu
 - **Bei Ablehnung**: Therapeut auf Ausschlussliste, Suche fortsetzen
 
 ### 3.2 Therapeutenanfrage (Therapist Inquiry)
-- **Definition**: Gebündelte Anfrage mit 3-6 Patienten
+- **Definition**: Anfrage mit 1-6 Patienten an einen Therapeuten
 - **Antworttypen**:
   - Vollständige Annahme (selten)
   - Teilannahme (1-2 Patienten, häufig)
   - Vollständige Ablehnung
   - Keine Antwort → Telefonanruf nach 7 Tagen
 
-### 3.3 Bündelerstellung - Detaillierter Algorithmus
+## 4. Aktueller Prozess: Manuelle Therapeutenauswahl
 
-**Schritt 1: Ausgangsmenge**
-- Alle aktiven Therapeuten
-- Ausschluss: In Abkühlungsphase (`next_contactable_date > heute`)
-- Ausschluss: Inaktive/gesperrte Therapeuten
+### 4.1 Therapeutenauswahl mit PLZ-Filter
+**Eingabe**: Zweistelliger PLZ-Code (z.B. "52")
 
-**Schritt 2: Harte Kriterien** (MÜSSEN erfüllt sein)
-Für jeden Therapeuten nur Patienten einbeziehen, die:
-- Innerhalb der maximalen Reisedistanz des Patienten liegen
-- NICHT auf der Ausschlussliste des Patienten stehen
-- Geschlechterpräferenz des Patienten erfüllen (falls angegeben)
+**Filterung**:
+- Nur aktive Therapeuten (`status = 'aktiv'`)
+- PLZ beginnt mit gewähltem Code
+- Kontakt heute möglich (nicht in Abkühlungsphase)
 
-**Schritt 3: Progressive Filterung nach Priorität**
-Filter anwenden bis Ziel-Therapeutenanzahl erreicht:
+**Sortierung** (in dieser Reihenfolge):
+1. Verfügbar UND über Curavani informiert
+2. Verfügbar UND NICHT über Curavani informiert  
+3. Nicht verfügbar UND über Curavani informiert
+4. Alle anderen (alphabetisch)
 
-1. **Verfügbarkeitskompatibilität**
-   - Bei bekanntem Therapeutenplan: Nur bei Überschneidung
-   - Bei unbekannt: Alle (Therapeut prüft selbst)
+### 4.2 Automatische Patientenauswahl
+Nach Therapeutenauswahl werden passende Patienten automatisch ermittelt:
 
-2. **Therapeutenpräferenzen**
-   - Diagnosepräferenz
-   - Alterspräferenz
-   - Geschlechterpräferenz
-   - Gruppentherapiepräferenz
+**Patientenfilterung**:
+- Nur aktive Platzsuchen
+- Gleicher PLZ-Bereich wie Therapeut
+- Sortierung nach Erstelldatum (älteste zuerst)
 
-3. **Patientenwartezeit**
-   - Sortierung nach längster Wartezeit
+**Harte Kriterien** (ALLE müssen erfüllt sein):
 
-4. **Geografische Nähe**
-   - Sortierung nach durchschnittlicher Entfernung
+1. **Distanzprüfung**: Therapeut innerhalb maximaler Reisedistanz des Patienten
+2. **Ausschlussprüfung**: Therapeut nicht auf Patientenausschlussliste
+3. **Patientenpräferenzen** (alle müssen erfüllt oder NULL sein):
+   - Geschlecht des Therapeuten
+   - Therapieverfahren (mindestens eine Übereinstimmung)
+   - Gruppentherapie-Kompatibilität
+4. **Therapeutenpräferenzen** (alle müssen erfüllt oder NULL sein):
+   - Diagnose des Patienten
+   - Patientenalter (min/max)
+   - Patientengeschlecht
 
-**Schritt 4: Bündelgröße**
-- 3-6 Patienten pro Therapeut auswählen
-- Priorisierung nach Wartezeit
+**Anfragebildung**:
+- 1-6 passende Patienten pro Anfrage
+- Keine Mindestgröße (auch Einzelanfragen möglich)
+- Maximalgröße systemweit konfigurierbar (Standard: 6)
 
-### 3.4 Abkühlungsphase
+### 4.3 Abkühlungsphase
 - **Auslöser**: JEDE Therapeutenantwort (E-Mail oder erfolgreicher Telefonkontakt)
-- **Dauer**: 4 Wochen
+- **Dauer**: 4 Wochen (konfigurierbar)
 - **Umfang**: Systemweit für alle Patienten
-- **Speicherung**: `next_contactable_date` im Therapeutendatensatz
+- **Speicherung**: `naechster_kontakt_moeglich` im Therapeutendatensatz
 
-### 3.5 Parallele Verarbeitung & Konfliktlösung
-- **Anforderung**: Patienten MÜSSEN in mehreren Bündeln gleichzeitig sein
+### 4.4 Parallele Verarbeitung & Konfliktlösung
+- **Anforderung**: Patienten MÜSSEN in mehreren Anfragen gleichzeitig sein
 - **Konflikt**: Bei Mehrfachannahmen → Erster Therapeut erhält Patient
 - **Nachbearbeitung**: 
   - Andere Therapeuten sofort kontaktieren
-  - Alternative Patienten aus deren Bündel anbieten
+  - Alternative Patienten aus deren Anfrage anbieten
   - Positive Beziehung aufrechterhalten
 
-### 3.6 Manuelle Eingriffe
-- **"Meinungsänderung"**: Therapeut ruft nach Ablehnung mit Öffnung an
-  - Manuelle Patientenauswahl durch Personal
-  - Zuweisung außerhalb Bündelprozess
-- **Ausnahmen**: Abkühlungsphase kann überschrieben werden (dokumentiert)
-- **Dynamische Ausschlüsse**: Nach schlechten Erfahrungen in Probesitzungen
+## 5. Datenmodell-Anforderungen
 
-## 4. Datenmodell
+### 5.1 Patient - Erweiterte Felder
+- `symptome` (Text) - Symptombeschreibung
+- `erfahrung_mit_psychotherapie` (Text) - Vorerfahrung
+- `bevorzugtes_therapieverfahren` (Array) - Präferierte Verfahren:
+  - "egal"
+  - "Verhaltenstherapie" 
+  - "tiefenpsychologisch_fundierte_Psychotherapie"
+- Bestehende relevante Felder:
+  - `bevorzugtes_therapeutengeschlecht` (Männlich/Weiblich/Egal)
+  - `offen_fuer_gruppentherapie` (Boolean)
+  - `raeumliche_verfuegbarkeit.max_km` (Maximale Reisedistanz)
 
-### Erweiterte Entitäten
-- **Patient**: 
-  - `max_travel_distance_km`, `travel_mode` (Auto/ÖPNV)
-  - `availability_schedule` (stundengenau pro Tag)
-  - `therapist_gender_preference` (HARTE Bedingung)
-  - `group_therapy_preference` (WEICHE Bedingung)
-  
-- **Therapeut**: 
-  - `next_contactable_date` (Abkühlungsphase)
-  - `preferred_diagnoses`, `age_min/max`
-  - `gender_preference`, `group_therapy_preference`
-  - `working_hours` (wenn bekannt)
+### 5.2 Therapeut - Erweiterte Felder
+- `ueber_curavani_informiert` (Boolean) - Kennt Curavani bereits
+- Bestehende relevante Felder:
+  - `bevorzugte_diagnosen` (Array) - Gewünschte Diagnosen
+  - `alter_min`, `alter_max` (Integer) - Patientenalter
+  - `geschlechtspraeferenz` (String) - Patientengeschlecht
+  - `bevorzugt_gruppentherapie` (Boolean)
+  - `psychotherapieverfahren` (Array) - Angebotene Verfahren
 
-### Neue Entitäten
-- **Platzsuche**: `patient_id`, `status`, `excluded_therapists`, `total_requested_contacts`
-- **PlatzucheContactRequest**: `requested_count`, `requested_date`
-- **Therapeutenanfrage**: `therapist_id`, `bundle_size`, `response_type`, `accepted_count`
-- **TherapeutAnfragePatient**: Verknüpfung Anfrage↔Patient mit Status
+### 5.3 Neue Entitäten
+- **Platzsuche**: `patient_id`, `status`, `ausgeschlossene_therapeuten`, `gesamt_angeforderte_kontakte`
+- **Therapeutenanfrage**: `therapist_id`, `anfragegroesse`, `antworttyp`, `angenommen_anzahl`
+- **TherapeutAnfragePatient**: Verknüpfung Anfrage↔Patient mit individuellem Status
 
-## 5. Funktionale Anforderungen
+## 6. Antwortverarbeitung und Automatisierung
 
-### 5.1 Kontaktmanagement
-- **E-Mail**: Max. 1/Woche pro Therapeut, Bündelung mehrerer Patienten
+### 6.1 Therapeutenantwort
+- Therapeut antwortet mit individuellem Status pro Patient:
+  - `angenommen`
+  - `abgelehnt_Kapazitaet`
+  - `abgelehnt_nicht_geeignet`
+  - `abgelehnt_sonstiges`
+  - `nicht_erschienen`
+  - `in_Sitzungen`
+
+### 6.2 Automatische Statusaktualisierung
+**Bei Patientenannahme**:
+- Platzsuche.status → `erfolgreich`
+- Erfolgreiche Vermittlung dokumentiert
+
+**Bei Ablehnung**:
+- Therapeut → Patientenausschlussliste (je nach Ablehnungsgrund)
+- Platzsuche bleibt `aktiv`
+
+**Automatische Anfrageaktualisierung**:
+- Bei erfolgreicher Vermittlung: Entfernung aus anderen laufenden Anfragen
+- Aktualisierung der Anfragegrößen
+- Benachrichtigung betroffener Therapeuten
+
+## 7. Funktionale Anforderungen
+
+### 7.1 Kontaktmanagement
+- **E-Mail**: Professionelle Anfragen mit Patientenliste
 - **Telefon**: Nach 7 Tagen ohne E-Mail-Antwort, 5-Minuten-Slots
-- **Priorisierung**: "Potenziell verfügbare" Therapeuten zuerst
-- **Kontaktanfragen**: Additiv (z.B. "25 weitere Kontakte"), keine Erfüllungspflicht
+- **Priorisierung**: "Verfügbare und informierte" Therapeuten zuerst
+- **Kontaktanfragen**: Additiv (z.B. "25 weitere Kontakte")
 
-### 5.2 Service-Architektur
-- **Matching Service**: 
-  - Erstellt Bündel mit Algorithmus
-  - Verwaltet Therapeutenanfragen
-  - Enforced Abkühlungsphasen
-- **Communication Service**: 
-  - Sendet einzelne E-Mails (KEINE Bündellogik)
-  - Plant Telefonate
-  - Meldet Antworten zurück
+### 7.2 Manuelle Eingriffe
+- **Therapeutenauswahl**: PLZ-basierte manuelle Auswahl
+- **Ausnahmen**: Abkühlungsphase kann überschrieben werden (dokumentiert)
+- **Dynamische Ausschlüsse**: Nach schlechten Erfahrungen
+- **"Meinungsänderung"**: Therapeut ruft nach Ablehnung mit Öffnung an
 
-### 5.3 Operative Parameter
-- **Bündelgröße**: 3-6 Patienten (konfigurierbar)
+### 7.3 Operative Parameter (konfigurierbar)
+- **Anfragegröße**: 1-6 Patienten (Standard: max 6)
 - **Antwortwartezeit**: 7 Tage vor Telefonanruf
-- **Abkühlungsphase**: 4 Wochen (konfigurierbar)
-- **Mindestverfügbarkeit Patient**: 20h/Woche
-- **Erfolgsmessung**: Nach 2 Probesitzungen
+- **Abkühlungsphase**: 4 Wochen
+- **PLZ-Filter**: 2-stellig (hart)
+- **Präferenz-Matching**: Hart (alle müssen erfüllt sein)
 
-## 6. Geschäftsmetriken
+## 8. Geschäftsmetriken
 
 ### Erfolgsmetriken
 - **Vermittlungsgeschwindigkeit**: Tage bis Erfolg (Ziel: <30)
-- **Annahmerate**: % angenommene Patienten/Bündel
+- **Annahmerate**: % angenommene Patienten/Anfrage
 - **Konfliktrate**: % Mehrfachannahmen (positiv!)
 - **Show-Rate**: % Erscheinen bei Probesitzungen
 
 ### Operative Metriken
-- **Bündeleffizienz**: Ø Annahmen/Bündel
+- **Anfrageeffizienz**: Ø Annahmen/Anfrage
 - **Antwortrate**: % Antworten in 7 Tagen
 - **Abkühlungseinhaltung**: % korrekte Kontaktpausen
-- **Parallele Suche**: Ø gleichzeitige Bündel/Patient
+- **Parallele Suche**: Ø gleichzeitige Anfragen/Patient
 
-## 7. Wettbewerbsvorteil
+## 9. Wettbewerbsvorteil
 
-**Für Therapeuten**: Null Aufwand bei Patientenakquise, vorqualifizierte Patienten, präferenzbasierte Bündel, vorhersehbare Kontaktfrequenz
+**Für Therapeuten**: 
+- Null Aufwand bei Patientenakquise
+- Vorqualifizierte Patienten
+- Präferenzbasierte Anfragen
+- Vorhersehbare Kontaktfrequenz
+- Respektvolle Abkühlungsphasen
 
-**Für Patienten**: Vermittlung in Wochen durch parallele Suche, professionelle Interessenvertretung, Zugang zu nicht-werbenden Therapeuten
+**Für Patienten**: 
+- Vermittlung in Wochen durch parallele Suche
+- Professionelle Interessenvertretung
+- Zugang zu nicht-werbenden Therapeuten
+- Kontinuierliche Betreuung während Suche
 
-Dies schafft einen positiven Kreislauf: Therapeuten bevorzugen Curavani → mehr Plätze → schnellere Vermittlung → rechtfertigt Privatzahlung.
+**Systemeffekt**: 
+Therapeuten bevorzugen Curavani → mehr verfügbare Plätze → schnellere Vermittlung → rechtfertigt Privatzahlung → positiver Kreislauf
+
+## 10. Qualitätssicherung
+
+### Vorqualifizierung
+- Private Zahlung als Motivationsfilter
+- Aktuelle ICD-10 Diagnose erforderlich
+- Mindestens 20h/Woche Verfügbarkeit
+- 2-Jahres-Regel verifiziert
+- Detaillierte Verfügbarkeitspläne
+
+### Erfolgsmessung
+- Erfolg erst nach 2 Probesitzungen und Zustimmung zur Fortsetzung
+- Bei Ablehnung: Ausschluss und Weitersuche
+- Kontinuierliches Monitoring der Vermittlungsqualität
