@@ -1,4 +1,4 @@
-"""Therapist API endpoints implementation with German enum support."""
+"""Therapist API endpoints implementation with German enum support and fixed JSONB field handling."""
 from flask import request, jsonify
 from flask_restful import Resource, fields, marshal_with, reqparse, marshal
 from sqlalchemy.exc import SQLAlchemyError
@@ -46,7 +46,34 @@ class DateField(fields.Raw):
         return value.strftime('%Y-%m-%d')
 
 
-# Complete output fields definition for therapist responses
+# Custom field for PostgreSQL ARRAY/JSONB array serialization - COPIED FROM PATIENT SERVICE
+class ArrayField(fields.Raw):
+    """Custom field for PostgreSQL ARRAY/JSONB array serialization."""
+    def format(self, value):
+        if value is None:
+            return []  # Always return empty array instead of null
+        # If it's already a list, return as is
+        if isinstance(value, list):
+            # If the list contains enums, convert them to values
+            return [item.value if hasattr(item, 'value') else item for item in value]
+        # If it's a single value, wrap in a list
+        return [value]
+
+
+# Custom field for JSONB object serialization - NEW FOR THERAPIST SERVICE
+class ObjectField(fields.Raw):
+    """Custom field for JSONB object serialization."""
+    def format(self, value):
+        if value is None:
+            return {}  # Always return empty object instead of null
+        # If it's already a dict, return as is
+        if isinstance(value, dict):
+            return value
+        # If it's some other type, return empty object
+        return {}
+
+
+# Complete output fields definition for therapist responses - FIXED JSONB FIELD HANDLING
 therapist_fields = {
     'id': fields.Integer,
     # Personal Information
@@ -61,12 +88,12 @@ therapist_fields = {
     'fax': fields.String,
     'email': fields.String,
     'webseite': fields.String,
-    # Professional Information
+    # Professional Information - FIXED: Using custom fields instead of fields.Raw
     'kassensitz': fields.Boolean,
     'geschlecht': fields.String,
-    'telefonische_erreichbarkeit': fields.Raw,  # JSONB field
-    'fremdsprachen': fields.Raw,  # JSONB field
-    'psychotherapieverfahren': fields.Raw,  # JSONB field
+    'telefonische_erreichbarkeit': ObjectField,  # FIXED: Object field instead of Raw
+    'fremdsprachen': ArrayField,  # FIXED: Array field instead of Raw
+    'psychotherapieverfahren': ArrayField,  # FIXED: Array field instead of Raw
     'zusatzqualifikationen': fields.String,
     'besondere_leistungsangebote': fields.String,
     # Contact History
@@ -78,13 +105,13 @@ therapist_fields = {
     'potenziell_verfuegbar_notizen': fields.String,
     # NEW: Phase 2 field
     'ueber_curavani_informiert': fields.Boolean,
-    # Bundle System Fields (German field names)
+    # Bundle System Fields (German field names) - FIXED: Using custom fields
     'naechster_kontakt_moeglich': DateField,
-    'bevorzugte_diagnosen': fields.Raw,  # JSONB field
+    'bevorzugte_diagnosen': ArrayField,  # FIXED: Array field instead of Raw
     'alter_min': fields.Integer,
     'alter_max': fields.Integer,
     'geschlechtspraeferenz': fields.String,
-    'arbeitszeiten': fields.Raw,  # JSONB field
+    'arbeitszeiten': ObjectField,  # FIXED: Object field instead of Raw
     'bevorzugt_gruppentherapie': fields.Boolean,
     # Status
     'status': EnumField,

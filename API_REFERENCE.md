@@ -137,7 +137,7 @@ Error messages and validation will reflect the configured values, not hardcoded 
 
 ### Preferred Therapy Procedures (bevorzugtes_therapieverfahren)
 
-**Format:** Always returns array, never null (FIXED)
+**Format:** Always returns array, never null ✅ FIXED
 ```json
 {
   "bevorzugtes_therapieverfahren": ["Verhaltenstherapie", "tiefenpsychologisch_fundierte_Psychotherapie"]
@@ -153,28 +153,49 @@ Error messages and validation will reflect the configured values, not hardcoded 
 
 ### Languages (fremdsprachen)
 
-**Format:**
+**Format:** Always returns array, never null ✅ FIXED
 ```json
 {
   "fremdsprachen": ["Englisch", "Französisch", "Spanisch"]
 }
 ```
 
+**Empty case:**
+```json
+{
+  "fremdsprachen": []
+}
+```
+
 ### Therapy Procedures (psychotherapieverfahren)
 
-**Format:**
+**Format:** Always returns array, never null ✅ FIXED
 ```json
 {
   "psychotherapieverfahren": ["Verhaltenstherapie", "Tiefenpsychologie"]
 }
 ```
 
+**Empty case:**
+```json
+{
+  "psychotherapieverfahren": []
+}
+```
+
 ### Preferred Diagnoses (bevorzugte_diagnosen)
 
-**Format:**
+**Format:** Always returns array, never null ✅ FIXED
 ```json
 {
   "bevorzugte_diagnosen": ["F32", "F41", "F43"]
+}
+```
+
+**Empty case:**
+```json
+{
+  "bevorzugte_diagnosen": []
 }
 ```
 
@@ -615,7 +636,7 @@ curl -X DELETE "http://localhost:8001/api/patients/1"
 curl "http://localhost:8002/api/therapists?status=aktiv&potenziell_verfuegbar=true"
 ```
 
-**Example Response:**
+**Example Response (COMPLETE - ALL FIELDS WITH FIXED JSONB DEFAULTS):**
 ```json
 {
   "data": [
@@ -668,6 +689,20 @@ curl "http://localhost:8002/api/therapists?status=aktiv&potenziell_verfuegbar=tr
   "page": 1,
   "limit": 20,
   "total": 85
+}
+```
+
+**Empty JSONB Fields Example:** ✅ FIXED - Now returns proper defaults
+```json
+{
+  "id": 2,
+  "vorname": "Max",
+  "nachname": "Mustermann",
+  "telefonische_erreichbarkeit": {},
+  "fremdsprachen": [],
+  "psychotherapieverfahren": [],
+  "bevorzugte_diagnosen": [],
+  "arbeitszeiten": {}
 }
 ```
 
@@ -772,13 +807,18 @@ curl -X POST "http://localhost:8002/api/therapists" \
   }'
 ```
 
-**Example Response:**
+**Example Response:** ✅ FIXED - All JSONB fields now have proper defaults
 ```json
 {
   "id": 5,
   "vorname": "Michael",
   "nachname": "Becker",
   "email": "m.becker@therapie.de",
+  "psychotherapieverfahren": ["Tiefenpsychologie"],
+  "bevorzugte_diagnosen": ["F32", "F33"],
+  "fremdsprachen": [],
+  "telefonische_erreichbarkeit": {},
+  "arbeitszeiten": {},
   "status": "aktiv",
   "potenziell_verfuegbar": true,
   "ueber_curavani_informiert": false,
@@ -939,7 +979,7 @@ curl -X POST "http://localhost:8003/api/platzsuchen" \
 curl "http://localhost:8003/api/therapeuten-zur-auswahl?plz_prefix=52"
 ```
 
-**Example Response:**
+**Example Response:** ✅ FIXED - JSONB fields now have proper defaults
 ```json
 {
   "plz_prefix": "52",
@@ -960,7 +1000,10 @@ curl "http://localhost:8003/api/therapeuten-zur-auswahl?plz_prefix=52"
       "ueber_curavani_informiert": true,
       "naechster_kontakt_moeglich": null,
       "bevorzugte_diagnosen": ["F32", "F41"],
-      "psychotherapieverfahren": ["Verhaltenstherapie"]
+      "psychotherapieverfahren": ["Verhaltenstherapie"],
+      "fremdsprachen": [],
+      "telefonische_erreichbarkeit": {},
+      "arbeitszeiten": {}
     }
   ]
 }
@@ -1488,24 +1531,35 @@ curl -X DELETE "http://localhost:8004/api/emails/1"
 
 ## ✅ **Fixed Issues:**
 
-1. **Array Fields**: `bevorzugtes_therapieverfahren` now always returns array, never null
-2. **Date Format**: Using simple date format "2025-06-22" instead of ISO timestamps
-3. **Time Format**: Using German day names with string arrays `["09:00-12:00"]`
-4. **Field Names**: All German field names maintained consistently
-5. **Response Structure**: Matches actual backend implementation
+1. **Patient Array Fields**: `bevorzugtes_therapieverfahren` now always returns array, never null (Migration 003)
+2. **Therapist JSONB Fields**: All JSONB fields now return proper defaults instead of null (Migration 004 + API fixes):
+   - Array fields (`fremdsprachen`, `psychotherapieverfahren`, `bevorzugte_diagnosen`) → `[]`
+   - Object fields (`telefonische_erreichbarkeit`, `arbeitszeiten`) → `{}`
+3. **Date Format**: Using simple date format "2025-06-22" instead of ISO timestamps
+4. **Time Format**: Using German day names with string arrays `["09:00-12:00"]`
+5. **Field Names**: All German field names maintained consistently
+6. **Response Structure**: Matches actual backend implementation
 
 ## 🔧 **Backend-Aligned:**
 
-- All examples use actual API response format
+- All examples use actual API response format after JSONB fixes
 - Enum values match backend implementation
-- Field structures match PostgreSQL schema
+- Field structures match PostgreSQL schema with proper defaults
 - Pagination format matches backend response
+- Custom field marshalling prevents null values
 
 ## 📝 **Documentation:**
 
-- Removed "known issues" section (now fixed)
-- Added database migration requirement
-- Updated all example responses to match reality
-- Clarified array field behavior
+- Updated all therapist examples to show proper JSONB defaults
+- Updated patient examples to show fixed array behavior
+- Clarified JSONB field behavior in complex field formats section
+- Added database migration requirement notes
+- Removed any references to null JSONB values
 
-**Note:** This API reference now accurately reflects the backend implementation after the database migration is applied.
+## 🚀 **Latest Migrations Applied:**
+
+- **Migration 002**: Removed hardcoded anfrage size constraints
+- **Migration 003**: Fixed patient array field defaults (`bevorzugtes_therapieverfahren`)
+- **Migration 004**: Fixed therapist JSONB field defaults (all JSONB fields)
+
+**Note:** This API reference now accurately reflects the backend implementation after all database migrations are applied. All JSONB fields will return proper defaults (arrays or objects) instead of null values, ensuring frontend compatibility and preventing crashes.
