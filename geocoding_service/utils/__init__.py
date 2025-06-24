@@ -3,7 +3,9 @@ from .osm import geocode_address, reverse_geocode, get_route
 from .distance import (
     calculate_distance,
     calculate_haversine_distance,
-    find_nearby_therapists
+    calculate_plz_distance,
+    get_plz_centroid,
+    extract_plz_from_address
 )
 
 __all__ = [
@@ -12,5 +14,7 @@ __all__ = [
     'get_route',
     'calculate_distance',
     'calculate_haversine_distance',
-    'find_nearby_therapists'
+    'calculate_plz_distance',
+    'get_plz_centroid',
+    'extract_plz_from_address'
 ]

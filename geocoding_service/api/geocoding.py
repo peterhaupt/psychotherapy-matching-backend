@@ -7,7 +7,7 @@ from flask_restful import Resource, reqparse, fields, marshal_with
 import requests
 
 from utils.osm import geocode_address, reverse_geocode, get_route
-from utils.distance import calculate_distance, find_nearby_therapists
+from utils.distance import calculate_distance, calculate_plz_distance
 
 # Initialize logging
 logger = logging.getLogger(__name__)
@@ -32,12 +32,13 @@ distance_fields = {
     'route_available': fields.Boolean
 }
 
-# Output fields for therapist search responses
-therapist_distance_fields = {
-    'id': fields.Integer,
+# Output fields for PLZ distance responses
+plz_distance_fields = {
     'distance_km': fields.Float,
-    'travel_time_minutes': fields.Float,
-    'travel_mode': fields.String
+    'status': fields.String,
+    'source': fields.String,
+    'origin_centroid': fields.Raw,
+    'destination_centroid': fields.Raw
 }
 
 
@@ -134,6 +135,9 @@ class DistanceCalculationResource(Resource):
         parser.add_argument('no_cache', type=bool, default=False,
                           help='Bypass cache for fresh calculation',
                           location='args')  # Look for arguments in query string
+        parser.add_argument('use_plz_fallback', type=bool, default=True,
+                          help='Use PLZ-based fallback for addresses',
+                          location='args')  # Look for arguments in query string
         
         args = parser.parse_args()
         
@@ -166,64 +170,52 @@ class DistanceCalculationResource(Resource):
             origin, 
             destination,
             travel_mode=args['travel_mode'],
-            use_cache=not args['no_cache']
+            use_cache=not args['no_cache'],
+            use_plz_fallback=args['use_plz_fallback']
         )
         
         return result, 200
 
 
-class TherapistSearchResource(Resource):
-    """REST resource for therapist search operations."""
+class PLZDistanceResource(Resource):
+    """REST resource for PLZ-based distance calculation."""
     
-    def post(self):
-        """Find therapists within a specified distance from a patient."""
+    @marshal_with(plz_distance_fields)
+    def get(self):
+        """Calculate distance between two PLZ centroids."""
         parser = reqparse.RequestParser()
-        # Patient location
-        parser.add_argument('patient_address', type=str,
-                          help='Patient address')
-        parser.add_argument('patient_lat', type=float,
-                          help='Patient latitude')
-        parser.add_argument('patient_lon', type=float,
-                          help='Patient longitude')
-        
-        # Search parameters
-        parser.add_argument('max_distance_km', type=float, default=30.0,
-                          help='Maximum distance in kilometers')
-        parser.add_argument('travel_mode', type=str, default='car',
-                          choices=['car', 'transit'],
-                          help='Mode of transport (car or transit)')
-        
-        # Therapist list
-        parser.add_argument('therapists', type=list, required=True,
-                          help='List of therapist data is required')
+        parser.add_argument('origin_plz', type=str, required=True,
+                          help='Origin PLZ is required',
+                          location='args')
+        parser.add_argument('destination_plz', type=str, required=True,
+                          help='Destination PLZ is required',
+                          location='args')
         
         args = parser.parse_args()
         
-        # Process patient location
-        patient_location = None
-        if args['patient_address']:
-            patient_location = args['patient_address']
-        elif args['patient_lat'] is not None and args['patient_lon'] is not None:
-            patient_location = (args['patient_lat'], args['patient_lon'])
-        else:
+        # Validate PLZ format
+        origin_plz = args['origin_plz'].strip()
+        destination_plz = args['destination_plz'].strip()
+        
+        if len(origin_plz) != 5 or not origin_plz.isdigit():
             return {
-                'status': 'error', 
-                'error': 'Patient location is required (address or coordinates)'
+                'status': 'error',
+                'error': f'Invalid origin PLZ format: {origin_plz}'
+            }, 400
+            
+        if len(destination_plz) != 5 or not destination_plz.isdigit():
+            return {
+                'status': 'error',
+                'error': f'Invalid destination PLZ format: {destination_plz}'
             }, 400
         
-        # Process therapist list
-        therapists = args['therapists']
+        # Calculate distance using PLZ centroids
+        result = calculate_plz_distance(origin_plz, destination_plz)
         
-        # Find nearby therapists
-        results = find_nearby_therapists(
-            patient_location,
-            therapists,
-            max_distance_km=args['max_distance_km'],
-            travel_mode=args['travel_mode']
-        )
-        
-        return {
-            'status': 'success',
-            'count': len(results),
-            'therapists': results
-        }, 200
+        if result:
+            return result, 200
+        else:
+            return {
+                'status': 'error',
+                'error': 'One or both PLZ codes not found'
+            }, 404

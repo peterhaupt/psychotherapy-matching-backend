@@ -5,6 +5,7 @@ from typing import Dict, Optional, Tuple, Any, List, Union
 
 import haversine
 from haversine import Unit
+from sqlalchemy import text
 
 from shared.utils.database import SessionLocal
 from models.geocache import DistanceCache
@@ -40,11 +41,99 @@ def calculate_haversine_distance(
         return 0.0
 
 
+def get_plz_centroid(plz: str) -> Optional[Tuple[float, float]]:
+    """Get centroid coordinates for a PLZ code.
+    
+    Args:
+        plz: German postal code
+        
+    Returns:
+        Tuple of (latitude, longitude) or None if not found
+    """
+    db = SessionLocal()
+    try:
+        result = db.execute(text("""
+            SELECT latitude, longitude 
+            FROM geocoding_service.plz_centroids 
+            WHERE plz = :plz
+        """), {'plz': plz}).fetchone()
+        
+        if result:
+            return (result.latitude, result.longitude)
+        return None
+        
+    finally:
+        db.close()
+
+
+def calculate_plz_distance(
+    origin_plz: str,
+    destination_plz: str
+) -> Optional[Dict[str, Any]]:
+    """Calculate distance between two PLZ centroids.
+    
+    Args:
+        origin_plz: Origin postal code
+        destination_plz: Destination postal code
+        
+    Returns:
+        Dict with distance information or None if PLZ not found
+    """
+    # Get centroids
+    origin_coords = get_plz_centroid(origin_plz)
+    destination_coords = get_plz_centroid(destination_plz)
+    
+    if not origin_coords or not destination_coords:
+        logger.warning(f"PLZ centroid not found for {origin_plz if not origin_coords else destination_plz}")
+        return None
+    
+    # Calculate Haversine distance
+    distance_km = calculate_haversine_distance(origin_coords, destination_coords)
+    
+    return {
+        "distance_km": distance_km,
+        "status": "success",
+        "source": "plz_centroids",
+        "origin_centroid": {
+            "latitude": origin_coords[0],
+            "longitude": origin_coords[1]
+        },
+        "destination_centroid": {
+            "latitude": destination_coords[0],
+            "longitude": destination_coords[1]
+        }
+    }
+
+
+def extract_plz_from_address(address: str) -> Optional[str]:
+    """Extract PLZ (postal code) from an address string.
+    
+    Args:
+        address: Address string that may contain a PLZ
+        
+    Returns:
+        5-digit PLZ string or None if not found
+    """
+    import re
+    
+    # Look for 5-digit number that could be a German PLZ
+    plz_pattern = r'\b(\d{5})\b'
+    matches = re.findall(plz_pattern, address)
+    
+    for match in matches:
+        # German PLZ range is 01001-99998
+        if 1001 <= int(match) <= 99998:
+            return match
+    
+    return None
+
+
 def calculate_distance(
     origin: Union[str, Tuple[float, float]],
     destination: Union[str, Tuple[float, float]],
     travel_mode: str = "car",
-    use_cache: bool = True
+    use_cache: bool = True,
+    use_plz_fallback: bool = True
 ) -> Dict[str, Any]:
     """Calculate distance and travel time between two points.
     
@@ -53,6 +142,7 @@ def calculate_distance(
         destination: Destination address or coordinates
         travel_mode: Mode of transport ("car" or "transit")
         use_cache: Whether to use cached results
+        use_plz_fallback: Whether to use PLZ-based fallback for addresses
         
     Returns:
         Dict with distance and travel time information
@@ -62,6 +152,22 @@ def calculate_distance(
     destination_coords = _ensure_coordinates(destination)
     
     if origin_coords is None or destination_coords is None:
+        # Try PLZ fallback if enabled and inputs are addresses
+        if use_plz_fallback and isinstance(origin, str) and isinstance(destination, str):
+            origin_plz = extract_plz_from_address(origin)
+            destination_plz = extract_plz_from_address(destination)
+            
+            if origin_plz and destination_plz:
+                plz_result = calculate_plz_distance(origin_plz, destination_plz)
+                if plz_result:
+                    # Estimate travel time based on average speeds
+                    avg_speed = 60 if travel_mode == "car" else 15
+                    plz_result["travel_time_minutes"] = round((plz_result["distance_km"] / avg_speed) * 60, 1)
+                    plz_result["travel_mode"] = travel_mode
+                    plz_result["route_available"] = False
+                    plz_result["note"] = "Approximate distance based on postal code areas"
+                    return plz_result
+        
         logger.warning("Could not resolve coordinates for distance calculation")
         return {
             "distance_km": 0,
@@ -144,8 +250,17 @@ def _ensure_coordinates(
     if isinstance(location, tuple) and len(location) == 2:
         return location
     
-    # If string, geocode the address
+    # If string, try PLZ lookup first, then geocode the address
     if isinstance(location, str):
+        # Try to extract PLZ for fast lookup
+        plz = extract_plz_from_address(location)
+        if plz:
+            coords = get_plz_centroid(plz)
+            if coords:
+                logger.debug(f"Using PLZ centroid for {plz}")
+                return coords
+        
+        # Fall back to geocoding
         geocode_result = geocode_address(location)
         if geocode_result:
             return (geocode_result["latitude"], geocode_result["longitude"])
@@ -282,69 +397,3 @@ def _cache_distance_result(
         return False
     finally:
         db.close()
-
-
-def find_nearby_therapists(
-    patient_location: Union[str, Tuple[float, float]],
-    therapists: List[Dict[str, Any]],
-    max_distance_km: float = 30.0,
-    travel_mode: str = "car"
-) -> List[Dict[str, Any]]:
-    """Find therapists within a specified distance from a patient.
-    
-    Args:
-        patient_location: Patient address or coordinates
-        therapists: List of therapist data with address or coordinates
-        max_distance_km: Maximum distance in kilometers
-        travel_mode: Mode of transport
-        
-    Returns:
-        Filtered list of therapists with distance information added
-    """
-    # Ensure patient coordinates
-    patient_coords = _ensure_coordinates(patient_location)
-    if not patient_coords:
-        logger.warning(f"Could not geocode patient location: {patient_location}")
-        return []
-    
-    results = []
-    
-    for therapist in therapists:
-        # Extract therapist location
-        therapist_location = None
-        
-        # Check for coordinates
-        if 'latitude' in therapist and 'longitude' in therapist:
-            therapist_location = (therapist['latitude'], therapist['longitude'])
-        # Otherwise try to build address from components
-        elif all(key in therapist for key in ['strasse', 'plz', 'ort']):
-            therapist_address = f"{therapist['strasse']}, {therapist['plz']} {therapist['ort']}"
-            therapist_location = therapist_address
-        # No location available
-        else:
-            logger.warning(f"No location data for therapist {therapist.get('id')}")
-            continue
-        
-        # Calculate distance
-        distance_result = calculate_distance(
-            patient_coords, therapist_location, travel_mode
-        )
-        
-        # Skip if exceeds maximum distance
-        if distance_result["distance_km"] > max_distance_km:
-            continue
-        
-        # Add distance info to therapist data
-        therapist_with_distance = therapist.copy()
-        therapist_with_distance.update({
-            'distance_km': distance_result["distance_km"],
-            'travel_time_minutes': distance_result["travel_time_minutes"],
-            'travel_mode': travel_mode
-        })
-        
-        results.append(therapist_with_distance)
-    
-    # Sort by distance
-    results.sort(key=lambda x: x['distance_km'])
-    
-    return results

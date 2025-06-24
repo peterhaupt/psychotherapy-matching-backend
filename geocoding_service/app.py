@@ -8,7 +8,7 @@ from api.geocoding import (
     GeocodingResource,
     ReverseGeocodingResource,
     DistanceCalculationResource,
-    TherapistSearchResource
+    PLZDistanceResource
 )
 from events.consumers import start_consumers
 from shared.config import get_config, setup_logging
@@ -43,7 +43,7 @@ def create_app():
     api.add_resource(GeocodingResource, '/api/geocode')
     api.add_resource(ReverseGeocodingResource, '/api/reverse-geocode')
     api.add_resource(DistanceCalculationResource, '/api/calculate-distance')
-    api.add_resource(TherapistSearchResource, '/api/find-therapists')
+    api.add_resource(PLZDistanceResource, '/api/calculate-plz-distance')
 
     # Start Kafka consumers
     start_consumers()
