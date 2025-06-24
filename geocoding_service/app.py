@@ -11,23 +11,15 @@ from api.geocoding import (
     TherapistSearchResource
 )
 from events.consumers import start_consumers
-from shared.config import get_config
-
-# Get configuration
-config = get_config()
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO if not config.FLASK_DEBUG else logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-
-logger = logging.getLogger(__name__)
+from shared.config import get_config, setup_logging
 
 
 def create_app():
     """Create and configure the Flask application."""
     app = Flask(__name__)
+    
+    # Get configuration
+    config = get_config()
 
     # Configure CORS using centralized settings
     CORS(app, **config.get_cors_settings())
@@ -60,6 +52,12 @@ def create_app():
 
 
 if __name__ == "__main__":
+    # Set up centralized logging
+    setup_logging("geocoding-service")
+    
+    config = get_config()
+    logger = logging.getLogger(__name__)
+    
     app = create_app()
     app.run(
         host="0.0.0.0", 

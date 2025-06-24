@@ -1,5 +1,5 @@
 """Shared configuration package for the therapy platform."""
-from .settings import config, get_config, Config, DevelopmentConfig, ProductionConfig, TestConfig
+from .settings import config, get_config, Config, DevelopmentConfig, ProductionConfig, TestConfig, setup_logging
 
 __all__ = [
     'config',
@@ -7,5 +7,6 @@ __all__ = [
     'Config',
     'DevelopmentConfig',
     'ProductionConfig',
-    'TestConfig'
+    'TestConfig',
+    'setup_logging'
 ]
