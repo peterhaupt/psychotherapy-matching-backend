@@ -5,11 +5,15 @@ from typing import List, Optional, Dict, Any
 
 from sqlalchemy import (
     Column, DateTime, Enum as SQLAlchemyEnum,
-    ForeignKey, Integer, String, Text, event, CheckConstraint
+    ForeignKey, Integer, String, Text, event
 )
 from sqlalchemy.orm import relationship, validates
 
 from shared.utils.database import Base
+from shared.config import get_config
+
+# Get configuration
+config = get_config()
 
 
 class AntwortTyp(str, Enum):
@@ -30,10 +34,7 @@ class Therapeutenanfrage(Base):
     
     __tablename__ = "therapeutenanfrage"
     __table_args__ = (
-        CheckConstraint('anfragegroesse >= 3 AND anfragegroesse <= 6', name='anfrage_size_check'),
-        CheckConstraint('angenommen_anzahl >= 0', name='accepted_count_check'),
-        CheckConstraint('abgelehnt_anzahl >= 0', name='rejected_count_check'),
-        CheckConstraint('keine_antwort_anzahl >= 0', name='no_response_count_check'),
+        # REMOVED: CheckConstraint for anfragegroesse (now using env vars)
         {"schema": "matching_service"}
     )
     
@@ -107,10 +108,15 @@ class Therapeutenanfrage(Base):
             patient_searches: List of tuples (platzsuche_id, patient_id)
             
         Raises:
-            ValueError: If trying to add more than 6 patients or less than 3
+            ValueError: If trying to add invalid number of patients
         """
-        if len(patient_searches) < 3 or len(patient_searches) > 6:
-            raise ValueError("Inquiry must contain between 3 and 6 patients")
+        # Get dynamic configuration
+        anfrage_config = config.get_anfrage_config()
+        min_size = anfrage_config['min_size']
+        max_size = anfrage_config['max_size']
+        
+        if len(patient_searches) < min_size or len(patient_searches) > max_size:
+            raise ValueError(f"Inquiry must contain between {min_size} and {max_size} patients")
         
         # Import here to avoid circular imports
         from .therapeut_anfrage_patient import TherapeutAnfragePatient
@@ -250,7 +256,7 @@ class Therapeutenanfrage(Base):
     
     @validates('anfragegroesse')
     def validate_anfrage_size(self, key, value):
-        """Validate inquiry size is between 3 and 6.
+        """Validate inquiry size using dynamic configuration.
         
         Args:
             key: The attribute key
@@ -262,8 +268,13 @@ class Therapeutenanfrage(Base):
         Raises:
             ValueError: If inquiry size is invalid
         """
-        if value < 3 or value > 6:
-            raise ValueError(f"Inquiry size must be between 3 and 6, got {value}")
+        # Get dynamic configuration
+        anfrage_config = config.get_anfrage_config()
+        min_size = anfrage_config['min_size']
+        max_size = anfrage_config['max_size']
+        
+        if value < min_size or value > max_size:
+            raise ValueError(f"Inquiry size must be between {min_size} and {max_size}, got {value}")
         return value
     
     def set_cooling_period_for_therapist(self, weeks: int = 4) -> None:

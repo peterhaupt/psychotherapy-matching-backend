@@ -8,6 +8,7 @@ from sqlalchemy import and_, or_, desc
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from shared.api import PaginatedListResource
+from shared.config import get_config
 from db import get_db_context
 from models import Platzsuche, Therapeutenanfrage, TherapeutAnfragePatient
 from models.platzsuche import SuchStatus
@@ -26,6 +27,9 @@ from algorithms.anfrage_creator import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Get configuration
+config = get_config()
 
 
 class PlatzsucheResource(Resource):
@@ -374,9 +378,13 @@ class TherapeutenZurAuswahlResource(Resource):
         
         plz_prefix = args['plz_prefix']
         
-        # Validate PLZ prefix
-        if not plz_prefix or len(plz_prefix) != 2 or not plz_prefix.isdigit():
-            return {"message": "Invalid PLZ prefix. Must be exactly 2 digits."}, 400
+        # Get PLZ match digits from configuration
+        anfrage_config = config.get_anfrage_config()
+        plz_match_digits = anfrage_config['plz_match_digits']
+        
+        # Validate PLZ prefix using dynamic configuration
+        if not plz_prefix or len(plz_prefix) != plz_match_digits or not plz_prefix.isdigit():
+            return {"message": f"Invalid PLZ prefix. Must be exactly {plz_match_digits} digits."}, 400
         
         try:
             # Get filtered and sorted therapists
@@ -599,9 +607,13 @@ class AnfrageCreationResource(Resource):
         
         plz_prefix = args['plz_prefix']
         
-        # Validate PLZ prefix
-        if not plz_prefix or len(plz_prefix) != 2 or not plz_prefix.isdigit():
-            return {"message": "Invalid PLZ prefix. Must be exactly 2 digits."}, 400
+        # Get PLZ match digits from configuration
+        anfrage_config = config.get_anfrage_config()
+        plz_match_digits = anfrage_config['plz_match_digits']
+        
+        # Validate PLZ prefix using dynamic configuration
+        if not plz_prefix or len(plz_prefix) != plz_match_digits or not plz_prefix.isdigit():
+            return {"message": f"Invalid PLZ prefix. Must be exactly {plz_match_digits} digits."}, 400
         
         try:
             with get_db_context() as db:

@@ -10,6 +10,10 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship, validates
 
 from shared.utils.database import Base
+from shared.config import get_config
+
+# Get configuration
+config = get_config()
 
 
 class AnfragePatientStatus(str, Enum):
@@ -285,7 +289,7 @@ class TherapeutAnfragePatient(Base):
     
     @validates('position_in_anfrage')
     def validate_position(self, key, value):
-        """Validate position is positive.
+        """Validate position using dynamic configuration.
         
         Args:
             key: The attribute key
@@ -299,8 +303,14 @@ class TherapeutAnfragePatient(Base):
         """
         if value < 1:
             raise ValueError(f"Position must be >= 1, got {value}")
-        if value > 6:  # Max inquiry size
-            raise ValueError(f"Position must be <= 6 (max inquiry size), got {value}")
+        
+        # Get dynamic max size from configuration
+        anfrage_config = config.get_anfrage_config()
+        max_size = anfrage_config['max_size']
+        
+        if value > max_size:
+            raise ValueError(f"Position must be <= {max_size} (max inquiry size), got {value}")
+        
         return value
     
     @validates('status')

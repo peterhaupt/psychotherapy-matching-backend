@@ -2,7 +2,7 @@
 
 **Single Source of Truth for All API Integration**
 
-Last Updated: December 2024
+Last Updated: January 2025
 
 ## Overview
 
@@ -16,6 +16,16 @@ This document contains the complete API specification for all microservices. All
 - Geocoding Service: `http://localhost:8005/api`
 
 **Authentication:** None (internal administrative interface)
+
+## Dynamic Configuration
+
+The following values are configurable via environment variables and will be reflected in error messages and validation:
+
+- **MIN_ANFRAGE_SIZE**: Minimum patients per inquiry (default: 1)
+- **MAX_ANFRAGE_SIZE**: Maximum patients per inquiry (default: 6) 
+- **PLZ_MATCH_DIGITS**: PLZ prefix length for filtering (default: 2)
+
+Error messages and validation will reflect the configured values, not hardcoded constants.
 
 ## Common Response Patterns
 
@@ -729,7 +739,7 @@ curl -X POST "http://localhost:8003/api/platzsuchen" \
 **Description:** Get therapists available for manual selection, filtered by PLZ prefix.
 
 **Query Parameters:**
-- `plz_prefix` (required): Two-digit PLZ prefix (e.g., "52")
+- `plz_prefix` (required): PLZ prefix with configurable digits (default: 2 digits, e.g., "52")
 
 **Sorting Order:**
 1. Available AND informed about Curavani
@@ -882,7 +892,7 @@ curl "http://localhost:8003/api/therapeutenanfragen/101"
 
 **Required Fields:**
 - `therapist_id` (integer): ID of the selected therapist
-- `plz_prefix` (string): Two-digit PLZ prefix
+- `plz_prefix` (string): PLZ prefix with configurable digits (default: 2 digits)
 
 **Optional Fields:**
 - `sofort_senden` (boolean): Send immediately if true (default: false)
@@ -895,7 +905,7 @@ curl "http://localhost:8003/api/therapeutenanfragen/101"
    - All patient preferences must match or be null
    - All therapist preferences must match or be null
 3. Selects oldest patients first (by search creation date)
-4. Creates inquiry with 1-6 patients (configurable max)
+4. Creates inquiry with configurable size (1-6 patients by default)
 
 **Example Request:**
 ```bash
@@ -917,6 +927,13 @@ curl -X POST "http://localhost:8003/api/therapeutenanfragen/erstellen-fuer-thera
   "anfragegroesse": 4,
   "patient_ids": [1, 5, 8, 12],
   "gesendet": true
+}
+```
+
+**Error Response (Invalid PLZ):**
+```json
+{
+  "message": "Invalid PLZ prefix. Must be exactly {PLZ_MATCH_DIGITS} digits."
 }
 ```
 
@@ -1588,6 +1605,13 @@ curl -X POST "http://localhost:8005/api/find-therapists" \
 }
 ```
 
+### Configuration-Based Validation Errors (400)
+```json
+{
+  "message": "Invalid PLZ prefix. Must be exactly {PLZ_MATCH_DIGITS} digits."
+}
+```
+
 ---
 
 # Testing Quick Reference
@@ -1623,7 +1647,7 @@ curl -X POST "http://localhost:8003/api/platzsuchen" \
   -H "Content-Type: application/json" \
   -d '{"patient_id": 1}'
 
-# 2. Get therapists for selection
+# 2. Get therapists for selection (using configurable PLZ prefix)
 curl "http://localhost:8003/api/therapeuten-zur-auswahl?plz_prefix=52"
 
 # 3. Create inquiry for selected therapist
@@ -1736,14 +1760,14 @@ curl -X DELETE "http://localhost:8004/api/phone-calls/1"
 
 ---
 
-**Note:** This document represents the current API state as of December 2024. All field names are in German, and the structure is flat (no nested objects). Always use the exact field names and enum values specified in this document. 
+**Note:** This document represents the current API state as of January 2025. All field names are in German, and the structure is flat (no nested objects). Always use the exact field names and enum values specified in this document. 
 
 **Important Updates:**
 - All "Bundle/Bündel" terminology has been replaced with "Inquiry/Anfrage"
 - The matching service now uses manual therapist selection with PLZ-based filtering
 - New endpoints for therapist selection and manual inquiry creation
 - All list endpoints now return paginated responses with `data`, `page`, `limit`, and `total` fields
-- Minimum inquiry size is now 1 (was 3)
+- **Dynamic Configuration**: Inquiry size limits and PLZ prefix length are now configurable via environment variables
 - New patient fields: `symptome`, `erfahrung_mit_psychotherapie`, `bevorzugtes_therapieverfahren`
 - Removed patient fields: `bevorzugtes_therapeutenalter_min`, `bevorzugtes_therapeutenalter_max`
 - New therapist field: `ueber_curavani_informiert`
