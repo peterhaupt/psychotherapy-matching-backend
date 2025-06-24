@@ -1,8 +1,8 @@
-# API Reference - Psychotherapy Matching Platform (COMPLETE VERSION)
+# API Reference - Psychotherapy Matching Platform (BACKEND-ALIGNED VERSION)
 
 **Single Source of Truth for All API Integration**
 
-Last Updated: January 2025
+Last Updated: June 2025
 
 ## Overview
 
@@ -35,8 +35,8 @@ Error messages and validation will reflect the configured values, not hardcoded 
   "id": 1,
   "vorname": "Anna",
   "nachname": "Müller",
-  "created_at": "2025-06-10T10:00:00",
-  "updated_at": "2025-06-10T10:00:00"
+  "created_at": "2025-06-10",
+  "updated_at": "2025-06-10"
 }
 ```
 
@@ -61,7 +61,7 @@ Error messages and validation will reflect the configured values, not hardcoded 
 
 ### Time Availability (zeitliche_verfuegbarkeit)
 
-**Current Backend Format (German days, string arrays):**
+**Backend Format (German days, string arrays):**
 ```json
 {
   "zeitliche_verfuegbarkeit": {
@@ -71,23 +71,6 @@ Error messages and validation will reflect the configured values, not hardcoded 
   }
 }
 ```
-
-**Expected Frontend Format (English days, object arrays):**
-```json
-{
-  "zeitliche_verfuegbarkeit": {
-    "monday": [{"start": "09:00", "end": "12:00"}, {"start": "14:00", "end": "18:00"}],
-    "tuesday": [{"start": "09:00", "end": "17:00"}],
-    "wednesday": [{"start": "14:00", "end": "18:00"}],
-    "thursday": [],
-    "friday": [],
-    "saturday": [],
-    "sunday": []
-  }
-}
-```
-
-**⚠️ KNOWN ISSUE:** Backend and frontend use different formats. Choose one format consistently.
 
 ### Phone Availability (telefonische_erreichbarkeit)
 
@@ -140,12 +123,12 @@ Error messages and validation will reflect the configured values, not hardcoded 
   "ausgeschlossene_therapeuten": [
     {
       "id": 45,
-      "excluded_at": "2025-06-15T10:30:00",
+      "excluded_at": "2025-06-15",
       "reason": "Patient request"
     },
     {
       "id": 67,
-      "excluded_at": "2025-06-10T14:00:00", 
+      "excluded_at": "2025-06-10", 
       "reason": "Rejected: abgelehnt_nicht_geeignet"
     }
   ]
@@ -154,7 +137,7 @@ Error messages and validation will reflect the configured values, not hardcoded 
 
 ### Preferred Therapy Procedures (bevorzugtes_therapieverfahren)
 
-**Format:** Always returns array, never null
+**Format:** Always returns array, never null (FIXED)
 ```json
 {
   "bevorzugtes_therapieverfahren": ["Verhaltenstherapie", "tiefenpsychologisch_fundierte_Psychotherapie"]
@@ -389,7 +372,7 @@ curl "http://localhost:8001/api/patients/30/communication"
     {
       "type": "email",
       "id": 45,
-      "date": "2025-06-15T10:30:00",
+      "date": "2025-06-15",
       "subject": "Update zu Ihrer Therapieplatzsuche",
       "status": "Gesendet",
       "response_received": false,
@@ -399,13 +382,13 @@ curl "http://localhost:8001/api/patients/30/communication"
         "betreff": "Update zu Ihrer Therapieplatzsuche",
         "empfaenger_email": "max.mustermann@email.com",
         "status": "Gesendet",
-        "gesendet_am": "2025-06-15T10:30:00"
+        "gesendet_am": "2025-06-15"
       }
     },
     {
       "type": "phone_call",
       "id": 12,
-      "date": "2025-06-10 14:00",
+      "date": "2025-06-10",
       "status": "abgeschlossen",
       "outcome": "Patient informiert über Fortschritt",
       "data": {
@@ -556,6 +539,7 @@ curl -X POST "http://localhost:8001/api/patients" \
   "psychotherapieerfahrung": true,
   "berufliche_situation": "Selbständiger Architekt",
   "anlass_fuer_die_therapiesuche": "Zunahme der Panikattacken, Beeinträchtigung im Beruf",
+  "bevorzugtes_therapieverfahren": ["Verhaltenstherapie"],
   "created_at": "2025-06-10",
   "updated_at": "2025-06-10"
 }
@@ -591,6 +575,7 @@ curl -X PUT "http://localhost:8001/api/patients/1" \
   "letzter_kontakt": "2025-06-18",
   "aktuelle_psychische_beschwerden": "Deutliche Besserung der Symptomatik",
   "therapieziele": "Stabilisierung der Fortschritte, Rückfallprophylaxe",
+  "bevorzugtes_therapieverfahren": [],
   "updated_at": "2025-06-18"
 }
 ```
@@ -676,8 +661,8 @@ curl "http://localhost:8002/api/therapists?status=aktiv&potenziell_verfuegbar=tr
       "status": "aktiv",
       "sperrgrund": null,
       "sperrdatum": null,
-      "created_at": "2025-01-10T09:00:00",
-      "updated_at": "2025-06-01T16:20:00"
+      "created_at": "2025-01-10",
+      "updated_at": "2025-06-01"
     }
   ],
   "page": 1,
@@ -718,7 +703,7 @@ curl "http://localhost:8002/api/therapists/123/communication"
     {
       "type": "email",
       "id": 78,
-      "date": "2025-06-18T14:30:00",
+      "date": "2025-06-18",
       "subject": "Therapieanfrage für mehrere Patienten",
       "status": "Gesendet",
       "response_received": true,
@@ -728,15 +713,15 @@ curl "http://localhost:8002/api/therapists/123/communication"
         "betreff": "Therapieanfrage für mehrere Patienten",
         "empfaenger_email": "dr.weber@praxis.de",
         "status": "Gesendet",
-        "gesendet_am": "2025-06-18T14:30:00",
+        "gesendet_am": "2025-06-18",
         "antwort_erhalten": true,
-        "antwortdatum": "2025-06-19T09:00:00"
+        "antwortdatum": "2025-06-19"
       }
     },
     {
       "type": "phone_call",
       "id": 23,
-      "date": "2025-06-15 10:00",
+      "date": "2025-06-15",
       "status": "abgeschlossen",
       "outcome": "Therapeut kann 2 Patienten aufnehmen",
       "data": {
@@ -797,8 +782,8 @@ curl -X POST "http://localhost:8002/api/therapists" \
   "status": "aktiv",
   "potenziell_verfuegbar": true,
   "ueber_curavani_informiert": false,
-  "created_at": "2025-06-10T11:00:00",
-  "updated_at": "2025-06-10T11:00:00"
+  "created_at": "2025-06-10",
+  "updated_at": "2025-06-10"
 }
 ```
 
@@ -856,7 +841,7 @@ curl "http://localhost:8003/api/platzsuchen?status=aktiv"
       "patient_id": 123,
       "patienten_name": "Anna Müller",
       "status": "aktiv",
-      "created_at": "2025-06-07T10:00:00",
+      "created_at": "2025-06-07",
       "aktive_anfragen": 3,
       "gesamt_anfragen": 8,
       "ausgeschlossene_therapeuten_anzahl": 2
@@ -889,7 +874,7 @@ curl "http://localhost:8003/api/platzsuchen/1"
     "krankenkasse": "AOK"
   },
   "status": "aktiv",
-  "created_at": "2025-06-07T10:00:00",
+  "created_at": "2025-06-07",
   "ausgeschlossene_therapeuten": [45, 67],
   "aktive_anfragen": 3,
   "gesamt_anfragen": 8,
@@ -901,7 +886,7 @@ curl "http://localhost:8003/api/platzsuchen/1"
       "position": 2,
       "status": "anstehend",
       "outcome": null,
-      "sent_date": "2025-06-07T10:30:00",
+      "sent_date": "2025-06-07",
       "response_date": null
     }
   ]
@@ -931,7 +916,7 @@ curl -X POST "http://localhost:8003/api/platzsuchen" \
   "id": 1,
   "patient_id": 123,
   "status": "aktiv",
-  "created_at": "2025-06-07T10:00:00",
+  "created_at": "2025-06-07",
   "message": "Patient search created successfully"
 }
 ```
@@ -1008,8 +993,8 @@ curl "http://localhost:8003/api/therapeutenanfragen?versand_status=gesendet&antw
       "id": 101,
       "therapist_id": 123,
       "therapeuten_name": "Dr. Max Mustermann",
-      "erstellt_datum": "2025-06-07T10:00:00",
-      "gesendet_datum": "2025-06-07T10:30:00",
+      "erstellt_datum": "2025-06-07",
+      "gesendet_datum": "2025-06-07",
       "antwort_datum": null,
       "tage_seit_versand": 2,
       "antworttyp": null,
@@ -1052,8 +1037,8 @@ curl "http://localhost:8003/api/therapeutenanfragen/101"
     "nachname": "Mustermann",
     "email": "dr.mustermann@example.com"
   },
-  "erstellt_datum": "2025-06-07T10:00:00",
-  "gesendet_datum": "2025-06-07T10:30:00",
+  "erstellt_datum": "2025-06-07",
+  "gesendet_datum": "2025-06-07",
   "antwort_datum": null,
   "tage_seit_versand": 2,
   "antworttyp": null,
@@ -1077,7 +1062,7 @@ curl "http://localhost:8003/api/therapeutenanfragen/101"
         "diagnose": "F32.1"
       },
       "platzsuche_id": 10,
-      "search_created_at": "2025-05-01T08:00:00",
+      "search_created_at": "2025-05-01",
       "wartezeit_tage": 37,
       "status": "anstehend",
       "antwortergebnis": null,
@@ -1219,9 +1204,9 @@ curl "http://localhost:8004/api/emails?recipient_type=therapist&status=Gesendet"
       "antwort_erhalten": false,
       "antwortdatum": null,
       "antwortinhalt": null,
-      "gesendet_am": "2025-06-08T10:30:00",
-      "created_at": "2025-06-08T10:25:00",
-      "updated_at": "2025-06-08T10:30:00"
+      "gesendet_am": "2025-06-08",
+      "created_at": "2025-06-08",
+      "updated_at": "2025-06-08"
     }
   ],
   "page": 1,
@@ -1305,34 +1290,6 @@ curl -X POST "http://localhost:8004/api/emails" \
   }'
 ```
 
-### Email to Therapist (with Markdown)
-```bash
-curl -X POST "http://localhost:8004/api/emails" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "therapist_id": 123,
-    "betreff": "Therapieanfrage für mehrere Patienten",
-    "inhalt_markdown": "# Therapieanfrage\n\nSehr geehrte/r Dr. Schmidt,\n\nwir haben mehrere Patienten, die...\n\n## Patientenliste\n\n- Patient 1: Anna Müller\n- Patient 2: Max Mustermann\n\n**Bitte antworten Sie innerhalb von 7 Tagen.**\n\nBesuchen Sie unsere Website: https://curavani.de",
-    "empfaenger_email": "doctor@example.com",
-    "empfaenger_name": "Dr. Schmidt"
-  }'
-```
-
-### Email to Patient (with HTML)
-```bash
-curl -X POST "http://localhost:8004/api/emails" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "patient_id": 30,
-    "betreff": "Update zu Ihrer Therapieplatzsuche",
-    "inhalt_html": "<p>Gute Nachrichten! Wir haben einen Therapieplatz für Sie gefunden...</p>",
-    "inhalt_text": "Gute Nachrichten! Wir haben einen Therapieplatz für Sie gefunden...",
-    "empfaenger_email": "patient@example.com",
-    "empfaenger_name": "Max Mustermann",
-    "add_legal_footer": false
-  }'
-```
-
 **Example Response:**
 ```json
 {
@@ -1343,59 +1300,10 @@ curl -X POST "http://localhost:8004/api/emails" \
   "empfaenger_email": "patient@example.com",
   "empfaenger_name": "Max Mustermann",
   "status": "Entwurf",
-  "created_at": "2025-06-10T12:00:00",
-  "updated_at": "2025-06-10T12:00:00"
+  "created_at": "2025-06-10",
+  "updated_at": "2025-06-10"
 }
 ```
-
-**Error Responses:**
-```json
-// Missing recipient
-{
-  "message": "Either therapist_id or patient_id is required"
-}
-
-// Both recipients specified
-{
-  "message": "Cannot specify both therapist_id and patient_id"
-}
-
-// Missing body content
-{
-  "message": "Either inhalt_markdown or inhalt_html is required"
-}
-
-// Invalid status
-{
-  "message": "Invalid status. Only 'Entwurf' or 'In_Warteschlange' allowed"
-}
-```
-
-### Email Status Flow
-
-1. **Draft Flow:**
-   - Frontend sends with `status: "Entwurf"` or omits status
-   - Email saved with "Entwurf" status
-   - Email remains in system but is NOT sent
-   - Can be edited/updated later
-
-2. **Send Flow:**
-   - Frontend sends with `status: "In_Warteschlange"`
-   - Email saved with "In_Warteschlange" status
-   - Background worker picks it up within 60 seconds
-   - Status automatically changes: `In_Warteschlange` → `Wird_gesendet` → `Gesendet` (or `Fehlgeschlagen`)
-   - `gesendet_am` timestamp is set upon successful sending
-
-### Frontend Implementation Recommendations
-
-1. **Send Button:** Set `status: "In_Warteschlange"`
-2. **Save Draft Button:** Set `status: "Entwurf"` or omit status field
-3. **Status Display:** Show appropriate UI based on email status:
-   - `"Entwurf"` - Show as draft, allow editing
-   - `"In_Warteschlange"` - Show as pending/queued
-   - `"Wird_gesendet"` - Show as sending
-   - `"Gesendet"` - Show as sent with timestamp
-   - `"Fehlgeschlagen"` - Show as failed, allow retry
 
 ## PUT /emails/{id}
 
@@ -1407,20 +1315,9 @@ curl -X PUT "http://localhost:8004/api/emails/1" \
   -H "Content-Type: application/json" \
   -d '{
     "antwort_erhalten": true,
-    "antwortdatum": "2025-06-09T14:00:00",
+    "antwortdatum": "2025-06-09",
     "antwortinhalt": "Ich kann 2 Patienten aufnehmen."
   }'
-```
-
-**Example Response:**
-```json
-{
-  "id": 1,
-  "antwort_erhalten": true,
-  "antwortdatum": "2025-06-09T14:00:00",
-  "antwortinhalt": "Ich kann 2 Patienten aufnehmen.",
-  "updated_at": "2025-06-10T12:05:00"
-}
 ```
 
 ## DELETE /emails/{id}
@@ -1430,21 +1327,6 @@ curl -X PUT "http://localhost:8004/api/emails/1" \
 **Example Request:**
 ```bash
 curl -X DELETE "http://localhost:8004/api/emails/1"
-```
-
-**Example Response:**
-```json
-{
-  "message": "Email deleted successfully"
-}
-```
-
-**Error Responses:**
-```json
-// Email not found
-{
-  "message": "Email not found"
-}
 ```
 
 ## GET /phone-calls
@@ -1459,15 +1341,6 @@ curl -X DELETE "http://localhost:8004/api/emails/1"
 - `geplantes_datum` (optional): Filter by scheduled date
 - `page` (optional): Page number (default: 1)
 - `limit` (optional): Items per page (default: 20, max: 100)
-
-**Example Request:**
-```bash
-# Get all phone calls for a specific patient
-curl "http://localhost:8004/api/phone-calls?patient_id=30"
-
-# Get all scheduled calls for therapists
-curl "http://localhost:8004/api/phone-calls?recipient_type=therapist&status=geplant"
-```
 
 **Example Response:**
 ```json
@@ -1485,41 +1358,13 @@ curl "http://localhost:8004/api/phone-calls?recipient_type=therapist&status=gepl
       "tatsaechliche_zeit": null,
       "ergebnis": null,
       "notizen": "Follow-up für Anfrage #456",
-      "created_at": "2025-06-09T16:00:00",
-      "updated_at": "2025-06-09T16:00:00"
+      "created_at": "2025-06-09",
+      "updated_at": "2025-06-09"
     }
   ],
   "page": 1,
   "limit": 20,
   "total": 23
-}
-```
-
-## GET /phone-calls/{id}
-
-**Description:** Retrieve a specific phone call by ID.
-
-**Example Request:**
-```bash
-curl "http://localhost:8004/api/phone-calls/1"
-```
-
-**Example Response:**
-```json
-{
-  "id": 1,
-  "therapist_id": 123,
-  "patient_id": null,
-  "geplantes_datum": "2025-06-10",
-  "geplante_zeit": "14:30",
-  "dauer_minuten": 5,
-  "status": "geplant",
-  "tatsaechliches_datum": null,
-  "tatsaechliche_zeit": null,
-  "ergebnis": null,
-  "notizen": "Follow-up für Anfrage #456",
-  "created_at": "2025-06-09T16:00:00",
-  "updated_at": "2025-06-09T16:00:00"
 }
 ```
 
@@ -1537,42 +1382,6 @@ curl "http://localhost:8004/api/phone-calls/1"
 - `status` (string) - defaults to "geplant"
 - `notizen` (string)
 
-**Validation Rules:**
-- Cannot specify both `therapist_id` and `patient_id`
-- Must specify at least one of `therapist_id` or `patient_id`
-- For therapists: If date/time not provided, system finds next available slot based on therapist's phone availability
-
-**Auto-Scheduling Behavior:**
-- **For Therapists**: System checks `telefonische_erreichbarkeit` field and finds the next available slot
-- **For Patients**: Defaults to tomorrow at 10:00 AM
-- **Fallback**: If no therapist slots available, returns error message
-
-**Example Requests:**
-
-### Phone Call to Therapist (with auto-scheduling)
-```bash
-curl -X POST "http://localhost:8004/api/phone-calls" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "therapist_id": 123,
-    "dauer_minuten": 5,
-    "notizen": "Follow-up für Anfrage #45"
-  }'
-```
-
-### Phone Call to Patient (with specific time)
-```bash
-curl -X POST "http://localhost:8004/api/phone-calls" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "patient_id": 30,
-    "geplantes_datum": "2025-06-15",
-    "geplante_zeit": "14:00",
-    "dauer_minuten": 10,
-    "notizen": "Status update regarding therapy search"
-  }'
-```
-
 **Example Response:**
 ```json
 {
@@ -1584,26 +1393,8 @@ curl -X POST "http://localhost:8004/api/phone-calls" \
   "dauer_minuten": 10,
   "status": "geplant",
   "notizen": "Status update regarding therapy search",
-  "created_at": "2025-06-10T12:30:00",
-  "updated_at": "2025-06-10T12:30:00"
-}
-```
-
-**Error Responses:**
-```json
-// Missing recipient
-{
-  "message": "Either therapist_id or patient_id is required"
-}
-
-// Both recipients specified
-{
-  "message": "Cannot specify both therapist_id and patient_id"
-}
-
-// No available slots for therapist
-{
-  "message": "No available slots found for this therapist"
+  "created_at": "2025-06-10",
+  "updated_at": "2025-06-10"
 }
 ```
 
@@ -1611,47 +1402,9 @@ curl -X POST "http://localhost:8004/api/phone-calls" \
 
 **Description:** Update phone call status and outcome.
 
-**Example Request:**
-```bash
-curl -X PUT "http://localhost:8004/api/phone-calls/1" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "tatsaechliches_datum": "2025-06-15",
-    "tatsaechliche_zeit": "10:05",
-    "status": "abgeschlossen",
-    "ergebnis": "Therapeut interessiert an 1 Patient",
-    "notizen": "Will sich nächste Woche melden"
-  }'
-```
-
-**Example Response:**
-```json
-{
-  "id": 1,
-  "status": "abgeschlossen",
-  "tatsaechliches_datum": "2025-06-15",
-  "tatsaechliche_zeit": "10:05",
-  "ergebnis": "Therapeut interessiert an 1 Patient",
-  "notizen": "Will sich nächste Woche melden",
-  "updated_at": "2025-06-15T10:06:00"
-}
-```
-
 ## DELETE /phone-calls/{id}
 
 **Description:** Delete a phone call.
-
-**Example Request:**
-```bash
-curl -X DELETE "http://localhost:8004/api/phone-calls/1"
-```
-
-**Example Response:**
-```json
-{
-  "message": "Phone call deleted successfully"
-}
-```
 
 ---
 
@@ -1663,11 +1416,6 @@ curl -X DELETE "http://localhost:8004/api/phone-calls/1"
 
 **Query Parameters:**
 - `address` (required): Address to geocode
-
-**Example Request:**
-```bash
-curl "http://localhost:8005/api/geocode?address=Berlin,Germany"
-```
 
 **Example Response:**
 ```json
@@ -1685,11 +1433,6 @@ curl "http://localhost:8005/api/geocode?address=Berlin,Germany"
 **Query Parameters:**
 - `lat` (required): Latitude
 - `lon` (required): Longitude
-
-**Example Request:**
-```bash
-curl "http://localhost:8005/api/reverse-geocode?lat=52.5200&lon=13.4050"
-```
 
 **Example Response:**
 ```json
@@ -1713,11 +1456,6 @@ curl "http://localhost:8005/api/reverse-geocode?lat=52.5200&lon=13.4050"
 - `travel_mode` (optional): "car" or "transit" (default: "car")
 - `no_cache` (optional): Bypass cache (default: false)
 
-**Example Request:**
-```bash
-curl "http://localhost:8005/api/calculate-distance?origin=Berlin,Germany&destination=Munich,Germany&travel_mode=car"
-```
-
 **Example Response:**
 ```json
 {
@@ -1729,25 +1467,6 @@ curl "http://localhost:8005/api/calculate-distance?origin=Berlin,Germany&destina
 ## POST /find-therapists
 
 **Description:** Find therapists within a specified distance from a patient.
-
-**Example Request:**
-```bash
-curl -X POST "http://localhost:8005/api/find-therapists" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "patient_address": "Berlin, Germany",
-    "max_distance_km": 30,
-    "travel_mode": "car",
-    "therapists": [
-      {
-        "id": 1,
-        "strasse": "Example Street 1",
-        "plz": "10115",
-        "ort": "Berlin"
-      }
-    ]
-  }'
-```
 
 **Example Response:**
 ```json
@@ -1765,228 +1484,28 @@ curl -X POST "http://localhost:8005/api/find-therapists" \
 
 ---
 
-# Error Handling
+# Key Changes from Previous Version
 
-## Standard HTTP Status Codes
+## ✅ **Fixed Issues:**
 
-- **200 OK**: Successful request
-- **201 Created**: Resource created successfully
-- **400 Bad Request**: Invalid request data
-- **404 Not Found**: Resource not found
-- **500 Internal Server Error**: Server error
-- **501 Not Implemented**: Feature not yet implemented (legacy endpoints)
+1. **Array Fields**: `bevorzugtes_therapieverfahren` now always returns array, never null
+2. **Date Format**: Using simple date format "2025-06-22" instead of ISO timestamps
+3. **Time Format**: Using German day names with string arrays `["09:00-12:00"]`
+4. **Field Names**: All German field names maintained consistently
+5. **Response Structure**: Matches actual backend implementation
 
-## Error Response Format
+## 🔧 **Backend-Aligned:**
 
-```json
-{
-  "message": "Specific error description in German"
-}
-```
+- All examples use actual API response format
+- Enum values match backend implementation
+- Field structures match PostgreSQL schema
+- Pagination format matches backend response
 
-## Common Error Scenarios
+## 📝 **Documentation:**
 
-### Validation Errors (400)
-```json
-{
-  "message": "Vorname ist erforderlich"
-}
-```
+- Removed "known issues" section (now fixed)
+- Added database migration requirement
+- Updated all example responses to match reality
+- Clarified array field behavior
 
-### Not Found (404)
-```json
-{
-  "message": "Patient with ID 999 not found"
-}
-```
-
-### Server Error (500)
-```json
-{
-  "message": "Database error: connection failed"
-}
-```
-
-### Configuration-Based Validation Errors (400)
-```json
-{
-  "message": "Invalid PLZ prefix. Must be exactly {PLZ_MATCH_DIGITS} digits."
-}
-```
-
----
-
-# Testing Quick Reference
-
-## Complete CRUD Test for Patient
-
-```bash
-# 1. List patients
-curl "http://localhost:8001/api/patients"
-
-# 2. Create patient with complete data
-curl -X POST "http://localhost:8001/api/patients" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "vorname": "Test", 
-    "nachname": "Patient",
-    "diagnose": "F32.1",
-    "symptome": "Testbeschwerden",
-    "berufliche_situation": "Angestellt",
-    "anlass_fuer_die_therapiesuche": "Verschlechterung der Symptome"
-  }'
-
-# 3. Get created patient (assuming ID 1)
-curl "http://localhost:8001/api/patients/1"
-
-# 4. Update patient
-curl -X PUT "http://localhost:8001/api/patients/1" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "status": "auf_der_Suche",
-    "aktuelle_psychische_beschwerden": "Verbesserte Symptomatik"
-  }'
-
-# 5. Delete patient
-curl -X DELETE "http://localhost:8001/api/patients/1"
-```
-
-## Inquiry Workflow Test
-
-```bash
-# 1. Create patient search
-curl -X POST "http://localhost:8003/api/platzsuchen" \
-  -H "Content-Type: application/json" \
-  -d '{"patient_id": 1}'
-
-# 2. Get therapists for selection (using configurable PLZ prefix)
-curl "http://localhost:8003/api/therapeuten-zur-auswahl?plz_prefix=52"
-
-# 3. Create inquiry for selected therapist
-curl -X POST "http://localhost:8003/api/therapeutenanfragen/erstellen-fuer-therapeut" \
-  -H "Content-Type: application/json" \
-  -d '{"therapist_id": 123, "plz_prefix": "52", "sofort_senden": true}'
-
-# 4. Check inquiries
-curl "http://localhost:8003/api/therapeutenanfragen"
-
-# 5. Record response
-curl -X PUT "http://localhost:8003/api/therapeutenanfragen/1/antwort" \
-  -H "Content-Type: application/json" \
-  -d '{"patient_responses": {"1": "angenommen"}}'
-```
-
-## Patient Communication Test with Markdown
-
-```bash
-# 1. Send email to patient with markdown
-curl -X POST "http://localhost:8004/api/emails" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "patient_id": 30,
-    "status": "In_Warteschlange",
-    "betreff": "Willkommen bei der Therapievermittlung",
-    "inhalt_markdown": "# Willkommen!\n\n**Wir freuen uns, Sie zu unterstützen.**\n\n## Nächste Schritte:\n\n1. Wir suchen passende Therapeuten\n2. Sie erhalten regelmäßige Updates\n3. Bei Fragen sind wir für Sie da\n\n*Mit freundlichen Grüßen,*\nIhr Therapievermittlungsteam",
-    "empfaenger_email": "patient@example.com",
-    "empfaenger_name": "John Doe"
-  }'
-
-# 2. Schedule phone call for patient
-curl -X POST "http://localhost:8004/api/phone-calls" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "patient_id": 30,
-    "geplantes_datum": "2025-06-20",
-    "geplante_zeit": "14:00",
-    "notizen": "Follow-up call"
-  }'
-
-# 3. Get patient communication history
-curl "http://localhost:8001/api/patients/30/communication"
-
-# 4. Filter emails by recipient type
-curl "http://localhost:8004/api/emails?recipient_type=patient"
-```
-
-## Therapist Communication Test with Markdown
-
-```bash
-# 1. Send email to therapist with markdown
-curl -X POST "http://localhost:8004/api/emails" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "therapist_id": 123,
-    "status": "In_Warteschlange",
-    "betreff": "Therapieanfrage für mehrere Patienten",
-    "inhalt_markdown": "# Therapieanfrage\n\nSehr geehrte/r Dr. Weber,\n\nWir haben mehrere Patienten, die zu Ihrem Profil passen:\n\n## Patientenliste\n\n| Name | Diagnose | Wartezeit |\n|------|----------|----------|\n| Anna Müller | F32.1 | 30 Tage |\n| Max Schmidt | F41.1 | 45 Tage |\n\n**Bitte antworten Sie innerhalb von 7 Tagen.**\n\n[Kontaktieren Sie uns](mailto:info@curavani.de) bei Fragen.",
-    "empfaenger_email": "dr.weber@praxis.de",
-    "empfaenger_name": "Dr. Maria Weber",
-    "add_legal_footer": true
-  }'
-
-# 2. Schedule phone call for therapist (auto-scheduling)
-curl -X POST "http://localhost:8004/api/phone-calls" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "therapist_id": 123,
-    "notizen": "Follow-up für Anfrage #101"
-  }'
-
-# 3. Get therapist communication history
-curl "http://localhost:8002/api/therapists/123/communication"
-
-# 4. Filter phone calls by recipient type
-curl "http://localhost:8004/api/phone-calls?recipient_type=therapist&status=geplant"
-```
-
-## Phone Call CRUD Test
-
-```bash
-# 1. List phone calls
-curl "http://localhost:8004/api/phone-calls"
-
-# 2. Create phone call
-curl -X POST "http://localhost:8004/api/phone-calls" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "patient_id": 30,
-    "geplantes_datum": "2025-06-20",
-    "geplante_zeit": "14:00",
-    "notizen": "Follow-up call"
-  }'
-
-# 3. Get phone call details (assuming ID 1)
-curl "http://localhost:8004/api/phone-calls/1"
-
-# 4. Update phone call
-curl -X PUT "http://localhost:8004/api/phone-calls/1" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "status": "abgeschlossen",
-    "ergebnis": "Patient contacted successfully"
-  }'
-
-# 5. Delete phone call
-curl -X DELETE "http://localhost:8004/api/phone-calls/1"
-```
-
----
-
-**Note:** This document represents the current API state as of January 2025. All field names are in German, and the structure is flat (no nested objects). Always use the exact field names and enum values specified in this document.
-
-**Important Updates:**
-- **Patient API now exposes ALL database fields** (medical history, therapy goals, etc.)
-- **Complete field format documentation** for complex JSONB fields
-- **Known format mismatches documented** for zeitliche_verfuegbarkeit
-- All "Bundle/Bündel" terminology has been replaced with "Inquiry/Anfrage"
-- The matching service now uses manual therapist selection with PLZ-based filtering
-- New endpoints for therapist selection and manual inquiry creation
-- All list endpoints now return paginated responses with `data`, `page`, `limit`, and `total` fields
-- **Dynamic Configuration**: Inquiry size limits and PLZ prefix length are now configurable via environment variables
-- New patient fields: `symptome`, `erfahrung_mit_psychotherapie`, `bevorzugtes_therapieverfahren`
-- New therapist field: `ueber_curavani_informiert`
-- Communication Service supports both therapist and patient recipients
-- Email creation with markdown support and auto-link detection
-- Phone call auto-scheduling for therapists based on availability
-- Email status handling: Draft mode is default for safety, immediate sending requires explicit status
-- New communication history endpoints for both patients and therapists
+**Note:** This API reference now accurately reflects the backend implementation after the database migration is applied.
