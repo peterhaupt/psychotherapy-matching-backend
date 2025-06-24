@@ -1,4 +1,4 @@
-# API Reference - Psychotherapy Matching Platform
+# API Reference - Psychotherapy Matching Platform (COMPLETE VERSION)
 
 **Single Source of Truth for All API Integration**
 
@@ -54,6 +54,144 @@ Error messages and validation will reflect the configured values, not hardcoded 
   "page": 1,
   "limit": 20,
   "total": 150
+}
+```
+
+## Complex Field Formats
+
+### Time Availability (zeitliche_verfuegbarkeit)
+
+**Current Backend Format (German days, string arrays):**
+```json
+{
+  "zeitliche_verfuegbarkeit": {
+    "montag": ["09:00-12:00", "14:00-18:00"],
+    "dienstag": ["09:00-17:00"],
+    "mittwoch": ["14:00-18:00"]
+  }
+}
+```
+
+**Expected Frontend Format (English days, object arrays):**
+```json
+{
+  "zeitliche_verfuegbarkeit": {
+    "monday": [{"start": "09:00", "end": "12:00"}, {"start": "14:00", "end": "18:00"}],
+    "tuesday": [{"start": "09:00", "end": "17:00"}],
+    "wednesday": [{"start": "14:00", "end": "18:00"}],
+    "thursday": [],
+    "friday": [],
+    "saturday": [],
+    "sunday": []
+  }
+}
+```
+
+**⚠️ KNOWN ISSUE:** Backend and frontend use different formats. Choose one format consistently.
+
+### Phone Availability (telefonische_erreichbarkeit)
+
+**Format:** Same as zeitliche_verfuegbarkeit
+```json
+{
+  "telefonische_erreichbarkeit": {
+    "montag": ["10:00-12:00", "14:00-16:00"],
+    "mittwoch": ["14:00-16:00"]
+  }
+}
+```
+
+### Spatial Availability (raeumliche_verfuegbarkeit)
+
+**Format:**
+```json
+{
+  "raeumliche_verfuegbarkeit": {
+    "max_km": 30
+  }
+}
+```
+
+### Work Hours (arbeitszeiten)
+
+**Format:** Same as zeitliche_verfuegbarkeit
+```json
+{
+  "arbeitszeiten": {
+    "montag": ["08:00-18:00"],
+    "dienstag": ["08:00-18:00"],
+    "mittwoch": ["08:00-14:00"]
+  }
+}
+```
+
+### Excluded Therapists (ausgeschlossene_therapeuten)
+
+**Simple Format (List of IDs):**
+```json
+{
+  "ausgeschlossene_therapeuten": [45, 67, 123]
+}
+```
+
+**Extended Format (With Metadata):**
+```json
+{
+  "ausgeschlossene_therapeuten": [
+    {
+      "id": 45,
+      "excluded_at": "2025-06-15T10:30:00",
+      "reason": "Patient request"
+    },
+    {
+      "id": 67,
+      "excluded_at": "2025-06-10T14:00:00", 
+      "reason": "Rejected: abgelehnt_nicht_geeignet"
+    }
+  ]
+}
+```
+
+### Preferred Therapy Procedures (bevorzugtes_therapieverfahren)
+
+**Format:** Always returns array, never null
+```json
+{
+  "bevorzugtes_therapieverfahren": ["Verhaltenstherapie", "tiefenpsychologisch_fundierte_Psychotherapie"]
+}
+```
+
+**Empty case:**
+```json
+{
+  "bevorzugtes_therapieverfahren": []
+}
+```
+
+### Languages (fremdsprachen)
+
+**Format:**
+```json
+{
+  "fremdsprachen": ["Englisch", "Französisch", "Spanisch"]
+}
+```
+
+### Therapy Procedures (psychotherapieverfahren)
+
+**Format:**
+```json
+{
+  "psychotherapieverfahren": ["Verhaltenstherapie", "Tiefenpsychologie"]
+}
+```
+
+### Preferred Diagnoses (bevorzugte_diagnosen)
+
+**Format:**
+```json
+{
+  "bevorzugte_diagnosen": ["F32", "F41", "F43"]
 }
 ```
 
@@ -151,7 +289,7 @@ Error messages and validation will reflect the configured values, not hardcoded 
 curl "http://localhost:8001/api/patients?status=auf_der_Suche&page=1&limit=20"
 ```
 
-**Example Response:**
+**Example Response (COMPLETE - ALL FIELDS):**
 ```json
 {
   "data": [
@@ -170,8 +308,8 @@ curl "http://localhost:8001/api/patients?status=auf_der_Suche&page=1&limit=20"
       "krankenversicherungsnummer": "A123456789",
       "geburtsdatum": "1985-03-15",
       "diagnose": "F32.1",
-      "symptome": "Niedergeschlagenheit, Schlafstörungen",
-      "erfahrung_mit_psychotherapie": "Keine Vorerfahrung",
+      "symptome": "Niedergeschlagenheit, Schlafstörungen, Antriebslosigkeit",
+      "erfahrung_mit_psychotherapie": "Keine Vorerfahrung mit Psychotherapie",
       "vertraege_unterschrieben": true,
       "psychotherapeutische_sprechstunde": true,
       "startdatum": "2025-01-15",
@@ -180,8 +318,9 @@ curl "http://localhost:8001/api/patients?status=auf_der_Suche&page=1&limit=20"
       "status": "auf_der_Suche",
       "empfehler_der_unterstuetzung": "Hausarzt",
       "zeitliche_verfuegbarkeit": {
-        "monday": [{"start": "09:00", "end": "17:00"}],
-        "tuesday": [{"start": "09:00", "end": "17:00"}]
+        "montag": ["09:00-17:00"],
+        "dienstag": ["09:00-17:00"],
+        "mittwoch": ["14:00-18:00"]
       },
       "raeumliche_verfuegbarkeit": {
         "max_km": 30
@@ -189,10 +328,25 @@ curl "http://localhost:8001/api/patients?status=auf_der_Suche&page=1&limit=20"
       "verkehrsmittel": "Auto",
       "offen_fuer_gruppentherapie": false,
       "offen_fuer_diga": false,
+      "letzter_kontakt": "2025-06-15",
+      "psychotherapieerfahrung": false,
+      "stationaere_behandlung": false,
+      "berufliche_situation": "Vollzeit angestellt als Buchhalterin",
+      "familienstand": "verheiratet",
+      "aktuelle_psychische_beschwerden": "Depressive Verstimmung, Angstgefühle vor sozialen Situationen",
+      "beschwerden_seit": "2024-08-01",
+      "bisherige_behandlungen": "Hausärztliche Behandlung mit Antidepressiva",
+      "relevante_koerperliche_erkrankungen": "Schilddrüsenunterfunktion",
+      "aktuelle_medikation": "Sertralin 50mg täglich, L-Thyroxin 75μg",
+      "aktuelle_belastungsfaktoren": "Hoher Arbeitsstress, Beziehungsprobleme",
+      "unterstuetzungssysteme": "Ehepartner, enge Freundin",
+      "anlass_fuer_die_therapiesuche": "Verschlechterung der Symptomatik trotz Medikation",
+      "erwartungen_an_die_therapie": "Besserer Umgang mit Stress und Ängsten",
+      "therapieziele": "Reduktion der Angstsymptome, Verbesserung der Stimmung",
+      "fruehere_therapieerfahrungen": "Keine",
       "ausgeschlossene_therapeuten": [45, 67],
       "bevorzugtes_therapeutengeschlecht": "Weiblich",
       "bevorzugtes_therapieverfahren": ["Verhaltenstherapie"],
-      "letzter_kontakt": "2025-06-15",
       "created_at": "2025-05-01",
       "updated_at": "2025-06-01"
     }
@@ -212,45 +366,7 @@ curl "http://localhost:8001/api/patients?status=auf_der_Suche&page=1&limit=20"
 curl "http://localhost:8001/api/patients/1"
 ```
 
-**Example Response:**
-```json
-{
-  "id": 1,
-  "anrede": "Frau",
-  "vorname": "Anna",
-  "nachname": "Müller",
-  "strasse": "Hauptstraße 123",
-  "plz": "10115",
-  "ort": "Berlin",
-  "email": "anna.mueller@email.com",
-  "telefon": "+49 30 12345678",
-  "hausarzt": "Dr. Schmidt",
-  "krankenkasse": "AOK",
-  "krankenversicherungsnummer": "A123456789",
-  "geburtsdatum": "1985-03-15",
-  "diagnose": "F32.1",
-  "symptome": "Niedergeschlagenheit, Schlafstörungen",
-  "erfahrung_mit_psychotherapie": "Keine Vorerfahrung",
-  "vertraege_unterschrieben": true,
-  "psychotherapeutische_sprechstunde": true,
-  "startdatum": "2025-01-15",
-  "status": "auf_der_Suche",
-  "zeitliche_verfuegbarkeit": {
-    "monday": [{"start": "09:00", "end": "17:00"}]
-  },
-  "raeumliche_verfuegbarkeit": {
-    "max_km": 30
-  },
-  "verkehrsmittel": "Auto",
-  "offen_fuer_gruppentherapie": false,
-  "bevorzugtes_therapeutengeschlecht": "Weiblich",
-  "bevorzugtes_therapieverfahren": ["Verhaltenstherapie"],
-  "ausgeschlossene_therapeuten": [45, 67],
-  "letzter_kontakt": "2025-06-15",
-  "created_at": "2025-05-01",
-  "updated_at": "2025-06-01"
-}
-```
+**Example Response:** Same structure as single patient in list response (all fields included).
 
 ## GET /patients/{id}/communication
 
@@ -312,7 +428,66 @@ curl "http://localhost:8001/api/patients/30/communication"
 - `vorname` (string)
 - `nachname` (string)
 
-**Example Request:**
+**All Optional Fields (COMPLETE LIST):**
+
+**Personal Information:**
+- `anrede` (string)
+- `strasse` (string) 
+- `plz` (string)
+- `ort` (string)
+- `email` (string)
+- `telefon` (string)
+
+**Medical Information:**
+- `hausarzt` (string)
+- `krankenkasse` (string)
+- `krankenversicherungsnummer` (string)
+- `geburtsdatum` (string, YYYY-MM-DD)
+- `diagnose` (string)
+- `symptome` (string)
+- `erfahrung_mit_psychotherapie` (string)
+
+**Process Status:**
+- `vertraege_unterschrieben` (boolean)
+- `psychotherapeutische_sprechstunde` (boolean)
+- `startdatum` (string, YYYY-MM-DD)
+- `status` (string, see enum values)
+- `empfehler_der_unterstuetzung` (string)
+
+**Availability:**
+- `zeitliche_verfuegbarkeit` (object, see format above)
+- `raeumliche_verfuegbarkeit` (object, see format above)
+- `verkehrsmittel` (string)
+
+**Preferences:**
+- `offen_fuer_gruppentherapie` (boolean)
+- `offen_fuer_diga` (boolean)
+
+**Medical History:**
+- `psychotherapieerfahrung` (boolean)
+- `stationaere_behandlung` (boolean)
+- `berufliche_situation` (string)
+- `familienstand` (string)
+- `aktuelle_psychische_beschwerden` (string)
+- `beschwerden_seit` (string, YYYY-MM-DD)
+- `bisherige_behandlungen` (string)
+- `relevante_koerperliche_erkrankungen` (string)
+- `aktuelle_medikation` (string)
+- `aktuelle_belastungsfaktoren` (string)
+- `unterstuetzungssysteme` (string)
+
+**Therapy Goals:**
+- `anlass_fuer_die_therapiesuche` (string)
+- `erwartungen_an_die_therapie` (string)
+- `therapieziele` (string)
+- `fruehere_therapieerfahrungen` (string)
+
+**Therapist Preferences:**
+- `ausgeschlossene_therapeuten` (array of integers)
+- `bevorzugtes_therapeutengeschlecht` (string, see enum)
+- `bevorzugtes_therapieverfahren` (array of strings, see enum)
+
+**Example Request (Complete):**
 ```bash
 curl -X POST "http://localhost:8001/api/patients" \
   -H "Content-Type: application/json" \
@@ -329,19 +504,35 @@ curl -X POST "http://localhost:8001/api/patients" \
     "krankenkasse": "TK",
     "geburtsdatum": "1978-11-22",
     "diagnose": "F41.1",
-    "symptome": "Angstgefühle, Panikattacken",
+    "symptome": "Angstgefühle, Panikattacken, Herzrasen",
     "erfahrung_mit_psychotherapie": "Eine Kurzzeittherapie vor 3 Jahren",
     "vertraege_unterschrieben": false,
+    "psychotherapieerfahrung": true,
+    "stationaere_behandlung": false,
+    "berufliche_situation": "Selbständiger Architekt",
+    "familienstand": "ledig",
+    "aktuelle_psychische_beschwerden": "Panikattacken in Meetings, Vermeidungsverhalten",
+    "beschwerden_seit": "2024-09-01",
+    "bisherige_behandlungen": "Kurzzeittherapie 2021, aktuell keine Medikation",
+    "relevante_koerperliche_erkrankungen": "Keine",
+    "aktuelle_medikation": "Keine",
+    "aktuelle_belastungsfaktoren": "Hoher Termindruck, finanzielle Sorgen",
+    "unterstuetzungssysteme": "Familie, wenige enge Freunde",
+    "anlass_fuer_die_therapiesuche": "Zunahme der Panikattacken, Beeinträchtigung im Beruf",
+    "erwartungen_an_die_therapie": "Langfristige Bewältigung der Angststörung",
+    "therapieziele": "Reduktion der Panikattacken, Aufbau von Bewältigungsstrategien",
+    "fruehere_therapieerfahrungen": "Positive Erfahrung mit Verhaltenstherapie",
     "zeitliche_verfuegbarkeit": {
-      "monday": [{"start": "18:00", "end": "20:00"}],
-      "wednesday": [{"start": "18:00", "end": "20:00"}]
+      "montag": ["18:00-20:00"],
+      "mittwoch": ["18:00-20:00"],
+      "freitag": ["14:00-18:00"]
     },
     "raeumliche_verfuegbarkeit": {
       "max_km": 25
     },
     "verkehrsmittel": "ÖPNV",
     "bevorzugtes_therapeutengeschlecht": "Egal",
-    "bevorzugtes_therapieverfahren": ["Verhaltenstherapie", "tiefenpsychologisch_fundierte_Psychotherapie"],
+    "bevorzugtes_therapieverfahren": ["Verhaltenstherapie"],
     "offen_fuer_gruppentherapie": true,
     "ausgeschlossene_therapeuten": []
   }'
@@ -360,6 +551,11 @@ curl -X POST "http://localhost:8001/api/patients" \
   "email": "thomas.schmidt@email.com",
   "telefon": "+49 89 87654321",
   "status": "offen",
+  "symptome": "Angstgefühle, Panikattacken, Herzrasen",
+  "erfahrung_mit_psychotherapie": "Eine Kurzzeittherapie vor 3 Jahren",
+  "psychotherapieerfahrung": true,
+  "berufliche_situation": "Selbständiger Architekt",
+  "anlass_fuer_die_therapiesuche": "Zunahme der Panikattacken, Beeinträchtigung im Beruf",
   "created_at": "2025-06-10",
   "updated_at": "2025-06-10"
 }
@@ -369,6 +565,8 @@ curl -X POST "http://localhost:8001/api/patients" \
 
 **Description:** Update an existing patient.
 
+**Accepts all fields from POST request as optional parameters.**
+
 **Example Request:**
 ```bash
 curl -X PUT "http://localhost:8001/api/patients/1" \
@@ -376,7 +574,9 @@ curl -X PUT "http://localhost:8001/api/patients/1" \
   -d '{
     "status": "in_Therapie",
     "funktionierender_therapieplatz_am": "2025-06-15",
-    "letzter_kontakt": "2025-06-18"
+    "letzter_kontakt": "2025-06-18",
+    "aktuelle_psychische_beschwerden": "Deutliche Besserung der Symptomatik",
+    "therapieziele": "Stabilisierung der Fortschritte, Rückfallprophylaxe"
   }'
 ```
 
@@ -389,6 +589,8 @@ curl -X PUT "http://localhost:8001/api/patients/1" \
   "status": "in_Therapie",
   "funktionierender_therapieplatz_am": "2025-06-15",
   "letzter_kontakt": "2025-06-18",
+  "aktuelle_psychische_beschwerden": "Deutliche Besserung der Symptomatik",
+  "therapieziele": "Stabilisierung der Fortschritte, Rückfallprophylaxe",
   "updated_at": "2025-06-18"
 }
 ```
@@ -448,8 +650,8 @@ curl "http://localhost:8002/api/therapists?status=aktiv&potenziell_verfuegbar=tr
       "kassensitz": true,
       "geschlecht": "weiblich",
       "telefonische_erreichbarkeit": {
-        "monday": [{"start": "09:00", "end": "12:00"}],
-        "wednesday": [{"start": "14:00", "end": "16:00"}]
+        "montag": ["09:00-12:00"],
+        "mittwoch": ["14:00-16:00"]
       },
       "fremdsprachen": ["Englisch", "Französisch"],
       "psychotherapieverfahren": ["Verhaltenstherapie", "Tiefenpsychologie"],
@@ -467,8 +669,8 @@ curl "http://localhost:8002/api/therapists?status=aktiv&potenziell_verfuegbar=tr
       "alter_max": 65,
       "geschlechtspraeferenz": "Egal",
       "arbeitszeiten": {
-        "monday": [{"start": "08:00", "end": "18:00"}],
-        "tuesday": [{"start": "08:00", "end": "18:00"}]
+        "montag": ["08:00-18:00"],
+        "dienstag": ["08:00-18:00"]
       },
       "bevorzugt_gruppentherapie": false,
       "status": "aktiv",
@@ -1622,10 +1824,17 @@ curl -X POST "http://localhost:8005/api/find-therapists" \
 # 1. List patients
 curl "http://localhost:8001/api/patients"
 
-# 2. Create patient
+# 2. Create patient with complete data
 curl -X POST "http://localhost:8001/api/patients" \
   -H "Content-Type: application/json" \
-  -d '{"vorname": "Test", "nachname": "Patient"}'
+  -d '{
+    "vorname": "Test", 
+    "nachname": "Patient",
+    "diagnose": "F32.1",
+    "symptome": "Testbeschwerden",
+    "berufliche_situation": "Angestellt",
+    "anlass_fuer_die_therapiesuche": "Verschlechterung der Symptome"
+  }'
 
 # 3. Get created patient (assuming ID 1)
 curl "http://localhost:8001/api/patients/1"
@@ -1633,7 +1842,10 @@ curl "http://localhost:8001/api/patients/1"
 # 4. Update patient
 curl -X PUT "http://localhost:8001/api/patients/1" \
   -H "Content-Type: application/json" \
-  -d '{"status": "auf_der_Suche"}'
+  -d '{
+    "status": "auf_der_Suche",
+    "aktuelle_psychische_beschwerden": "Verbesserte Symptomatik"
+  }'
 
 # 5. Delete patient
 curl -X DELETE "http://localhost:8001/api/patients/1"
@@ -1760,16 +1972,18 @@ curl -X DELETE "http://localhost:8004/api/phone-calls/1"
 
 ---
 
-**Note:** This document represents the current API state as of January 2025. All field names are in German, and the structure is flat (no nested objects). Always use the exact field names and enum values specified in this document. 
+**Note:** This document represents the current API state as of January 2025. All field names are in German, and the structure is flat (no nested objects). Always use the exact field names and enum values specified in this document.
 
 **Important Updates:**
+- **Patient API now exposes ALL database fields** (medical history, therapy goals, etc.)
+- **Complete field format documentation** for complex JSONB fields
+- **Known format mismatches documented** for zeitliche_verfuegbarkeit
 - All "Bundle/Bündel" terminology has been replaced with "Inquiry/Anfrage"
 - The matching service now uses manual therapist selection with PLZ-based filtering
 - New endpoints for therapist selection and manual inquiry creation
 - All list endpoints now return paginated responses with `data`, `page`, `limit`, and `total` fields
 - **Dynamic Configuration**: Inquiry size limits and PLZ prefix length are now configurable via environment variables
 - New patient fields: `symptome`, `erfahrung_mit_psychotherapie`, `bevorzugtes_therapieverfahren`
-- Removed patient fields: `bevorzugtes_therapeutenalter_min`, `bevorzugtes_therapeutenalter_max`
 - New therapist field: `ueber_curavani_informiert`
 - Communication Service supports both therapist and patient recipients
 - Email creation with markdown support and auto-link detection

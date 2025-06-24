@@ -1,4 +1,4 @@
-"""Patient API endpoints implementation with German enum support and communication history."""
+"""Patient API endpoints implementation with COMPLETE field exposure and German enum support."""
 from flask import request, jsonify
 from flask_restful import Resource, fields, marshal_with, reqparse, marshal
 from sqlalchemy.exc import SQLAlchemyError
@@ -18,6 +18,7 @@ from events.producers import (
 
 # Get configuration
 config = get_config()
+
 
 # Custom field for enum serialization
 class EnumField(fields.Raw):
@@ -49,7 +50,7 @@ class ArrayField(fields.Raw):
     """Custom field for PostgreSQL ARRAY serialization."""
     def format(self, value):
         if value is None:
-            return None
+            return []  # Always return empty array instead of null
         # If it's already a list, return as is
         if isinstance(value, list):
             # If the list contains enums, convert them to values
@@ -58,9 +59,11 @@ class ArrayField(fields.Raw):
         return [value]
 
 
-# Complete output fields definition for patient responses
+# COMPLETE output fields definition for patient responses - ALL DATABASE FIELDS
 patient_fields = {
     'id': fields.Integer,
+    
+    # Personal Information
     'anrede': fields.String,
     'vorname': fields.String,
     'nachname': fields.String,
@@ -69,11 +72,19 @@ patient_fields = {
     'ort': fields.String,
     'email': fields.String,
     'telefon': fields.String,
+    
+    # Medical Information
     'hausarzt': fields.String,
     'krankenkasse': fields.String,
     'krankenversicherungsnummer': fields.String,
     'geburtsdatum': DateField,
     'diagnose': fields.String,
+    
+    # NEW Phase 2 Fields
+    'symptome': fields.String,
+    'erfahrung_mit_psychotherapie': fields.String,
+    
+    # Process Status
     'vertraege_unterschrieben': fields.Boolean,
     'psychotherapeutische_sprechstunde': fields.Boolean,
     'startdatum': DateField,
@@ -81,17 +92,44 @@ patient_fields = {
     'funktionierender_therapieplatz_am': DateField,
     'status': EnumField,
     'empfehler_der_unterstuetzung': fields.String,
+    
+    # Availability
     'zeitliche_verfuegbarkeit': fields.Raw,  # JSONB field
     'raeumliche_verfuegbarkeit': fields.Raw,  # JSONB field
     'verkehrsmittel': fields.String,
+    
+    # Preferences
     'offen_fuer_gruppentherapie': fields.Boolean,
     'offen_fuer_diga': fields.Boolean,
+    'letzter_kontakt': DateField,
+    
+    # Medical History - PREVIOUSLY MISSING
+    'psychotherapieerfahrung': fields.Boolean,
+    'stationaere_behandlung': fields.Boolean,
+    'berufliche_situation': fields.String,
+    'familienstand': fields.String,
+    'aktuelle_psychische_beschwerden': fields.String,
+    'beschwerden_seit': DateField,
+    'bisherige_behandlungen': fields.String,
+    'relevante_koerperliche_erkrankungen': fields.String,
+    'aktuelle_medikation': fields.String,
+    'aktuelle_belastungsfaktoren': fields.String,
+    'unterstuetzungssysteme': fields.String,
+    
+    # Therapy Goals and Expectations - PREVIOUSLY MISSING
+    'anlass_fuer_die_therapiesuche': fields.String,
+    'erwartungen_an_die_therapie': fields.String,
+    'therapieziele': fields.String,
+    'fruehere_therapieerfahrungen': fields.String,
+    
+    # Therapist Exclusions and Preferences
     'ausgeschlossene_therapeuten': fields.Raw,  # JSONB field
     'bevorzugtes_therapeutengeschlecht': EnumField,
     'bevorzugtes_therapieverfahren': ArrayField,  # PostgreSQL ARRAY field
+    
+    # Timestamps
     'created_at': DateField,
     'updated_at': DateField,
-    'letzter_kontakt': DateField,  # Last contact date
 }
 
 
@@ -181,38 +219,72 @@ class PatientResource(Resource):
             db.close()
 
     def put(self, patient_id):
-        """Update an existing patient."""
+        """Update an existing patient - COMPLETE FIELD SUPPORT."""
         parser = reqparse.RequestParser()
+        
+        # Personal Information
+        parser.add_argument('anrede', type=str)
         parser.add_argument('vorname', type=str)
         parser.add_argument('nachname', type=str)
-        parser.add_argument('email', type=str)
-        parser.add_argument('telefon', type=str)
-        parser.add_argument('status', type=str)
-        parser.add_argument('anrede', type=str)
         parser.add_argument('strasse', type=str)
         parser.add_argument('plz', type=str)
         parser.add_argument('ort', type=str)
+        parser.add_argument('email', type=str)
+        parser.add_argument('telefon', type=str)
+        
+        # Medical Information
         parser.add_argument('hausarzt', type=str)
         parser.add_argument('krankenkasse', type=str)
         parser.add_argument('krankenversicherungsnummer', type=str)
         parser.add_argument('geburtsdatum', type=str)
         parser.add_argument('diagnose', type=str)
+        
+        # NEW Phase 2 Fields
+        parser.add_argument('symptome', type=str)
+        parser.add_argument('erfahrung_mit_psychotherapie', type=str)
+        
+        # Process Status
         parser.add_argument('vertraege_unterschrieben', type=bool)
         parser.add_argument('psychotherapeutische_sprechstunde', type=bool)
         parser.add_argument('startdatum', type=str)
         parser.add_argument('erster_therapieplatz_am', type=str)
         parser.add_argument('funktionierender_therapieplatz_am', type=str)
+        parser.add_argument('status', type=str)
         parser.add_argument('empfehler_der_unterstuetzung', type=str)
-        parser.add_argument('zeitliche_verfuegbarkeit', type=dict)
-        parser.add_argument('raeumliche_verfuegbarkeit', type=dict)
+        
+        # Availability
+        parser.add_argument('zeitliche_verfuegbarkeit', type=dict, location='json')
+        parser.add_argument('raeumliche_verfuegbarkeit', type=dict, location='json')
         parser.add_argument('verkehrsmittel', type=str)
+        
+        # Preferences
         parser.add_argument('offen_fuer_gruppentherapie', type=bool)
         parser.add_argument('offen_fuer_diga', type=bool)
+        parser.add_argument('letzter_kontakt', type=str)
+        
+        # Medical History - PREVIOUSLY MISSING
+        parser.add_argument('psychotherapieerfahrung', type=bool)
+        parser.add_argument('stationaere_behandlung', type=bool)
+        parser.add_argument('berufliche_situation', type=str)
+        parser.add_argument('familienstand', type=str)
+        parser.add_argument('aktuelle_psychische_beschwerden', type=str)
+        parser.add_argument('beschwerden_seit', type=str)
+        parser.add_argument('bisherige_behandlungen', type=str)
+        parser.add_argument('relevante_koerperliche_erkrankungen', type=str)
+        parser.add_argument('aktuelle_medikation', type=str)
+        parser.add_argument('aktuelle_belastungsfaktoren', type=str)
+        parser.add_argument('unterstuetzungssysteme', type=str)
+        
+        # Therapy Goals and Expectations - PREVIOUSLY MISSING
+        parser.add_argument('anlass_fuer_die_therapiesuche', type=str)
+        parser.add_argument('erwartungen_an_die_therapie', type=str)
+        parser.add_argument('therapieziele', type=str)
+        parser.add_argument('fruehere_therapieerfahrungen', type=str)
+        
+        # Therapist Exclusions and Preferences
         parser.add_argument('ausgeschlossene_therapeuten', type=list, location='json')
         parser.add_argument('bevorzugtes_therapeutengeschlecht', type=str)
-        parser.add_argument('letzter_kontakt', type=str)
         parser.add_argument('bevorzugtes_therapieverfahren', type=list, location='json')
-        # REMOVED: bevorzugtes_therapeutenalter_min and bevorzugtes_therapeutenalter_max
         
         args = parser.parse_args()
         
@@ -235,7 +307,8 @@ class PatientResource(Resource):
                             patient.bevorzugtes_therapeutengeschlecht = validate_and_get_gender_preference(value)
                         except ValueError as e:
                             return {'message': str(e)}, 400
-                    elif key in ['geburtsdatum', 'startdatum', 'erster_therapieplatz_am', 'funktionierender_therapieplatz_am', 'letzter_kontakt']:
+                    elif key in ['geburtsdatum', 'startdatum', 'erster_therapieplatz_am', 
+                                'funktionierender_therapieplatz_am', 'letzter_kontakt', 'beschwerden_seit']:
                         try:
                             setattr(patient, key, parse_date_field(value, key))
                         except ValueError as e:
@@ -314,39 +387,71 @@ class PatientListResource(PaginatedListResource):
             db.close()
 
     def post(self):
-        """Create a new patient."""
+        """Create a new patient - COMPLETE FIELD SUPPORT."""
         parser = reqparse.RequestParser()
+        
         # Required fields
-        parser.add_argument('vorname', type=str, required=True,
-                           help='Vorname is required')
-        parser.add_argument('nachname', type=str, required=True,
-                           help='Nachname is required')
-        # Optional fields
+        parser.add_argument('vorname', type=str, required=True, help='Vorname is required')
+        parser.add_argument('nachname', type=str, required=True, help='Nachname is required')
+        
+        # Personal Information
         parser.add_argument('anrede', type=str)
         parser.add_argument('strasse', type=str)
         parser.add_argument('plz', type=str)
         parser.add_argument('ort', type=str)
         parser.add_argument('email', type=str)
         parser.add_argument('telefon', type=str)
+        
+        # Medical Information
         parser.add_argument('hausarzt', type=str)
         parser.add_argument('krankenkasse', type=str)
         parser.add_argument('krankenversicherungsnummer', type=str)
         parser.add_argument('geburtsdatum', type=str)
         parser.add_argument('diagnose', type=str)
+        
+        # NEW Phase 2 Fields
+        parser.add_argument('symptome', type=str)
+        parser.add_argument('erfahrung_mit_psychotherapie', type=str)
+        
+        # Process Status
         parser.add_argument('vertraege_unterschrieben', type=bool)
         parser.add_argument('psychotherapeutische_sprechstunde', type=bool)
         parser.add_argument('startdatum', type=str)
         parser.add_argument('status', type=str)
         parser.add_argument('empfehler_der_unterstuetzung', type=str)
+        
+        # Availability
         parser.add_argument('zeitliche_verfuegbarkeit', type=dict, location='json')
         parser.add_argument('raeumliche_verfuegbarkeit', type=dict, location='json')
         parser.add_argument('verkehrsmittel', type=str)
+        
+        # Preferences
         parser.add_argument('offen_fuer_gruppentherapie', type=bool)
         parser.add_argument('offen_fuer_diga', type=bool)
+        
+        # Medical History - PREVIOUSLY MISSING
+        parser.add_argument('psychotherapieerfahrung', type=bool)
+        parser.add_argument('stationaere_behandlung', type=bool)
+        parser.add_argument('berufliche_situation', type=str)
+        parser.add_argument('familienstand', type=str)
+        parser.add_argument('aktuelle_psychische_beschwerden', type=str)
+        parser.add_argument('beschwerden_seit', type=str)
+        parser.add_argument('bisherige_behandlungen', type=str)
+        parser.add_argument('relevante_koerperliche_erkrankungen', type=str)
+        parser.add_argument('aktuelle_medikation', type=str)
+        parser.add_argument('aktuelle_belastungsfaktoren', type=str)
+        parser.add_argument('unterstuetzungssysteme', type=str)
+        
+        # Therapy Goals and Expectations - PREVIOUSLY MISSING
+        parser.add_argument('anlass_fuer_die_therapiesuche', type=str)
+        parser.add_argument('erwartungen_an_die_therapie', type=str)
+        parser.add_argument('therapieziele', type=str)
+        parser.add_argument('fruehere_therapieerfahrungen', type=str)
+        
+        # Therapist Exclusions and Preferences
         parser.add_argument('ausgeschlossene_therapeuten', type=list, location='json')
         parser.add_argument('bevorzugtes_therapeutengeschlecht', type=str)
         parser.add_argument('bevorzugtes_therapieverfahren', type=list, location='json')
-        # REMOVED: bevorzugtes_therapeutenalter_min and bevorzugtes_therapeutenalter_max
         
         try:
             args = parser.parse_args()
@@ -378,7 +483,7 @@ class PatientListResource(PaginatedListResource):
                             patient_data[key] = validate_and_get_gender_preference(value)
                         except ValueError as e:
                             return {'message': str(e)}, 400
-                    elif key in ['geburtsdatum', 'startdatum']:
+                    elif key in ['geburtsdatum', 'startdatum', 'beschwerden_seit']:
                         try:
                             patient_data[key] = parse_date_field(value, key)
                         except ValueError as e:
