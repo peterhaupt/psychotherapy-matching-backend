@@ -135,7 +135,7 @@ def calculate_distance(
     use_cache: bool = True,
     use_plz_fallback: bool = True
 ) -> Dict[str, Any]:
-    """Calculate distance and travel time between two points.
+    """Calculate distance between two points.
     
     Args:
         origin: Origin address or coordinates (latitude, longitude)
@@ -145,7 +145,7 @@ def calculate_distance(
         use_plz_fallback: Whether to use PLZ-based fallback for addresses
         
     Returns:
-        Dict with distance and travel time information
+        Dict with distance information
     """
     # Step 1: Convert addresses to coordinates if needed
     origin_coords = _ensure_coordinates(origin)
@@ -160,9 +160,6 @@ def calculate_distance(
             if origin_plz and destination_plz:
                 plz_result = calculate_plz_distance(origin_plz, destination_plz)
                 if plz_result:
-                    # Estimate travel time based on average speeds
-                    avg_speed = 60 if travel_mode == "car" else 15
-                    plz_result["travel_time_minutes"] = round((plz_result["distance_km"] / avg_speed) * 60, 1)
                     plz_result["travel_mode"] = travel_mode
                     plz_result["route_available"] = False
                     plz_result["note"] = "Approximate distance based on postal code areas"
@@ -171,7 +168,6 @@ def calculate_distance(
         logger.warning("Could not resolve coordinates for distance calculation")
         return {
             "distance_km": 0,
-            "travel_time_minutes": 0,
             "status": "error",
             "error": "Could not resolve coordinates"
         }
@@ -198,7 +194,6 @@ def calculate_distance(
         
         return {
             "distance_km": route_result["distance_km"],
-            "travel_time_minutes": route_result["duration_minutes"],
             "status": "success",
             "source": "osrm",
             "travel_mode": travel_mode,
@@ -210,14 +205,8 @@ def calculate_distance(
         origin_coords, destination_coords
     )
     
-    # Estimate travel time based on average speeds
-    # Car: 60 km/h, Transit: 15 km/h (very rough estimate)
-    avg_speed = 60 if travel_mode == "car" else 15
-    estimated_time = (haversine_distance / avg_speed) * 60  # minutes
-    
     result = {
         "distance_km": haversine_distance,
-        "travel_time_minutes": round(estimated_time, 1),
         "status": "partial",
         "source": "haversine",
         "travel_mode": travel_mode,
@@ -316,7 +305,6 @@ def _get_cached_distance(
             # Return the cached result
             return {
                 "distance_km": cache_entry.distance_km,
-                "travel_time_minutes": cache_entry.travel_time_minutes,
                 "status": "success",
                 "source": "cache",
                 "travel_mode": travel_mode,
@@ -371,7 +359,6 @@ def _cache_distance_result(
         if existing:
             # Update existing entry
             existing.distance_km = result["distance_km"]
-            existing.travel_time_minutes = result["travel_time_minutes"]
             existing.route_data = json.dumps(result) if result else None
             existing.hit_count += 1
         else:
@@ -383,7 +370,6 @@ def _cache_distance_result(
                 destination_longitude=dest_lon,
                 travel_mode=travel_mode,
                 distance_km=result["distance_km"],
-                travel_time_minutes=result["travel_time_minutes"],
                 route_data=json.dumps(result) if result else None
             )
             db.add(cache_entry)

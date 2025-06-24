@@ -25,7 +25,6 @@ geocode_fields = {
 # Output fields for distance calculation responses
 distance_fields = {
     'distance_km': fields.Float,
-    'travel_time_minutes': fields.Float,
     'status': fields.String,
     'source': fields.String,
     'travel_mode': fields.String,

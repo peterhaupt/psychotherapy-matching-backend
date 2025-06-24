@@ -72,7 +72,6 @@ class DistanceCache(Base):
     
     # Result data
     distance_km = Column(Float, nullable=False)
-    travel_time_minutes = Column(Float, nullable=True)
     route_data = Column(String, nullable=True)  # JSON string of route details
     
     # Metadata

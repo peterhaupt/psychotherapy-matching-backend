@@ -370,8 +370,6 @@ def get_route(
     result = {
         "distance_meters": route["distance"],
         "distance_km": route["distance"] / 1000.0,
-        "duration_seconds": route["duration"],
-        "duration_minutes": route["duration"] / 60.0,
         "geometry": route.get("geometry"),
         "source": "osrm",
         "travel_mode": travel_mode
