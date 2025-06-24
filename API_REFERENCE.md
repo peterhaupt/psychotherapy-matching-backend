@@ -645,7 +645,6 @@ curl "http://localhost:8003/api/platzsuchen?status=aktiv"
       "patienten_name": "Anna Müller",
       "status": "aktiv",
       "created_at": "2025-06-07T10:00:00",
-      "gesamt_angeforderte_kontakte": 25,
       "aktive_anfragen": 3,
       "gesamt_anfragen": 8,
       "ausgeschlossene_therapeuten_anzahl": 2
@@ -680,7 +679,6 @@ curl "http://localhost:8003/api/platzsuchen/1"
   "status": "aktiv",
   "created_at": "2025-06-07T10:00:00",
   "ausgeschlossene_therapeuten": [45, 67],
-  "gesamt_angeforderte_kontakte": 25,
   "aktive_anfragen": 3,
   "gesamt_anfragen": 8,
   "anfrage_verlauf": [
@@ -723,30 +721,6 @@ curl -X POST "http://localhost:8003/api/platzsuchen" \
   "status": "aktiv",
   "created_at": "2025-06-07T10:00:00",
   "message": "Patient search created successfully"
-}
-```
-
-## POST /platzsuchen/{id}/kontaktanfrage
-
-**Description:** Request additional contacts for a patient search.
-
-**Example Request:**
-```bash
-curl -X POST "http://localhost:8003/api/platzsuchen/1/kontaktanfrage" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "requested_count": 10,
-    "notizen": "Patient still searching"
-  }'
-```
-
-**Example Response:**
-```json
-{
-  "message": "Requested 10 additional contacts",
-  "previous_total": 15,
-  "new_total": 25,
-  "search_id": 1
 }
 ```
 

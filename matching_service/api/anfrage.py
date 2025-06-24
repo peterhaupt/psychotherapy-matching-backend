@@ -70,7 +70,6 @@ class PlatzsucheResource(Resource):
                     "created_at": search.created_at.isoformat(),
                     "updated_at": search.updated_at.isoformat() if search.updated_at else None,
                     "ausgeschlossene_therapeuten": search.ausgeschlossene_therapeuten,
-                    "gesamt_angeforderte_kontakte": search.gesamt_angeforderte_kontakte,
                     "erfolgreiche_vermittlung_datum": search.erfolgreiche_vermittlung_datum.isoformat() if search.erfolgreiche_vermittlung_datum else None,
                     "notizen": search.notizen,
                     "aktive_anfragen": search.get_active_anfrage_count(),
@@ -231,7 +230,6 @@ class PlatzsucheListResource(PaginatedListResource):
                         "status": s.status.value,
                         "created_at": s.created_at.isoformat(),
                         "updated_at": s.updated_at.isoformat() if s.updated_at else None,
-                        "gesamt_angeforderte_kontakte": s.gesamt_angeforderte_kontakte,
                         "aktive_anfragen": s.get_active_anfrage_count(),
                         "gesamt_anfragen": s.get_total_anfrage_count(),
                         "ausgeschlossene_therapeuten_anzahl": len(s.ausgeschlossene_therapeuten) if s.ausgeschlossene_therapeuten else 0
