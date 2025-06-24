@@ -6,7 +6,7 @@ their key columns.
 
 IMPORTANT: All field names use German terminology for consistency.
 
-Current State (after Phase 2 migration):
+Current State (after migration 005):
 - All database table names use German names (patienten, therapeuten, telefonanrufe)
 - All database fields use German names
 - All enum types use German names
@@ -20,6 +20,7 @@ Current State (after Phase 2 migration):
 - New patient preference fields added (Phase 2)
 - New therapist field for Curavani awareness added (Phase 2)
 - Patient therapist age preferences removed
+- PLZ centroids table added for fast distance calculation (migration 005)
 """
 import os
 import sys
@@ -282,12 +283,13 @@ def test_communication_service_tables(db_inspector):
 
 
 def test_geocoding_service_tables(db_inspector):
-    """Test that geocoding service tables exist with correct columns."""
+    """Test that geocoding service tables exist with correct columns including plz_centroids."""
     tables = db_inspector.get_table_names(schema='geocoding_service')
     
     # Check tables exist
     assert 'geocache' in tables, "Table 'geocache' not found"
     assert 'distance_cache' in tables, "Table 'distance_cache' not found"
+    assert 'plz_centroids' in tables, "Table 'plz_centroids' not found (migration 005)"
     
     # Check geocache columns (these remain in English as they're technical)
     gc_columns = {col['name'] for col in db_inspector.get_columns('geocache', schema='geocoding_service')}
@@ -308,6 +310,26 @@ def test_geocoding_service_tables(db_inspector):
     }
     missing = dc_required - dc_columns
     assert not missing, f"Missing columns in distance_cache: {missing}"
+    
+    # Check plz_centroids columns (NEW in migration 005) - uses German field names
+    plz_columns = {col['name'] for col in db_inspector.get_columns('plz_centroids', schema='geocoding_service')}
+    plz_required = {
+        'plz', 'ort', 'bundesland', 'bundesland_code',
+        'latitude', 'longitude', 'created_at', 'updated_at'
+    }
+    missing = plz_required - plz_columns
+    assert not missing, f"Missing columns in plz_centroids: {missing}"
+    
+    # Check PLZ is the primary key
+    plz_pk = db_inspector.get_pk_constraint('plz_centroids', schema='geocoding_service')
+    assert plz_pk['constrained_columns'] == ['plz'], \
+        f"Primary key on plz_centroids should be 'plz', got: {plz_pk['constrained_columns']}"
+    
+    # Check plz_centroids indexes
+    plz_indexes = db_inspector.get_indexes('plz_centroids', schema='geocoding_service')
+    plz_index_names = {idx['name'] for idx in plz_indexes}
+    assert 'idx_plz_centroids_plz' in plz_index_names, \
+        "Missing index 'idx_plz_centroids_plz' on plz_centroids table"
 
 
 def test_enum_types(db_engine):
@@ -524,13 +546,19 @@ def test_primary_key_constraints(db_inspector):
         ('communication_service', 'telefonanrufe'),
         ('matching_service', 'platzsuche'),
         ('matching_service', 'therapeutenanfrage'),
-        ('matching_service', 'therapeut_anfrage_patient')
+        ('matching_service', 'therapeut_anfrage_patient'),
+        ('geocoding_service', 'plz_centroids')  # NEW
     ]
     
     for schema, table in tables_to_check:
         pk = db_inspector.get_pk_constraint(table, schema=schema)
         assert pk['constrained_columns'], f"Missing primary key on {schema}.{table}"
-        assert 'id' in pk['constrained_columns'], f"Primary key should be 'id' on {schema}.{table}"
+        
+        # Special case for plz_centroids - primary key is 'plz' not 'id'
+        if table == 'plz_centroids':
+            assert 'plz' in pk['constrained_columns'], f"Primary key should be 'plz' on {schema}.{table}"
+        else:
+            assert 'id' in pk['constrained_columns'], f"Primary key should be 'id' on {schema}.{table}"
 
 
 def test_table_comments_updated(db_engine):
@@ -543,7 +571,7 @@ def test_table_comments_updated(db_engine):
             FROM pg_tables pt
             JOIN pg_class c ON c.relname = pt.tablename
             JOIN pg_namespace n ON n.oid = c.relnamespace AND n.nspname = pt.schemaname
-            WHERE schemaname IN ('patient_service', 'therapist_service', 'communication_service')
+            WHERE schemaname IN ('patient_service', 'therapist_service', 'communication_service', 'geocoding_service')
             AND obj_description(c.oid) IS NOT NULL
         """))
         
@@ -554,6 +582,11 @@ def test_table_comments_updated(db_engine):
             for old_name in old_names:
                 assert old_name not in comment.lower(), \
                        f"Table comment for {row[0]}.{row[1]} still references old term '{old_name}': {comment}"
+            
+            # Check for plz_centroids comment
+            if row[1] == 'plz_centroids':
+                assert 'postal code centroids' in comment.lower() or 'plz centroids' in comment.lower(), \
+                    f"PLZ centroids table should have descriptive comment, got: {comment}"
 
 
 def test_sample_data_integrity(db_engine):
@@ -576,6 +609,11 @@ def test_sample_data_integrity(db_engine):
             result = conn.execute(text("SELECT COUNT(*) FROM communication_service.telefonanrufe"))
             phone_count = result.scalar()
             assert phone_count >= 0, "Should be able to query telefonanrufe table"
+            
+            # Test plz_centroids table (NEW)
+            result = conn.execute(text("SELECT COUNT(*) FROM geocoding_service.plz_centroids"))
+            plz_count = result.scalar()
+            assert plz_count >= 0, "Should be able to query plz_centroids table"
             
         except Exception as e:
             pytest.fail(f"Failed to query renamed tables: {e}")
@@ -613,6 +651,23 @@ def test_phase2_column_renames(db_inspector):
     tap_columns = {col['name'] for col in db_inspector.get_columns('therapeut_anfrage_patient', schema='matching_service')}
     assert 'position_in_anfrage' in tap_columns, "Column 'position_in_anfrage' not found in therapeut_anfrage_patient"
     assert 'position_im_buendel' not in tap_columns, "Old column 'position_im_buendel' should not exist"
+
+
+def test_plz_centroids_data_types(db_inspector):
+    """Test that plz_centroids columns have correct data types."""
+    columns = db_inspector.get_columns('plz_centroids', schema='geocoding_service')
+    
+    # Check specific column types
+    for col in columns:
+        if col['name'] == 'plz':
+            assert 'VARCHAR(5)' in str(col['type']).upper(), \
+                f"PLZ should be VARCHAR(5), got: {col['type']}"
+        elif col['name'] == 'ort':
+            assert 'VARCHAR(255)' in str(col['type']).upper(), \
+                f"Ort should be VARCHAR(255), got: {col['type']}"
+        elif col['name'] in ['latitude', 'longitude']:
+            assert 'FLOAT' in str(col['type']).upper() or 'DOUBLE' in str(col['type']).upper(), \
+                f"{col['name']} should be FLOAT, got: {col['type']}"
 
 
 if __name__ == "__main__":
