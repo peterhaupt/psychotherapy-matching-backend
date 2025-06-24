@@ -19,7 +19,7 @@ from api.anfrage import (
     AnfrageResponseResource
 )
 from events.consumers import start_consumers
-from shared.config import get_config
+from shared.config import get_config, setup_logging
 # Commented out for Option 1: Use only Alembic migrations
 # from db import init_db, close_db
 from db import close_db
@@ -45,19 +45,8 @@ def create_app():
     # Initialize Flask-SQLAlchemy with app
     db.init_app(app)
     
-    # Configure logging
-    logging.basicConfig(
-        level=config.LOG_LEVEL,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
+    # Configure logging for Flask app
     app.logger.setLevel(config.LOG_LEVEL)
-    
-    # Reduce Kafka logging verbosity
-    logging.getLogger('kafka').setLevel(logging.WARNING)
-    logging.getLogger('kafka.consumer').setLevel(logging.WARNING)
-    logging.getLogger('kafka.conn').setLevel(logging.WARNING)
-    logging.getLogger('kafka.client').setLevel(logging.WARNING)
-    logging.getLogger('kafka.protocol').setLevel(logging.WARNING)
 
     # Initialize RESTful API
     api = Api(app)
@@ -100,6 +89,9 @@ def signal_handler(sig, frame):
 
 
 if __name__ == "__main__":
+    # Set up centralized logging
+    setup_logging("matching-service")
+    
     # Set up signal handlers for graceful shutdown
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)

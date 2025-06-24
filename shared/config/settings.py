@@ -5,6 +5,7 @@ across the microservices architecture. It reads from environment variables
 with sensible defaults for development.
 """
 import os
+import logging
 from typing import Optional, List, Dict
 
 # Try to load .env file if python-dotenv is available
@@ -38,6 +39,7 @@ class Config:
     # Kafka Configuration
     KAFKA_BOOTSTRAP_SERVERS: str = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
     KAFKA_ZOOKEEPER_CONNECT: str = os.environ.get("KAFKA_ZOOKEEPER_CONNECT", "zookeeper:2181")
+    KAFKA_LOG_LEVEL: str = os.environ.get("KAFKA_LOG_LEVEL", "WARNING")  # NEW: Separate Kafka log level
     
     # Service Ports
     PATIENT_SERVICE_PORT: int = int(os.environ.get("PATIENT_SERVICE_PORT", "8001"))
@@ -293,3 +295,69 @@ def get_config() -> Config:
         Configuration object based on current environment
     """
     return config
+
+
+def setup_logging(service_name: str = "unknown-service") -> None:
+    """Set up centralized logging configuration for all services.
+    
+    This function:
+    - Sets up basic logging configuration with the configured format
+    - Sets the root logger to the configured LOG_LEVEL
+    - Silences noisy Kafka loggers by setting them to WARNING or higher
+    - Allows service-specific loggers to use their own levels
+    
+    Args:
+        service_name: Name of the service for identification in logs
+    """
+    # Get the current configuration
+    current_config = get_config()
+    
+    # Determine the root log level
+    # In debug mode, use DEBUG for root logger; otherwise use configured level
+    root_level = logging.DEBUG if current_config.FLASK_DEBUG else getattr(logging, current_config.LOG_LEVEL)
+    
+    # Set up basic logging configuration
+    logging.basicConfig(
+        level=root_level,
+        format=f'%(asctime)s - {service_name} - %(name)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    
+    # Get the kafka log level (default to WARNING if not set)
+    kafka_level = getattr(logging, current_config.KAFKA_LOG_LEVEL, logging.WARNING)
+    
+    # List of Kafka-related logger names to silence
+    kafka_loggers = [
+        'kafka',
+        'kafka.client',
+        'kafka.consumer',
+        'kafka.consumer.fetcher',
+        'kafka.consumer.group',
+        'kafka.conn',
+        'kafka.connection',
+        'kafka.coordinator',
+        'kafka.coordinator.consumer',
+        'kafka.coordinator.base',
+        'kafka.metrics',
+        'kafka.protocol',
+        'kafka.protocol.parser',
+        'kafka.producer',
+        'kafka.producer.kafka',
+        'kafka.producer.record_accumulator',
+        'kafka.producer.sender',
+    ]
+    
+    # Set all Kafka loggers to WARNING level or higher
+    for logger_name in kafka_loggers:
+        kafka_logger = logging.getLogger(logger_name)
+        kafka_logger.setLevel(kafka_level)
+    
+    # Also set the kafka-python logger specifically
+    logging.getLogger('kafka.python').setLevel(kafka_level)
+    
+    # Log the configuration for debugging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Logging configured for {service_name}")
+    logger.info(f"Root log level: {logging.getLevelName(root_level)}")
+    logger.info(f"Kafka log level: {logging.getLevelName(kafka_level)}")
+    logger.debug("This is a debug message - you should see this in debug mode")

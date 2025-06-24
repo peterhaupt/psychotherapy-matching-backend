@@ -6,7 +6,7 @@ from flask_cors import CORS
 from api.emails import EmailResource, EmailListResource
 from api.phone_calls import PhoneCallResource, PhoneCallListResource
 from events.consumers import start_consumers
-from shared.config import get_config
+from shared.config import get_config, setup_logging
 
 
 def create_app():
@@ -54,6 +54,9 @@ def create_app():
 
 
 if __name__ == "__main__":
+    # Set up centralized logging
+    setup_logging("communication-service")
+    
     config = get_config()
     app = create_app()
     app.run(
