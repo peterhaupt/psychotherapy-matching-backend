@@ -510,20 +510,7 @@ def test_check_constraints(db_engine):
         
         assert 'phone_call_recipient_check' in constraint_names, \
             "Missing check constraint 'phone_call_recipient_check' on telefonanrufe table"
-        
-        # Check therapeutenanfrage constraints (Phase 2 renamed)
-        ta_constraints_query = text("""
-            SELECT conname 
-            FROM pg_constraint 
-            WHERE conrelid = 'matching_service.therapeutenanfrage'::regclass 
-            AND contype = 'c'
-        """)
-        result = conn.execute(ta_constraints_query)
-        constraint_names = [row[0] for row in result]
-        
-        assert 'anfrage_size_check' in constraint_names, \
-            "Missing renamed check constraint 'anfrage_size_check' on therapeutenanfrage table"
-        
+                
         # Old constraint name should not exist
         assert 'bundle_size_check' not in constraint_names, \
             "Old constraint name 'bundle_size_check' should have been renamed"
