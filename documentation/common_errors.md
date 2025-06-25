@@ -20,6 +20,36 @@ The `RobustKafkaProducer` handles this gracefully by queuing messages until Kafk
 
 ---
 
+## Kafka Zookeeper Registration Conflict
+
+### Error
+```
+org.apache.zookeeper.KeeperException$NodeExistsException: KeeperErrorCode = NodeExists
+```
+
+### Cause
+Kafka cannot register with Zookeeper because a stale broker registration exists from a previous run.
+
+### Solution
+Restart only Kafka and Zookeeper containers (preserves database):
+```bash
+# Stop only Kafka and Zookeeper
+docker-compose stop kafka zookeeper
+
+# Remove only these containers (not volumes)
+docker-compose rm -f kafka zookeeper
+
+# Restart them fresh
+docker-compose up -d kafka zookeeper
+```
+
+### Note
+This is safe because:
+- PostgreSQL data is in a named volume (`postgres_data`) which is preserved
+- Kafka/Zookeeper only use container storage (no persistent volumes defined)
+
+---
+
 ## PgBouncer Health Check Issues
 
 ### Error
