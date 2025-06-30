@@ -5,6 +5,8 @@ from flask_cors import CORS
 
 from api.patients import PatientResource, PatientListResource, PatientCommunicationResource
 from shared.config import get_config, setup_logging
+# PHASE 2: Import start_consumers
+from events.consumers import start_consumers
 
 
 def create_app():
@@ -34,6 +36,9 @@ def create_app():
     # NEW: Register communication history endpoint
     api.add_resource(PatientCommunicationResource, 
                      '/api/patients/<int:patient_id>/communication')
+    
+    # PHASE 2: Start Kafka consumers for event-driven updates
+    start_consumers()
 
     return app
 

@@ -11,6 +11,8 @@ from shared.utils.database import SessionLocal
 from shared.api.base_resource import PaginatedListResource
 from shared.config import get_config
 from utils.markdown_processor import markdown_to_html, strip_html
+# PHASE 2: Import event publishers
+from events.producers import publish_email_sent, publish_email_response_received
 
 # Get configuration
 config = get_config()
@@ -263,6 +265,10 @@ class EmailResource(Resource):
             if not email:
                 return {'message': 'Email not found'}, 404
             
+            # PHASE 2: Track status changes for events
+            old_status = email.status
+            old_antwort_erhalten = email.antwort_erhalten
+            
             # Update fields from request
             for key, value in args.items():
                 if value is not None:
@@ -290,6 +296,26 @@ class EmailResource(Resource):
             
             db.commit()
             db.refresh(email)
+            
+            # PHASE 2: Publish events based on changes
+            email_data_for_event = {
+                'email_id': email.id,
+                'therapist_id': email.therapist_id,
+                'patient_id': email.patient_id,
+                'betreff': email.betreff,
+                'recipient_type': email.recipient_type,
+                'status': email.status.value if hasattr(email.status, 'value') else str(email.status)
+            }
+            
+            # Check if email was just sent
+            if old_status != EmailStatus.Gesendet and email.status == EmailStatus.Gesendet:
+                logger.info(f"Email {email_id} status changed to Gesendet, publishing event")
+                publish_email_sent(email.id, email_data_for_event)
+            
+            # Check if response was just received
+            if not old_antwort_erhalten and email.antwort_erhalten:
+                logger.info(f"Email {email_id} received response, publishing event")
+                publish_email_response_received(email.id, email_data_for_event)
             
             return marshal(email, email_fields)
         except SQLAlchemyError as e:

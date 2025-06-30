@@ -2,7 +2,7 @@
 from flask import request, jsonify
 from flask_restful import Resource, fields, marshal_with, reqparse, marshal
 from sqlalchemy.exc import SQLAlchemyError
-from datetime import datetime
+from datetime import datetime, date
 import requests
 import logging
 
@@ -297,7 +297,13 @@ class PatientResource(Resource):
             # Update fields from request
             for key, value in args.items():
                 if value is not None:
-                    if key == 'status':
+                    # Skip manual setting of startdatum - PHASE 1 IMPLEMENTATION
+                    if key == 'startdatum':
+                        continue  # Ignore client-provided startdatum
+                    # Skip manual setting of letzter_kontakt - PHASE 2 IMPLEMENTATION
+                    elif key == 'letzter_kontakt':
+                        continue  # Ignore client-provided letzter_kontakt
+                    elif key == 'status':
                         try:
                             patient.status = validate_and_get_patient_status(value)
                         except ValueError as e:
@@ -307,14 +313,21 @@ class PatientResource(Resource):
                             patient.bevorzugtes_therapeutengeschlecht = validate_and_get_gender_preference(value)
                         except ValueError as e:
                             return {'message': str(e)}, 400
-                    elif key in ['geburtsdatum', 'startdatum', 'erster_therapieplatz_am', 
-                                'funktionierender_therapieplatz_am', 'letzter_kontakt', 'beschwerden_seit']:
+                    elif key in ['geburtsdatum', 'erster_therapieplatz_am', 
+                                'funktionierender_therapieplatz_am', 'beschwerden_seit']:
                         try:
                             setattr(patient, key, parse_date_field(value, key))
                         except ValueError as e:
                             return {'message': str(e)}, 400
                     else:
                         setattr(patient, key, value)
+            
+            # PHASE 1 IMPLEMENTATION: Check if we need to set startdatum
+            if (patient.vertraege_unterschrieben and 
+                patient.psychotherapeutische_sprechstunde and 
+                patient.startdatum is None):
+                patient.startdatum = date.today()
+                logging.info(f"Automatically set startdatum for patient {patient_id} to {date.today()}")
             
             db.commit()
             db.refresh(patient)
@@ -416,7 +429,8 @@ class PatientListResource(PaginatedListResource):
         # Process Status
         parser.add_argument('vertraege_unterschrieben', type=bool)
         parser.add_argument('psychotherapeutische_sprechstunde', type=bool)
-        parser.add_argument('startdatum', type=str)
+        # PHASE 1 IMPLEMENTATION: Removed startdatum from parser
+        # parser.add_argument('startdatum', type=str)  # REMOVED
         parser.add_argument('status', type=str)
         parser.add_argument('empfehler_der_unterstuetzung', type=str)
         
@@ -428,6 +442,8 @@ class PatientListResource(PaginatedListResource):
         # Preferences
         parser.add_argument('offen_fuer_gruppentherapie', type=bool)
         parser.add_argument('offen_fuer_diga', type=bool)
+        # PHASE 2 IMPLEMENTATION: Removed letzter_kontakt from parser
+        # parser.add_argument('letzter_kontakt', type=str)  # REMOVED
         
         # Medical History - PREVIOUSLY MISSING
         parser.add_argument('psychotherapieerfahrung', type=bool)
@@ -473,7 +489,10 @@ class PatientListResource(PaginatedListResource):
             # Process each argument
             for key, value in args.items():
                 if value is not None:
-                    if key == 'status':
+                    # Skip manual setting of letzter_kontakt - PHASE 2 IMPLEMENTATION
+                    if key == 'letzter_kontakt':
+                        continue  # Ignore client-provided letzter_kontakt
+                    elif key == 'status':
                         try:
                             patient_data['status'] = validate_and_get_patient_status(value)
                         except ValueError as e:
@@ -483,7 +502,7 @@ class PatientListResource(PaginatedListResource):
                             patient_data[key] = validate_and_get_gender_preference(value)
                         except ValueError as e:
                             return {'message': str(e)}, 400
-                    elif key in ['geburtsdatum', 'startdatum', 'beschwerden_seit']:
+                    elif key in ['geburtsdatum', 'beschwerden_seit']:
                         try:
                             patient_data[key] = parse_date_field(value, key)
                         except ValueError as e:
@@ -492,6 +511,12 @@ class PatientListResource(PaginatedListResource):
                         patient_data[key] = value
             
             patient = Patient(**patient_data)
+            
+            # PHASE 1 IMPLEMENTATION: Check if we need to set startdatum
+            if (patient.vertraege_unterschrieben and 
+                patient.psychotherapeutische_sprechstunde):
+                patient.startdatum = date.today()
+                logging.info(f"Automatically set startdatum for new patient to {date.today()}")
             
             db.add(patient)
             db.commit()

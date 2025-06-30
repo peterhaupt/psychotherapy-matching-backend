@@ -9,6 +9,8 @@ from models.phone_call import PhoneCall, PhoneCallStatus
 from shared.utils.database import SessionLocal
 from shared.api.base_resource import PaginatedListResource
 from utils.phone_call_scheduler import find_available_slot
+# PHASE 2: Import event publishers
+from events.producers import publish_phone_call_scheduled, publish_phone_call_completed
 
 # Custom field for nullable foreign keys
 class NullableIntegerField(fields.Raw):
@@ -86,6 +88,9 @@ class PhoneCallResource(Resource):
             if not phone_call:
                 return {'message': 'Phone call not found'}, 404
             
+            # PHASE 2: Track status changes for events
+            old_status = phone_call.status
+            
             # Update fields from request
             for key, value in args.items():
                 if value is not None:
@@ -122,23 +127,30 @@ class PhoneCallResource(Resource):
             db.commit()
             db.refresh(phone_call)
             
-            # Update patient's last contact date if this is a patient call and it's completed
-            if phone_call.patient_id and phone_call.status == PhoneCallStatus.abgeschlossen.value:
-                try:
-                    import requests
-                    from shared.config import get_config
-                    config = get_config()
-                    patient_service_url = config.get_service_url('patient', internal=True)
-                    
-                    # Update patient's letzter_kontakt field
-                    response = requests.put(
-                        f"{patient_service_url}/api/patients/{phone_call.patient_id}",
-                        json={'letzter_kontakt': datetime.utcnow().date().isoformat()}
-                    )
-                    if response.ok:
-                        logging.info(f"Updated patient {phone_call.patient_id} last contact date")
-                except Exception as e:
-                    logging.warning(f"Failed to update patient last contact date: {e}")
+            # PHASE 2: Publish event if call was just completed
+            if old_status != PhoneCallStatus.abgeschlossen.value and phone_call.status == PhoneCallStatus.abgeschlossen.value:
+                call_data_for_event = {
+                    'call_id': phone_call.id,
+                    'therapist_id': phone_call.therapist_id,
+                    'patient_id': phone_call.patient_id,
+                    'recipient_type': phone_call.recipient_type,
+                    'status': phone_call.status,
+                    'ergebnis': phone_call.ergebnis
+                }
+                
+                logging.info(f"Phone call {call_id} completed, publishing event")
+                publish_phone_call_completed(
+                    phone_call.id, 
+                    call_data_for_event,
+                    outcome=phone_call.ergebnis
+                )
+            
+            # PHASE 2: Remove direct patient update - this will be handled by event consumer
+            # The following code block has been removed:
+            # if phone_call.patient_id and phone_call.status == PhoneCallStatus.abgeschlossen.value:
+            #     try:
+            #         import requests
+            #         ... update patient letzter_kontakt directly ...
             
             return marshal(phone_call, phone_call_fields)
         except SQLAlchemyError as e:
@@ -311,7 +323,6 @@ class PhoneCallListResource(PaginatedListResource):
             db.refresh(phone_call)
             
             # Publish event for phone call creation
-            from events.producers import publish_phone_call_scheduled
             try:
                 publish_phone_call_scheduled(phone_call.id, {
                     'therapist_id': phone_call.therapist_id,
