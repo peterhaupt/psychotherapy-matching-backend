@@ -57,6 +57,23 @@ Error messages and validation will reflect the configured values, not hardcoded 
 }
 ```
 
+## Automatically Managed Fields
+
+The following fields are managed automatically by the backend and **cannot be set manually via API**:
+
+### Patient Service
+- **`startdatum`**: Automatically set to today's date when BOTH conditions are met:
+  - `vertraege_unterschrieben` = true
+  - `psychotherapeutische_sprechstunde` = true
+  - Once set, it never changes (even if checkboxes are later unchecked)
+  
+- **`letzter_kontakt`**: Automatically updated to today's date when:
+  - An email is sent to the patient (status = "Gesendet")
+  - The patient responds to an email (antwort_erhalten = true)
+  - A phone call with the patient is completed (status = "abgeschlossen")
+
+**Note:** Any attempt to set these fields via POST or PUT requests will be silently ignored.
+
 ## Complex Field Formats
 
 ### Time Availability (zeitliche_verfuegbarkeit)
@@ -150,6 +167,11 @@ Error messages and validation will reflect the configured values, not hardcoded 
   "bevorzugtes_therapieverfahren": []
 }
 ```
+
+**Validation:** Only accepts these exact values:
+- `"egal"`
+- `"Verhaltenstherapie"`
+- `"tiefenpsychologisch_fundierte_Psychotherapie"`
 
 ### Languages (fremdsprachen)
 
@@ -250,12 +272,13 @@ Error messages and validation will reflect the configured values, not hardcoded 
 "Egal"
 ```
 
-### Therapy Procedures (therapieverfahren)
+### Therapy Procedures (therapieverfahren) - **VALIDATED FIELD**
 ```
 "egal"
 "Verhaltenstherapie"
 "tiefenpsychologisch_fundierte_Psychotherapie"
 ```
+**Note:** Only these exact values are accepted for `bevorzugtes_therapieverfahren`. Any other value will return a 400 error.
 
 ### Response Type (antworttyp)
 ```
@@ -454,7 +477,7 @@ curl "http://localhost:8001/api/patients/30/communication"
 **Process Status:**
 - `vertraege_unterschrieben` (boolean)
 - `psychotherapeutische_sprechstunde` (boolean)
-- `startdatum` (string, YYYY-MM-DD)
+- ~~`startdatum`~~ **AUTOMATIC** - Set automatically when both checkboxes above are true
 - `status` (string, see enum values)
 - `empfehler_der_unterstuetzung` (string)
 
@@ -466,6 +489,7 @@ curl "http://localhost:8001/api/patients/30/communication"
 **Preferences:**
 - `offen_fuer_gruppentherapie` (boolean)
 - `offen_fuer_diga` (boolean)
+- ~~`letzter_kontakt`~~ **AUTOMATIC** - Updated via communication events
 
 **Medical History:**
 - `psychotherapieerfahrung` (boolean)
@@ -489,7 +513,7 @@ curl "http://localhost:8001/api/patients/30/communication"
 **Therapist Preferences:**
 - `ausgeschlossene_therapeuten` (array of integers)
 - `bevorzugtes_therapeutengeschlecht` (string, see enum)
-- `bevorzugtes_therapieverfahren` (array of strings, see enum)
+- `bevorzugtes_therapieverfahren` (array of strings, **VALIDATED** - see enum)
 
 **Example Request (Complete):**
 ```bash
@@ -542,6 +566,8 @@ curl -X POST "http://localhost:8001/api/patients" \
   }'
 ```
 
+**Note:** Do not include `startdatum` or `letzter_kontakt` in requests - they are managed automatically.
+
 **Example Response:**
 ```json
 {
@@ -561,8 +587,17 @@ curl -X POST "http://localhost:8001/api/patients" \
   "berufliche_situation": "Selbständiger Architekt",
   "anlass_fuer_die_therapiesuche": "Zunahme der Panikattacken, Beeinträchtigung im Beruf",
   "bevorzugtes_therapieverfahren": ["Verhaltenstherapie"],
+  "startdatum": null,
+  "letzter_kontakt": null,
   "created_at": "2025-06-10",
   "updated_at": "2025-06-10"
+}
+```
+
+**Validation Error Example (Invalid bevorzugtes_therapieverfahren):**
+```json
+{
+  "message": "Invalid therapy method 'Psychoanalyse'. Valid values: egal, Verhaltenstherapie, tiefenpsychologisch_fundierte_Psychotherapie"
 }
 ```
 
@@ -570,7 +605,9 @@ curl -X POST "http://localhost:8001/api/patients" \
 
 **Description:** Update an existing patient.
 
-**Accepts all fields from POST request as optional parameters.**
+**Accepts all fields from POST request as optional parameters, except:**
+- `startdatum` - Automatically managed
+- `letzter_kontakt` - Automatically managed
 
 **Example Request:**
 ```bash
@@ -579,7 +616,6 @@ curl -X PUT "http://localhost:8001/api/patients/1" \
   -d '{
     "status": "in_Therapie",
     "funktionierender_therapieplatz_am": "2025-06-15",
-    "letzter_kontakt": "2025-06-18",
     "aktuelle_psychische_beschwerden": "Deutliche Besserung der Symptomatik",
     "therapieziele": "Stabilisierung der Fortschritte, Rückfallprophylaxe"
   }'
@@ -1556,10 +1592,21 @@ curl -X DELETE "http://localhost:8004/api/emails/1"
 - Added database migration requirement notes
 - Removed any references to null JSONB values
 
-## 🚀 **Latest Migrations Applied:**
+## 🚀 **Latest Implementations:**
 
-- **Migration 002**: Removed hardcoded anfrage size constraints
-- **Migration 003**: Fixed patient array field defaults (`bevorzugtes_therapieverfahren`)
-- **Migration 004**: Fixed therapist JSONB field defaults (all JSONB fields)
+### Phase 1: Automatic startdatum
+- `startdatum` is now automatically set when both `vertraege_unterschrieben` and `psychotherapeutische_sprechstunde` are true
+- Cannot be manually set via API - any attempts are silently ignored
+- Once set, it never changes
 
-**Note:** This API reference now accurately reflects the backend implementation after all database migrations are applied. All JSONB fields will return proper defaults (arrays or objects) instead of null values, ensuring frontend compatibility and preventing crashes.
+### Phase 2: Automatic letzter_kontakt  
+- `letzter_kontakt` is automatically updated via Kafka events when communication occurs
+- Updated when emails are sent, responses received, or phone calls completed
+- Cannot be manually set via API - any attempts are silently ignored
+
+### Phase 3: bevorzugtes_therapieverfahren Validation
+- Only accepts values: "egal", "Verhaltenstherapie", "tiefenpsychologisch_fundierte_Psychotherapie" 
+- Returns 400 error with clear message for invalid values
+- Properly validates array input
+
+**Note:** This API reference now accurately reflects the backend implementation after all database migrations and automatic field management are applied. Fields marked as **AUTOMATIC** are managed by the system and cannot be set manually.
