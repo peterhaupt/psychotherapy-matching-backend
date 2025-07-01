@@ -6,7 +6,7 @@ from datetime import datetime
 import requests
 import logging
 
-from models.patient import Patient, PatientStatus, TherapeutenGeschlechtspraeferenz, Anrede, Geschlecht
+from models.patient import Patient, Patientenstatus, Therapeutgeschlechtspraeferenz, Anrede, Geschlecht
 from shared.utils.database import SessionLocal
 from shared.api.base_resource import PaginatedListResource
 from shared.config import get_config
@@ -126,14 +126,14 @@ patient_fields = {
 }
 
 
-def validate_and_get_patient_status(status_value: str) -> PatientStatus:
-    """Validate and return PatientStatus enum.
+def validate_and_get_patient_status(status_value: str) -> Patientenstatus:
+    """Validate and return Patientenstatus enum.
     
     Args:
         status_value: German status value from request
         
     Returns:
-        PatientStatus enum
+        Patientenstatus enum
         
     Raises:
         ValueError: If status value is invalid
@@ -143,20 +143,20 @@ def validate_and_get_patient_status(status_value: str) -> PatientStatus:
     
     # With German enums, we can directly access by name since name == value
     try:
-        return PatientStatus[status_value]
+        return Patientenstatus[status_value]
     except KeyError:
-        valid_values = [status.value for status in PatientStatus]
+        valid_values = [status.value for status in Patientenstatus]
         raise ValueError(f"Invalid status '{status_value}'. Valid values: {', '.join(valid_values)}")
 
 
-def validate_and_get_gender_preference(pref_value: str) -> TherapeutenGeschlechtspraeferenz:
-    """Validate and return TherapeutenGeschlechtspraeferenz enum.
+def validate_and_get_gender_preference(pref_value: str) -> Therapeutgeschlechtspraeferenz:
+    """Validate and return Therapeutgeschlechtspraeferenz enum.
     
     Args:
         pref_value: German preference value from request
         
     Returns:
-        TherapeutenGeschlechtspraeferenz enum or None
+        Therapeutgeschlechtspraeferenz enum or None
         
     Raises:
         ValueError: If preference value is invalid
@@ -165,9 +165,9 @@ def validate_and_get_gender_preference(pref_value: str) -> TherapeutenGeschlecht
         return None
     
     try:
-        return TherapeutenGeschlechtspraeferenz[pref_value]
+        return Therapeutgeschlechtspraeferenz[pref_value]
     except KeyError:
-        valid_values = [pref.value for pref in TherapeutenGeschlechtspraeferenz]
+        valid_values = [pref.value for pref in Therapeutgeschlechtspraeferenz]
         raise ValueError(f"Invalid gender preference '{pref_value}'. Valid values: {', '.join(valid_values)}")
 
 

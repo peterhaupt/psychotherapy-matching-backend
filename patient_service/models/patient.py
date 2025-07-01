@@ -11,7 +11,7 @@ from sqlalchemy.dialects.postgresql import JSONB, ARRAY
 from shared.utils.database import Base
 
 
-class PatientStatus(str, Enum):
+class Patientenstatus(str, Enum):
     """Enumeration for patient status values - fully German."""
 
     offen = "offen"
@@ -22,7 +22,7 @@ class PatientStatus(str, Enum):
     Therapie_abgebrochen = "Therapie_abgebrochen"
 
 
-class TherapistGenderPreference(str, Enum):
+class Therapeutgeschlechtspraeferenz(str, Enum):
     """Enumeration for therapist gender preferences - fully German."""
 
     Männlich = "Männlich"
@@ -103,8 +103,8 @@ class Patient(Base):
     erster_therapieplatz_am = Column(Date)
     funktionierender_therapieplatz_am = Column(Date)
     status = Column(
-        SQLAlchemyEnum(PatientStatus, name='patientenstatus', native_enum=True),
-        default=PatientStatus.offen
+        SQLAlchemyEnum(Patientenstatus, name='patientenstatus', native_enum=True),
+        default=Patientenstatus.offen
     )
     empfehler_der_unterstuetzung = Column(Text)
 
@@ -140,8 +140,8 @@ class Patient(Base):
     # Therapist Exclusions and Preferences (German field names)
     ausgeschlossene_therapeuten = Column(JSONB)  # Liste von Therapeuten-IDs
     bevorzugtes_therapeutengeschlecht = Column(
-        SQLAlchemyEnum(TherapistGenderPreference, name='therapeutgeschlechtspraeferenz', native_enum=True),
-        default=TherapistGenderPreference.Egal
+        SQLAlchemyEnum(Therapeutgeschlechtspraeferenz, name='therapeutgeschlechtspraeferenz', native_enum=True),
+        default=Therapeutgeschlechtspraeferenz.Egal
     )
     bevorzugtes_therapieverfahren = Column(ARRAY(SQLAlchemyEnum(Therapieverfahren, name='therapieverfahren', native_enum=True)))  # NEW: PostgreSQL Array
     # REMOVED: bevorzugtes_therapeutenalter_min and bevorzugtes_therapeutenalter_max
