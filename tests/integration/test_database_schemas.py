@@ -21,6 +21,7 @@ Current State (after migration 005):
 - New therapist field for Curavani awareness added (Phase 2)
 - Patient therapist age preferences removed
 - PLZ centroids table added for fast distance calculation (migration 005)
+- travel_time_minutes removed from distance_cache table (migration 006)
 """
 import os
 import sys
@@ -96,7 +97,7 @@ def test_patient_service_tables(db_inspector):
     columns = {col['name'] for col in db_inspector.get_columns('patienten', schema='patient_service')}
     
     required_columns = {
-        'id', 'anrede', 'vorname', 'nachname', 'strasse', 'plz', 'ort',
+        'id', 'anrede', 'geschlecht', 'vorname', 'nachname', 'strasse', 'plz', 'ort',
         'email', 'telefon', 'hausarzt', 'krankenkasse', 
         'krankenversicherungsnummer', 'geburtsdatum', 'diagnose',
         # NEW Phase 2 fields
@@ -301,11 +302,13 @@ def test_geocoding_service_tables(db_inspector):
     assert not missing, f"Missing columns in geocache: {missing}"
     
     # Check distance_cache columns (these remain in English as they're technical)
+    # UPDATED: Removed travel_time_minutes from required columns
     dc_columns = {col['name'] for col in db_inspector.get_columns('distance_cache', schema='geocoding_service')}
     dc_required = {
         'id', 'origin_latitude', 'origin_longitude', 'destination_latitude',
         'destination_longitude', 'travel_mode', 'distance_km',
-        'travel_time_minutes', 'route_data', 'created_at', 'updated_at',
+        # REMOVED: 'travel_time_minutes' - no longer required
+        'route_data', 'created_at', 'updated_at',
         'hit_count'
     }
     missing = dc_required - dc_columns
@@ -354,6 +357,9 @@ def test_enum_types(db_engine):
     
     # Check required enums exist with German names and values
     expected_enums = {
+        # NEW enum types for Phase 4
+        'anrede': ['Herr', 'Frau'],
+        'geschlecht': ['männlich', 'weiblich', 'divers', 'keine_Angabe'],
         # Updated German enum names and values
         'patientenstatus': ['offen', 'auf_der_Suche', 'in_Therapie', 
                            'Therapie_abgeschlossen', 'Suche_abgebrochen', 'Therapie_abgebrochen'],

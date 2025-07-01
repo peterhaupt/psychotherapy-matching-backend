@@ -34,6 +34,8 @@ class TestCommunicationServiceAPI:
     def create_test_patient(self, **kwargs):
         """Helper to create a test patient in patient service."""
         default_data = {
+            "anrede": "Herr",  # Required field
+            "geschlecht": "männlich",  # Required field
             "vorname": "Test",
             "nachname": "Patient",
             "email": "test.patient@example.com",
@@ -51,6 +53,8 @@ class TestCommunicationServiceAPI:
     def create_test_therapist(self, **kwargs):
         """Helper to create a test therapist in therapist service."""
         default_data = {
+            "anrede": "Herr",  # Required field
+            "geschlecht": "männlich",  # Required field
             "vorname": "Test",
             "nachname": "Therapeut",
             "email": "test.therapeut@example.com",
@@ -141,6 +145,8 @@ class TestCommunicationServiceAPI:
         """Test creating an email for a therapist."""
         # Create a therapist first
         therapist = self.create_test_therapist(
+            anrede="Herr",
+            geschlecht="männlich",
             vorname="Max",
             nachname="Mustermann",
             email="therapist@example.com"
@@ -171,6 +177,8 @@ class TestCommunicationServiceAPI:
         """Test creating an email for a patient."""
         # Create a patient first
         patient = self.create_test_patient(
+            anrede="Frau",
+            geschlecht="weiblich",
             vorname="Anna",
             nachname="Schmidt",
             email="patient@example.com"
@@ -214,7 +222,7 @@ class TestCommunicationServiceAPI:
     def test_get_emails_list_with_data(self):
         """Test getting email list with data and pagination."""
         # Create a therapist for the emails
-        therapist = self.create_test_therapist()
+        therapist = self.create_test_therapist(anrede="Frau", geschlecht="weiblich")
         
         # Create test emails
         email1 = self.create_test_email(therapist_id=therapist['id'], betreff="Email 1")
@@ -286,8 +294,8 @@ class TestCommunicationServiceAPI:
     def test_get_emails_filtered_by_therapist(self):
         """Test filtering emails by therapist_id with pagination."""
         # Create different therapists
-        therapist1 = self.create_test_therapist(email="therapist1@example.com")
-        therapist2 = self.create_test_therapist(email="therapist2@example.com")
+        therapist1 = self.create_test_therapist(email="therapist1@example.com", anrede="Herr", geschlecht="männlich")
+        therapist2 = self.create_test_therapist(email="therapist2@example.com", anrede="Frau", geschlecht="weiblich")
         patient = self.create_test_patient()
         
         # Create emails for different recipients
@@ -667,6 +675,66 @@ class TestCommunicationServiceAPI:
         # Cleanup
         requests.delete(f"{THERAPIST_BASE_URL}/therapists/{therapist['id']}")
         requests.delete(f"{PATIENT_BASE_URL}/patients/{patient['id']}")
+
+    def test_therapist_gender_combinations(self):
+        """Test creating therapists with various gender and anrede combinations for communication."""
+        combinations = [
+            ("Herr", "männlich"),
+            ("Frau", "weiblich"),
+            ("Herr", "divers"),
+            ("Frau", "keine_Angabe")
+        ]
+        
+        for anrede, geschlecht in combinations:
+            therapist = self.create_test_therapist(
+                anrede=anrede,
+                geschlecht=geschlecht,
+                vorname=f"Test_{geschlecht}",
+                email=f"test_{geschlecht}@example.com"
+            )
+            
+            # Create an email for this therapist
+            email = self.create_test_email(
+                therapist_id=therapist['id'],
+                betreff=f"Email for {anrede} {geschlecht}"
+            )
+            
+            # Verify email was created successfully
+            assert email['therapist_id'] == therapist['id']
+            
+            # Cleanup
+            requests.delete(f"{BASE_URL}/emails/{email['id']}")
+            requests.delete(f"{THERAPIST_BASE_URL}/therapists/{therapist['id']}")
+
+    def test_patient_gender_combinations(self):
+        """Test creating patients with various gender and anrede combinations for communication."""
+        combinations = [
+            ("Herr", "männlich"),
+            ("Frau", "weiblich"),
+            ("Herr", "divers"),
+            ("Frau", "keine_Angabe")
+        ]
+        
+        for anrede, geschlecht in combinations:
+            patient = self.create_test_patient(
+                anrede=anrede,
+                geschlecht=geschlecht,
+                vorname=f"Test_{geschlecht}",
+                email=f"patient_{geschlecht}@example.com"
+            )
+            
+            # Create a phone call for this patient
+            call = self.create_test_phone_call(
+                patient_id=patient['id'],
+                notizen=f"Call for {anrede} {geschlecht}"
+            )
+            
+            # Verify call was created successfully
+            assert call['patient_id'] == patient['id']
+            
+            # Cleanup
+            requests.delete(f"{BASE_URL}/phone-calls/{call['id']}")
+            requests.delete(f"{PATIENT_BASE_URL}/patients/{patient['id']}")
 
 
 if __name__ == "__main__":

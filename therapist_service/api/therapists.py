@@ -143,7 +143,8 @@ def validate_and_get_therapist_status(status_value: str) -> TherapistStatus:
         return TherapistStatus[status_value]
     except KeyError:
         valid_values = [status.value for status in TherapistStatus]
-        raise ValueError(f"Invalid status '{status_value}'. Valid values: {valid_values}")
+        # FIXED: Use join instead of str(list)
+        raise ValueError(f"Invalid status '{status_value}'. Valid values: {', '.join(valid_values)}")
 
 
 def validate_and_get_anrede(anrede_value: str) -> Anrede:
@@ -165,7 +166,8 @@ def validate_and_get_anrede(anrede_value: str) -> Anrede:
         return Anrede[anrede_value]
     except KeyError:
         valid_values = [a.value for a in Anrede]
-        raise ValueError(f"Invalid anrede '{anrede_value}'. Valid values: {valid_values}")
+        # FIXED: Use join instead of str(list)
+        raise ValueError(f"Invalid anrede '{anrede_value}'. Valid values: {', '.join(valid_values)}")
 
 
 def validate_and_get_geschlecht(geschlecht_value: str) -> Geschlecht:
@@ -187,7 +189,8 @@ def validate_and_get_geschlecht(geschlecht_value: str) -> Geschlecht:
         return Geschlecht[geschlecht_value]
     except KeyError:
         valid_values = [g.value for g in Geschlecht]
-        raise ValueError(f"Invalid geschlecht '{geschlecht_value}'. Valid values: {valid_values}")
+        # FIXED: Use join instead of str(list)
+        raise ValueError(f"Invalid geschlecht '{geschlecht_value}'. Valid values: {', '.join(valid_values)}")
 
 
 def parse_date_field(date_string: str, field_name: str):

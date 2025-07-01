@@ -30,6 +30,8 @@ class TestTherapistServiceAPI:
     def create_test_therapist(self, **kwargs):
         """Helper method to create a test therapist."""
         default_data = {
+            "anrede": "Herr",  # Required field
+            "geschlecht": "männlich",  # Required field
             "vorname": "Test",
             "nachname": "Therapeut",
             "email": "test.therapeut@example.com",
@@ -50,6 +52,7 @@ class TestTherapistServiceAPI:
         """Test creating a new therapist."""
         therapist_data = {
             "anrede": "Frau",
+            "geschlecht": "weiblich",
             "titel": "Dr.",
             "vorname": "Maria",
             "nachname": "Müller",
@@ -59,7 +62,6 @@ class TestTherapistServiceAPI:
             "plz": "10117",
             "ort": "Berlin",
             "kassensitz": True,
-            "geschlecht": "w",
             "psychotherapieverfahren": ["Verhaltenstherapie", "Tiefenpsychologie"],
             "fremdsprachen": ["Englisch", "Französisch"],
             "potenziell_verfuegbar": True,
@@ -73,6 +75,8 @@ class TestTherapistServiceAPI:
         created_therapist = response.json()
         assert created_therapist["vorname"] == "Maria"
         assert created_therapist["nachname"] == "Müller"
+        assert created_therapist["anrede"] == "Frau"
+        assert created_therapist["geschlecht"] == "weiblich"
         assert created_therapist["status"] == "aktiv"
         assert created_therapist["ueber_curavani_informiert"] is True
         assert "id" in created_therapist
@@ -80,10 +84,101 @@ class TestTherapistServiceAPI:
         # Cleanup
         requests.delete(f"{BASE_URL}/therapists/{created_therapist['id']}")
 
+    def test_create_therapist_with_different_gender(self):
+        """Test creating a therapist with different gender options."""
+        therapist_data = {
+            "anrede": "Herr",
+            "geschlecht": "divers",
+            "vorname": "Alex",
+            "nachname": "Schmidt",
+            "email": "alex.schmidt@therapie.de"
+        }
+        
+        response = requests.post(f"{BASE_URL}/therapists", json=therapist_data)
+        assert response.status_code == 201
+        
+        created_therapist = response.json()
+        assert created_therapist["geschlecht"] == "divers"
+        
+        # Cleanup
+        requests.delete(f"{BASE_URL}/therapists/{created_therapist['id']}")
+
+    def test_create_therapist_no_gender_specified(self):
+        """Test creating a therapist with keine_Angabe gender."""
+        therapist_data = {
+            "anrede": "Frau",
+            "geschlecht": "keine_Angabe",
+            "vorname": "Chris",
+            "nachname": "Weber"
+        }
+        
+        response = requests.post(f"{BASE_URL}/therapists", json=therapist_data)
+        assert response.status_code == 201
+        
+        created_therapist = response.json()
+        assert created_therapist["geschlecht"] == "keine_Angabe"
+        
+        # Cleanup
+        requests.delete(f"{BASE_URL}/therapists/{created_therapist['id']}")
+
+    def test_create_therapist_invalid_anrede(self):
+        """Test creating a therapist with invalid anrede."""
+        therapist_data = {
+            "anrede": "Prof.",  # Invalid
+            "geschlecht": "männlich",
+            "vorname": "Test",
+            "nachname": "Invalid"
+        }
+        
+        response = requests.post(f"{BASE_URL}/therapists", json=therapist_data)
+        assert response.status_code == 400
+        assert "Invalid anrede 'Prof.'" in response.json()["message"]
+        assert "Valid values: Herr, Frau" in response.json()["message"]
+
+    def test_create_therapist_invalid_geschlecht(self):
+        """Test creating a therapist with invalid geschlecht."""
+        therapist_data = {
+            "anrede": "Herr",
+            "geschlecht": "m",  # Invalid (old format)
+            "vorname": "Test",
+            "nachname": "Invalid"
+        }
+        
+        response = requests.post(f"{BASE_URL}/therapists", json=therapist_data)
+        assert response.status_code == 400
+        assert "Invalid geschlecht 'm'" in response.json()["message"]
+        assert "Valid values: männlich, weiblich, divers, keine_Angabe" in response.json()["message"]
+
+    def test_create_therapist_missing_required_fields(self):
+        """Test creating a therapist without required fields."""
+        # Missing anrede
+        therapist_data = {
+            "geschlecht": "männlich",
+            "vorname": "Test",
+            "nachname": "Therapist"
+        }
+        
+        response = requests.post(f"{BASE_URL}/therapists", json=therapist_data)
+        assert response.status_code == 400
+        assert "anrede" in response.json()["message"].lower()
+        
+        # Missing geschlecht
+        therapist_data = {
+            "anrede": "Herr",
+            "vorname": "Test",
+            "nachname": "Therapist"
+        }
+        
+        response = requests.post(f"{BASE_URL}/therapists", json=therapist_data)
+        assert response.status_code == 400
+        assert "geschlecht" in response.json()["message"].lower()
+
     def test_get_therapist_by_id(self):
         """Test retrieving a therapist by ID."""
         # Create a therapist first
         therapist = self.create_test_therapist(
+            anrede="Herr",
+            geschlecht="männlich",
             vorname="Thomas",
             nachname="Weber"
         )
@@ -96,6 +191,8 @@ class TestTherapistServiceAPI:
         assert retrieved_therapist["id"] == therapist["id"]
         assert retrieved_therapist["vorname"] == "Thomas"
         assert retrieved_therapist["nachname"] == "Weber"
+        assert retrieved_therapist["anrede"] == "Herr"
+        assert retrieved_therapist["geschlecht"] == "männlich"
         
         # Cleanup
         requests.delete(f"{BASE_URL}/therapists/{therapist['id']}")
@@ -119,8 +216,8 @@ class TestTherapistServiceAPI:
     def test_get_therapists_list_with_data(self):
         """Test getting therapist list with data and pagination."""
         # Create test therapists
-        therapist1 = self.create_test_therapist(vorname="Anna", nachname="Schmidt")
-        therapist2 = self.create_test_therapist(vorname="Peter", nachname="Meyer")
+        therapist1 = self.create_test_therapist(vorname="Anna", nachname="Schmidt", anrede="Frau", geschlecht="weiblich")
+        therapist2 = self.create_test_therapist(vorname="Peter", nachname="Meyer", anrede="Herr", geschlecht="männlich")
         
         response = requests.get(f"{BASE_URL}/therapists")
         assert response.status_code == 200
@@ -153,7 +250,9 @@ class TestTherapistServiceAPI:
             therapist = self.create_test_therapist(
                 vorname=f"Therapist{i}",
                 nachname=f"Test{i}",
-                email=f"therapist{i}@example.com"
+                email=f"therapist{i}@example.com",
+                anrede="Herr" if i % 2 == 0 else "Frau",
+                geschlecht="männlich" if i % 2 == 0 else "weiblich"
             )
             created_therapists.append(therapist)
         
@@ -279,6 +378,30 @@ class TestTherapistServiceAPI:
         # Cleanup
         requests.delete(f"{BASE_URL}/therapists/{therapist['id']}")
 
+    def test_update_therapist_anrede_geschlecht(self):
+        """Test updating therapist's anrede and geschlecht."""
+        # Create a therapist
+        therapist = self.create_test_therapist(anrede="Herr", geschlecht="männlich")
+        
+        # Update to different values
+        update_data = {
+            "anrede": "Frau",
+            "geschlecht": "weiblich"
+        }
+        
+        response = requests.put(
+            f"{BASE_URL}/therapists/{therapist['id']}",
+            json=update_data
+        )
+        assert response.status_code == 200
+        
+        updated_therapist = response.json()
+        assert updated_therapist["anrede"] == "Frau"
+        assert updated_therapist["geschlecht"] == "weiblich"
+        
+        # Cleanup
+        requests.delete(f"{BASE_URL}/therapists/{therapist['id']}")
+
     def test_block_therapist(self):
         """Test blocking a therapist."""
         # Create a therapist
@@ -338,6 +461,8 @@ class TestTherapistServiceAPI:
     def test_create_therapist_with_preferences(self):
         """Test creating a therapist with inquiry preferences."""
         therapist_data = {
+            "anrede": "Herr",
+            "geschlecht": "männlich",
             "vorname": "Klaus",
             "nachname": "Fischer",
             "bevorzugte_diagnosen": ["F32", "F33", "F40", "F41"],
@@ -438,6 +563,33 @@ class TestTherapistServiceAPI:
         # Cleanup
         requests.delete(f"{BASE_URL}/therapists/{therapist1['id']}")
         requests.delete(f"{BASE_URL}/therapists/{therapist2['id']}")
+
+    def test_jsonb_field_defaults(self):
+        """Test that JSONB fields return proper defaults instead of null."""
+        # Create minimal therapist
+        therapist_data = {
+            "anrede": "Frau",
+            "geschlecht": "weiblich",
+            "vorname": "Test",
+            "nachname": "Minimal"
+        }
+        
+        response = requests.post(f"{BASE_URL}/therapists", json=therapist_data)
+        assert response.status_code == 201
+        
+        created_therapist = response.json()
+        
+        # Check JSONB array fields return empty arrays, not null
+        assert created_therapist["fremdsprachen"] == []
+        assert created_therapist["psychotherapieverfahren"] == []
+        assert created_therapist["bevorzugte_diagnosen"] == []
+        
+        # Check JSONB object fields return empty objects, not null
+        assert created_therapist["telefonische_erreichbarkeit"] == {}
+        assert created_therapist["arbeitszeiten"] == {}
+        
+        # Cleanup
+        requests.delete(f"{BASE_URL}/therapists/{created_therapist['id']}")
 
 
 if __name__ == "__main__":

@@ -34,6 +34,8 @@ class TestMatchingServiceAPI:
     def create_test_patient(self, **kwargs):
         """Helper to create a test patient in patient service."""
         default_data = {
+            "anrede": "Herr",  # Required field
+            "geschlecht": "männlich",  # Required field
             "vorname": "Test",
             "nachname": "Patient",
             "plz": "52064",  # Aachen PLZ for testing
@@ -50,6 +52,8 @@ class TestMatchingServiceAPI:
     def create_test_therapist(self, **kwargs):
         """Helper to create a test therapist in therapist service."""
         default_data = {
+            "anrede": "Herr",  # Required field
+            "geschlecht": "männlich",  # Required field
             "vorname": "Test",
             "nachname": "Therapeut",
             "plz": "52062",  # Matching PLZ prefix
@@ -107,8 +111,8 @@ class TestMatchingServiceAPI:
     def test_get_platzsuchen_list_with_data(self):
         """Test getting platzsuche list with data and pagination."""
         # Create test data
-        patient1 = self.create_test_patient(vorname="Anna", nachname="Müller")
-        patient2 = self.create_test_patient(vorname="Max", nachname="Schmidt")
+        patient1 = self.create_test_patient(vorname="Anna", nachname="Müller", anrede="Frau", geschlecht="weiblich")
+        patient2 = self.create_test_patient(vorname="Max", nachname="Schmidt", anrede="Herr", geschlecht="männlich")
         
         search1_response = requests.post(f"{BASE_URL}/platzsuchen", json={"patient_id": patient1['id']})
         search2_response = requests.post(f"{BASE_URL}/platzsuchen", json={"patient_id": patient2['id']})
@@ -150,7 +154,9 @@ class TestMatchingServiceAPI:
         for i in range(5):
             patient = self.create_test_patient(
                 vorname=f"Patient{i}",
-                email=f"patient{i}@example.com"
+                email=f"patient{i}@example.com",
+                anrede="Herr" if i % 2 == 0 else "Frau",
+                geschlecht="männlich" if i % 2 == 0 else "weiblich"
             )
             created_patients.append(patient)
             
@@ -253,12 +259,16 @@ class TestMatchingServiceAPI:
         therapist1 = self.create_test_therapist(
             plz="52064",
             potenziell_verfuegbar=True,
-            ueber_curavani_informiert=True
+            ueber_curavani_informiert=True,
+            anrede="Frau",
+            geschlecht="weiblich"
         )
         therapist2 = self.create_test_therapist(
             plz="52062",
             potenziell_verfuegbar=True,
-            ueber_curavani_informiert=False
+            ueber_curavani_informiert=False,
+            anrede="Herr",
+            geschlecht="männlich"
         )
         therapist3 = self.create_test_therapist(
             plz="10115",  # Different PLZ prefix
@@ -309,9 +319,9 @@ class TestMatchingServiceAPI:
     def test_create_therapeutenanfrage(self):
         """Test creating an anfrage for a manually selected therapist."""
         # Create test data
-        therapist = self.create_test_therapist(plz="52064")
-        patient1 = self.create_test_patient(plz="52062")
-        patient2 = self.create_test_patient(plz="52068")
+        therapist = self.create_test_therapist(plz="52064", anrede="Frau", geschlecht="weiblich")
+        patient1 = self.create_test_patient(plz="52062", anrede="Herr", geschlecht="männlich")
+        patient2 = self.create_test_patient(plz="52068", anrede="Frau", geschlecht="divers")
         
         # Create searches for patients
         search1 = requests.post(
@@ -493,6 +503,79 @@ class TestMatchingServiceAPI:
         # Cleanup
         requests.delete(f"{BASE_URL}/platzsuchen/{search['id']}")
         requests.delete(f"{PATIENT_BASE_URL}/patients/{patient['id']}")
+
+    def test_matching_with_diverse_gender_patients(self):
+        """Test matching service with patients of diverse and keine_Angabe gender."""
+        # Create diverse patients
+        patient_diverse = self.create_test_patient(
+            anrede="Herr",
+            geschlecht="divers",
+            vorname="Alex",
+            nachname="Diverse"
+        )
+        
+        patient_keine_angabe = self.create_test_patient(
+            anrede="Frau",
+            geschlecht="keine_Angabe",
+            vorname="Chris",
+            nachname="NoGender"
+        )
+        
+        # Create searches
+        search1 = requests.post(
+            f"{BASE_URL}/platzsuchen",
+            json={"patient_id": patient_diverse['id']}
+        ).json()
+        
+        search2 = requests.post(
+            f"{BASE_URL}/platzsuchen",
+            json={"patient_id": patient_keine_angabe['id']}
+        ).json()
+        
+        # Verify searches created successfully
+        assert search1['patient_id'] == patient_diverse['id']
+        assert search2['patient_id'] == patient_keine_angabe['id']
+        
+        # Cleanup
+        requests.delete(f"{BASE_URL}/platzsuchen/{search1['id']}")
+        requests.delete(f"{BASE_URL}/platzsuchen/{search2['id']}")
+        requests.delete(f"{PATIENT_BASE_URL}/patients/{patient_diverse['id']}")
+        requests.delete(f"{PATIENT_BASE_URL}/patients/{patient_keine_angabe['id']}")
+
+    def test_matching_with_diverse_gender_therapists(self):
+        """Test therapist selection with diverse gender therapists."""
+        # Create therapists with different genders
+        therapist_diverse = self.create_test_therapist(
+            anrede="Herr",
+            geschlecht="divers",
+            vorname="Alex",
+            nachname="DiverseTherapist",
+            plz="52064"
+        )
+        
+        therapist_keine_angabe = self.create_test_therapist(
+            anrede="Frau",
+            geschlecht="keine_Angabe",
+            vorname="Chris",
+            nachname="NoGenderTherapist",
+            plz="52065"
+        )
+        
+        # Get therapists for selection
+        response = requests.get(f"{BASE_URL}/therapeuten-zur-auswahl?plz_prefix=52")
+        assert response.status_code == 200
+        
+        data = response.json()
+        therapists = data['data']
+        
+        # Verify diverse therapists are included
+        therapist_ids = [t['id'] for t in therapists]
+        assert therapist_diverse['id'] in therapist_ids
+        assert therapist_keine_angabe['id'] in therapist_ids
+        
+        # Cleanup
+        requests.delete(f"{THERAPIST_BASE_URL}/therapists/{therapist_diverse['id']}")
+        requests.delete(f"{THERAPIST_BASE_URL}/therapists/{therapist_keine_angabe['id']}")
 
 
 if __name__ == "__main__":
