@@ -2,7 +2,7 @@
 from flask import request, jsonify
 from flask_restful import Resource, fields, marshal_with, reqparse, marshal
 from sqlalchemy.exc import SQLAlchemyError
-from datetime import datetime
+from datetime import datetime, date
 import requests
 import logging
 
@@ -312,7 +312,7 @@ class PatientResource(Resource):
         # Process Status
         parser.add_argument('vertraege_unterschrieben', type=bool)
         parser.add_argument('psychotherapeutische_sprechstunde', type=bool)
-        # Note: startdatum is automatic - will be ignored
+        # Note: startdatum is automatic - will be handled separately
         parser.add_argument('erster_therapieplatz_am', type=str)
         parser.add_argument('funktionierender_therapieplatz_am', type=str)
         parser.add_argument('status', type=str)
@@ -360,8 +360,8 @@ class PatientResource(Resource):
             # Update fields from request
             for key, value in args.items():
                 if value is not None:
-                    # Skip automatic fields
-                    if key in ['startdatum', 'letzter_kontakt']:
+                    # Skip automatic fields (only letzter_kontakt now)
+                    if key in ['letzter_kontakt']:
                         continue
                     
                     if key == 'anrede':
@@ -398,6 +398,10 @@ class PatientResource(Resource):
                             return {'message': str(e)}, 400
                     else:
                         setattr(patient, key, value)
+            
+            # Check if we should set startdatum automatically
+            if patient.vertraege_unterschrieben and patient.psychotherapeutische_sprechstunde and patient.startdatum is None:
+                patient.startdatum = date.today()
             
             db.commit()
             db.refresh(patient)
@@ -554,8 +558,8 @@ class PatientListResource(PaginatedListResource):
             # Process each argument
             for key, value in args.items():
                 if value is not None:
-                    # Skip automatic fields
-                    if key in ['startdatum', 'letzter_kontakt']:
+                    # Skip automatic fields (only letzter_kontakt now)
+                    if key in ['letzter_kontakt']:
                         continue
                     
                     if key == 'anrede':
@@ -594,6 +598,10 @@ class PatientListResource(PaginatedListResource):
                         patient_data[key] = value
             
             patient = Patient(**patient_data)
+            
+            # Check if we should set startdatum automatically
+            if patient.vertraege_unterschrieben and patient.psychotherapeutische_sprechstunde and patient.startdatum is None:
+                patient.startdatum = date.today()
             
             db.add(patient)
             db.commit()
