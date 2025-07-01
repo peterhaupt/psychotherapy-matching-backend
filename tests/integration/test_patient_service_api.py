@@ -420,7 +420,7 @@ class TestPatientServiceAPI:
             "vorname": "Maria",
             "nachname": "Weber",
             "bevorzugtes_therapeutengeschlecht": "Weiblich",
-            "bevorzugtes_therapieverfahren": ["Verhaltenstherapie"],
+            "bevorzugtes_therapieverfahren": "Verhaltenstherapie",  # Single value, not array
             "offen_fuer_gruppentherapie": True,
             "raeumliche_verfuegbarkeit": {"max_km": 15},
             "zeitliche_verfuegbarkeit": {
@@ -434,7 +434,7 @@ class TestPatientServiceAPI:
         
         created_patient = response.json()
         assert created_patient["bevorzugtes_therapeutengeschlecht"] == "Weiblich"
-        assert created_patient["bevorzugtes_therapieverfahren"] == ["Verhaltenstherapie"]
+        assert created_patient["bevorzugtes_therapieverfahren"] == "Verhaltenstherapie"
         assert created_patient["offen_fuer_gruppentherapie"] is True
         
         # Cleanup
@@ -514,29 +514,73 @@ class TestPatientServiceAPI:
 
     def test_validate_therapieverfahren(self):
         """Test validation of bevorzugtes_therapieverfahren field."""
-        # Valid values
+        # Valid values - testing single enum value
         patient_data = {
             "anrede": "Herr",
             "geschlecht": "männlich",
             "vorname": "Test",
             "nachname": "Valid",
-            "bevorzugtes_therapieverfahren": ["Verhaltenstherapie", "tiefenpsychologisch_fundierte_Psychotherapie"]
+            "bevorzugtes_therapieverfahren": "Verhaltenstherapie"  # Single value
         }
         
         response = requests.post(f"{BASE_URL}/patients", json=patient_data)
         assert response.status_code == 201
-        patient_id = response.json()['id']
+        patient = response.json()
+        assert patient['bevorzugtes_therapieverfahren'] == "Verhaltenstherapie"
+        patient_id = patient['id']
+        
+        # Test other valid values
+        valid_values = ["egal", "tiefenpsychologisch_fundierte_Psychotherapie"]
+        for value in valid_values:
+            update_response = requests.put(
+                f"{BASE_URL}/patients/{patient_id}",
+                json={"bevorzugtes_therapieverfahren": value}
+            )
+            assert update_response.status_code == 200
+            updated = update_response.json()
+            assert updated['bevorzugtes_therapieverfahren'] == value
         
         # Invalid value
-        patient_data['bevorzugtes_therapieverfahren'] = ["Psychoanalyse"]  # Invalid
+        patient_data['bevorzugtes_therapieverfahren'] = "Psychoanalyse"  # Invalid
         patient_data['nachname'] = "Invalid"
         
         response = requests.post(f"{BASE_URL}/patients", json=patient_data)
         assert response.status_code == 400
         assert "Invalid therapy method 'Psychoanalyse'" in response.json()["message"]
         
+        # Test invalid update
+        update_response = requests.put(
+            f"{BASE_URL}/patients/{patient_id}",
+            json={"bevorzugtes_therapieverfahren": "InvalidMethod"}
+        )
+        assert update_response.status_code == 400
+        assert "Invalid therapy method" in update_response.json()["message"]
+        
         # Cleanup
         requests.delete(f"{BASE_URL}/patients/{patient_id}")
+
+    def test_create_patient_with_new_fields(self):
+        """Test creating patient with new simplified fields."""
+        patient_data = {
+            "anrede": "Frau",
+            "geschlecht": "weiblich",
+            "vorname": "Test",
+            "nachname": "NewFields",
+            "symptome": "Schlafstörungen, Niedergeschlagenheit, Antriebslosigkeit",
+            "erfahrung_mit_psychotherapie": True,
+            "letzte_sitzung_vorherige_psychotherapie": "2023-06-15"
+        }
+        
+        response = requests.post(f"{BASE_URL}/patients", json=patient_data)
+        assert response.status_code == 201
+        
+        created_patient = response.json()
+        assert created_patient["symptome"] == "Schlafstörungen, Niedergeschlagenheit, Antriebslosigkeit"
+        assert created_patient["erfahrung_mit_psychotherapie"] is True
+        assert created_patient["letzte_sitzung_vorherige_psychotherapie"] == "2023-06-15"
+        
+        # Cleanup
+        requests.delete(f"{BASE_URL}/patients/{created_patient['id']}")
 
 
 if __name__ == "__main__":

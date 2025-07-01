@@ -102,6 +102,7 @@ def test_patient_service_tables(db_inspector):
         'krankenversicherungsnummer', 'geburtsdatum', 'diagnose',
         # NEW Phase 2 fields
         'symptome', 'erfahrung_mit_psychotherapie',
+        'letzte_sitzung_vorherige_psychotherapie',  # NEW field added
         'bevorzugtes_therapieverfahren',
         # REMOVED: bevorzugtes_therapeutenalter_min and bevorzugtes_therapeutenalter_max
         # End NEW Phase 2 fields
@@ -110,20 +111,38 @@ def test_patient_service_tables(db_inspector):
         'raeumliche_verfuegbarkeit', 'verkehrsmittel',
         'offen_fuer_gruppentherapie', 'offen_fuer_diga',
         'ausgeschlossene_therapeuten', 'bevorzugtes_therapeutengeschlecht',
-        'created_at', 'updated_at', 'letzter_kontakt'
+        'created_at', 'updated_at', 'letzter_kontakt',
+        'erster_therapieplatz_am', 'funktionierender_therapieplatz_am',
+        'empfehler_der_unterstuetzung'
     }
     
     missing_columns = required_columns - columns
     assert not missing_columns, f"Missing columns in patienten table: {missing_columns}"
     
-    # Check bevorzugtes_therapieverfahren is an ARRAY type
+    # Check bevorzugtes_therapieverfahren is not ARRAY (it should be ENUM now)
     for col in db_inspector.get_columns('patienten', schema='patient_service'):
         if col['name'] == 'bevorzugtes_therapieverfahren':
-            assert 'ARRAY' in str(col['type']), \
-                f"bevorzugtes_therapieverfahren should be ARRAY type, got: {col['type']}"
+            # Should NOT be ARRAY type (it was changed from ARRAY to ENUM)
+            assert 'ARRAY' not in str(col['type']), \
+                f"bevorzugtes_therapieverfahren should NOT be ARRAY type, got: {col['type']}"
+            # Note: We don't check for ENUM type directly because SQLAlchemy represents
+            # PostgreSQL ENUMs as VARCHAR when inspecting column types
     
-    # Verify removed columns don't exist
-    removed_columns = {'bevorzugtes_therapeutenalter_min', 'bevorzugtes_therapeutenalter_max'}
+    # Verify all removed columns don't exist
+    removed_columns = {
+        # Medical history fields
+        'psychotherapieerfahrung', 'stationaere_behandlung', 
+        'berufliche_situation', 'familienstand',
+        'aktuelle_psychische_beschwerden', 'beschwerden_seit',
+        'bisherige_behandlungen', 'relevante_koerperliche_erkrankungen',
+        'aktuelle_medikation', 'aktuelle_belastungsfaktoren',
+        'unterstuetzungssysteme',
+        # Therapy goals fields
+        'anlass_fuer_die_therapiesuche', 'erwartungen_an_die_therapie',
+        'therapieziele', 'fruehere_therapieerfahrungen',
+        # Age preference fields
+        'bevorzugtes_therapeutenalter_min', 'bevorzugtes_therapeutenalter_max'
+    }
     unexpected_columns = removed_columns & columns
     assert not unexpected_columns, f"Removed columns still exist in patienten table: {unexpected_columns}"
 
