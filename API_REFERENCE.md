@@ -154,27 +154,6 @@ The following fields are managed automatically by the backend and **cannot be se
 }
 ```
 
-### Preferred Therapy Procedures (bevorzugtes_therapieverfahren)
-
-**Format:** Always returns array, never null ✅ FIXED
-```json
-{
-  "bevorzugtes_therapieverfahren": ["Verhaltenstherapie", "tiefenpsychologisch_fundierte_Psychotherapie"]
-}
-```
-
-**Empty case:**
-```json
-{
-  "bevorzugtes_therapieverfahren": []
-}
-```
-
-**Validation:** Only accepts these exact values:
-- `"egal"`
-- `"Verhaltenstherapie"`
-- `"tiefenpsychologisch_fundierte_Psychotherapie"`
-
 ### Languages (fremdsprachen)
 
 **Format:** Always returns array, never null ✅ FIXED
@@ -288,13 +267,13 @@ The following fields are managed automatically by the backend and **cannot be se
 "Egal"
 ```
 
-### Therapy Procedures (therapieverfahren) - **VALIDATED FIELD**
+### Therapy Procedures (therapieverfahren) - **SINGLE FIELD**
 ```
 "egal"
 "Verhaltenstherapie"
 "tiefenpsychologisch_fundierte_Psychotherapie"
 ```
-**Note:** Only these exact values are accepted for `bevorzugtes_therapieverfahren`. Any other value will return a 400 error.
+**Note:** `bevorzugtes_therapieverfahren` is now a single enum field, not an array. Default is "egal".
 
 ### Response Type (antworttyp)
 ```
@@ -353,7 +332,8 @@ curl "http://localhost:8001/api/patients?status=auf_der_Suche&page=1&limit=20"
       "geburtsdatum": "1985-03-15",
       "diagnose": "F32.1",
       "symptome": "Niedergeschlagenheit, Schlafstörungen, Antriebslosigkeit",
-      "erfahrung_mit_psychotherapie": "Keine Vorerfahrung mit Psychotherapie",
+      "erfahrung_mit_psychotherapie": false,
+      "letzte_sitzung_vorherige_psychotherapie": null,
       "vertraege_unterschrieben": true,
       "psychotherapeutische_sprechstunde": true,
       "startdatum": "2025-01-15",
@@ -373,24 +353,9 @@ curl "http://localhost:8001/api/patients?status=auf_der_Suche&page=1&limit=20"
       "offen_fuer_gruppentherapie": false,
       "offen_fuer_diga": false,
       "letzter_kontakt": "2025-06-15",
-      "psychotherapieerfahrung": false,
-      "stationaere_behandlung": false,
-      "berufliche_situation": "Vollzeit angestellt als Buchhalterin",
-      "familienstand": "verheiratet",
-      "aktuelle_psychische_beschwerden": "Depressive Verstimmung, Angstgefühle vor sozialen Situationen",
-      "beschwerden_seit": "2024-08-01",
-      "bisherige_behandlungen": "Hausärztliche Behandlung mit Antidepressiva",
-      "relevante_koerperliche_erkrankungen": "Schilddrüsenunterfunktion",
-      "aktuelle_medikation": "Sertralin 50mg täglich, L-Thyroxin 75μg",
-      "aktuelle_belastungsfaktoren": "Hoher Arbeitsstress, Beziehungsprobleme",
-      "unterstuetzungssysteme": "Ehepartner, enge Freundin",
-      "anlass_fuer_die_therapiesuche": "Verschlechterung der Symptomatik trotz Medikation",
-      "erwartungen_an_die_therapie": "Besserer Umgang mit Stress und Ängsten",
-      "therapieziele": "Reduktion der Angstsymptome, Verbesserung der Stimmung",
-      "fruehere_therapieerfahrungen": "Keine",
       "ausgeschlossene_therapeuten": [45, 67],
       "bevorzugtes_therapeutengeschlecht": "Weiblich",
-      "bevorzugtes_therapieverfahren": ["Verhaltenstherapie"],
+      "bevorzugtes_therapieverfahren": "Verhaltenstherapie",
       "created_at": "2025-05-01",
       "updated_at": "2025-06-01"
     }
@@ -490,7 +455,8 @@ curl "http://localhost:8001/api/patients/30/communication"
 - `geburtsdatum` (string, YYYY-MM-DD)
 - `diagnose` (string)
 - `symptome` (string)
-- `erfahrung_mit_psychotherapie` (string)
+- `erfahrung_mit_psychotherapie` (boolean)
+- `letzte_sitzung_vorherige_psychotherapie` (string, YYYY-MM-DD)
 
 **Process Status:**
 - `vertraege_unterschrieben` (boolean)
@@ -498,6 +464,8 @@ curl "http://localhost:8001/api/patients/30/communication"
 - ~~`startdatum`~~ **AUTOMATIC** - Set automatically when both checkboxes above are true
 - `status` (string, see enum values)
 - `empfehler_der_unterstuetzung` (string)
+- `erster_therapieplatz_am` (string, YYYY-MM-DD)
+- `funktionierender_therapieplatz_am` (string, YYYY-MM-DD)
 
 **Availability:**
 - `zeitliche_verfuegbarkeit` (object, see format above)
@@ -509,29 +477,10 @@ curl "http://localhost:8001/api/patients/30/communication"
 - `offen_fuer_diga` (boolean)
 - ~~`letzter_kontakt`~~ **AUTOMATIC** - Updated via communication events
 
-**Medical History:**
-- `psychotherapieerfahrung` (boolean)
-- `stationaere_behandlung` (boolean)
-- `berufliche_situation` (string)
-- `familienstand` (string)
-- `aktuelle_psychische_beschwerden` (string)
-- `beschwerden_seit` (string, YYYY-MM-DD)
-- `bisherige_behandlungen` (string)
-- `relevante_koerperliche_erkrankungen` (string)
-- `aktuelle_medikation` (string)
-- `aktuelle_belastungsfaktoren` (string)
-- `unterstuetzungssysteme` (string)
-
-**Therapy Goals:**
-- `anlass_fuer_die_therapiesuche` (string)
-- `erwartungen_an_die_therapie` (string)
-- `therapieziele` (string)
-- `fruehere_therapieerfahrungen` (string)
-
 **Therapist Preferences:**
 - `ausgeschlossene_therapeuten` (array of integers)
 - `bevorzugtes_therapeutengeschlecht` (string, see enum)
-- `bevorzugtes_therapieverfahren` (array of strings, **VALIDATED** - see enum)
+- `bevorzugtes_therapieverfahren` (string, **SINGLE VALUE** - see enum)
 
 **Example Request (Complete):**
 ```bash
@@ -552,23 +501,10 @@ curl -X POST "http://localhost:8001/api/patients" \
     "geburtsdatum": "1978-11-22",
     "diagnose": "F41.1",
     "symptome": "Angstgefühle, Panikattacken, Herzrasen",
-    "erfahrung_mit_psychotherapie": "Eine Kurzzeittherapie vor 3 Jahren",
+    "erfahrung_mit_psychotherapie": true,
+    "letzte_sitzung_vorherige_psychotherapie": "2021-08-15",
     "vertraege_unterschrieben": false,
-    "psychotherapieerfahrung": true,
-    "stationaere_behandlung": false,
-    "berufliche_situation": "Selbständiger Architekt",
-    "familienstand": "ledig",
-    "aktuelle_psychische_beschwerden": "Panikattacken in Meetings, Vermeidungsverhalten",
-    "beschwerden_seit": "2024-09-01",
-    "bisherige_behandlungen": "Kurzzeittherapie 2021, aktuell keine Medikation",
-    "relevante_koerperliche_erkrankungen": "Keine",
-    "aktuelle_medikation": "Keine",
-    "aktuelle_belastungsfaktoren": "Hoher Termindruck, finanzielle Sorgen",
-    "unterstuetzungssysteme": "Familie, wenige enge Freunde",
-    "anlass_fuer_die_therapiesuche": "Zunahme der Panikattacken, Beeinträchtigung im Beruf",
-    "erwartungen_an_die_therapie": "Langfristige Bewältigung der Angststörung",
-    "therapieziele": "Reduktion der Panikattacken, Aufbau von Bewältigungsstrategien",
-    "fruehere_therapieerfahrungen": "Positive Erfahrung mit Verhaltenstherapie",
+    "psychotherapeutische_sprechstunde": false,
     "zeitliche_verfuegbarkeit": {
       "montag": ["18:00-20:00"],
       "mittwoch": ["18:00-20:00"],
@@ -579,7 +515,7 @@ curl -X POST "http://localhost:8001/api/patients" \
     },
     "verkehrsmittel": "ÖPNV",
     "bevorzugtes_therapeutengeschlecht": "Egal",
-    "bevorzugtes_therapieverfahren": ["Verhaltenstherapie"],
+    "bevorzugtes_therapieverfahren": "Verhaltenstherapie",
     "offen_fuer_gruppentherapie": true,
     "ausgeschlossene_therapeuten": []
   }'
@@ -602,11 +538,9 @@ curl -X POST "http://localhost:8001/api/patients" \
   "telefon": "+49 89 87654321",
   "status": "offen",
   "symptome": "Angstgefühle, Panikattacken, Herzrasen",
-  "erfahrung_mit_psychotherapie": "Eine Kurzzeittherapie vor 3 Jahren",
-  "psychotherapieerfahrung": true,
-  "berufliche_situation": "Selbständiger Architekt",
-  "anlass_fuer_die_therapiesuche": "Zunahme der Panikattacken, Beeinträchtigung im Beruf",
-  "bevorzugtes_therapieverfahren": ["Verhaltenstherapie"],
+  "erfahrung_mit_psychotherapie": true,
+  "letzte_sitzung_vorherige_psychotherapie": "2021-08-15",
+  "bevorzugtes_therapieverfahren": "Verhaltenstherapie",
   "startdatum": null,
   "letzter_kontakt": null,
   "created_at": "2025-06-10",
@@ -648,8 +582,7 @@ curl -X PUT "http://localhost:8001/api/patients/1" \
   -d '{
     "status": "in_Therapie",
     "funktionierender_therapieplatz_am": "2025-06-15",
-    "aktuelle_psychische_beschwerden": "Deutliche Besserung der Symptomatik",
-    "therapieziele": "Stabilisierung der Fortschritte, Rückfallprophylaxe"
+    "bevorzugtes_therapieverfahren": "tiefenpsychologisch_fundierte_Psychotherapie"
   }'
 ```
 
@@ -664,9 +597,7 @@ curl -X PUT "http://localhost:8001/api/patients/1" \
   "status": "in_Therapie",
   "funktionierender_therapieplatz_am": "2025-06-15",
   "letzter_kontakt": "2025-06-18",
-  "aktuelle_psychische_beschwerden": "Deutliche Besserung der Symptomatik",
-  "therapieziele": "Stabilisierung der Fortschritte, Rückfallprophylaxe",
-  "bevorzugtes_therapieverfahren": [],
+  "bevorzugtes_therapieverfahren": "tiefenpsychologisch_fundierte_Psychotherapie",
   "updated_at": "2025-06-18"
 }
 ```
@@ -1606,7 +1537,39 @@ curl -X DELETE "http://localhost:8004/api/emails/1"
 
 # Key Changes from Previous Version
 
-## 🆕 **New Enums Added:**
+## 🔧 **Model Cleanup (January 2025):**
+
+### ✂️ **Removed Fields (16 total):**
+
+**Medical History fields removed:**
+- psychotherapieerfahrung
+- stationaere_behandlung
+- berufliche_situation
+- familienstand
+- aktuelle_psychische_beschwerden
+- beschwerden_seit
+- bisherige_behandlungen
+- relevante_koerperliche_erkrankungen
+- aktuelle_medikation
+- aktuelle_belastungsfaktoren
+- unterstuetzungssysteme
+
+**Therapy Goals fields removed:**
+- anlass_fuer_die_therapiesuche
+- erwartungen_an_die_therapie
+- therapieziele
+- fruehere_therapieerfahrungen
+
+### 🔄 **Modified Fields:**
+
+1. **`erfahrung_mit_psychotherapie`**: Changed from Text to Boolean (nullable, no default)
+2. **`bevorzugtes_therapieverfahren`**: Changed from ARRAY to single ENUM field (default: "egal")
+
+### ➕ **New Field:**
+
+- **`letzte_sitzung_vorherige_psychotherapie`**: Date field for last session of previous psychotherapy
+
+## 🆕 **Previous New Enums Added:**
 
 1. **Anrede (Salutation)** - Required field with two values:
    - `"Herr"`
@@ -1618,17 +1581,7 @@ curl -X DELETE "http://localhost:8004/api/emails/1"
    - `"divers"`
    - `"keine_Angabe"`
 
-## 🔄 **Updated Models:**
-
-### Patient Model:
-- Changed `anrede` from String(10) to Enum (required)
-- Added new `geschlecht` field with Enum (required)
-
-### Therapist Model:
-- Changed `anrede` from String(10) to Enum (required)
-- Changed `geschlecht` from String(20) to Enum (required)
-
-## ✅ **Fixed Issues:**
+## ✅ **Previous Fixed Issues:**
 
 1. **Patient Array Fields**: `bevorzugtes_therapieverfahren` now always returns array, never null (Migration 003)
 2. **Therapist JSONB Fields**: All JSONB fields now return proper defaults instead of null (Migration 004 + API fixes):
@@ -1639,26 +1592,7 @@ curl -X DELETE "http://localhost:8004/api/emails/1"
 5. **Field Names**: All German field names maintained consistently
 6. **Response Structure**: Matches actual backend implementation
 
-## 🔧 **Backend-Aligned:**
-
-- All examples use actual API response format after JSONB fixes
-- Enum values match backend implementation
-- Field structures match PostgreSQL schema with proper defaults
-- Pagination format matches backend response
-- Custom field marshalling prevents null values
-
-## 📝 **Documentation:**
-
-- Updated all therapist examples to show proper JSONB defaults
-- Updated patient examples to show fixed array behavior and new required fields
-- Added new enum sections for Anrede and Geschlecht
-- Updated all POST examples to include required anrede and geschlecht fields
-- Added validation error examples for new enums
-- Clarified JSONB field behavior in complex field formats section
-- Added database migration requirement notes
-- Removed any references to null JSONB values
-
-## 🚀 **Latest Implementations:**
+## 🚀 **Automatic Field Management:**
 
 ### Phase 1: Automatic startdatum
 - `startdatum` is now automatically set when both `vertraege_unterschrieben` and `psychotherapeutische_sprechstunde` are true
@@ -1671,9 +1605,9 @@ curl -X DELETE "http://localhost:8004/api/emails/1"
 - Cannot be manually set via API - any attempts are silently ignored
 
 ### Phase 3: bevorzugtes_therapieverfahren Validation
+- Now a single enum field (not array)
 - Only accepts values: "egal", "Verhaltenstherapie", "tiefenpsychologisch_fundierte_Psychotherapie" 
 - Returns 400 error with clear message for invalid values
-- Properly validates array input
 
 ### Phase 4: Anrede and Geschlecht Enums
 - Both fields are now required for both patients and therapists

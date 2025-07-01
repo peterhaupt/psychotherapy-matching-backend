@@ -6,7 +6,7 @@ from sqlalchemy import (
     Boolean, Column, Date, Enum as SQLAlchemyEnum,
     Integer, String, Text
 )
-from sqlalchemy.dialects.postgresql import JSONB, ARRAY
+from sqlalchemy.dialects.postgresql import JSONB
 
 from shared.utils.database import Base
 
@@ -93,8 +93,9 @@ class Patient(Base):
     krankenversicherungsnummer = Column(String(50))
     geburtsdatum = Column(Date)
     diagnose = Column(String(50))  # ICD-10 Diagnose
-    symptome = Column(Text)  # NEW: Symptoms description
-    erfahrung_mit_psychotherapie = Column(Text)  # NEW: Experience with psychotherapy
+    symptome = Column(Text)  # Symptoms description
+    erfahrung_mit_psychotherapie = Column(Boolean)  # Experience with psychotherapy (changed from Text)
+    letzte_sitzung_vorherige_psychotherapie = Column(Date)  # NEW: Last session of previous psychotherapy
 
     # Process Status (German field names)
     vertraege_unterschrieben = Column(Boolean, default=False)
@@ -118,33 +119,16 @@ class Patient(Base):
     offen_fuer_diga = Column(Boolean, default=False)  # Digitale Anwendungen
     letzter_kontakt = Column(Date)
 
-    # Medical History (German field names)
-    psychotherapieerfahrung = Column(Boolean, default=False)
-    stationaere_behandlung = Column(Boolean, default=False)
-    berufliche_situation = Column(Text)
-    familienstand = Column(String(50))
-    aktuelle_psychische_beschwerden = Column(Text)
-    beschwerden_seit = Column(Date)
-    bisherige_behandlungen = Column(Text)
-    relevante_koerperliche_erkrankungen = Column(Text)
-    aktuelle_medikation = Column(Text)
-    aktuelle_belastungsfaktoren = Column(Text)
-    unterstuetzungssysteme = Column(Text)
-
-    # Therapy Goals and Expectations (German field names)
-    anlass_fuer_die_therapiesuche = Column(Text)
-    erwartungen_an_die_therapie = Column(Text)
-    therapieziele = Column(Text)
-    fruehere_therapieerfahrungen = Column(Text)
-
     # Therapist Exclusions and Preferences (German field names)
     ausgeschlossene_therapeuten = Column(JSONB)  # Liste von Therapeuten-IDs
     bevorzugtes_therapeutengeschlecht = Column(
         SQLAlchemyEnum(Therapeutgeschlechtspraeferenz, name='therapeutgeschlechtspraeferenz', native_enum=True),
         default=Therapeutgeschlechtspraeferenz.Egal
     )
-    bevorzugtes_therapieverfahren = Column(ARRAY(SQLAlchemyEnum(Therapieverfahren, name='therapieverfahren', native_enum=True)))  # NEW: PostgreSQL Array
-    # REMOVED: bevorzugtes_therapeutenalter_min and bevorzugtes_therapeutenalter_max
+    bevorzugtes_therapieverfahren = Column(
+        SQLAlchemyEnum(Therapieverfahren, name='therapieverfahren', native_enum=True),
+        default=Therapieverfahren.egal
+    )  # Changed from ARRAY to single ENUM
 
     # Timestamps (technical fields remain in English)
     created_at = Column(Date, default=date.today)

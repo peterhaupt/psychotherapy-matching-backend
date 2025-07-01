@@ -6,7 +6,7 @@ from datetime import datetime, date
 import requests
 import logging
 
-from models.patient import Patient, Patientenstatus, Therapeutgeschlechtspraeferenz, Anrede, Geschlecht
+from models.patient import Patient, Patientenstatus, Therapeutgeschlechtspraeferenz, Anrede, Geschlecht, Therapieverfahren
 from shared.utils.database import SessionLocal
 from shared.api.base_resource import PaginatedListResource
 from shared.config import get_config
@@ -47,20 +47,6 @@ class DateField(fields.Raw):
         return value.strftime('%Y-%m-%d')
 
 
-# Custom field for PostgreSQL ARRAY serialization
-class ArrayField(fields.Raw):
-    """Custom field for PostgreSQL ARRAY serialization."""
-    def format(self, value):
-        if value is None:
-            return []  # Always return empty array instead of null
-        # If it's already a list, return as is
-        if isinstance(value, list):
-            # If the list contains enums, convert them to values
-            return [item.value if hasattr(item, 'value') else item for item in value]
-        # If it's a single value, wrap in a list
-        return [value]
-
-
 # Complete output fields definition for patient responses
 patient_fields = {
     'id': fields.Integer,
@@ -80,9 +66,9 @@ patient_fields = {
     'krankenversicherungsnummer': fields.String,
     'geburtsdatum': DateField,
     'diagnose': fields.String,
-    # NEW Phase 2 fields
     'symptome': fields.String,
-    'erfahrung_mit_psychotherapie': fields.String,
+    'erfahrung_mit_psychotherapie': fields.Boolean,
+    'letzte_sitzung_vorherige_psychotherapie': DateField,
     # Process Status
     'vertraege_unterschrieben': fields.Boolean,
     'psychotherapeutische_sprechstunde': fields.Boolean,
@@ -99,27 +85,10 @@ patient_fields = {
     'offen_fuer_gruppentherapie': fields.Boolean,
     'offen_fuer_diga': fields.Boolean,
     'letzter_kontakt': DateField,
-    # Medical History
-    'psychotherapieerfahrung': fields.Boolean,
-    'stationaere_behandlung': fields.Boolean,
-    'berufliche_situation': fields.String,
-    'familienstand': fields.String,
-    'aktuelle_psychische_beschwerden': fields.String,
-    'beschwerden_seit': DateField,
-    'bisherige_behandlungen': fields.String,
-    'relevante_koerperliche_erkrankungen': fields.String,
-    'aktuelle_medikation': fields.String,
-    'aktuelle_belastungsfaktoren': fields.String,
-    'unterstuetzungssysteme': fields.String,
-    # Therapy Goals
-    'anlass_fuer_die_therapiesuche': fields.String,
-    'erwartungen_an_die_therapie': fields.String,
-    'therapieziele': fields.String,
-    'fruehere_therapieerfahrungen': fields.String,
     # Therapist Preferences
     'ausgeschlossene_therapeuten': fields.Raw,
     'bevorzugtes_therapeutengeschlecht': EnumField,
-    'bevorzugtes_therapieverfahren': ArrayField,
+    'bevorzugtes_therapieverfahren': EnumField,
     # Timestamps
     'created_at': DateField,
     'updated_at': DateField,
@@ -190,7 +159,6 @@ def validate_and_get_anrede(anrede_value: str) -> Anrede:
         return Anrede[anrede_value]
     except KeyError:
         valid_values = [a.value for a in Anrede]
-        # FIXED: Use join instead of str(list)
         raise ValueError(f"Invalid anrede '{anrede_value}'. Valid values: {', '.join(valid_values)}")
 
 
@@ -213,40 +181,29 @@ def validate_and_get_geschlecht(geschlecht_value: str) -> Geschlecht:
         return Geschlecht[geschlecht_value]
     except KeyError:
         valid_values = [g.value for g in Geschlecht]
-        # FIXED: Use join instead of str(list)
         raise ValueError(f"Invalid geschlecht '{geschlecht_value}'. Valid values: {', '.join(valid_values)}")
 
 
-def validate_therapieverfahren_array(verfahren_list):
-    """Validate therapy procedures array.
+def validate_and_get_therapieverfahren(verfahren_value: str) -> Therapieverfahren:
+    """Validate and return Therapieverfahren enum.
     
     Args:
-        verfahren_list: List of therapy procedure strings
+        verfahren_value: German therapy procedure value from request
         
     Returns:
-        List of validated strings
+        Therapieverfahren enum or None
         
     Raises:
-        ValueError: If any value is invalid
+        ValueError: If therapy procedure value is invalid
     """
-    if not verfahren_list:
-        return []
+    if not verfahren_value:
+        return None
     
-    if not isinstance(verfahren_list, list):
-        raise ValueError("bevorzugtes_therapieverfahren must be an array")
-    
-    # Valid values for therapieverfahren enum
-    valid_values = ['egal', 'Verhaltenstherapie', 'tiefenpsychologisch_fundierte_Psychotherapie']
-    
-    # Validate each value
-    for value in verfahren_list:
-        if value not in valid_values:
-            raise ValueError(
-                f"Invalid therapy method '{value}'. "
-                f"Valid values: {', '.join(valid_values)}"
-            )
-    
-    return verfahren_list
+    try:
+        return Therapieverfahren[verfahren_value]
+    except KeyError:
+        valid_values = [t.value for t in Therapieverfahren]
+        raise ValueError(f"Invalid therapy method '{verfahren_value}'. Valid values: {', '.join(valid_values)}")
 
 
 def parse_date_field(date_string: str, field_name: str):
@@ -308,7 +265,8 @@ class PatientResource(Resource):
         parser.add_argument('geburtsdatum', type=str)
         parser.add_argument('diagnose', type=str)
         parser.add_argument('symptome', type=str)
-        parser.add_argument('erfahrung_mit_psychotherapie', type=str)
+        parser.add_argument('erfahrung_mit_psychotherapie', type=bool)
+        parser.add_argument('letzte_sitzung_vorherige_psychotherapie', type=str)
         # Process Status
         parser.add_argument('vertraege_unterschrieben', type=bool)
         parser.add_argument('psychotherapeutische_sprechstunde', type=bool)
@@ -325,27 +283,10 @@ class PatientResource(Resource):
         parser.add_argument('offen_fuer_gruppentherapie', type=bool)
         parser.add_argument('offen_fuer_diga', type=bool)
         # Note: letzter_kontakt is automatic - will be ignored
-        # Medical History
-        parser.add_argument('psychotherapieerfahrung', type=bool)
-        parser.add_argument('stationaere_behandlung', type=bool)
-        parser.add_argument('berufliche_situation', type=str)
-        parser.add_argument('familienstand', type=str)
-        parser.add_argument('aktuelle_psychische_beschwerden', type=str)
-        parser.add_argument('beschwerden_seit', type=str)
-        parser.add_argument('bisherige_behandlungen', type=str)
-        parser.add_argument('relevante_koerperliche_erkrankungen', type=str)
-        parser.add_argument('aktuelle_medikation', type=str)
-        parser.add_argument('aktuelle_belastungsfaktoren', type=str)
-        parser.add_argument('unterstuetzungssysteme', type=str)
-        # Therapy Goals
-        parser.add_argument('anlass_fuer_die_therapiesuche', type=str)
-        parser.add_argument('erwartungen_an_die_therapie', type=str)
-        parser.add_argument('therapieziele', type=str)
-        parser.add_argument('fruehere_therapieerfahrungen', type=str)
         # Therapist Preferences
         parser.add_argument('ausgeschlossene_therapeuten', type=list, location='json')
         parser.add_argument('bevorzugtes_therapeutengeschlecht', type=str)
-        parser.add_argument('bevorzugtes_therapieverfahren', type=list, location='json')
+        parser.add_argument('bevorzugtes_therapieverfahren', type=str)
         
         args = parser.parse_args()
         
@@ -385,13 +326,12 @@ class PatientResource(Resource):
                         except ValueError as e:
                             return {'message': str(e)}, 400
                     elif key == 'bevorzugtes_therapieverfahren':
-                        # FIXED: Validate array before assignment
                         try:
-                            patient.bevorzugtes_therapieverfahren = validate_therapieverfahren_array(value)
+                            patient.bevorzugtes_therapieverfahren = validate_and_get_therapieverfahren(value)
                         except ValueError as e:
                             return {'message': str(e)}, 400
-                    elif key in ['geburtsdatum', 'beschwerden_seit', 'erster_therapieplatz_am', 
-                                'funktionierender_therapieplatz_am']:
+                    elif key in ['geburtsdatum', 'erster_therapieplatz_am', 
+                                'funktionierender_therapieplatz_am', 'letzte_sitzung_vorherige_psychotherapie']:
                         try:
                             setattr(patient, key, parse_date_field(value, key))
                         except ValueError as e:
@@ -507,7 +447,8 @@ class PatientListResource(PaginatedListResource):
         parser.add_argument('geburtsdatum', type=str)
         parser.add_argument('diagnose', type=str)
         parser.add_argument('symptome', type=str)
-        parser.add_argument('erfahrung_mit_psychotherapie', type=str)
+        parser.add_argument('erfahrung_mit_psychotherapie', type=bool)
+        parser.add_argument('letzte_sitzung_vorherige_psychotherapie', type=str)
         parser.add_argument('vertraege_unterschrieben', type=bool)
         parser.add_argument('psychotherapeutische_sprechstunde', type=bool)
         parser.add_argument('erster_therapieplatz_am', type=str)
@@ -519,24 +460,9 @@ class PatientListResource(PaginatedListResource):
         parser.add_argument('verkehrsmittel', type=str)
         parser.add_argument('offen_fuer_gruppentherapie', type=bool)
         parser.add_argument('offen_fuer_diga', type=bool)
-        parser.add_argument('psychotherapieerfahrung', type=bool)
-        parser.add_argument('stationaere_behandlung', type=bool)
-        parser.add_argument('berufliche_situation', type=str)
-        parser.add_argument('familienstand', type=str)
-        parser.add_argument('aktuelle_psychische_beschwerden', type=str)
-        parser.add_argument('beschwerden_seit', type=str)
-        parser.add_argument('bisherige_behandlungen', type=str)
-        parser.add_argument('relevante_koerperliche_erkrankungen', type=str)
-        parser.add_argument('aktuelle_medikation', type=str)
-        parser.add_argument('aktuelle_belastungsfaktoren', type=str)
-        parser.add_argument('unterstuetzungssysteme', type=str)
-        parser.add_argument('anlass_fuer_die_therapiesuche', type=str)
-        parser.add_argument('erwartungen_an_die_therapie', type=str)
-        parser.add_argument('therapieziele', type=str)
-        parser.add_argument('fruehere_therapieerfahrungen', type=str)
         parser.add_argument('ausgeschlossene_therapeuten', type=list, location='json')
         parser.add_argument('bevorzugtes_therapeutengeschlecht', type=str)
-        parser.add_argument('bevorzugtes_therapieverfahren', type=list, location='json')
+        parser.add_argument('bevorzugtes_therapieverfahren', type=str)
         
         try:
             args = parser.parse_args()
@@ -583,13 +509,12 @@ class PatientListResource(PaginatedListResource):
                         except ValueError as e:
                             return {'message': str(e)}, 400
                     elif key == 'bevorzugtes_therapieverfahren':
-                        # FIXED: Validate array before assignment
                         try:
-                            patient_data['bevorzugtes_therapieverfahren'] = validate_therapieverfahren_array(value)
+                            patient_data['bevorzugtes_therapieverfahren'] = validate_and_get_therapieverfahren(value)
                         except ValueError as e:
                             return {'message': str(e)}, 400
-                    elif key in ['geburtsdatum', 'beschwerden_seit', 'erster_therapieplatz_am', 
-                                'funktionierender_therapieplatz_am']:
+                    elif key in ['geburtsdatum', 'erster_therapieplatz_am', 
+                                'funktionierender_therapieplatz_am', 'letzte_sitzung_vorherige_psychotherapie']:
                         try:
                             patient_data[key] = parse_date_field(value, key)
                         except ValueError as e:

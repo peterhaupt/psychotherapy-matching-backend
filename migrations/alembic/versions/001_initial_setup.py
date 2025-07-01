@@ -121,7 +121,7 @@ def upgrade() -> None:
     
     # ========== STEP 3: CREATE PATIENT SERVICE TABLES ==========
     
-    # Create patienten table (German name) with Phase 2 additions and new enums
+    # Create patienten table (German name) with cleaned up fields
     op.create_table('patienten',
         sa.Column('id', sa.Integer(), nullable=False),
         # Personal Information with new enum fields
@@ -140,10 +140,11 @@ def upgrade() -> None:
         sa.Column('krankenversicherungsnummer', sa.String(50), nullable=True),
         sa.Column('geburtsdatum', sa.Date(), nullable=True),
         sa.Column('diagnose', sa.String(50), nullable=True),
-        # NEW Phase 2 fields
+        # Simplified therapy experience fields
         sa.Column('symptome', sa.Text(), nullable=True),
-        sa.Column('erfahrung_mit_psychotherapie', sa.Text(), nullable=True),
-        # End NEW Phase 2 fields
+        sa.Column('erfahrung_mit_psychotherapie', sa.Boolean(), nullable=True),
+        sa.Column('letzte_sitzung_vorherige_psychotherapie', sa.Date(), nullable=True),
+        # Process Status
         sa.Column('vertraege_unterschrieben', sa.Boolean(), default=False),
         sa.Column('psychotherapeutische_sprechstunde', sa.Boolean(), default=False),
         sa.Column('startdatum', sa.Date(), nullable=True),
@@ -161,35 +162,19 @@ def upgrade() -> None:
         sa.Column('offen_fuer_gruppentherapie', sa.Boolean(), default=False),
         sa.Column('offen_fuer_diga', sa.Boolean(), default=False),
         sa.Column('letzter_kontakt', sa.Date(), nullable=True),
-        sa.Column('psychotherapieerfahrung', sa.Boolean(), default=False),
-        sa.Column('stationaere_behandlung', sa.Boolean(), default=False),
-        sa.Column('berufliche_situation', sa.Text(), nullable=True),
-        sa.Column('familienstand', sa.String(50), nullable=True),
-        sa.Column('aktuelle_psychische_beschwerden', sa.Text(), nullable=True),
-        sa.Column('beschwerden_seit', sa.Date(), nullable=True),
-        sa.Column('bisherige_behandlungen', sa.Text(), nullable=True),
-        sa.Column('relevante_koerperliche_erkrankungen', sa.Text(), nullable=True),
-        sa.Column('aktuelle_medikation', sa.Text(), nullable=True),
-        sa.Column('aktuelle_belastungsfaktoren', sa.Text(), nullable=True),
-        sa.Column('unterstuetzungssysteme', sa.Text(), nullable=True),
-        sa.Column('anlass_fuer_die_therapiesuche', sa.Text(), nullable=True),
-        sa.Column('erwartungen_an_die_therapie', sa.Text(), nullable=True),
-        sa.Column('therapieziele', sa.Text(), nullable=True),
-        sa.Column('fruehere_therapieerfahrungen', sa.Text(), nullable=True),
+        # Therapist Preferences
         sa.Column('ausgeschlossene_therapeuten', postgresql.JSONB(astext_type=sa.Text()), 
                   nullable=True, server_default='[]'),
         sa.Column('bevorzugtes_therapeutengeschlecht', 
                   postgresql.ENUM('Männlich', 'Weiblich', 'Egal', 
                                  name='therapeutgeschlechtspraeferenz', create_type=False), 
                   nullable=True, server_default='Egal'),
-        # NEW Phase 2 fields with default to empty array
+        # Changed from ARRAY to single ENUM
         sa.Column('bevorzugtes_therapieverfahren', 
-                  postgresql.ARRAY(postgresql.ENUM('egal', 'Verhaltenstherapie', 
-                                                   'tiefenpsychologisch_fundierte_Psychotherapie',
-                                                   name='therapieverfahren', create_type=False)), 
-                  nullable=True, server_default='{}'),
-        # REMOVED: bevorzugtes_therapeutenalter_min and bevorzugtes_therapeutenalter_max
-        # End NEW Phase 2 fields
+                  postgresql.ENUM('egal', 'Verhaltenstherapie', 
+                                 'tiefenpsychologisch_fundierte_Psychotherapie',
+                                 name='therapieverfahren', create_type=False), 
+                  nullable=True, server_default='egal'),
         sa.Column('created_at', sa.Date(), nullable=True),
         sa.Column('updated_at', sa.Date(), nullable=True),
         sa.PrimaryKeyConstraint('id'),
