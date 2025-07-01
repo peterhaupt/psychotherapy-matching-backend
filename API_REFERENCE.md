@@ -236,7 +236,7 @@ The following fields are managed automatically by the backend and **cannot be se
 "männlich"
 "weiblich"
 "divers"
-"keine Angabe"
+"keine_Angabe"
 ```
 
 ### Patient Status (patientenstatus)
@@ -470,7 +470,7 @@ curl "http://localhost:8001/api/patients/30/communication"
 
 **Required Fields:**
 - `anrede` (string) - Must be one of: "Herr", "Frau"
-- `geschlecht` (string) - Must be one of: "männlich", "weiblich", "divers", "keine Angabe"
+- `geschlecht` (string) - Must be one of: "männlich", "weiblich", "divers", "keine_Angabe"
 - `vorname` (string)
 - `nachname` (string)
 
@@ -629,7 +629,7 @@ curl -X POST "http://localhost:8001/api/patients" \
 
 ```json
 {
-  "message": "Invalid geschlecht 'Männlich'. Valid values: männlich, weiblich, divers, keine Angabe"
+  "message": "Invalid geschlecht 'Männlich'. Valid values: männlich, weiblich, divers, keine_Angabe"
 }
 ```
 
@@ -850,7 +850,7 @@ curl "http://localhost:8002/api/therapists/123/communication"
 
 **Required Fields:**
 - `anrede` (string) - Must be one of: "Herr", "Frau"
-- `geschlecht` (string) - Must be one of: "männlich", "weiblich", "divers", "keine Angabe"
+- `geschlecht` (string) - Must be one of: "männlich", "weiblich", "divers", "keine_Angabe"
 - `vorname` (string)
 - `nachname` (string)
 
@@ -1616,7 +1616,7 @@ curl -X DELETE "http://localhost:8004/api/emails/1"
    - `"männlich"`
    - `"weiblich"`
    - `"divers"`
-   - `"keine Angabe"`
+   - `"keine_Angabe"`
 
 ## 🔄 **Updated Models:**
 

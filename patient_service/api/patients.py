@@ -218,9 +218,6 @@ def validate_and_get_geschlecht(geschlecht_value: str) -> Geschlecht:
         raise ValueError("Geschlecht is required")
     
     try:
-        # Handle special case for "keine Angabe" which has a space
-        if geschlecht_value == "keine Angabe":
-            return Geschlecht.keine_Angabe
         return Geschlecht[geschlecht_value]
     except KeyError:
         valid_values = [g.value for g in Geschlecht]

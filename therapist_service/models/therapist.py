@@ -32,7 +32,7 @@ class Geschlecht(str, Enum):
     männlich = "männlich"
     weiblich = "weiblich"
     divers = "divers"
-    keine_Angabe = "keine Angabe"
+    keine_Angabe = "keine_Angabe"
 
 
 class Therapist(Base):

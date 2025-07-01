@@ -39,10 +39,10 @@ def upgrade() -> None:
         )
     """)
     
-    # NEW: Geschlecht (gender) enum
+    # NEW: Geschlecht (gender) enum - FIXED: keine_Angabe instead of "keine Angabe"
     op.execute("""
         CREATE TYPE geschlecht AS ENUM (
-            'männlich', 'weiblich', 'divers', 'keine Angabe'
+            'männlich', 'weiblich', 'divers', 'keine_Angabe'
         )
     """)
     
@@ -126,7 +126,7 @@ def upgrade() -> None:
         sa.Column('id', sa.Integer(), nullable=False),
         # Personal Information with new enum fields
         sa.Column('anrede', postgresql.ENUM('Herr', 'Frau', name='anrede', create_type=False), nullable=False),
-        sa.Column('geschlecht', postgresql.ENUM('männlich', 'weiblich', 'divers', 'keine Angabe', 
+        sa.Column('geschlecht', postgresql.ENUM('männlich', 'weiblich', 'divers', 'keine_Angabe', 
                                                name='geschlecht', create_type=False), nullable=False),
         sa.Column('vorname', sa.String(100), nullable=False),
         sa.Column('nachname', sa.String(100), nullable=False),
@@ -205,7 +205,7 @@ def upgrade() -> None:
         sa.Column('id', sa.Integer(), nullable=False),
         # Personal Information with new enum fields
         sa.Column('anrede', postgresql.ENUM('Herr', 'Frau', name='anrede', create_type=False), nullable=False),
-        sa.Column('geschlecht', postgresql.ENUM('männlich', 'weiblich', 'divers', 'keine Angabe', 
+        sa.Column('geschlecht', postgresql.ENUM('männlich', 'weiblich', 'divers', 'keine_Angabe', 
                                                name='geschlecht', create_type=False), nullable=False),
         sa.Column('titel', sa.String(20), nullable=True),
         sa.Column('vorname', sa.String(100), nullable=False),
