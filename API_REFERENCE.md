@@ -2,7 +2,7 @@
 
 **Single Source of Truth for All API Integration**
 
-Last Updated: June 2025
+Last Updated: January 2025
 
 ## Overview
 
@@ -33,6 +33,8 @@ Error messages and validation will reflect the configured values, not hardcoded 
 ```json
 {
   "id": 1,
+  "anrede": "Frau",
+  "geschlecht": "weiblich",
   "vorname": "Anna",
   "nachname": "Müller",
   "created_at": "2025-06-10",
@@ -223,6 +225,20 @@ The following fields are managed automatically by the backend and **cannot be se
 
 ## Enum Values
 
+### Anrede (Salutation) - **NEW**
+```
+"Herr"
+"Frau"
+```
+
+### Geschlecht (Gender) - **NEW**
+```
+"männlich"
+"weiblich"
+"divers"
+"keine Angabe"
+```
+
 ### Patient Status (patientenstatus)
 ```
 "offen"
@@ -323,6 +339,7 @@ curl "http://localhost:8001/api/patients?status=auf_der_Suche&page=1&limit=20"
     {
       "id": 1,
       "anrede": "Frau",
+      "geschlecht": "weiblich",
       "vorname": "Anna",
       "nachname": "Müller",
       "strasse": "Hauptstraße 123",
@@ -452,13 +469,14 @@ curl "http://localhost:8001/api/patients/30/communication"
 **Description:** Create a new patient.
 
 **Required Fields:**
+- `anrede` (string) - Must be one of: "Herr", "Frau"
+- `geschlecht` (string) - Must be one of: "männlich", "weiblich", "divers", "keine Angabe"
 - `vorname` (string)
 - `nachname` (string)
 
 **All Optional Fields (COMPLETE LIST):**
 
 **Personal Information:**
-- `anrede` (string)
 - `strasse` (string) 
 - `plz` (string)
 - `ort` (string)
@@ -521,6 +539,7 @@ curl -X POST "http://localhost:8001/api/patients" \
   -H "Content-Type: application/json" \
   -d '{
     "anrede": "Herr",
+    "geschlecht": "männlich",
     "vorname": "Thomas",
     "nachname": "Schmidt",
     "strasse": "Berliner Str. 45",
@@ -573,6 +592,7 @@ curl -X POST "http://localhost:8001/api/patients" \
 {
   "id": 4,
   "anrede": "Herr",
+  "geschlecht": "männlich",
   "vorname": "Thomas",
   "nachname": "Schmidt",
   "strasse": "Berliner Str. 45",
@@ -594,10 +614,22 @@ curl -X POST "http://localhost:8001/api/patients" \
 }
 ```
 
-**Validation Error Example (Invalid bevorzugtes_therapieverfahren):**
+**Validation Error Examples:**
 ```json
 {
   "message": "Invalid therapy method 'Psychoanalyse'. Valid values: egal, Verhaltenstherapie, tiefenpsychologisch_fundierte_Psychotherapie"
+}
+```
+
+```json
+{
+  "message": "Invalid anrede 'Dr.'. Valid values: Herr, Frau"
+}
+```
+
+```json
+{
+  "message": "Invalid geschlecht 'Männlich'. Valid values: männlich, weiblich, divers, keine Angabe"
 }
 ```
 
@@ -625,6 +657,8 @@ curl -X PUT "http://localhost:8001/api/patients/1" \
 ```json
 {
   "id": 1,
+  "anrede": "Frau",
+  "geschlecht": "weiblich",
   "vorname": "Anna",
   "nachname": "Müller",
   "status": "in_Therapie",
@@ -678,7 +712,8 @@ curl "http://localhost:8002/api/therapists?status=aktiv&potenziell_verfuegbar=tr
   "data": [
     {
       "id": 1,
-      "anrede": "Dr.",
+      "anrede": "Herr",
+      "geschlecht": "männlich",
       "titel": "Dr. med.",
       "vorname": "Maria",
       "nachname": "Weber",
@@ -690,7 +725,6 @@ curl "http://localhost:8002/api/therapists?status=aktiv&potenziell_verfuegbar=tr
       "email": "dr.weber@praxis.de",
       "webseite": "https://www.praxis-weber.de",
       "kassensitz": true,
-      "geschlecht": "weiblich",
       "telefonische_erreichbarkeit": {
         "montag": ["09:00-12:00"],
         "mittwoch": ["14:00-16:00"]
@@ -732,6 +766,8 @@ curl "http://localhost:8002/api/therapists?status=aktiv&potenziell_verfuegbar=tr
 ```json
 {
   "id": 2,
+  "anrede": "Herr",
+  "geschlecht": "männlich",
   "vorname": "Max",
   "nachname": "Mustermann",
   "telefonische_erreichbarkeit": {},
@@ -813,6 +849,8 @@ curl "http://localhost:8002/api/therapists/123/communication"
 **Description:** Create a new therapist.
 
 **Required Fields:**
+- `anrede` (string) - Must be one of: "Herr", "Frau"
+- `geschlecht` (string) - Must be one of: "männlich", "weiblich", "divers", "keine Angabe"
 - `vorname` (string)
 - `nachname` (string)
 
@@ -821,7 +859,8 @@ curl "http://localhost:8002/api/therapists/123/communication"
 curl -X POST "http://localhost:8002/api/therapists" \
   -H "Content-Type: application/json" \
   -d '{
-    "anrede": "Dr.",
+    "anrede": "Herr",
+    "geschlecht": "männlich",
     "titel": "Dr. phil.",
     "vorname": "Michael",
     "nachname": "Becker",
@@ -831,7 +870,6 @@ curl -X POST "http://localhost:8002/api/therapists" \
     "telefon": "+49 89 11223344",
     "email": "m.becker@therapie.de",
     "kassensitz": true,
-    "geschlecht": "männlich",
     "psychotherapieverfahren": ["Tiefenpsychologie"],
     "potenziell_verfuegbar": true,
     "ueber_curavani_informiert": false,
@@ -847,6 +885,8 @@ curl -X POST "http://localhost:8002/api/therapists" \
 ```json
 {
   "id": 5,
+  "anrede": "Herr",
+  "geschlecht": "männlich",
   "vorname": "Michael",
   "nachname": "Becker",
   "email": "m.becker@therapie.de",
@@ -1023,7 +1063,8 @@ curl "http://localhost:8003/api/therapeuten-zur-auswahl?plz_prefix=52"
   "data": [
     {
       "id": 123,
-      "anrede": "Dr.",
+      "anrede": "Frau",
+      "geschlecht": "weiblich",
       "titel": "Dr. med.",
       "vorname": "Maria",
       "nachname": "Weber",
@@ -1565,6 +1606,28 @@ curl -X DELETE "http://localhost:8004/api/emails/1"
 
 # Key Changes from Previous Version
 
+## 🆕 **New Enums Added:**
+
+1. **Anrede (Salutation)** - Required field with two values:
+   - `"Herr"`
+   - `"Frau"`
+
+2. **Geschlecht (Gender)** - Required field with four values:
+   - `"männlich"`
+   - `"weiblich"`
+   - `"divers"`
+   - `"keine Angabe"`
+
+## 🔄 **Updated Models:**
+
+### Patient Model:
+- Changed `anrede` from String(10) to Enum (required)
+- Added new `geschlecht` field with Enum (required)
+
+### Therapist Model:
+- Changed `anrede` from String(10) to Enum (required)
+- Changed `geschlecht` from String(20) to Enum (required)
+
 ## ✅ **Fixed Issues:**
 
 1. **Patient Array Fields**: `bevorzugtes_therapieverfahren` now always returns array, never null (Migration 003)
@@ -1587,7 +1650,10 @@ curl -X DELETE "http://localhost:8004/api/emails/1"
 ## 📝 **Documentation:**
 
 - Updated all therapist examples to show proper JSONB defaults
-- Updated patient examples to show fixed array behavior
+- Updated patient examples to show fixed array behavior and new required fields
+- Added new enum sections for Anrede and Geschlecht
+- Updated all POST examples to include required anrede and geschlecht fields
+- Added validation error examples for new enums
 - Clarified JSONB field behavior in complex field formats section
 - Added database migration requirement notes
 - Removed any references to null JSONB values
@@ -1608,5 +1674,10 @@ curl -X DELETE "http://localhost:8004/api/emails/1"
 - Only accepts values: "egal", "Verhaltenstherapie", "tiefenpsychologisch_fundierte_Psychotherapie" 
 - Returns 400 error with clear message for invalid values
 - Properly validates array input
+
+### Phase 4: Anrede and Geschlecht Enums
+- Both fields are now required for both patients and therapists
+- Strict validation against allowed enum values
+- Clear error messages in English when validation fails
 
 **Note:** This API reference now accurately reflects the backend implementation after all database migrations and automatic field management are applied. Fields marked as **AUTOMATIC** are managed by the system and cannot be set manually.

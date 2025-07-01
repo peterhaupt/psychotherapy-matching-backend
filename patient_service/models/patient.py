@@ -38,6 +38,22 @@ class Therapieverfahren(str, Enum):
     tiefenpsychologisch_fundierte_Psychotherapie = "tiefenpsychologisch_fundierte_Psychotherapie"
 
 
+class Anrede(str, Enum):
+    """Enumeration for salutation - fully German."""
+    
+    Herr = "Herr"
+    Frau = "Frau"
+
+
+class Geschlecht(str, Enum):
+    """Enumeration for gender - fully German."""
+    
+    männlich = "männlich"
+    weiblich = "weiblich"
+    divers = "divers"
+    keine_Angabe = "keine Angabe"
+
+
 class Patient(Base):
     """Patient database model.
 
@@ -55,7 +71,14 @@ class Patient(Base):
     id = Column(Integer, primary_key=True, index=True)
 
     # Personal Information (German field names)
-    anrede = Column(String(10))
+    anrede = Column(
+        SQLAlchemyEnum(Anrede, name='anrede', native_enum=True),
+        nullable=False
+    )
+    geschlecht = Column(
+        SQLAlchemyEnum(Geschlecht, name='geschlecht', native_enum=True),
+        nullable=False
+    )
     vorname = Column(String(100), nullable=False)
     nachname = Column(String(100), nullable=False)
     strasse = Column(String(255))

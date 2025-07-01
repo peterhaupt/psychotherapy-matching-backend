@@ -19,6 +19,22 @@ class TherapistStatus(str, Enum):
     inaktiv = "inaktiv"
 
 
+class Anrede(str, Enum):
+    """Enumeration for salutation - fully German."""
+    
+    Herr = "Herr"
+    Frau = "Frau"
+
+
+class Geschlecht(str, Enum):
+    """Enumeration for gender - fully German."""
+    
+    männlich = "männlich"
+    weiblich = "weiblich"
+    divers = "divers"
+    keine_Angabe = "keine Angabe"
+
+
 class Therapist(Base):
     """Therapist database model.
 
@@ -36,7 +52,14 @@ class Therapist(Base):
     id = Column(Integer, primary_key=True, index=True)
 
     # Personal Information (German field names)
-    anrede = Column(String(10))
+    anrede = Column(
+        SQLAlchemyEnum(Anrede, name='anrede', native_enum=True),
+        nullable=False
+    )
+    geschlecht = Column(
+        SQLAlchemyEnum(Geschlecht, name='geschlecht', native_enum=True),
+        nullable=False
+    )
     titel = Column(String(20))
     vorname = Column(String(100), nullable=False)
     nachname = Column(String(100), nullable=False)
@@ -50,7 +73,6 @@ class Therapist(Base):
 
     # Professional Information (German field names) - FIXED: Added server_default values
     kassensitz = Column(Boolean, default=True)
-    geschlecht = Column(String(20))
     telefonische_erreichbarkeit = Column(JSONB, server_default='{}')  # FIXED: Empty object default
     fremdsprachen = Column(JSONB, server_default='[]')  # FIXED: Empty array default
     psychotherapieverfahren = Column(JSONB, server_default='[]')  # FIXED: Empty array default

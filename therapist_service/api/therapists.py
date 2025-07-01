@@ -6,7 +6,7 @@ from datetime import datetime
 import requests
 import logging
 
-from models.therapist import Therapist, TherapistStatus
+from models.therapist import Therapist, TherapistStatus, Anrede, Geschlecht
 from shared.utils.database import SessionLocal
 from shared.api.base_resource import PaginatedListResource
 from shared.config import get_config
@@ -77,7 +77,8 @@ class ObjectField(fields.Raw):
 therapist_fields = {
     'id': fields.Integer,
     # Personal Information
-    'anrede': fields.String,
+    'anrede': EnumField,
+    'geschlecht': EnumField,
     'titel': fields.String,
     'vorname': fields.String,
     'nachname': fields.String,
@@ -90,7 +91,6 @@ therapist_fields = {
     'webseite': fields.String,
     # Professional Information - FIXED: Using custom fields instead of fields.Raw
     'kassensitz': fields.Boolean,
-    'geschlecht': fields.String,
     'telefonische_erreichbarkeit': ObjectField,  # FIXED: Object field instead of Raw
     'fremdsprachen': ArrayField,  # FIXED: Array field instead of Raw
     'psychotherapieverfahren': ArrayField,  # FIXED: Array field instead of Raw
@@ -146,6 +146,53 @@ def validate_and_get_therapist_status(status_value: str) -> TherapistStatus:
         raise ValueError(f"Invalid status '{status_value}'. Valid values: {valid_values}")
 
 
+def validate_and_get_anrede(anrede_value: str) -> Anrede:
+    """Validate and return Anrede enum.
+    
+    Args:
+        anrede_value: German salutation value from request
+        
+    Returns:
+        Anrede enum
+        
+    Raises:
+        ValueError: If anrede value is invalid
+    """
+    if not anrede_value:
+        raise ValueError("Anrede is required")
+    
+    try:
+        return Anrede[anrede_value]
+    except KeyError:
+        valid_values = [a.value for a in Anrede]
+        raise ValueError(f"Invalid anrede '{anrede_value}'. Valid values: {valid_values}")
+
+
+def validate_and_get_geschlecht(geschlecht_value: str) -> Geschlecht:
+    """Validate and return Geschlecht enum.
+    
+    Args:
+        geschlecht_value: German gender value from request
+        
+    Returns:
+        Geschlecht enum
+        
+    Raises:
+        ValueError: If geschlecht value is invalid
+    """
+    if not geschlecht_value:
+        raise ValueError("Geschlecht is required")
+    
+    try:
+        # Handle special case for "keine Angabe" which has a space
+        if geschlecht_value == "keine Angabe":
+            return Geschlecht.keine_Angabe
+        return Geschlecht[geschlecht_value]
+    except KeyError:
+        valid_values = [g.value for g in Geschlecht]
+        raise ValueError(f"Invalid geschlecht '{geschlecht_value}'. Valid values: {valid_values}")
+
+
 def parse_date_field(date_string: str, field_name: str):
     """Parse date string and return date object.
     
@@ -190,6 +237,7 @@ class TherapistResource(Resource):
         parser = reqparse.RequestParser()
         # Personal Information
         parser.add_argument('anrede', type=str)
+        parser.add_argument('geschlecht', type=str)
         parser.add_argument('titel', type=str)
         parser.add_argument('vorname', type=str)
         parser.add_argument('nachname', type=str)
@@ -202,7 +250,6 @@ class TherapistResource(Resource):
         parser.add_argument('webseite', type=str)
         # Professional Information
         parser.add_argument('kassensitz', type=bool)
-        parser.add_argument('geschlecht', type=str)
         parser.add_argument('telefonische_erreichbarkeit', type=dict, location='json')
         parser.add_argument('fremdsprachen', type=list, location='json')
         parser.add_argument('psychotherapieverfahren', type=list, location='json')
@@ -242,7 +289,17 @@ class TherapistResource(Resource):
             # Update fields from request
             for key, value in args.items():
                 if value is not None:
-                    if key == 'status':
+                    if key == 'anrede':
+                        try:
+                            therapist.anrede = validate_and_get_anrede(value)
+                        except ValueError as e:
+                            return {'message': str(e)}, 400
+                    elif key == 'geschlecht':
+                        try:
+                            therapist.geschlecht = validate_and_get_geschlecht(value)
+                        except ValueError as e:
+                            return {'message': str(e)}, 400
+                    elif key == 'status':
                         try:
                             therapist.status = validate_and_get_therapist_status(value)
                         except ValueError as e:
@@ -347,12 +404,15 @@ class TherapistListResource(PaginatedListResource):
         """Create a new therapist."""
         parser = reqparse.RequestParser()
         # Required fields
+        parser.add_argument('anrede', type=str, required=True,
+                           help='Anrede is required')
+        parser.add_argument('geschlecht', type=str, required=True,
+                           help='Geschlecht is required')
         parser.add_argument('vorname', type=str, required=True,
                            help='Vorname is required')
         parser.add_argument('nachname', type=str, required=True,
                            help='Nachname is required')
         # Optional fields
-        parser.add_argument('anrede', type=str)
         parser.add_argument('titel', type=str)
         parser.add_argument('strasse', type=str)
         parser.add_argument('plz', type=str)
@@ -362,7 +422,6 @@ class TherapistListResource(PaginatedListResource):
         parser.add_argument('email', type=str)
         parser.add_argument('webseite', type=str)
         parser.add_argument('kassensitz', type=bool)
-        parser.add_argument('geschlecht', type=str)
         parser.add_argument('telefonische_erreichbarkeit', type=dict, location='json')
         parser.add_argument('fremdsprachen', type=list, location='json')
         parser.add_argument('psychotherapieverfahren', type=list, location='json')
@@ -405,7 +464,17 @@ class TherapistListResource(PaginatedListResource):
             # Process each argument
             for key, value in args.items():
                 if value is not None:
-                    if key == 'status':
+                    if key == 'anrede':
+                        try:
+                            therapist_data['anrede'] = validate_and_get_anrede(value)
+                        except ValueError as e:
+                            return {'message': str(e)}, 400
+                    elif key == 'geschlecht':
+                        try:
+                            therapist_data['geschlecht'] = validate_and_get_geschlecht(value)
+                        except ValueError as e:
+                            return {'message': str(e)}, 400
+                    elif key == 'status':
                         try:
                             therapist_data['status'] = validate_and_get_therapist_status(value)
                         except ValueError as e:
