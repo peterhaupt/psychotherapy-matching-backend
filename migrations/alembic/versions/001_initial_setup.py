@@ -1,8 +1,8 @@
-"""complete database setup with patient communication support and Phase 2 model updates
+"""complete database setup with patient communication support, Phase 2 model updates, and new enums
 
 Revision ID: 001_initial_setup
 Revises: 
-Create Date: 2024-12-20 10:00:00.000000
+Create Date: 2025-01-20 10:00:00.000000
 
 """
 from typing import Sequence, Union
@@ -19,7 +19,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    """Create complete database schema with German naming conventions and Phase 2 model updates."""
+    """Create complete database schema with German naming conventions, Phase 2 model updates, and new Anrede/Geschlecht enums."""
     
     # ========== STEP 1: CREATE SCHEMAS ==========
     
@@ -31,6 +31,20 @@ def upgrade() -> None:
     op.execute("CREATE SCHEMA IF NOT EXISTS scraping_service")
     
     # ========== STEP 2: CREATE ALL ENUM TYPES WITH GERMAN NAMES AND VALUES ==========
+    
+    # NEW: Anrede (salutation) enum
+    op.execute("""
+        CREATE TYPE anrede AS ENUM (
+            'Herr', 'Frau'
+        )
+    """)
+    
+    # NEW: Geschlecht (gender) enum
+    op.execute("""
+        CREATE TYPE geschlecht AS ENUM (
+            'männlich', 'weiblich', 'divers', 'keine Angabe'
+        )
+    """)
     
     # Patient status enum
     op.execute("""
@@ -107,10 +121,13 @@ def upgrade() -> None:
     
     # ========== STEP 3: CREATE PATIENT SERVICE TABLES ==========
     
-    # Create patienten table (German name) with Phase 2 additions (REMOVED therapist age preferences)
+    # Create patienten table (German name) with Phase 2 additions and new enums
     op.create_table('patienten',
         sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('anrede', sa.String(10), nullable=True),
+        # Personal Information with new enum fields
+        sa.Column('anrede', postgresql.ENUM('Herr', 'Frau', name='anrede', create_type=False), nullable=False),
+        sa.Column('geschlecht', postgresql.ENUM('männlich', 'weiblich', 'divers', 'keine Angabe', 
+                                               name='geschlecht', create_type=False), nullable=False),
         sa.Column('vorname', sa.String(100), nullable=False),
         sa.Column('nachname', sa.String(100), nullable=False),
         sa.Column('strasse', sa.String(255), nullable=True),
@@ -165,12 +182,12 @@ def upgrade() -> None:
                   postgresql.ENUM('Männlich', 'Weiblich', 'Egal', 
                                  name='therapeutgeschlechtspraeferenz', create_type=False), 
                   nullable=True, server_default='Egal'),
-        # NEW Phase 2 fields
+        # NEW Phase 2 fields with default to empty array
         sa.Column('bevorzugtes_therapieverfahren', 
                   postgresql.ARRAY(postgresql.ENUM('egal', 'Verhaltenstherapie', 
                                                    'tiefenpsychologisch_fundierte_Psychotherapie',
                                                    name='therapieverfahren', create_type=False)), 
-                  nullable=True),
+                  nullable=True, server_default='{}'),
         # REMOVED: bevorzugtes_therapeutenalter_min and bevorzugtes_therapeutenalter_max
         # End NEW Phase 2 fields
         sa.Column('created_at', sa.Date(), nullable=True),
@@ -183,10 +200,13 @@ def upgrade() -> None:
     
     # ========== STEP 4: CREATE THERAPIST SERVICE TABLES ==========
     
-    # Create therapeuten table (German name) with Phase 2 addition
+    # Create therapeuten table (German name) with Phase 2 addition and new enums
     op.create_table('therapeuten',
         sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('anrede', sa.String(10), nullable=True),
+        # Personal Information with new enum fields
+        sa.Column('anrede', postgresql.ENUM('Herr', 'Frau', name='anrede', create_type=False), nullable=False),
+        sa.Column('geschlecht', postgresql.ENUM('männlich', 'weiblich', 'divers', 'keine Angabe', 
+                                               name='geschlecht', create_type=False), nullable=False),
         sa.Column('titel', sa.String(20), nullable=True),
         sa.Column('vorname', sa.String(100), nullable=False),
         sa.Column('nachname', sa.String(100), nullable=False),
@@ -198,10 +218,12 @@ def upgrade() -> None:
         sa.Column('email', sa.String(255), nullable=True),
         sa.Column('webseite', sa.String(255), nullable=True),
         sa.Column('kassensitz', sa.Boolean(), default=True),
-        sa.Column('geschlecht', sa.String(20), nullable=True),
-        sa.Column('telefonische_erreichbarkeit', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
-        sa.Column('fremdsprachen', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
-        sa.Column('psychotherapieverfahren', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column('telefonische_erreichbarkeit', postgresql.JSONB(astext_type=sa.Text()), 
+                  nullable=True, server_default='{}'),
+        sa.Column('fremdsprachen', postgresql.JSONB(astext_type=sa.Text()), 
+                  nullable=True, server_default='[]'),
+        sa.Column('psychotherapieverfahren', postgresql.JSONB(astext_type=sa.Text()), 
+                  nullable=True, server_default='[]'),
         sa.Column('zusatzqualifikationen', sa.Text(), nullable=True),
         sa.Column('besondere_leistungsangebote', sa.Text(), nullable=True),
         sa.Column('letzter_kontakt_email', sa.Date(), nullable=True),
@@ -213,11 +235,13 @@ def upgrade() -> None:
         sa.Column('ueber_curavani_informiert', sa.Boolean(), default=False),
         # End NEW Phase 2 field
         sa.Column('naechster_kontakt_moeglich', sa.Date(), nullable=True),
-        sa.Column('bevorzugte_diagnosen', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column('bevorzugte_diagnosen', postgresql.JSONB(astext_type=sa.Text()), 
+                  nullable=True, server_default='[]'),
         sa.Column('alter_min', sa.Integer(), nullable=True),
         sa.Column('alter_max', sa.Integer(), nullable=True),
         sa.Column('geschlechtspraeferenz', sa.String(50), nullable=True),
-        sa.Column('arbeitszeiten', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column('arbeitszeiten', postgresql.JSONB(astext_type=sa.Text()), 
+                  nullable=True, server_default='{}'),
         sa.Column('bevorzugt_gruppentherapie', sa.Boolean(), default=False),
         sa.Column('status', postgresql.ENUM('aktiv', 'gesperrt', 'inaktiv', 
                                            name='therapeutstatus', create_type=False), 
@@ -284,9 +308,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint('id'),
         sa.ForeignKeyConstraint(['therapist_id'], ['therapist_service.therapeuten.id'], 
                                ondelete='CASCADE'),
-        # RENAMED constraint from bundle_size_check (Phase 2)
-        sa.CheckConstraint('anfragegroesse >= 3 AND anfragegroesse <= 6', 
-                          name='anfrage_size_check'),
+        # NO CHECK CONSTRAINT - using dynamic validation from environment variables
         sa.CheckConstraint('angenommen_anzahl >= 0', name='accepted_count_check'),
         sa.CheckConstraint('abgelehnt_anzahl >= 0', name='rejected_count_check'),
         sa.CheckConstraint('keine_antwort_anzahl >= 0', name='no_response_count_check'),
@@ -458,7 +480,7 @@ def upgrade() -> None:
     op.create_index('ix_geocache_created_at', 'geocache', ['created_at'], 
                    schema='geocoding_service')
     
-    # Create distance_cache table
+    # Create distance_cache table (without travel_time_minutes as per migration 006)
     op.create_table('distance_cache',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('origin_latitude', sa.Float(), nullable=False),
@@ -467,7 +489,7 @@ def upgrade() -> None:
         sa.Column('destination_longitude', sa.Float(), nullable=False),
         sa.Column('travel_mode', sa.String(50), nullable=False),
         sa.Column('distance_km', sa.Float(), nullable=False),
-        sa.Column('travel_time_minutes', sa.Float(), nullable=True),
+        # REMOVED: travel_time_minutes (as per migration 006)
         sa.Column('route_data', sa.String(), nullable=True),
         sa.Column('created_at', sa.DateTime(), nullable=False, 
                   server_default=sa.text('CURRENT_TIMESTAMP')),
@@ -481,6 +503,29 @@ def upgrade() -> None:
                     'destination_latitude', 'destination_longitude',
                     'travel_mode'], 
                    schema='geocoding_service')
+    
+    # Create PLZ centroids table (as per migration 005)
+    op.create_table('plz_centroids',
+        sa.Column('plz', sa.String(5), nullable=False),
+        sa.Column('ort', sa.String(255), nullable=False),
+        sa.Column('bundesland', sa.String(100), nullable=True),
+        sa.Column('bundesland_code', sa.String(2), nullable=True),
+        sa.Column('latitude', sa.Float(), nullable=False),
+        sa.Column('longitude', sa.Float(), nullable=False),
+        sa.Column('created_at', sa.DateTime(), nullable=False, 
+                  server_default=sa.text('CURRENT_TIMESTAMP')),
+        sa.Column('updated_at', sa.DateTime(), nullable=True),
+        sa.PrimaryKeyConstraint('plz'),
+        schema='geocoding_service'
+    )
+    op.create_index('idx_plz_centroids_plz', 'plz_centroids', ['plz'], 
+                   schema='geocoding_service')
+    
+    # Add table comment
+    op.execute("""
+        COMMENT ON TABLE geocoding_service.plz_centroids IS 
+        'German postal code centroids for fast distance approximation'
+    """)
     
     # ========== STEP 8: ADD FOREIGN KEY CONSTRAINTS ==========
     # These are added after all tables are created to avoid dependency issues
@@ -550,6 +595,10 @@ def downgrade() -> None:
                       schema='communication_service', type_='foreignkey')
     
     # Drop geocoding service tables
+    op.drop_index('idx_plz_centroids_plz', table_name='plz_centroids', 
+                 schema='geocoding_service')
+    op.drop_table('plz_centroids', schema='geocoding_service')
+    
     op.drop_index('ix_distance_cache_points', table_name='distance_cache', 
                  schema='geocoding_service')
     op.drop_table('distance_cache', schema='geocoding_service')
@@ -631,6 +680,8 @@ def downgrade() -> None:
     op.execute("DROP TYPE IF EXISTS therapieverfahren")  # NEW enum type
     op.execute("DROP TYPE IF EXISTS therapeutgeschlechtspraeferenz")
     op.execute("DROP TYPE IF EXISTS patientenstatus")
+    op.execute("DROP TYPE IF EXISTS geschlecht")  # NEW enum type
+    op.execute("DROP TYPE IF EXISTS anrede")  # NEW enum type
     
     # Drop all schemas
     op.execute("DROP SCHEMA IF EXISTS scraping_service CASCADE")
