@@ -70,3 +70,28 @@
 - Blockchain audit trail
 - Zero-knowledge proof for sensitive data
 - Automated GDPR compliance tools
+
+## Patient Import System Enhancements
+
+### File Pattern Validation
+- Implement strict filename validation using regex pattern
+- Expected format: `{lastname}_{firstname}_{YYYYMMDD}_{token}.json`
+- Reject files that don't match the pattern to prevent processing wrong files
+- Log rejected files for monitoring
+- Configuration option to enable/disable strict validation
+
+### File Size Protection
+- Add file size checks before downloading from GCS
+- Configurable maximum file size limit (default: 10MB)
+- Skip oversized files with appropriate logging
+- Send notification for files exceeding size limit
+- Track metrics on rejected files by size
+
+### Import Health Monitoring
+- Add health check endpoint for import thread status
+- Monitor thread liveness and restart if necessary
+- Track last successful import timestamp
+- Alert if no imports processed within expected timeframe
+- Implement graceful shutdown mechanism for maintenance
+- Add thread crash recovery with automatic restart
+- Dashboard for import system health metrics
