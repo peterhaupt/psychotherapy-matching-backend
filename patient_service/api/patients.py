@@ -17,6 +17,8 @@ from events.producers import (
     publish_patient_status_changed,
     publish_patient_excluded_therapist
 )
+# NEW: Import for import status
+from imports import ImportStatus
 
 # Get configuration
 config = get_config()
@@ -625,3 +627,11 @@ class PatientCommunicationResource(Resource):
         except Exception as e:
             logging.error(f"Error fetching communication history: {str(e)}")
             return {'message': f'Error fetching communication history: {str(e)}'}, 500
+
+
+class PatientImportStatusResource(Resource):
+    """REST resource for patient import status monitoring."""
+    
+    def get(self):
+        """Get the current import status."""
+        return ImportStatus.get_status()

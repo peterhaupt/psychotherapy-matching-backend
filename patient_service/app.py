@@ -1,12 +1,15 @@
 """Main application file for the Patient Service."""
+import threading
 from flask import Flask
 from flask_restful import Api
 from flask_cors import CORS
 
-from api.patients import PatientResource, PatientListResource, PatientCommunicationResource
+from api.patients import PatientResource, PatientListResource, PatientCommunicationResource, PatientImportStatusResource
 from shared.config import get_config, setup_logging
 # PHASE 2: Import start_consumers
 from events.consumers import start_consumers
+# NEW: Import the patient import monitor
+from imports import start_patient_import_monitor
 
 
 def create_app():
@@ -37,8 +40,21 @@ def create_app():
     api.add_resource(PatientCommunicationResource, 
                      '/api/patients/<int:patient_id>/communication')
     
+    # NEW: Register import status endpoint
+    api.add_resource(PatientImportStatusResource, 
+                     '/api/patients/import-status')
+    
     # PHASE 2: Start Kafka consumers for event-driven updates
     start_consumers()
+    
+    # NEW: Start patient import monitoring thread
+    import_thread = threading.Thread(
+        target=start_patient_import_monitor,
+        daemon=True,
+        name="PatientImportMonitor"
+    )
+    import_thread.start()
+    app.logger.info("Patient import monitor thread started")
 
     return app
 
