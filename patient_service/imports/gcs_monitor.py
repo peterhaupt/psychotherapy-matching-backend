@@ -86,7 +86,7 @@ class GCSMonitor:
             time.sleep(self.check_interval)
     
     def _list_bucket_files(self) -> List[str]:
-        """List all JSON files in the bucket.
+        """List all JSON files in the bucket root (not in failed/ folder).
         
         Returns:
             List of file names
@@ -95,8 +95,11 @@ class GCSMonitor:
             bucket = self.reader_client.bucket(self.bucket_name)
             blobs = bucket.list_blobs()
             
-            # Filter for JSON files only
-            json_files = [blob.name for blob in blobs if blob.name.endswith('.json')]
+            # Filter for JSON files only in root (not in failed/ folder)
+            json_files = [
+                blob.name for blob in blobs 
+                if blob.name.endswith('.json') and not blob.name.startswith('failed/')
+            ]
             return json_files
             
         except Exception as e:
@@ -134,14 +137,19 @@ class GCSMonitor:
                     # Still count as success even if deletion failed
                     ImportStatus.record_success(file_name)
             else:
-                # FIXED: Don't delete from GCS on failure!
-                # Move to failed folder
+                # Move to failed folder in both local and GCS
                 failed_path = os.path.join(self.local_base_path, 'failed', file_name)
                 try:
                     os.rename(local_path, failed_path)
-                    logger.error(f"Import failed, moved to failed/: {file_name}. Reason: {message}")
+                    logger.error(f"Import failed, moved to local failed/: {file_name}. Reason: {message}")
                 except Exception as move_error:
-                    logger.error(f"Failed to move file to failed/: {move_error}")
+                    logger.error(f"Failed to move file to local failed/: {move_error}")
+                
+                # Move to failed folder in GCS to prevent repeated processing
+                if self._move_to_failed_in_gcs(file_name):
+                    logger.info(f"Moved failed file to GCS failed/ folder: {file_name}")
+                else:
+                    logger.error(f"Could not move failed file in GCS, will retry on next run: {file_name}")
                 
                 ImportStatus.record_failure(file_name, message)
                 
@@ -155,13 +163,20 @@ class GCSMonitor:
                 
         except Exception as e:
             logger.error(f"Error processing file {file_name}: {str(e)}", exc_info=True)
-            # Try to move to failed folder
+            # Try to move to failed folder locally
             try:
                 if os.path.exists(local_path):
                     failed_path = os.path.join(self.local_base_path, 'failed', file_name)
                     os.rename(local_path, failed_path)
             except:
                 pass
+            
+            # Try to move to failed folder in GCS
+            try:
+                if self._move_to_failed_in_gcs(file_name):
+                    logger.info(f"Moved error file to GCS failed/ folder: {file_name}")
+            except:
+                logger.error(f"Could not move error file in GCS: {file_name}")
             
             ImportStatus.record_failure(file_name, str(e))
             
@@ -239,6 +254,49 @@ class GCSMonitor:
             
         except Exception as e:
             logger.error(f"Failed to delete {file_name} from GCS: {str(e)}")
+            return False
+    
+    def _move_to_failed_in_gcs(self, file_name: str) -> bool:
+        """Move file to failed/ prefix in GCS bucket.
+        
+        This prevents the file from being processed again on the next run.
+        
+        Args:
+            file_name: Name of file to move
+            
+        Returns:
+            True if move successful, False otherwise
+        """
+        try:
+            # Get source blob using reader client
+            source_bucket = self.reader_client.bucket(self.bucket_name)
+            source_blob = source_bucket.blob(file_name)
+            
+            # Check if source exists
+            if not source_blob.exists():
+                logger.warning(f"Source file {file_name} not found in GCS")
+                return False
+            
+            # Download the content
+            file_content = source_blob.download_as_bytes()
+            
+            # Upload to failed/ prefix using reader client (has write permissions)
+            destination_blob_name = f"failed/{file_name}"
+            destination_blob = source_bucket.blob(destination_blob_name)
+            destination_blob.upload_from_string(file_content)
+            
+            logger.info(f"Copied {file_name} to {destination_blob_name}")
+            
+            # Delete original using deleter client
+            delete_bucket = self.deleter_client.bucket(self.bucket_name)
+            delete_blob = delete_bucket.blob(file_name)
+            delete_blob.delete()
+            
+            logger.info(f"Moved {file_name} to failed/ in GCS")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to move {file_name} to failed/ in GCS: {str(e)}")
             return False
 
 

@@ -2,10 +2,8 @@
 import logging
 from flask import request
 from flask_restful import Resource
-from datetime import datetime
 
-from models.email import Email, EmailStatus
-from shared.utils.database import SessionLocal
+from utils.email_sender import send_email
 from shared.config import get_config
 
 logger = logging.getLogger(__name__)
@@ -16,7 +14,7 @@ class SystemMessageResource(Resource):
     """REST resource for sending system messages/notifications."""
     
     def post(self):
-        """Send a system notification email.
+        """Send a system notification email directly without database storage.
         
         Expected JSON body:
         {
@@ -41,39 +39,33 @@ class SystemMessageResource(Resource):
         recipient_email = config.SYSTEM_NOTIFICATION_EMAIL
         sender_name = data.get('sender_name', 'Curavani System')
         
-        db = SessionLocal()
         try:
-            # Create simple text email with no patient/therapist ID
-            email = Email(
-                therapist_id=None,
-                patient_id=None,
-                betreff=data['subject'],
-                inhalt_text=data['message'],
-                inhalt_html=f"<pre>{data['message']}</pre>",  # Simple pre-formatted HTML
-                empfaenger_email=recipient_email,
-                empfaenger_name='Curavani Admin',
-                absender_email=config.EMAIL_SENDER,
-                absender_name=sender_name,
-                status=EmailStatus.In_Warteschlange,  # Queue for immediate sending
-                antwort_erhalten=False,
-                wiederholungsanzahl=0
+            # Convert plain text message to simple HTML
+            html_message = f"<pre>{data['message']}</pre>"
+            
+            # Send email directly without storing in database
+            success = send_email(
+                to_email=recipient_email,
+                subject=data['subject'],
+                body_html=html_message,
+                body_text=data['message'],
+                sender_email=config.EMAIL_SENDER,
+                sender_name=sender_name
             )
             
-            db.add(email)
-            db.commit()
-            db.refresh(email)
-            
-            logger.info(f"System message created: {email.id} - {data['subject']}")
-            
-            return {
-                'message': 'System message queued successfully',
-                'email_id': email.id,
-                'recipient': recipient_email
-            }, 201
-            
+            if success:
+                logger.info(f"System message sent successfully: {data['subject']}")
+                return {
+                    'message': 'System message sent successfully',
+                    'recipient': recipient_email
+                }, 200
+            else:
+                logger.error(f"Failed to send system message: {data['subject']}")
+                return {
+                    'message': 'Failed to send system message',
+                    'recipient': recipient_email
+                }, 500
+                
         except Exception as e:
-            db.rollback()
-            logger.error(f"Error creating system message: {str(e)}", exc_info=True)
-            return {'message': f'Error creating system message: {str(e)}'}, 500
-        finally:
-            db.close()
+            logger.error(f"Error sending system message: {str(e)}", exc_info=True)
+            return {'message': f'Error sending system message: {str(e)}'}, 500

@@ -94,9 +94,11 @@ class PatientImporter:
             'geburtsdatum': data.get('geburtsdatum'),
             'symptome': data.get('symptome'),
             'erfahrung_mit_psychotherapie': data.get('erfahrung_mit_psychotherapie'),
+            'letzte_sitzung_vorherige_psychotherapie': data.get('letzte_sitzung_vorherige_psychotherapie'),
             'empfehler_der_unterstuetzung': data.get('empfehler_der_unterstuetzung'),
             'verkehrsmittel': data.get('verkehrsmittel'),
             'offen_fuer_gruppentherapie': data.get('offen_fuer_gruppentherapie', False),
+            'vertraege_unterschrieben': True,  # Always true for imported patients
         }
         
         # Handle complex fields
