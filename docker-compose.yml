@@ -103,11 +103,19 @@ services:
       FLASK_ENV: ${FLASK_ENV}
       FLASK_DEBUG: ${FLASK_DEBUG}
       LOG_LEVEL: ${LOG_LEVEL}
+      # GCS Configuration
+      GCS_READER_CREDENTIALS_PATH: ${GCS_READER_CREDENTIALS_PATH}
+      GCS_DELETER_CREDENTIALS_PATH: ${GCS_DELETER_CREDENTIALS_PATH}
+      GCS_IMPORT_BUCKET: ${GCS_IMPORT_BUCKET}
+      PATIENT_IMPORT_CHECK_INTERVAL_SECONDS: ${PATIENT_IMPORT_CHECK_INTERVAL_SECONDS}
+      PATIENT_IMPORT_LOCAL_PATH: ${PATIENT_IMPORT_LOCAL_PATH}
     ports:
       - "${PATIENT_SERVICE_PORT}:8001"
     volumes:
       - ./patient_service:/app
       - ./shared:/app/shared
+      - ./credentials:/credentials:ro
+      - ./data/patient_imports:/data/patient_imports
     depends_on:
       - pgbouncer
       - kafka

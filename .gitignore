@@ -218,3 +218,9 @@ config/local/
 
 # Keep the example file
 !.env.example
+
+# ignore folder credentials
+credentials/
+
+# ignore subfolder patient_imports in data folder
+data/patient_imports/
