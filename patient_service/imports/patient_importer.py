@@ -243,7 +243,7 @@ Existing Patient:
 Please review this case manually.
         """
         
-        self._send_email_notification(subject, body)
+        self._send_system_notification(subject, body, sender_name="Patient Import System")
     
     def send_error_notification(self, subject: str, body: str):
         """Send error notification email.
@@ -252,37 +252,37 @@ Please review this case manually.
             subject: Email subject
             body: Email body
         """
-        self._send_email_notification(
+        self._send_system_notification(
             f"Patient Import Error - {subject}",
-            body
+            body,
+            sender_name="Patient Import System"
         )
     
-    def _send_email_notification(self, subject: str, body: str):
-        """Send email notification via communication service.
+    def _send_system_notification(self, subject: str, body: str, sender_name: str = "Curavani System"):
+        """Send system notification via the new system messages endpoint.
         
         Args:
             subject: Email subject
             body: Email body
+            sender_name: Name of the sender system
         """
         try:
-            email_data = {
-                'betreff': subject,
-                'inhalt_text': body,
-                'empfaenger_email': 'info@curavani.com',
-                'empfaenger_name': 'Curavani Team',
-                'status': 'In_Warteschlange',  # Send immediately
-                'add_legal_footer': False
+            notification_data = {
+                'subject': subject,
+                'message': body,
+                'sender_name': sender_name
             }
             
             response = requests.post(
-                f"{self.comm_service_url}/api/emails",
-                json=email_data
+                f"{self.comm_service_url}/api/system-messages",
+                json=notification_data
             )
             
             if response.ok:
-                logger.info(f"Notification email sent: {subject}")
+                result = response.json()
+                logger.info(f"System notification sent to {result.get('recipient')}: {subject}")
             else:
-                logger.error(f"Failed to send notification email: {response.status_code} - {response.text}")
+                logger.error(f"Failed to send system notification: {response.status_code} - {response.text}")
                 
         except Exception as e:
-            logger.error(f"Error sending notification email: {str(e)}")
+            logger.error(f"Error sending system notification: {str(e)}")

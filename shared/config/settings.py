@@ -77,6 +77,9 @@ class Config:
     COMPANY_NAME: str = "Curavani Therapievermittlung GmbH"
     COMPANY_DOMAIN: str = "curavani.de"
     
+    # System Notifications
+    SYSTEM_NOTIFICATION_EMAIL: str = os.environ.get("SYSTEM_NOTIFICATION_EMAIL", "info@curavani.com")
+    
     # Geocoding Configuration
     OSM_API_URL: str = os.environ.get("OSM_API_URL", "https://nominatim.openstreetmap.org")
     OSM_USER_AGENT: str = os.environ.get("OSM_USER_AGENT", "TherapyPlatform/1.0")

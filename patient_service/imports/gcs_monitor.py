@@ -125,24 +125,33 @@ class GCSMonitor:
             success, message = self.importer.import_patient(data)
             
             if success:
-                # Delete from GCS on success
+                # Delete from GCS ONLY on success
                 if self._delete_from_gcs(file_name):
                     logger.info(f"Successfully imported and deleted: {file_name}")
                     ImportStatus.record_success(file_name)
                 else:
                     logger.warning(f"Import successful but could not delete from GCS: {file_name}")
+                    # Still count as success even if deletion failed
+                    ImportStatus.record_success(file_name)
             else:
+                # FIXED: Don't delete from GCS on failure!
                 # Move to failed folder
                 failed_path = os.path.join(self.local_base_path, 'failed', file_name)
-                os.rename(local_path, failed_path)
-                logger.error(f"Import failed, moved to failed/: {file_name}. Reason: {message}")
+                try:
+                    os.rename(local_path, failed_path)
+                    logger.error(f"Import failed, moved to failed/: {file_name}. Reason: {message}")
+                except Exception as move_error:
+                    logger.error(f"Failed to move file to failed/: {move_error}")
+                
                 ImportStatus.record_failure(file_name, message)
                 
-                # Send error notification
-                self.importer.send_error_notification(
-                    f"Failed to import patient file: {file_name}",
-                    f"Error: {message}\n\nFile has been moved to failed/ folder."
-                )
+                # Send error notification (only for non-duplicate errors)
+                if "Duplicate patient" not in message:
+                    self.importer.send_error_notification(
+                        f"Failed to import patient file: {file_name}",
+                        f"Error: {message}\n\nFile has been moved to failed/ folder."
+                    )
+                # Note: Duplicate notifications are already sent by the importer
                 
         except Exception as e:
             logger.error(f"Error processing file {file_name}: {str(e)}", exc_info=True)
