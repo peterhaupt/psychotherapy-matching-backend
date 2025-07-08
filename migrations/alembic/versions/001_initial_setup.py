@@ -1,4 +1,4 @@
-"""complete database setup with patient communication support, Phase 2 model updates, and new enums
+"""complete database setup with patient communication support, Phase 2 model updates, and therapist single therapy method
 
 Revision ID: 001_initial_setup
 Revises: 
@@ -19,7 +19,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    """Create complete database schema with German naming conventions, Phase 2 model updates, and new Anrede/Geschlecht enums."""
+    """Create complete database schema with German naming conventions and single therapy method for therapists."""
     
     # ========== STEP 1: CREATE SCHEMAS ==========
     
@@ -185,7 +185,7 @@ def upgrade() -> None:
     
     # ========== STEP 4: CREATE THERAPIST SERVICE TABLES ==========
     
-    # Create therapeuten table (German name) with Phase 2 addition and new enums
+    # Create therapeuten table (German name) with single therapy method
     op.create_table('therapeuten',
         sa.Column('id', sa.Integer(), nullable=False),
         # Personal Information with new enum fields
@@ -207,8 +207,12 @@ def upgrade() -> None:
                   nullable=True, server_default='{}'),
         sa.Column('fremdsprachen', postgresql.JSONB(astext_type=sa.Text()), 
                   nullable=True, server_default='[]'),
-        sa.Column('psychotherapieverfahren', postgresql.JSONB(astext_type=sa.Text()), 
-                  nullable=True, server_default='[]'),
+        # CHANGED: From JSONB array to single ENUM
+        sa.Column('psychotherapieverfahren', 
+                  postgresql.ENUM('egal', 'Verhaltenstherapie', 
+                                 'tiefenpsychologisch_fundierte_Psychotherapie',
+                                 name='therapieverfahren', create_type=False), 
+                  nullable=True, server_default='egal'),
         sa.Column('zusatzqualifikationen', sa.Text(), nullable=True),
         sa.Column('besondere_leistungsangebote', sa.Text(), nullable=True),
         sa.Column('letzter_kontakt_email', sa.Date(), nullable=True),

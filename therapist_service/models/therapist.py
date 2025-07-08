@@ -1,4 +1,4 @@
-"""Therapist database models with German enum consistency and fixed JSONB defaults."""
+"""Therapist database models with German enum consistency and single therapy method."""
 from datetime import date
 from enum import Enum
 
@@ -33,6 +33,14 @@ class Geschlecht(str, Enum):
     weiblich = "weiblich"
     divers = "divers"
     keine_Angabe = "keine_Angabe"
+
+
+class Therapieverfahren(str, Enum):
+    """Enumeration for therapy procedures - fully German."""
+    
+    egal = "egal"
+    Verhaltenstherapie = "Verhaltenstherapie"
+    tiefenpsychologisch_fundierte_Psychotherapie = "tiefenpsychologisch_fundierte_Psychotherapie"
 
 
 class Therapist(Base):
@@ -71,11 +79,15 @@ class Therapist(Base):
     email = Column(String(255))
     webseite = Column(String(255))
 
-    # Professional Information (German field names) - FIXED: Added server_default values
+    # Professional Information (German field names)
     kassensitz = Column(Boolean, default=True)
-    telefonische_erreichbarkeit = Column(JSONB, server_default='{}')  # FIXED: Empty object default
-    fremdsprachen = Column(JSONB, server_default='[]')  # FIXED: Empty array default
-    psychotherapieverfahren = Column(JSONB, server_default='[]')  # FIXED: Empty array default
+    telefonische_erreichbarkeit = Column(JSONB, server_default='{}')
+    fremdsprachen = Column(JSONB, server_default='[]')
+    # CHANGED: From JSONB array to single ENUM
+    psychotherapieverfahren = Column(
+        SQLAlchemyEnum(Therapieverfahren, name='therapieverfahren', native_enum=True),
+        default=Therapieverfahren.egal
+    )
     zusatzqualifikationen = Column(Text)
     besondere_leistungsangebote = Column(Text)
 
@@ -87,15 +99,15 @@ class Therapist(Base):
     # Availability (German field names)
     potenziell_verfuegbar = Column(Boolean, default=False)
     potenziell_verfuegbar_notizen = Column(Text)
-    ueber_curavani_informiert = Column(Boolean, default=False)  # NEW: Whether therapist is informed about Curavani
+    ueber_curavani_informiert = Column(Boolean, default=False)  # Whether therapist is informed about Curavani
 
-    # Inquiry System Fields (German field names - renamed from Bundle) - FIXED: Added server_default values
+    # Inquiry System Fields (German field names - renamed from Bundle)
     naechster_kontakt_moeglich = Column(Date)
-    bevorzugte_diagnosen = Column(JSONB, server_default='[]')  # FIXED: Empty array default
+    bevorzugte_diagnosen = Column(JSONB, server_default='[]')
     alter_min = Column(Integer)
     alter_max = Column(Integer)
     geschlechtspraeferenz = Column(String(50))
-    arbeitszeiten = Column(JSONB, server_default='{}')  # FIXED: Empty object default
+    arbeitszeiten = Column(JSONB, server_default='{}')
     bevorzugt_gruppentherapie = Column(Boolean, default=False)
 
     # Status Information (German field names)

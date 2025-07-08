@@ -1,4 +1,4 @@
-"""Therapist API endpoints implementation with German enum support and fixed JSONB field handling."""
+"""Therapist API endpoints implementation with German enum support and single therapy method."""
 from flask import request, jsonify
 from flask_restful import Resource, fields, marshal_with, reqparse, marshal
 from sqlalchemy.exc import SQLAlchemyError
@@ -6,7 +6,7 @@ from datetime import datetime
 import requests
 import logging
 
-from models.therapist import Therapist, TherapistStatus, Anrede, Geschlecht
+from models.therapist import Therapist, TherapistStatus, Anrede, Geschlecht, Therapieverfahren
 from shared.utils.database import SessionLocal
 from shared.api.base_resource import PaginatedListResource
 from shared.config import get_config
@@ -46,7 +46,7 @@ class DateField(fields.Raw):
         return value.strftime('%Y-%m-%d')
 
 
-# Custom field for PostgreSQL ARRAY/JSONB array serialization - COPIED FROM PATIENT SERVICE
+# Custom field for PostgreSQL ARRAY/JSONB array serialization
 class ArrayField(fields.Raw):
     """Custom field for PostgreSQL ARRAY/JSONB array serialization."""
     def format(self, value):
@@ -60,7 +60,7 @@ class ArrayField(fields.Raw):
         return [value]
 
 
-# Custom field for JSONB object serialization - NEW FOR THERAPIST SERVICE
+# Custom field for JSONB object serialization
 class ObjectField(fields.Raw):
     """Custom field for JSONB object serialization."""
     def format(self, value):
@@ -73,7 +73,7 @@ class ObjectField(fields.Raw):
         return {}
 
 
-# Complete output fields definition for therapist responses - FIXED JSONB FIELD HANDLING
+# Complete output fields definition for therapist responses
 therapist_fields = {
     'id': fields.Integer,
     # Personal Information
@@ -89,11 +89,12 @@ therapist_fields = {
     'fax': fields.String,
     'email': fields.String,
     'webseite': fields.String,
-    # Professional Information - FIXED: Using custom fields instead of fields.Raw
+    # Professional Information
     'kassensitz': fields.Boolean,
-    'telefonische_erreichbarkeit': ObjectField,  # FIXED: Object field instead of Raw
-    'fremdsprachen': ArrayField,  # FIXED: Array field instead of Raw
-    'psychotherapieverfahren': ArrayField,  # FIXED: Array field instead of Raw
+    'telefonische_erreichbarkeit': ObjectField,
+    'fremdsprachen': ArrayField,
+    # CHANGED: From ArrayField to EnumField
+    'psychotherapieverfahren': EnumField,
     'zusatzqualifikationen': fields.String,
     'besondere_leistungsangebote': fields.String,
     # Contact History
@@ -105,13 +106,13 @@ therapist_fields = {
     'potenziell_verfuegbar_notizen': fields.String,
     # NEW: Phase 2 field
     'ueber_curavani_informiert': fields.Boolean,
-    # Bundle System Fields (German field names) - FIXED: Using custom fields
+    # Bundle System Fields (German field names)
     'naechster_kontakt_moeglich': DateField,
-    'bevorzugte_diagnosen': ArrayField,  # FIXED: Array field instead of Raw
+    'bevorzugte_diagnosen': ArrayField,
     'alter_min': fields.Integer,
     'alter_max': fields.Integer,
     'geschlechtspraeferenz': fields.String,
-    'arbeitszeiten': ObjectField,  # FIXED: Object field instead of Raw
+    'arbeitszeiten': ObjectField,
     'bevorzugt_gruppentherapie': fields.Boolean,
     # Status
     'status': EnumField,
@@ -143,7 +144,6 @@ def validate_and_get_therapist_status(status_value: str) -> TherapistStatus:
         return TherapistStatus[status_value]
     except KeyError:
         valid_values = [status.value for status in TherapistStatus]
-        # FIXED: Use join instead of str(list)
         raise ValueError(f"Invalid status '{status_value}'. Valid values: {', '.join(valid_values)}")
 
 
@@ -166,7 +166,6 @@ def validate_and_get_anrede(anrede_value: str) -> Anrede:
         return Anrede[anrede_value]
     except KeyError:
         valid_values = [a.value for a in Anrede]
-        # FIXED: Use join instead of str(list)
         raise ValueError(f"Invalid anrede '{anrede_value}'. Valid values: {', '.join(valid_values)}")
 
 
@@ -189,8 +188,29 @@ def validate_and_get_geschlecht(geschlecht_value: str) -> Geschlecht:
         return Geschlecht[geschlecht_value]
     except KeyError:
         valid_values = [g.value for g in Geschlecht]
-        # FIXED: Use join instead of str(list)
         raise ValueError(f"Invalid geschlecht '{geschlecht_value}'. Valid values: {', '.join(valid_values)}")
+
+
+def validate_and_get_therapieverfahren(verfahren_value: str) -> Therapieverfahren:
+    """Validate and return Therapieverfahren enum.
+    
+    Args:
+        verfahren_value: German therapy procedure value from request
+        
+    Returns:
+        Therapieverfahren enum or None
+        
+    Raises:
+        ValueError: If therapy procedure value is invalid
+    """
+    if not verfahren_value:
+        return None
+    
+    try:
+        return Therapieverfahren[verfahren_value]
+    except KeyError:
+        valid_values = [t.value for t in Therapieverfahren]
+        raise ValueError(f"Invalid therapy method '{verfahren_value}'. Valid values: {', '.join(valid_values)}")
 
 
 def parse_date_field(date_string: str, field_name: str):
@@ -252,7 +272,8 @@ class TherapistResource(Resource):
         parser.add_argument('kassensitz', type=bool)
         parser.add_argument('telefonische_erreichbarkeit', type=dict, location='json')
         parser.add_argument('fremdsprachen', type=list, location='json')
-        parser.add_argument('psychotherapieverfahren', type=list, location='json')
+        # CHANGED: From list to string
+        parser.add_argument('psychotherapieverfahren', type=str)
         parser.add_argument('zusatzqualifikationen', type=str)
         parser.add_argument('besondere_leistungsangebote', type=str)
         # Contact History
@@ -302,6 +323,12 @@ class TherapistResource(Resource):
                     elif key == 'status':
                         try:
                             therapist.status = validate_and_get_therapist_status(value)
+                        except ValueError as e:
+                            return {'message': str(e)}, 400
+                    # CHANGED: Added therapy method validation
+                    elif key == 'psychotherapieverfahren':
+                        try:
+                            therapist.psychotherapieverfahren = validate_and_get_therapieverfahren(value)
                         except ValueError as e:
                             return {'message': str(e)}, 400
                     elif key in ['letzter_kontakt_email', 'letzter_kontakt_telefon', 
@@ -424,7 +451,8 @@ class TherapistListResource(PaginatedListResource):
         parser.add_argument('kassensitz', type=bool)
         parser.add_argument('telefonische_erreichbarkeit', type=dict, location='json')
         parser.add_argument('fremdsprachen', type=list, location='json')
-        parser.add_argument('psychotherapieverfahren', type=list, location='json')
+        # CHANGED: From list to string
+        parser.add_argument('psychotherapieverfahren', type=str)
         parser.add_argument('zusatzqualifikationen', type=str)
         parser.add_argument('besondere_leistungsangebote', type=str)
         parser.add_argument('letzter_kontakt_email', type=str)
@@ -477,6 +505,12 @@ class TherapistListResource(PaginatedListResource):
                     elif key == 'status':
                         try:
                             therapist_data['status'] = validate_and_get_therapist_status(value)
+                        except ValueError as e:
+                            return {'message': str(e)}, 400
+                    # CHANGED: Added therapy method validation
+                    elif key == 'psychotherapieverfahren':
+                        try:
+                            therapist_data['psychotherapieverfahren'] = validate_and_get_therapieverfahren(value)
                         except ValueError as e:
                             return {'message': str(e)}, 400
                     elif key in ['letzter_kontakt_email', 'letzter_kontakt_telefon', 
