@@ -1,10 +1,14 @@
 """Main application file for the Therapist Service."""
+import os
+import threading
 from flask import Flask
 from flask_restful import Api
 from flask_cors import CORS
 
-from api.therapists import TherapistResource, TherapistListResource, TherapistCommunicationResource
+from api.therapists import TherapistResource, TherapistListResource, TherapistCommunicationResource, TherapistImportStatusResource
 from shared.config import get_config, setup_logging
+# NEW: Import the therapist import monitor
+from imports import start_therapist_import_monitor
 
 
 def create_app():
@@ -34,6 +38,23 @@ def create_app():
     # NEW: Register communication history endpoint
     api.add_resource(TherapistCommunicationResource, 
                      '/api/therapists/<int:therapist_id>/communication')
+    
+    # NEW: Register import status endpoint
+    api.add_resource(TherapistImportStatusResource, 
+                     '/api/therapists/import-status')
+    
+    # NEW: Start therapist import monitoring thread
+    # IMPORTANT: Only start in the main worker process, not in the reloader process
+    if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or not app.debug:
+        therapist_import_thread = threading.Thread(
+            target=start_therapist_import_monitor, 
+            daemon=True,
+            name="TherapistImportMonitor"
+        )
+        therapist_import_thread.start()
+        app.logger.info("Therapist import monitor thread started")
+    else:
+        app.logger.info("Skipping therapist import monitor in reloader process")
 
     return app
 
