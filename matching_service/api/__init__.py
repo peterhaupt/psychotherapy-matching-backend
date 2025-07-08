@@ -7,7 +7,8 @@ from .anfrage import (
     TherapeutenanfrageResource,
     TherapeutenanfrageListResource,
     AnfrageCreationResource,
-    AnfrageResponseResource
+    AnfrageResponseResource,
+    AnfrageSendResource
 )
 
 __all__ = [
@@ -19,5 +20,6 @@ __all__ = [
     'TherapeutenanfrageResource',
     'TherapeutenanfrageListResource',
     'AnfrageCreationResource',
-    'AnfrageResponseResource'
+    'AnfrageResponseResource',
+    'AnfrageSendResource'
 ]

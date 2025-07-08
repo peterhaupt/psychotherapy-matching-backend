@@ -1269,6 +1269,42 @@ curl -X POST "http://localhost:8003/api/therapeutenanfragen/erstellen-fuer-thera
 }
 ```
 
+## POST /therapeutenanfragen/{id}/senden
+
+**Description:** Send an unsent anfrage via email.
+
+**No request body required.**
+
+**Example Request:**
+```bash
+curl -X POST "http://localhost:8003/api/therapeutenanfragen/101/senden"
+```
+
+**Success Response:**
+```json
+{
+  "message": "Anfrage sent successfully",
+  "anfrage_id": 101,
+  "email_id": 456,
+  "sent_date": "2025-06-15T14:30:00"
+}
+```
+
+**Error Response (Already Sent):**
+```json
+{
+  "message": "Anfrage already sent",
+  "sent_date": "2025-06-14T10:00:00"
+}
+```
+
+**Error Response (Not Found):**
+```json
+{
+  "message": "Anfrage 999 not found"
+}
+```
+
 ## PUT /therapeutenanfragen/{id}/antwort
 
 **Description:** Record therapist response.
@@ -1375,7 +1411,7 @@ curl "http://localhost:8004/api/emails/1"
 
 **Description:** Create a new email. Must specify either `therapist_id` OR `patient_id`, not both.
 
-**IMPORTANT:** Emails are ALWAYS created with status "Entwurf" (draft). The status field cannot be set via API. To send emails, you must use a separate process or update the status after creation.
+**IMPORTANT:** Emails are ALWAYS created with status "Entwurf" (draft). The status field cannot be set via API. To send emails, you must update the status to "In_Warteschlange" after creation.
 
 **Required Fields:**
 - Either `therapist_id` (integer) OR `patient_id` (integer) - exactly one must be provided
@@ -1676,6 +1712,14 @@ All endpoints follow consistent error response patterns:
 ---
 
 # Key Changes from Previous Version
+
+## 🆕 **New Endpoint: Send Anfrage (January 2025)**
+
+### Matching Service:
+- Added `POST /api/therapeutenanfragen/{id}/senden`
+- Sends an unsent anfrage via email
+- Creates email as draft, then queues it for sending
+- Email will be automatically sent within 60 seconds
 
 ## 🔍 **Search Functionality Added (January 2025):**
 

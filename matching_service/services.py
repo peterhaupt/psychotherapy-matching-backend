@@ -329,6 +329,20 @@ class CommunicationService:
                 email_data = response.json()
                 email_id = email_data.get('id')
                 logger.info(f"Created email {email_id} for anfrage {anfrage_id}")
+                
+                # Queue the email for sending (same as frontend does)
+                update_url = f"{config.get_service_url('communication', internal=True)}/api/emails/{email_id}"
+                queue_response = requests.put(
+                    update_url, 
+                    json={'status': 'In_Warteschlange'},
+                    timeout=5
+                )
+                
+                if queue_response.status_code == 200:
+                    logger.info(f"Queued email {email_id} for sending")
+                else:
+                    logger.error(f"Created email {email_id} but failed to queue it: {queue_response.status_code}")
+                
                 return email_id
             else:
                 logger.error(f"Failed to create email: {response.status_code} - {response.text}")

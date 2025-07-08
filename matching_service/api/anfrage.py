@@ -795,3 +795,49 @@ class AnfrageResponseResource(Resource):
         except Exception as e:
             logger.error(f"Error recording anfrage response: {str(e)}", exc_info=True)
             return {"message": "Internal server error"}, 500
+
+
+class AnfrageSendResource(Resource):
+    """REST resource for sending an unsent anfrage."""
+    
+    def post(self, anfrage_id):
+        """Send an anfrage via email."""
+        try:
+            with get_db_context() as db:
+                anfrage = db.query(Therapeutenanfrage).filter_by(id=anfrage_id).first()
+                
+                if not anfrage:
+                    return {"message": f"Anfrage {anfrage_id} not found"}, 404
+                
+                if anfrage.gesendet_datum:
+                    return {
+                        "message": "Anfrage already sent",
+                        "sent_date": anfrage.gesendet_datum.isoformat()
+                    }, 400
+                
+                # Send the anfrage
+                success = AnfrageService.send_anfrage(db, anfrage.id)
+                
+                if success:
+                    # Refresh to get updated data
+                    db.refresh(anfrage)
+                    
+                    # Publish sent event
+                    publish_anfrage_sent(
+                        anfrage.id,
+                        "email",
+                        anfrage.email_id
+                    )
+                    
+                    return {
+                        "message": "Anfrage sent successfully",
+                        "anfrage_id": anfrage.id,
+                        "email_id": anfrage.email_id,
+                        "sent_date": anfrage.gesendet_datum.isoformat() if anfrage.gesendet_datum else None
+                    }, 200
+                else:
+                    return {"message": "Failed to send anfrage"}, 500
+                    
+        except Exception as e:
+            logger.error(f"Error sending anfrage {anfrage_id}: {str(e)}", exc_info=True)
+            return {"message": "Internal server error"}, 500

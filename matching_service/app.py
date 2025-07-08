@@ -16,7 +16,8 @@ from api.anfrage import (
     TherapeutenanfrageResource,
     TherapeutenanfrageListResource,
     AnfrageCreationResource,
-    AnfrageResponseResource
+    AnfrageResponseResource,
+    AnfrageSendResource
 )
 from events.consumers import start_consumers
 from shared.config import get_config, setup_logging
@@ -64,6 +65,7 @@ def create_app():
     api.add_resource(TherapeutenanfrageResource, '/api/therapeutenanfragen/<int:anfrage_id>')
     api.add_resource(AnfrageCreationResource, '/api/therapeutenanfragen/erstellen-fuer-therapeut')
     api.add_resource(AnfrageResponseResource, '/api/therapeutenanfragen/<int:anfrage_id>/antwort')
+    api.add_resource(AnfrageSendResource, '/api/therapeutenanfragen/<int:anfrage_id>/senden')
 
     # Health check endpoint
     @app.route('/health')
