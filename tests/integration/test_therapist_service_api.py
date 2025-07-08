@@ -62,7 +62,7 @@ class TestTherapistServiceAPI:
             "plz": "10117",
             "ort": "Berlin",
             "kassensitz": True,
-            "psychotherapieverfahren": ["Verhaltenstherapie", "Tiefenpsychologie"],
+            "psychotherapieverfahren": "Verhaltenstherapie",
             "fremdsprachen": ["Englisch", "Französisch"],
             "potenziell_verfuegbar": True,
             "ueber_curavani_informiert": True,
@@ -565,7 +565,7 @@ class TestTherapistServiceAPI:
         requests.delete(f"{BASE_URL}/therapists/{therapist2['id']}")
 
     def test_jsonb_field_defaults(self):
-        """Test that JSONB fields return proper defaults instead of null."""
+        """Test that JSONB fields return proper defaults and enum fields return their default values."""
         # Create minimal therapist
         therapist_data = {
             "anrede": "Frau",
@@ -581,12 +581,14 @@ class TestTherapistServiceAPI:
         
         # Check JSONB array fields return empty arrays, not null
         assert created_therapist["fremdsprachen"] == []
-        assert created_therapist["psychotherapieverfahren"] == []
         assert created_therapist["bevorzugte_diagnosen"] == []
         
         # Check JSONB object fields return empty objects, not null
         assert created_therapist["telefonische_erreichbarkeit"] == {}
         assert created_therapist["arbeitszeiten"] == {}
+        
+        # Check enum field returns its default value
+        assert created_therapist["psychotherapieverfahren"] == "egal"
         
         # Cleanup
         requests.delete(f"{BASE_URL}/therapists/{created_therapist['id']}")
