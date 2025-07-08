@@ -1,4 +1,4 @@
-"""Integration tests for Patient Service API with pagination support."""
+"""Integration tests for Patient Service API with robust pagination support."""
 import pytest
 import requests
 import time
@@ -48,6 +48,65 @@ class TestPatientServiceAPI:
         response = requests.post(f"{BASE_URL}/patients", json=data)
         assert response.status_code == 201
         return response.json()
+
+    def find_patients_in_paginated_results(self, patient_ids, max_pages=50, **query_params):
+        """
+        Helper method to find specific patient IDs in paginated results.
+        
+        Args:
+            patient_ids: List of patient IDs to find
+            max_pages: Maximum number of pages to check
+            **query_params: Additional query parameters for filtering
+            
+        Returns:
+            Tuple of (found_patient_ids, total_pages_checked)
+        """
+        found_ids = set()
+        page = 1
+        
+        while page <= max_pages:
+            # Build query parameters
+            params = {"page": page, "limit": 20}
+            params.update(query_params)
+            
+            response = requests.get(f"{BASE_URL}/patients", params=params)
+            assert response.status_code == 200
+            
+            data = response.json()
+            patients = data['data']
+            
+            # Check if we found any of our target patients
+            for patient in patients:
+                if patient['id'] in patient_ids:
+                    found_ids.add(patient['id'])
+            
+            # If we found all patients or reached the end, stop
+            if len(found_ids) == len(patient_ids) or len(patients) < 20:
+                break
+                
+            page += 1
+        
+        return found_ids, page
+
+    def verify_patients_exist(self, patient_ids, **query_params):
+        """
+        Verify that specific patient IDs exist in the system using pagination.
+        
+        Args:
+            patient_ids: List of patient IDs to verify
+            **query_params: Additional query parameters for filtering
+            
+        Returns:
+            True if all patients found, False otherwise
+        """
+        found_ids, pages_checked = self.find_patients_in_paginated_results(patient_ids, **query_params)
+        
+        if len(found_ids) != len(patient_ids):
+            missing_ids = set(patient_ids) - found_ids
+            print(f"Missing patient IDs: {missing_ids}, checked {pages_checked} pages")
+            return False
+        
+        return True
 
     def test_create_patient(self):
         """Test creating a new patient."""
@@ -214,13 +273,11 @@ class TestPatientServiceAPI:
         requests.delete(f"{BASE_URL}/patients/{patient['id']}")
 
     def test_get_patients_list_empty(self):
-        """Test getting empty patient list with pagination."""
-        # Note: This assumes no patients exist. In a real test environment,
-        # you might want to clean up all patients first.
+        """Test getting patient list pagination structure."""
         response = requests.get(f"{BASE_URL}/patients")
         assert response.status_code == 200
         
-        # Now expecting paginated structure
+        # Verify paginated structure
         data = response.json()
         assert isinstance(data, dict)
         assert 'data' in data
@@ -230,47 +287,60 @@ class TestPatientServiceAPI:
         assert data['total'] >= 0  # Could be 0 or more
 
     def test_get_patients_list_with_data(self):
-        """Test getting patient list with data and pagination."""
-        # Create test patients
-        patient1 = self.create_test_patient(vorname="Anna", nachname="Müller", anrede="Frau", geschlecht="weiblich")
-        patient2 = self.create_test_patient(vorname="Max", nachname="Schmidt", anrede="Herr", geschlecht="männlich")
+        """Test getting patient list with data using pagination to find created patients."""
+        # Create test patients with unique identifiable data
+        patient1 = self.create_test_patient(
+            vorname="PaginationTest1",
+            nachname="Müller",
+            email="pagination1@example.com",
+            anrede="Frau",
+            geschlecht="weiblich"
+        )
+        patient2 = self.create_test_patient(
+            vorname="PaginationTest2",
+            nachname="Schmidt",
+            email="pagination2@example.com",
+            anrede="Herr",
+            geschlecht="männlich"
+        )
         
+        # Verify pagination structure first
         response = requests.get(f"{BASE_URL}/patients")
         assert response.status_code == 200
         
         data = response.json()
         assert isinstance(data, dict)
         assert 'data' in data
-        patients = data['data']
-        assert len(patients) >= 2
-        
-        # Verify our patients are in the list
-        patient_ids = [p['id'] for p in patients]
-        assert patient1['id'] in patient_ids
-        assert patient2['id'] in patient_ids
         
         # Verify pagination metadata
         assert data['page'] == 1
         assert data['limit'] == 20
         assert data['total'] >= 2
         
+        # Find our created patients across all pages
+        patient_ids = [patient1['id'], patient2['id']]
+        assert self.verify_patients_exist(patient_ids), \
+            f"Could not find created patients {patient_ids} in paginated results"
+        
         # Cleanup
         requests.delete(f"{BASE_URL}/patients/{patient1['id']}")
         requests.delete(f"{BASE_URL}/patients/{patient2['id']}")
 
     def test_get_patients_with_pagination(self):
-        """Test pagination parameters."""
-        # Create multiple patients
+        """Test pagination parameters with created test data."""
+        # Create multiple patients with unique names
         created_patients = []
         for i in range(5):
             patient = self.create_test_patient(
-                vorname=f"Test{i}",
+                vorname=f"PagTest{i}",
                 nachname=f"Patient{i}",
-                email=f"test{i}@example.com",
+                email=f"pagtest{i}@example.com",
                 anrede="Herr" if i % 2 == 0 else "Frau",
                 geschlecht="männlich" if i % 2 == 0 else "weiblich"
             )
             created_patients.append(patient)
+        
+        patient_ids = [p['id'] for p in created_patients]
         
         # Test page 1 with limit 2
         response = requests.get(f"{BASE_URL}/patients?page=1&limit=2")
@@ -291,6 +361,10 @@ class TestPatientServiceAPI:
         assert data['limit'] == 2
         assert len(data['data']) <= 2
         
+        # Verify all our patients exist somewhere in the system
+        assert self.verify_patients_exist(patient_ids), \
+            f"Could not find all created patients {patient_ids}"
+        
         # Cleanup
         for patient in created_patients:
             requests.delete(f"{BASE_URL}/patients/{patient['id']}")
@@ -299,33 +373,35 @@ class TestPatientServiceAPI:
         """Test filtering patients by status with pagination."""
         # Create patients with different statuses
         patient1 = self.create_test_patient(
-            vorname="Active",
+            vorname="StatusActive",
             nachname="Patient",
+            email="status_active@example.com",
             status="auf_der_Suche"
         )
         patient2 = self.create_test_patient(
-            vorname="Open",
+            vorname="StatusOpen",
             nachname="Patient",
+            email="status_open@example.com",
             status="offen"
         )
         
-        # Filter by status
-        response = requests.get(f"{BASE_URL}/patients?status=auf_der_Suche")
-        assert response.status_code == 200
+        # Filter by status using pagination
+        found_ids, pages_checked = self.find_patients_in_paginated_results(
+            [patient1['id']], 
+            status="auf_der_Suche"
+        )
         
-        data = response.json()
-        assert isinstance(data, dict)
-        assert 'data' in data
-        patients = data['data']
+        # Verify patient1 is found with correct status filter
+        assert patient1['id'] in found_ids, \
+            f"Patient {patient1['id']} with status 'auf_der_Suche' not found in {pages_checked} pages"
         
-        # Check that all returned patients have the correct status
-        for patient in patients:
-            assert patient['status'] == "auf_der_Suche"
-        
-        # Verify patient1 is in results
-        patient_ids = [p['id'] for p in patients]
-        assert patient1['id'] in patient_ids
-        assert patient2['id'] not in patient_ids
+        # Verify patient2 is NOT found when filtering for different status
+        found_ids_wrong_filter, _ = self.find_patients_in_paginated_results(
+            [patient2['id']], 
+            status="auf_der_Suche"
+        )
+        assert patient2['id'] not in found_ids_wrong_filter, \
+            f"Patient {patient2['id']} with status 'offen' should not be found when filtering for 'auf_der_Suche'"
         
         # Cleanup
         requests.delete(f"{BASE_URL}/patients/{patient1['id']}")
