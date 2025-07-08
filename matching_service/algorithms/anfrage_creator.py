@@ -314,6 +314,13 @@ def check_therapist_preferences(
     # Age preference (PATIENT age, not therapist age - this stays)
     min_age = therapist.get('alter_min')
     max_age = therapist.get('alter_max')
+    
+    # FIXED: Treat 0 as None (no preference) since no therapist wants 0-year-old patients
+    if min_age == 0:
+        min_age = None
+    if max_age == 0:
+        max_age = None
+    
     if min_age is not None or max_age is not None:
         patient_birthdate = patient.get('geburtsdatum')
         if patient_birthdate:
