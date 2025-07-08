@@ -2,6 +2,7 @@
 from flask import request, jsonify
 from flask_restful import Resource, fields, marshal_with, reqparse, marshal
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import or_, func
 from datetime import datetime
 import requests
 import logging
@@ -399,12 +400,13 @@ class TherapistListResource(PaginatedListResource):
         # Parse query parameters for filtering
         status = request.args.get('status')
         potenziell_verfuegbar = request.args.get('potenziell_verfuegbar', type=bool)
+        search = request.args.get('search', '').strip()
         
         db = SessionLocal()
         try:
             query = db.query(Therapist)
             
-            # Apply filters if provided
+            # Apply status filter if provided
             if status:
                 try:
                     status_enum = validate_and_get_therapist_status(status)
@@ -420,6 +422,31 @@ class TherapistListResource(PaginatedListResource):
             
             if potenziell_verfuegbar is not None:
                 query = query.filter(Therapist.potenziell_verfuegbar == potenziell_verfuegbar)
+            
+            # Apply search filter if provided
+            if search:
+                # Create search pattern for case-insensitive partial matching
+                search_pattern = f"%{search}%"
+                
+                # For therapy method enum, check if search term matches any enum value
+                search_conditions = []
+                
+                # Search in text fields
+                search_conditions.extend([
+                    Therapist.vorname.ilike(search_pattern),
+                    Therapist.nachname.ilike(search_pattern)
+                ])
+                
+                # Special handling for therapy method enum
+                # Check if search term matches any part of the enum values
+                for verfahren in Therapieverfahren:
+                    if search.lower() in verfahren.value.lower():
+                        search_conditions.append(
+                            Therapist.psychotherapieverfahren == verfahren
+                        )
+                
+                # Apply OR conditions
+                query = query.filter(or_(*search_conditions))
             
             # Use the new helper method
             return self.create_paginated_response(query, marshal, therapist_fields)

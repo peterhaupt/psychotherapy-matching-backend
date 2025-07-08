@@ -291,12 +291,25 @@ The following fields are managed automatically by the backend and **cannot be se
 
 **Query Parameters:**
 - `status` (optional): Filter by patient status
+- `search` (optional): Search across vorname, nachname, and email fields (case-insensitive partial match)
 - `page` (optional): Page number (default: 1)
 - `limit` (optional): Items per page (default: 20, max: 100)
 
+**Search Behavior:**
+- Searches across `vorname`, `nachname`, and `email` fields
+- Case-insensitive partial matching
+- Results include all patients where ANY of the searched fields contain the search term
+
 **Example Request:**
 ```bash
+# Filter by status
 curl "http://localhost:8001/api/patients?status=auf_der_Suche&page=1&limit=20"
+
+# Search for patients
+curl "http://localhost:8001/api/patients?search=mueller"
+
+# Combine search and status filter
+curl "http://localhost:8001/api/patients?search=anna&status=auf_der_Suche"
 ```
 
 **Example Response (COMPLETE - ALL FIELDS):**
@@ -617,12 +630,28 @@ curl -X DELETE "http://localhost:8001/api/patients/1"
 **Query Parameters:**
 - `status` (optional): Filter by therapist status ("aktiv", "gesperrt", "inaktiv")
 - `potenziell_verfuegbar` (optional): Filter by availability (boolean)
+- `search` (optional): Search across vorname, nachname, and psychotherapieverfahren fields
 - `page` (optional): Page number (default: 1)
 - `limit` (optional): Items per page (default: 20, max: 100)
 
+**Search Behavior:**
+- Searches across `vorname`, `nachname` fields with case-insensitive partial matching
+- For `psychotherapieverfahren`, checks if search term matches any part of the enum values
+- Results include all therapists where ANY of the searched fields contain the search term
+
 **Example Request:**
 ```bash
+# Filter by status and availability
 curl "http://localhost:8002/api/therapists?status=aktiv&potenziell_verfuegbar=true"
+
+# Search for therapists
+curl "http://localhost:8002/api/therapists?search=weber"
+
+# Search for therapy method
+curl "http://localhost:8002/api/therapists?search=verhaltens"
+
+# Combine search and filters
+curl "http://localhost:8002/api/therapists?search=schmidt&status=aktiv"
 ```
 
 **Example Response (COMPLETE - ALL FIELDS WITH FIXED JSONB DEFAULTS):**
@@ -1576,6 +1605,21 @@ curl -X DELETE "http://localhost:8004/api/emails/1"
 ---
 
 # Key Changes from Previous Version
+
+## 🔍 **Search Functionality Added (January 2025):**
+
+### Patient Service:
+- Added `search` query parameter to `GET /patients`
+- Searches across `vorname`, `nachname`, and `email` fields
+- Case-insensitive partial matching
+- Can be combined with existing `status` filter
+
+### Therapist Service:
+- Added `search` query parameter to `GET /therapists`
+- Searches across `vorname`, `nachname`, and `psychotherapieverfahren` fields
+- Case-insensitive partial matching for text fields
+- Special handling for enum field `psychotherapieverfahren`
+- Can be combined with existing `status` and `potenziell_verfuegbar` filters
 
 ## 🔧 **Model Updates (January 2025):**
 

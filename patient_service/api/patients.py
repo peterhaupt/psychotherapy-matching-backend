@@ -2,6 +2,7 @@
 from flask import request, jsonify
 from flask_restful import Resource, fields, marshal_with, reqparse, marshal
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import or_
 from datetime import datetime, date
 import requests
 import logging
@@ -398,12 +399,13 @@ class PatientListResource(PaginatedListResource):
         """Get a list of patients with optional filtering and pagination."""
         # Parse query parameters for filtering
         status = request.args.get('status')
+        search = request.args.get('search', '').strip()
         
         db = SessionLocal()
         try:
             query = db.query(Patient)
             
-            # Apply filters if provided
+            # Apply status filter if provided
             if status:
                 try:
                     status_enum = validate_and_get_patient_status(status)
@@ -416,6 +418,20 @@ class PatientListResource(PaginatedListResource):
                         "limit": self.DEFAULT_LIMIT,
                         "total": 0
                     }
+            
+            # Apply search filter if provided
+            if search:
+                # Create search pattern for case-insensitive partial matching
+                search_pattern = f"%{search}%"
+                
+                # Search across vorname, nachname, and email fields
+                search_conditions = or_(
+                    Patient.vorname.ilike(search_pattern),
+                    Patient.nachname.ilike(search_pattern),
+                    Patient.email.ilike(search_pattern)
+                )
+                
+                query = query.filter(search_conditions)
             
             # Use the new helper method
             return self.create_paginated_response(query, marshal, patient_fields)
