@@ -1,4 +1,4 @@
-"""Patient import logic with validation and duplicate detection."""
+"""Patient import logic with validation - simplified without duplicate detection."""
 import logging
 from typing import Dict, Any, Tuple
 from datetime import datetime
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class PatientImporter:
-    """Handle patient data import with validation and notifications."""
+    """Handle patient data import with validation."""
     
     def __init__(self):
         """Initialize the patient importer."""
@@ -37,21 +37,6 @@ class PatientImporter:
                 return False, "Missing patient_data section in JSON"
             
             patient_data = data['patient_data']
-            
-            # Check for duplicate by email
-            if 'email' in patient_data and patient_data['email']:
-                db = SessionLocal()
-                try:
-                    existing = db.query(Patient).filter(
-                        Patient.email == patient_data['email']
-                    ).first()
-                    
-                    if existing:
-                        # Send duplicate notification
-                        self._send_duplicate_notification(patient_data, existing)
-                        return False, f"Duplicate patient with email: {patient_data['email']}"
-                finally:
-                    db.close()
             
             # Map fields from JSON to API format
             api_data = self._map_patient_data(patient_data)
@@ -218,34 +203,6 @@ class PatientImporter:
             return False, None, f"Unexpected error: {str(e)}"
         finally:
             db.close()
-    
-    def _send_duplicate_notification(self, new_data: Dict[str, Any], existing_patient: Patient):
-        """Send email notification about duplicate patient.
-        
-        Args:
-            new_data: Data from the import attempt
-            existing_patient: Existing patient record
-        """
-        subject = f"Duplicate Patient Import Attempt - {new_data.get('email', 'No email')}"
-        
-        body = f"""
-A patient import was attempted but a duplicate email was found.
-
-Import Data:
-- Name: {new_data.get('vorname', '')} {new_data.get('nachname', '')}
-- Email: {new_data.get('email', '')}
-- Date of Birth: {new_data.get('geburtsdatum', '')}
-
-Existing Patient:
-- ID: {existing_patient.id}
-- Name: {existing_patient.vorname} {existing_patient.nachname}
-- Email: {existing_patient.email}
-- Created: {existing_patient.created_at}
-
-Please review this case manually.
-        """
-        
-        self._send_system_notification(subject, body, sender_name="Patient Import System")
     
     def send_error_notification(self, subject: str, body: str):
         """Send error notification email.

@@ -1,4 +1,4 @@
-"""GCS monitoring and import orchestration for patient files."""
+"""GCS monitoring and import orchestration for patient files - simplified."""
 import os
 import time
 import logging
@@ -19,8 +19,10 @@ logger = logging.getLogger(__name__)
 class GCSMonitor:
     """Monitor GCS bucket for new patient files and orchestrate imports.
     
-    Failed files are saved locally for debugging and deleted from GCS
-    to prevent repeated processing attempts.
+    Simplified version: 
+    - Successful files stay in base path
+    - Failed files are moved to failed/ folder
+    - All files are deleted from GCS after processing
     """
     
     def __init__(self):
@@ -108,10 +110,7 @@ class GCSMonitor:
             return []
     
     def _process_file(self, file_name: str):
-        """Process a single file from GCS.
-        
-        For failed imports, the file is saved locally and deleted from GCS
-        to prevent repeated processing.
+        """Process a single file from GCS - simplified version.
         
         Args:
             file_name: Name of the file in GCS
@@ -120,8 +119,9 @@ class GCSMonitor:
         local_path = os.path.join(self.local_base_path, file_name)
         
         try:
-            # Download file with retry
+            # Download file
             if not self._download_file(file_name, local_path):
+                ImportStatus.record_failure(file_name, "Failed to download file")
                 return
             
             # Parse and validate JSON
@@ -132,68 +132,70 @@ class GCSMonitor:
             success, message = self.importer.import_patient(data)
             
             if success:
-                # Delete from GCS ONLY on success
-                if self._delete_from_gcs(file_name):
-                    logger.info(f"Successfully imported and deleted: {file_name}")
-                    ImportStatus.record_success(file_name)
-                else:
-                    logger.warning(f"Import successful but could not delete from GCS: {file_name}")
-                    # Still count as success even if deletion failed
-                    ImportStatus.record_success(file_name)
+                # Success: file stays in base path
+                logger.info(f"Successfully imported: {file_name}")
+                ImportStatus.record_success(file_name)
             else:
-                # Import failed - save locally and delete from GCS
+                # Failure: move to failed folder
                 failed_path = os.path.join(self.local_base_path, 'failed', file_name)
                 try:
                     os.rename(local_path, failed_path)
-                    logger.error(f"Import failed, moved to local failed/: {file_name}. Reason: {message}")
-                    
-                    # Delete from GCS to prevent repeated processing
-                    # (we have the file saved locally in failed/ folder)
-                    if self._delete_from_gcs(file_name):
-                        logger.info(f"Deleted failed file from GCS (preserved in local failed/): {file_name}")
-                    else:
-                        logger.error(f"Could not delete failed file from GCS, will retry on next run: {file_name}")
-                        
+                    logger.error(f"Import failed, moved to failed/: {file_name}. Reason: {message}")
                 except Exception as move_error:
-                    logger.error(f"Failed to move file to local failed/: {move_error}")
-                    # Don't delete from GCS if we couldn't save locally
+                    logger.error(f"Failed to move file to failed/: {move_error}")
+                    # Keep the file where it is if move fails
                 
                 ImportStatus.record_failure(file_name, message)
                 
-                # Send error notification (only for non-duplicate errors)
-                if "Duplicate patient" not in message:
-                    self.importer.send_error_notification(
-                        f"Failed to import patient file: {file_name}",
-                        f"Error: {message}\n\nFile has been saved to local failed/ folder and deleted from GCS."
-                    )
-                # Note: Duplicate notifications are already sent by the importer
+                # Send error notification
+                self.importer.send_error_notification(
+                    f"Failed to import patient file: {file_name}",
+                    f"Error: {message}\n\nFile has been saved to local failed/ folder."
+                )
+            
+            # Always delete from GCS after processing (success or failure)
+            if self._delete_from_gcs(file_name):
+                logger.info(f"Deleted from GCS: {file_name}")
+            else:
+                logger.error(f"Could not delete from GCS: {file_name}")
                 
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON in file {file_name}: {str(e)}")
+            # Try to move to failed folder
+            try:
+                failed_path = os.path.join(self.local_base_path, 'failed', file_name)
+                if os.path.exists(local_path):
+                    os.rename(local_path, failed_path)
+            except:
+                pass
+            
+            ImportStatus.record_failure(file_name, f"Invalid JSON: {str(e)}")
+            
+            # Delete from GCS
+            self._delete_from_gcs(file_name)
+            
+            # Send notification
+            self.importer.send_error_notification(
+                f"Invalid JSON in patient file: {file_name}",
+                f"JSON parsing error: {str(e)}"
+            )
+            
         except Exception as e:
-            logger.error(f"Error processing file {file_name}: {str(e)}", exc_info=True)
-            # Try to move to failed folder locally
-            local_file_saved = False
+            logger.error(f"Unexpected error processing file {file_name}: {str(e)}", exc_info=True)
+            # Try to move to failed folder
             try:
                 if os.path.exists(local_path):
                     failed_path = os.path.join(self.local_base_path, 'failed', file_name)
                     os.rename(local_path, failed_path)
-                    local_file_saved = True
-                    logger.info(f"Moved error file to local failed/ folder")
             except:
-                logger.error(f"Could not move file to local failed/ folder")
-            
-            # Delete from GCS only if we saved it locally
-            if local_file_saved:
-                try:
-                    if self._delete_from_gcs(file_name):
-                        logger.info(f"Deleted error file from GCS (preserved in local failed/): {file_name}")
-                    else:
-                        logger.error(f"Could not delete error file from GCS: {file_name}")
-                except:
-                    logger.error(f"Error trying to delete from GCS: {file_name}")
+                pass
             
             ImportStatus.record_failure(file_name, str(e))
             
-            # Send error notification
+            # Delete from GCS
+            self._delete_from_gcs(file_name)
+            
+            # Send notification
             self.importer.send_error_notification(
                 f"Error processing patient file: {file_name}",
                 f"Exception: {str(e)}"

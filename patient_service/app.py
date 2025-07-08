@@ -1,6 +1,7 @@
 """Main application file for the Patient Service."""
 import threading
-from flask import Flask
+import time
+from flask import Flask, jsonify
 from flask_restful import Api
 from flask_cors import CORS
 
@@ -44,6 +45,21 @@ def create_app():
     api.add_resource(PatientImportStatusResource, 
                      '/api/patients/import-status')
     
+    # Add debug endpoint for thread inspection
+    @app.route('/api/debug/threads', methods=['GET'])
+    def get_threads():
+        """Debug endpoint to list all threads."""
+        import threading
+        threads = []
+        for thread in threading.enumerate():
+            threads.append({
+                'name': thread.name,
+                'id': thread.ident,
+                'daemon': thread.daemon,
+                'alive': thread.is_alive()
+            })
+        return jsonify({'threads': threads, 'count': len(threads)})
+    
     # PHASE 2: Start Kafka consumers for event-driven updates
     start_consumers()
     
@@ -55,6 +71,16 @@ def create_app():
     )
     import_thread.start()
     app.logger.info("Patient import monitor thread started")
+    
+    # Wait a moment for threads to start
+    time.sleep(2)
+    
+    # Log all active threads for debugging
+    app.logger.info("=== ACTIVE THREADS AT STARTUP ===")
+    for thread in threading.enumerate():
+        app.logger.info(f"Active thread: {thread.name} (ID: {thread.ident}, Daemon: {thread.daemon}, Alive: {thread.is_alive()})")
+    app.logger.info(f"Total thread count: {threading.active_count()}")
+    app.logger.info("=== END THREAD LIST ===")
 
     return app
 
@@ -65,6 +91,11 @@ if __name__ == "__main__":
     
     config = get_config()
     app = create_app()
+    
+    # Log Flask debug mode status
+    app.logger.info(f"Flask Debug Mode: {config.FLASK_DEBUG}")
+    app.logger.info(f"Flask Environment: {config.FLASK_ENV}")
+    
     app.run(
         host="0.0.0.0", 
         port=config.PATIENT_SERVICE_PORT, 
