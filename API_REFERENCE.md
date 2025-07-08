@@ -170,22 +170,6 @@ The following fields are managed automatically by the backend and **cannot be se
 }
 ```
 
-### Therapy Procedures (psychotherapieverfahren)
-
-**Format:** Always returns array, never null ✅ FIXED
-```json
-{
-  "psychotherapieverfahren": ["Verhaltenstherapie", "Tiefenpsychologie"]
-}
-```
-
-**Empty case:**
-```json
-{
-  "psychotherapieverfahren": []
-}
-```
-
 ### Preferred Diagnoses (bevorzugte_diagnosen)
 
 **Format:** Always returns array, never null ✅ FIXED
@@ -267,13 +251,17 @@ The following fields are managed automatically by the backend and **cannot be se
 "Egal"
 ```
 
-### Therapy Procedures (therapieverfahren) - **SINGLE FIELD**
+### Therapy Procedures (therapieverfahren) - **SINGLE ENUM FIELD**
 ```
 "egal"
 "Verhaltenstherapie"
 "tiefenpsychologisch_fundierte_Psychotherapie"
 ```
-**Note:** `bevorzugtes_therapieverfahren` is now a single enum field, not an array. Default is "egal".
+**Note:** This enum is used for BOTH:
+- Patients: `bevorzugtes_therapieverfahren` field
+- Therapists: `psychotherapieverfahren` field
+- Both fields are single enum values, not arrays
+- Default for both is "egal"
 
 ### Response Type (antworttyp)
 ```
@@ -643,8 +631,8 @@ curl "http://localhost:8002/api/therapists?status=aktiv&potenziell_verfuegbar=tr
   "data": [
     {
       "id": 1,
-      "anrede": "Herr",
-      "geschlecht": "männlich",
+      "anrede": "Frau",
+      "geschlecht": "weiblich",
       "titel": "Dr. med.",
       "vorname": "Maria",
       "nachname": "Weber",
@@ -661,7 +649,7 @@ curl "http://localhost:8002/api/therapists?status=aktiv&potenziell_verfuegbar=tr
         "mittwoch": ["14:00-16:00"]
       },
       "fremdsprachen": ["Englisch", "Französisch"],
-      "psychotherapieverfahren": ["Verhaltenstherapie", "Tiefenpsychologie"],
+      "psychotherapieverfahren": "Verhaltenstherapie",
       "zusatzqualifikationen": "Traumatherapie, EMDR",
       "besondere_leistungsangebote": "Online-Therapie verfügbar",
       "letzter_kontakt_email": "2025-05-15",
@@ -703,7 +691,7 @@ curl "http://localhost:8002/api/therapists?status=aktiv&potenziell_verfuegbar=tr
   "nachname": "Mustermann",
   "telefonische_erreichbarkeit": {},
   "fremdsprachen": [],
-  "psychotherapieverfahren": [],
+  "psychotherapieverfahren": "egal",
   "bevorzugte_diagnosen": [],
   "arbeitszeiten": {}
 }
@@ -785,6 +773,50 @@ curl "http://localhost:8002/api/therapists/123/communication"
 - `vorname` (string)
 - `nachname` (string)
 
+**All Optional Fields (COMPLETE LIST):**
+
+**Personal Information:**
+- `titel` (string)
+- `strasse` (string)
+- `plz` (string)
+- `ort` (string)
+- `telefon` (string)
+- `fax` (string)
+- `email` (string)
+- `webseite` (string)
+
+**Professional Information:**
+- `kassensitz` (boolean)
+- `telefonische_erreichbarkeit` (object, see format above)
+- `fremdsprachen` (array of strings)
+- `psychotherapieverfahren` (string, **SINGLE VALUE** - see enum, default: "egal")
+- `zusatzqualifikationen` (string)
+- `besondere_leistungsangebote` (string)
+
+**Contact History:**
+- `letzter_kontakt_email` (string, YYYY-MM-DD)
+- `letzter_kontakt_telefon` (string, YYYY-MM-DD)
+- `letztes_persoenliches_gespraech` (string, YYYY-MM-DD)
+
+**Availability:**
+- `potenziell_verfuegbar` (boolean)
+- `potenziell_verfuegbar_notizen` (string)
+- `ueber_curavani_informiert` (boolean)
+
+**Inquiry System Fields:**
+- `naechster_kontakt_moeglich` (string, YYYY-MM-DD)
+- `bevorzugte_diagnosen` (array of strings)
+- `alter_min` (integer)
+- `alter_max` (integer)
+- `geschlechtspraeferenz` (string)
+- `arbeitszeiten` (object, see format above)
+- `bevorzugt_gruppentherapie` (boolean)
+
+**Status:**
+- `status` (string, see enum values, default: "aktiv")
+- `sperrgrund` (string)
+- `sperrdatum` (string, YYYY-MM-DD)
+
 **Example Request:**
 ```bash
 curl -X POST "http://localhost:8002/api/therapists" \
@@ -801,7 +833,7 @@ curl -X POST "http://localhost:8002/api/therapists" \
     "telefon": "+49 89 11223344",
     "email": "m.becker@therapie.de",
     "kassensitz": true,
-    "psychotherapieverfahren": ["Tiefenpsychologie"],
+    "psychotherapieverfahren": "tiefenpsychologisch_fundierte_Psychotherapie",
     "potenziell_verfuegbar": true,
     "ueber_curavani_informiert": false,
     "bevorzugte_diagnosen": ["F32", "F33"],
@@ -821,7 +853,7 @@ curl -X POST "http://localhost:8002/api/therapists" \
   "vorname": "Michael",
   "nachname": "Becker",
   "email": "m.becker@therapie.de",
-  "psychotherapieverfahren": ["Tiefenpsychologie"],
+  "psychotherapieverfahren": "tiefenpsychologisch_fundierte_Psychotherapie",
   "bevorzugte_diagnosen": ["F32", "F33"],
   "fremdsprachen": [],
   "telefonische_erreichbarkeit": {},
@@ -831,6 +863,13 @@ curl -X POST "http://localhost:8002/api/therapists" \
   "ueber_curavani_informiert": false,
   "created_at": "2025-06-10",
   "updated_at": "2025-06-10"
+}
+```
+
+**Validation Error Examples:**
+```json
+{
+  "message": "Invalid therapy method 'Systemische Therapie'. Valid values: egal, Verhaltenstherapie, tiefenpsychologisch_fundierte_Psychotherapie"
 }
 ```
 
@@ -845,7 +884,8 @@ curl -X PUT "http://localhost:8002/api/therapists/1" \
   -d '{
     "potenziell_verfuegbar": false,
     "potenziell_verfuegbar_notizen": "Aktuell keine Kapazitäten",
-    "naechster_kontakt_moeglich": "2025-09-01"
+    "naechster_kontakt_moeglich": "2025-09-01",
+    "psychotherapieverfahren": "Verhaltenstherapie"
   }'
 ```
 
@@ -1008,7 +1048,7 @@ curl "http://localhost:8003/api/therapeuten-zur-auswahl?plz_prefix=52"
       "ueber_curavani_informiert": true,
       "naechster_kontakt_moeglich": null,
       "bevorzugte_diagnosen": ["F32", "F41"],
-      "psychotherapieverfahren": ["Verhaltenstherapie"],
+      "psychotherapieverfahren": "Verhaltenstherapie",
       "fremdsprachen": [],
       "telefonische_erreichbarkeit": {},
       "arbeitszeiten": {}
@@ -1537,7 +1577,13 @@ curl -X DELETE "http://localhost:8004/api/emails/1"
 
 # Key Changes from Previous Version
 
-## 🔧 **Model Cleanup (January 2025):**
+## 🔧 **Model Updates (January 2025):**
+
+### 🆕 **Therapist psychotherapieverfahren Change:**
+- Changed from JSONB array to single ENUM field
+- Now uses same enum as patients: "egal", "Verhaltenstherapie", "tiefenpsychologisch_fundierte_Psychotherapie"
+- Default value: "egal"
+- Both patients and therapists now have single therapy method preference/offering
 
 ### ✂️ **Removed Fields (16 total):**
 
@@ -1585,7 +1631,7 @@ curl -X DELETE "http://localhost:8004/api/emails/1"
 
 1. **Patient Array Fields**: `bevorzugtes_therapieverfahren` now always returns array, never null (Migration 003)
 2. **Therapist JSONB Fields**: All JSONB fields now return proper defaults instead of null (Migration 004 + API fixes):
-   - Array fields (`fremdsprachen`, `psychotherapieverfahren`, `bevorzugte_diagnosen`) → `[]`
+   - Array fields (`fremdsprachen`, `bevorzugte_diagnosen`) → `[]`
    - Object fields (`telefonische_erreichbarkeit`, `arbeitszeiten`) → `{}`
 3. **Date Format**: Using simple date format "2025-06-22" instead of ISO timestamps
 4. **Time Format**: Using German day names with string arrays `["09:00-12:00"]`
