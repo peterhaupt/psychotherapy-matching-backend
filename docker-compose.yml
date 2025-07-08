@@ -143,7 +143,7 @@ services:
     volumes:
       - ./therapist_service:/app
       - ./shared:/app/shared
-      - ./curavani_scraping/data/processed:/scraping_data:ro
+      - ../curavani_scraping/data/processed:/scraping_data:ro
     depends_on:
       - pgbouncer
       - kafka
