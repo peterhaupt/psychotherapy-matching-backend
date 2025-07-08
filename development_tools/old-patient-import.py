@@ -151,8 +151,8 @@ def main():
     logger.info(f"Reading Excel file: {excel_file}")
     
     try:
-        # Read Excel file
-        df = pd.read_excel(excel_file)
+        # Read Excel file with PLZ as string to preserve leading zeros and avoid .0 suffix
+        df = pd.read_excel(excel_file, dtype={'PLZ': str})
         logger.info(f"Found {len(df)} rows in Excel file")
         
         # Process counters
