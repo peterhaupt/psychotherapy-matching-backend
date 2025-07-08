@@ -1,4 +1,5 @@
 """Main application file for the Patient Service."""
+import os
 import threading
 import time
 from flask import Flask, jsonify
@@ -45,43 +46,22 @@ def create_app():
     api.add_resource(PatientImportStatusResource, 
                      '/api/patients/import-status')
     
-    # Add debug endpoint for thread inspection
-    @app.route('/api/debug/threads', methods=['GET'])
-    def get_threads():
-        """Debug endpoint to list all threads."""
-        import threading
-        threads = []
-        for thread in threading.enumerate():
-            threads.append({
-                'name': thread.name,
-                'id': thread.ident,
-                'daemon': thread.daemon,
-                'alive': thread.is_alive()
-            })
-        return jsonify({'threads': threads, 'count': len(threads)})
-    
     # PHASE 2: Start Kafka consumers for event-driven updates
     start_consumers()
     
     # NEW: Start patient import monitoring thread
-    import_thread = threading.Thread(
-        target=start_patient_import_monitor,
-        daemon=True,
-        name="PatientImportMonitor"
-    )
-    import_thread.start()
-    app.logger.info("Patient import monitor thread started")
+    # IMPORTANT: Only start in the main worker process, not in the reloader process
+    if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or not app.debug:
+        import_thread = threading.Thread(
+            target=start_patient_import_monitor,
+            daemon=True,
+            name="PatientImportMonitor"
+        )
+        import_thread.start()
+        app.logger.info("Patient import monitor thread started")
+    else:
+        app.logger.info("Skipping patient import monitor in reloader process")
     
-    # Wait a moment for threads to start
-    time.sleep(2)
-    
-    # Log all active threads for debugging
-    app.logger.info("=== ACTIVE THREADS AT STARTUP ===")
-    for thread in threading.enumerate():
-        app.logger.info(f"Active thread: {thread.name} (ID: {thread.ident}, Daemon: {thread.daemon}, Alive: {thread.is_alive()})")
-    app.logger.info(f"Total thread count: {threading.active_count()}")
-    app.logger.info("=== END THREAD LIST ===")
-
     return app
 
 
