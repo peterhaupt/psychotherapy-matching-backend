@@ -59,6 +59,10 @@ Error messages and validation will reflect the configured values, not hardcoded 
 }
 ```
 
+**Pagination Parameters (Available on ALL list endpoints):**
+- `page` (optional): Page number (default: 1)
+- `limit` (optional): Items per page (default: 20, max: 100)
+
 ## Automatically Managed Fields
 
 The following fields are managed automatically by the backend and **cannot be set manually via API**:
@@ -156,7 +160,7 @@ The following fields are managed automatically by the backend and **cannot be se
 
 ### Languages (fremdsprachen)
 
-**Format:** Always returns array, never null ✅ FIXED
+**Format:** Always returns array, never null
 ```json
 {
   "fremdsprachen": ["Englisch", "Französisch", "Spanisch"]
@@ -172,7 +176,7 @@ The following fields are managed automatically by the backend and **cannot be se
 
 ### Preferred Diagnoses (bevorzugte_diagnosen)
 
-**Format:** Always returns array, never null ✅ FIXED
+**Format:** Always returns array, never null
 ```json
 {
   "bevorzugte_diagnosen": ["F32", "F41", "F43"]
@@ -188,13 +192,13 @@ The following fields are managed automatically by the backend and **cannot be se
 
 ## Enum Values
 
-### Anrede (Salutation) - **NEW**
+### Anrede (Salutation)
 ```
 "Herr"
 "Frau"
 ```
 
-### Geschlecht (Gender) - **NEW**
+### Geschlecht (Gender)
 ```
 "männlich"
 "weiblich"
@@ -279,6 +283,27 @@ The following fields are managed automatically by the backend and **cannot be se
 "abgelehnt_sonstiges"
 "nicht_erschienen"
 "in_Sitzungen"
+```
+
+---
+
+# Health Check Endpoints
+
+## All Services
+
+**Description:** Check service health status.
+
+**Example Request:**
+```bash
+curl "http://localhost:8001/health"
+```
+
+**Example Response:**
+```json
+{
+  "status": "healthy",
+  "service": "patient-service"
+}
 ```
 
 ---
@@ -654,7 +679,7 @@ curl "http://localhost:8002/api/therapists?search=verhaltens"
 curl "http://localhost:8002/api/therapists?search=schmidt&status=aktiv"
 ```
 
-**Example Response (COMPLETE - ALL FIELDS WITH FIXED JSONB DEFAULTS):**
+**Example Response (COMPLETE - ALL FIELDS):**
 ```json
 {
   "data": [
@@ -710,7 +735,7 @@ curl "http://localhost:8002/api/therapists?search=schmidt&status=aktiv"
 }
 ```
 
-**Empty JSONB Fields Example:** ✅ FIXED - Now returns proper defaults
+**Empty JSONB Fields Example:**
 ```json
 {
   "id": 2,
@@ -873,7 +898,7 @@ curl -X POST "http://localhost:8002/api/therapists" \
   }'
 ```
 
-**Example Response:** ✅ FIXED - All JSONB fields now have proper defaults
+**Example Response:**
 ```json
 {
   "id": 5,
@@ -1055,7 +1080,7 @@ curl -X POST "http://localhost:8003/api/platzsuchen" \
 curl "http://localhost:8003/api/therapeuten-zur-auswahl?plz_prefix=52"
 ```
 
-**Example Response:** ✅ FIXED - JSONB fields now have proper defaults
+**Example Response:**
 ```json
 {
   "plz_prefix": "52",
@@ -1350,6 +1375,8 @@ curl "http://localhost:8004/api/emails/1"
 
 **Description:** Create a new email. Must specify either `therapist_id` OR `patient_id`, not both.
 
+**IMPORTANT:** Emails are ALWAYS created with status "Entwurf" (draft). The status field cannot be set via API. To send emails, you must use a separate process or update the status after creation.
+
 **Required Fields:**
 - Either `therapist_id` (integer) OR `patient_id` (integer) - exactly one must be provided
 - `betreff` (string)
@@ -1361,52 +1388,30 @@ curl "http://localhost:8004/api/emails/1"
 - `inhalt_text` (string) - plain text version
 - `absender_email` (string) - defaults to system email
 - `absender_name` (string) - defaults to system name
-- `status` (string) - Controls whether email is saved as draft or queued for sending
-  - `"Entwurf"` - Save as draft (will NOT be sent) 
-  - `"In_Warteschlange"` - Queue for immediate sending (will be sent within 60 seconds)
-  - **Default: `"Entwurf"`** (if not specified, emails are saved as drafts for safety)
-  - Any other value returns 400 error
 - `add_legal_footer` (boolean) - defaults to true
 
 **Validation Rules:**
 - Cannot specify both `therapist_id` and `patient_id`
 - Must specify at least one of `therapist_id` or `patient_id`
 - Must provide either `inhalt_markdown` or `inhalt_html`
-- Only `"Entwurf"` and `"In_Warteschlange"` can be set via API
 
 **Important Notes:**
-1. **Safety First**: If no `status` is provided, emails default to `"Entwurf"` (draft) for safety
-2. **Limited Status Control**: Only `"Entwurf"` and `"In_Warteschlange"` can be set by users
-3. **System-Managed Statuses**: `"Wird_gesendet"`, `"Gesendet"`, `"Fehlgeschlagen"` cannot be set via API
-4. **Markdown Processing**: URLs in markdown content are automatically detected and converted to clickable links
+1. **Always Draft**: All emails are created as drafts regardless of any status parameter
+2. **Markdown Processing**: URLs in markdown content are automatically detected and converted to clickable links
+3. **Legal Footer**: Added by default unless explicitly disabled
 
 **Example Requests:**
 
-### Save Email as Draft
+### Create Email Draft
 ```bash
 curl -X POST "http://localhost:8004/api/emails" \
   -H "Content-Type: application/json" \
   -d '{
     "patient_id": 30,
-    "status": "Entwurf",
-    "betreff": "Draft: Update zu Ihrer Therapieplatzsuche",
-    "inhalt_markdown": "# Entwurf\n\nDieser Text wird als Entwurf gespeichert...",
+    "betreff": "Update zu Ihrer Therapieplatzsuche",
+    "inhalt_markdown": "# Update\n\nSehr geehrter Herr Mustermann...",
     "empfaenger_email": "patient@example.com",
     "empfaenger_name": "Max Mustermann"
-  }'
-```
-
-### Send Email Immediately
-```bash
-curl -X POST "http://localhost:8004/api/emails" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "therapist_id": 123,
-    "status": "In_Warteschlange",
-    "betreff": "Therapieanfrage für mehrere Patienten",
-    "inhalt_markdown": "# Therapieanfrage\n\nSehr geehrte/r Dr. Schmidt...",
-    "empfaenger_email": "doctor@example.com",
-    "empfaenger_name": "Dr. Schmidt"
   }'
 ```
 
@@ -1496,11 +1501,13 @@ curl -X DELETE "http://localhost:8004/api/emails/1"
 - Either `therapist_id` (integer) OR `patient_id` (integer) - exactly one must be provided
 
 **Optional Fields:**
-- `geplantes_datum` (string, YYYY-MM-DD) - for therapists: auto-scheduled if not provided; for patients: defaults to tomorrow
-- `geplante_zeit` (string, HH:MM) - for therapists: auto-scheduled based on availability; for patients: defaults to 10:00
+- `geplantes_datum` (string, YYYY-MM-DD) - defaults to tomorrow
+- `geplante_zeit` (string, HH:MM) - for therapists: simple slot at 10:00 or 14:00; for patients: defaults to 10:00
 - `dauer_minuten` (integer) - defaults to 5 for therapists, 10 for patients
 - `status` (string) - defaults to "geplant"
 - `notizen` (string)
+
+**Note:** The automatic scheduling mentioned in some documentation is simplified. It just checks basic availability at 10:00 or 14:00.
 
 **Example Response:**
 ```json
@@ -1525,6 +1532,36 @@ curl -X DELETE "http://localhost:8004/api/emails/1"
 ## DELETE /phone-calls/{id}
 
 **Description:** Delete a phone call.
+
+## POST /system-messages
+
+**Description:** Send a system notification email directly without database storage.
+
+**Required Fields:**
+- `subject` (string): Email subject
+- `message` (string): Message content (plain text)
+
+**Optional Fields:**
+- `sender_name` (string): Name of the sender (default: "Curavani System")
+
+**Example Request:**
+```bash
+curl -X POST "http://localhost:8004/api/system-messages" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "subject": "Import Error",
+    "message": "Failed to import patient data: Invalid date format in row 15",
+    "sender_name": "Patient Import System"
+  }'
+```
+
+**Example Response:**
+```json
+{
+  "message": "System message sent successfully",
+  "recipient": "admin@curavani.de"
+}
+```
 
 ---
 
@@ -1604,6 +1641,40 @@ curl -X DELETE "http://localhost:8004/api/emails/1"
 
 ---
 
+# Error Response Formats
+
+All endpoints follow consistent error response patterns:
+
+### Validation Errors (400)
+```json
+{
+  "message": "Specific validation error message"
+}
+```
+
+### Not Found Errors (404)
+```json
+{
+  "message": "Resource not found"
+}
+```
+
+### Internal Server Errors (500)
+```json
+{
+  "message": "Internal server error"
+}
+```
+
+### Database Errors (500)
+```json
+{
+  "message": "Database error: specific error details"
+}
+```
+
+---
+
 # Key Changes from Previous Version
 
 ## 🔍 **Search Functionality Added (January 2025):**
@@ -1620,6 +1691,24 @@ curl -X DELETE "http://localhost:8004/api/emails/1"
 - Case-insensitive partial matching for text fields
 - Special handling for enum field `psychotherapieverfahren`
 - Can be combined with existing `status` and `potenziell_verfuegbar` filters
+
+## 🆕 **Health Check Endpoints:**
+- All services now expose `/health` endpoint
+- Returns service name and health status
+
+## 📧 **System Messages Endpoint:**
+- New endpoint `POST /api/system-messages` in Communication Service
+- Sends system notifications directly without database storage
+- Used for error notifications and system alerts
+
+## ⚠️ **Email Status Clarification:**
+- **IMPORTANT:** The `status` field CANNOT be set when creating emails via API
+- All emails are created with status "Entwurf" (draft)
+- Previous documentation incorrectly suggested status could be set to queue emails
+
+## 📞 **Phone Call Scheduling Clarification:**
+- Automatic scheduling is simplified - just returns 10:00 or 14:00 slots
+- Not the sophisticated availability-based scheduling suggested in old docs
 
 ## 🔧 **Model Updates (January 2025):**
 
