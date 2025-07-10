@@ -1018,7 +1018,10 @@ curl "http://localhost:8003/api/platzsuchen/1"
   },
   "status": "aktiv",
   "created_at": "2025-06-07",
+  "updated_at": "2025-06-08",
   "ausgeschlossene_therapeuten": [45, 67],
+  "erfolgreiche_vermittlung_datum": null,
+  "notizen": "Patient urgently needs therapy",
   "aktive_anfragen": 3,
   "gesamt_anfragen": 8,
   "anfrage_verlauf": [
@@ -1042,6 +1045,9 @@ curl "http://localhost:8003/api/platzsuchen/1"
 
 **Required Fields:**
 - `patient_id` (integer)
+
+**Optional Fields:**
+- `notizen` (string) - Optional notes about the search
 
 **Patient Data Validation:**
 Before creating a platzsuche, the patient must have the following required data:
@@ -1089,6 +1095,70 @@ curl -X POST "http://localhost:8003/api/platzsuchen" \
 {
   "message": "Cannot create platzsuche: Patient field 'diagnose' is required and cannot be empty",
   "patient_id": 123
+}
+```
+
+**Duplicate Error Response:**
+```json
+{
+  "message": "Patient already has an active search",
+  "search_id": 5
+}
+```
+
+## PUT /platzsuchen/{id}
+
+**Description:** Update a patient search (including status changes).
+
+**Optional Fields:**
+- `status` (string) - New status ("aktiv", "pausiert", "erfolgreich", "abgebrochen")
+- `notizen` (string) - Notes to add or update
+- `ausgeschlossene_therapeuten` (array of integers) - List of excluded therapist IDs
+
+**Status Transition Rules:**
+- `aktiv` → `pausiert`, `erfolgreich`, `abgebrochen`
+- `pausiert` → `aktiv`, `abgebrochen`
+- `erfolgreich` → (no transitions allowed - terminal state)
+- `abgebrochen` → (no transitions allowed - terminal state)
+
+**Example Request (Update Status):**
+```bash
+curl -X PUT "http://localhost:8003/api/platzsuchen/1" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status": "pausiert",
+    "notizen": "Patient temporarily unavailable"
+  }'
+```
+
+**Example Request (Add Excluded Therapists):**
+```bash
+curl -X PUT "http://localhost:8003/api/platzsuchen/1" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "ausgeschlossene_therapeuten": [123, 456, 789]
+  }'
+```
+
+**Success Response:**
+```json
+{
+  "message": "Patient search updated successfully",
+  "id": 1
+}
+```
+
+**Invalid Status Transition Response:**
+```json
+{
+  "message": "Invalid status transition from erfolgreich to aktiv"
+}
+```
+
+**Invalid Status Value Response:**
+```json
+{
+  "message": "Invalid status 'completed'. Valid values: ['aktiv', 'erfolgreich', 'pausiert', 'abgebrochen']"
 }
 ```
 
@@ -1920,7 +1990,21 @@ All endpoints follow consistent error response patterns:
 
 # Key Changes from Previous Version
 
-## 🆕 **Latest Updates (July 2025)**
+## 🆕 **Latest Updates (December 2025)**
+
+### ✅ **PUT /platzsuchen/{id} Endpoint:**
+- Update patient search including status changes
+- Supports status transitions with validation
+- Can update notes and excluded therapists list
+- Publishes status change events via Kafka
+
+### Status Transition Rules:
+- `aktiv` → `pausiert`, `erfolgreich`, `abgebrochen`
+- `pausiert` → `aktiv`, `abgebrochen`
+- `erfolgreich` → no transitions (terminal state)
+- `abgebrochen` → no transitions (terminal state)
+
+## 🆕 **Previous Updates (July 2025)**
 
 ### ✅ **DELETE Endpoints Added:**
 - `DELETE /api/therapeutenanfragen/{id}` - Delete therapeutenanfrage and related records
@@ -2070,4 +2154,4 @@ Enhanced validation when creating patient searches:
 - Configurable threshold days for follow-up requirement
 - Automatic linking of phone calls to therapeutenanfragen
 
-**Note:** This API reference now accurately reflects the backend implementation after all database migrations, automatic field management, and latest feature additions including DELETE endpoints, enhanced phone call tracking, and patient validation.
+**Note:** This API reference now accurately reflects the backend implementation after all database migrations, automatic field management, and latest feature additions including DELETE endpoints, enhanced phone call tracking, patient validation, and the previously undocumented PUT /platzsuchen/{id} endpoint.
