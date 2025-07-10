@@ -8,6 +8,7 @@ from datetime import datetime, date
 from typing import Dict, List, Optional, Any, Tuple
 
 from sqlalchemy.orm import Session
+from sqlalchemy import and_, or_
 
 from models import Platzsuche, Therapeutenanfrage, TherapeutAnfragePatient
 from models.platzsuche import SuchStatus
@@ -30,10 +31,11 @@ PLZ_MATCH_DIGITS = anfrage_config['plz_match_digits']  # 2
 DEFAULT_MAX_DISTANCE_KM = anfrage_config['default_max_distance_km']  # 25
 
 
-def get_therapists_for_selection(plz_prefix: str) -> List[Dict[str, Any]]:
-    """Get therapists for manual selection filtered by PLZ prefix.
+def get_therapists_for_selection(db: Session, plz_prefix: str) -> List[Dict[str, Any]]:
+    """Get therapists for manual selection filtered by PLZ prefix and pending anfragen.
     
     Args:
+        db: Database session
         plz_prefix: Two-digit PLZ prefix (e.g., "52")
         
     Returns:
@@ -42,9 +44,36 @@ def get_therapists_for_selection(plz_prefix: str) -> List[Dict[str, Any]]:
     # Get all active therapists
     therapists = TherapistService.get_all_therapists(status='aktiv')
     
-    # Filter by PLZ prefix
+    # Get all therapist IDs with pending anfragen
+    pending_therapist_ids = set()
+    
+    # Query for therapists with unsent anfragen
+    unsent_anfragen = db.query(Therapeutenanfrage.therapist_id).filter(
+        Therapeutenanfrage.gesendet_datum.is_(None)
+    ).distinct().all()
+    
+    # Query for therapists with sent but unanswered anfragen
+    unanswered_anfragen = db.query(Therapeutenanfrage.therapist_id).filter(
+        and_(
+            Therapeutenanfrage.gesendet_datum.isnot(None),
+            Therapeutenanfrage.antwort_datum.is_(None)
+        )
+    ).distinct().all()
+    
+    # Combine the results
+    for row in unsent_anfragen:
+        pending_therapist_ids.add(row[0])
+    for row in unanswered_anfragen:
+        pending_therapist_ids.add(row[0])
+    
+    # Filter therapists
     filtered = []
     for therapist in therapists:
+        # Skip if therapist has pending anfragen
+        if therapist.get('id') in pending_therapist_ids:
+            logger.debug(f"Skipping therapist {therapist.get('id')} - has pending anfragen")
+            continue
+            
         # Safe PLZ comparison with None handling
         therapist_plz = therapist.get('plz') or ''
         if therapist_plz.startswith(plz_prefix):

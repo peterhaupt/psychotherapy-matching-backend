@@ -387,30 +387,32 @@ class TherapeutenZurAuswahlResource(Resource):
             return {"message": f"Invalid PLZ prefix. Must be exactly {plz_match_digits} digits."}, 400
         
         try:
-            # Get filtered and sorted therapists
-            therapists = get_therapists_for_selection(plz_prefix)
-            
-            return {
-                "plz_prefix": plz_prefix,
-                "total": len(therapists),
-                "data": [{
-                    "id": t['id'],
-                    "anrede": t.get('anrede'),
-                    "titel": t.get('titel'),
-                    "vorname": t.get('vorname'),
-                    "nachname": t.get('nachname'),
-                    "strasse": t.get('strasse'),
-                    "plz": t.get('plz'),
-                    "ort": t.get('ort'),
-                    "telefon": t.get('telefon'),
-                    "email": t.get('email'),
-                    "potenziell_verfuegbar": t.get('potenziell_verfuegbar', False),
-                    "ueber_curavani_informiert": t.get('ueber_curavani_informiert', False),
-                    "naechster_kontakt_moeglich": t.get('naechster_kontakt_moeglich'),
-                    "bevorzugte_diagnosen": t.get('bevorzugte_diagnosen', []),
-                    "psychotherapieverfahren": t.get('psychotherapieverfahren', [])
-                } for t in therapists]
-            }, 200
+            # Get database session and pass it to the function
+            with get_db_context() as db:
+                # Get filtered and sorted therapists - now passing db session
+                therapists = get_therapists_for_selection(db, plz_prefix)
+                
+                return {
+                    "plz_prefix": plz_prefix,
+                    "total": len(therapists),
+                    "data": [{
+                        "id": t['id'],
+                        "anrede": t.get('anrede'),
+                        "titel": t.get('titel'),
+                        "vorname": t.get('vorname'),
+                        "nachname": t.get('nachname'),
+                        "strasse": t.get('strasse'),
+                        "plz": t.get('plz'),
+                        "ort": t.get('ort'),
+                        "telefon": t.get('telefon'),
+                        "email": t.get('email'),
+                        "potenziell_verfuegbar": t.get('potenziell_verfuegbar', False),
+                        "ueber_curavani_informiert": t.get('ueber_curavani_informiert', False),
+                        "naechster_kontakt_moeglich": t.get('naechster_kontakt_moeglich'),
+                        "bevorzugte_diagnosen": t.get('bevorzugte_diagnosen', []),
+                        "psychotherapieverfahren": t.get('psychotherapieverfahren', [])
+                    } for t in therapists]
+                }, 200
             
         except Exception as e:
             logger.error(f"Error fetching therapists for selection: {str(e)}")
