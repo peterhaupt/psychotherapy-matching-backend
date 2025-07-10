@@ -608,12 +608,12 @@ class TestCommunicationServiceAPI:
 
     def test_pagination_limits(self):
         """Test pagination limit constraints for both emails and phone calls."""
-        # Test emails - max limit (should be capped at 100)
-        response = requests.get(f"{BASE_URL}/emails?limit=200")
+        # Test emails - max limit (should be capped at 1000)
+        response = requests.get(f"{BASE_URL}/emails?limit=2000")
         assert response.status_code == 200
         
         data = response.json()
-        assert data['limit'] == 100  # Should be capped at max limit
+        assert data['limit'] == 1000  # Should be capped at max limit
         
         # Test phone calls - zero limit (should be set to 1)
         response = requests.get(f"{BASE_URL}/phone-calls?limit=0")

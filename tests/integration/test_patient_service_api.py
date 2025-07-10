@@ -537,12 +537,12 @@ class TestPatientServiceAPI:
 
     def test_pagination_limits(self):
         """Test pagination limit constraints."""
-        # Test max limit (should be capped at 100)
-        response = requests.get(f"{BASE_URL}/patients?limit=200")
+        # Test max limit (should be capped at 1000)
+        response = requests.get(f"{BASE_URL}/patients?limit=2000")
         assert response.status_code == 200
         
         data = response.json()
-        assert data['limit'] == 100  # Should be capped at max limit
+        assert data['limit'] == 1000  # Should be capped at max limit
         
         # Test zero limit (should be set to 1)
         response = requests.get(f"{BASE_URL}/patients?limit=0")

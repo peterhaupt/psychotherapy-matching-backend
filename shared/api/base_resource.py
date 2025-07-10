@@ -26,7 +26,7 @@ class PaginatedListResource(Resource):
     
     DEFAULT_PAGE = 1
     DEFAULT_LIMIT = 20
-    MAX_LIMIT = 100
+    MAX_LIMIT = 1000
     
     def paginate_query(self, query):
         """Apply pagination to a SQLAlchemy query.
