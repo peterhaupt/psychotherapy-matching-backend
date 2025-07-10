@@ -285,7 +285,8 @@ class TestGeocodingServiceAPI:
         assert response.status_code == 400
         
         data = response.json()
-        assert "rocket" in data["message"] or "travel_mode" in data["message"]
+        # Flask-RESTful returns the help text for invalid choices
+        assert "mode of transport" in data["message"].lower()
 
     def test_calculate_distance_invalid_addresses(self):
         """Test distance calculation with invalid addresses."""
@@ -358,7 +359,8 @@ class TestGeocodingServiceAPI:
         assert response.status_code == 400
         
         data = response.json()
-        assert "origin_plz" in data["message"].lower()
+        # Flask-RESTful converts "origin_plz" to "origin plz" in error messages
+        assert "origin plz" in data["message"].lower()
 
     def test_calculate_plz_distance_missing_destination(self):
         """Test PLZ distance calculation without destination PLZ."""
@@ -368,7 +370,8 @@ class TestGeocodingServiceAPI:
         assert response.status_code == 400
         
         data = response.json()
-        assert "destination_plz" in data["message"].lower()
+        # Flask-RESTful converts "destination_plz" to "destination plz" in error messages
+        assert "destination plz" in data["message"].lower()
 
     def test_calculate_plz_distance_invalid_format_origin(self):
         """Test PLZ distance calculation with invalid origin PLZ format."""
