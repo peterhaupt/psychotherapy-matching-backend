@@ -1,6 +1,6 @@
 """Main application file for the Geocoding Service."""
 import logging
-from flask import Flask
+from flask import Flask, jsonify
 from flask_restful import Api
 from flask_cors import CORS
 
@@ -44,6 +44,14 @@ def create_app():
     api.add_resource(ReverseGeocodingResource, '/api/reverse-geocode')
     api.add_resource(DistanceCalculationResource, '/api/calculate-distance')
     api.add_resource(PLZDistanceResource, '/api/calculate-plz-distance')
+
+    # Health check endpoint
+    @app.route('/health')
+    def health_check():
+        return jsonify({
+            "status": "healthy",
+            "service": "geocoding-service"
+        }), 200
 
     # Start Kafka consumers
     start_consumers()
