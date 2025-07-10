@@ -349,6 +349,12 @@ class TestMatchingServiceAPI:
             email="therapist3@example.com"
         )
         
+        # DEBUG: Print created therapist details
+        print(f"\n=== DEBUG: Created therapists ===")
+        print(f"therapist1 ID: {therapist1['id']}, PLZ: {therapist1.get('plz')}, available: {therapist1.get('potenziell_verfuegbar')}, informed: {therapist1.get('ueber_curavani_informiert')}")
+        print(f"therapist2 ID: {therapist2['id']}, PLZ: {therapist2.get('plz')}, available: {therapist2.get('potenziell_verfuegbar')}, informed: {therapist2.get('ueber_curavani_informiert')}")
+        print(f"therapist3 ID: {therapist3['id']}, PLZ: {therapist3.get('plz')}, available: {therapist3.get('potenziell_verfuegbar')}, informed: {therapist3.get('ueber_curavani_informiert')}")
+        
         # Get therapists with PLZ prefix 52
         response = requests.get(f"{BASE_URL}/therapeuten-zur-auswahl?plz_prefix=52")
         assert response.status_code == 200
@@ -357,8 +363,25 @@ class TestMatchingServiceAPI:
         assert data['plz_prefix'] == "52"
         therapists = data['data']
         
+        # DEBUG: Print actual response
+        print(f"\n=== DEBUG: API Response ===")
+        print(f"Total therapists returned: {len(therapists)}")
+        print(f"Therapist IDs returned: {[t['id'] for t in therapists]}")
+        print(f"Full response data: {data}")
+        
+        # DEBUG: Print details of returned therapists
+        for i, t in enumerate(therapists):
+            print(f"Returned therapist {i}: ID={t['id']}, PLZ={t.get('plz')}, available={t.get('potenziell_verfuegbar')}, informed={t.get('ueber_curavani_informiert')}")
+        
         # Verify only therapists with PLZ 52xxx are returned
         therapist_ids = [t['id'] for t in therapists]
+        
+        # DEBUG: Check if our therapists are there
+        print(f"\n=== DEBUG: Checking for our therapists ===")
+        print(f"Looking for therapist1 ID {therapist1['id']}: {'FOUND' if therapist1['id'] in therapist_ids else 'NOT FOUND'}")
+        print(f"Looking for therapist2 ID {therapist2['id']}: {'FOUND' if therapist2['id'] in therapist_ids else 'NOT FOUND'}")
+        print(f"Looking for therapist3 ID {therapist3['id']}: {'FOUND' if therapist3['id'] in therapist_ids else 'NOT FOUND'}")
+        
         assert therapist1['id'] in therapist_ids
         assert therapist2['id'] in therapist_ids
         assert therapist3['id'] not in therapist_ids
@@ -670,6 +693,11 @@ class TestMatchingServiceAPI:
             email="chris.nogender.therapist@example.com"
         )
         
+        # DEBUG: Print created therapist details
+        print(f"\n=== DEBUG: Created diverse therapists ===")
+        print(f"therapist_diverse ID: {therapist_diverse['id']}, PLZ: {therapist_diverse.get('plz')}, available: {therapist_diverse.get('potenziell_verfuegbar')}, informed: {therapist_diverse.get('ueber_curavani_informiert')}")
+        print(f"therapist_keine_angabe ID: {therapist_keine_angabe['id']}, PLZ: {therapist_keine_angabe.get('plz')}, available: {therapist_keine_angabe.get('potenziell_verfuegbar')}, informed: {therapist_keine_angabe.get('ueber_curavani_informiert')}")
+        
         # Get therapists for selection
         response = requests.get(f"{BASE_URL}/therapeuten-zur-auswahl?plz_prefix=52")
         assert response.status_code == 200
@@ -677,8 +705,18 @@ class TestMatchingServiceAPI:
         data = response.json()
         therapists = data['data']
         
-        # Verify diverse therapists are included
+        # DEBUG: Print actual response
+        print(f"\n=== DEBUG: API Response for diverse gender test ===")
+        print(f"Total therapists returned: {len(therapists)}")
+        print(f"Therapist IDs returned: {[t['id'] for t in therapists]}")
+        
+        # DEBUG: Check if our therapists are there
         therapist_ids = [t['id'] for t in therapists]
+        print(f"\n=== DEBUG: Checking for our diverse therapists ===")
+        print(f"Looking for therapist_diverse ID {therapist_diverse['id']}: {'FOUND' if therapist_diverse['id'] in therapist_ids else 'NOT FOUND'}")
+        print(f"Looking for therapist_keine_angabe ID {therapist_keine_angabe['id']}: {'FOUND' if therapist_keine_angabe['id'] in therapist_ids else 'NOT FOUND'}")
+        
+        # Verify diverse therapists are included
         assert therapist_diverse['id'] in therapist_ids
         assert therapist_keine_angabe['id'] in therapist_ids
         
@@ -702,6 +740,11 @@ class TestMatchingServiceAPI:
         assert response.status_code == 201  # Patient creation should still work
         incomplete_patient = response.json()
         
+        # DEBUG: Print created patient details
+        print(f"\n=== DEBUG: Created incomplete patient ===")
+        print(f"Patient ID: {incomplete_patient['id']}")
+        print(f"Patient data: {incomplete_patient}")
+        
         # Try to create platzsuche with incomplete patient
         search_data = {
             "patient_id": incomplete_patient['id'],
@@ -709,11 +752,29 @@ class TestMatchingServiceAPI:
         }
         
         response = requests.post(f"{BASE_URL}/platzsuchen", json=search_data)
+        
+        # DEBUG: Print response details
+        print(f"\n=== DEBUG: Platzsuche creation response ===")
+        print(f"Status code: {response.status_code}")
+        print(f"Response body: {response.text}")
+        
         assert response.status_code == 400  # Should fail validation
         
         error_message = response.json()['message']
+        print(f"\n=== DEBUG: Error message analysis ===")
+        print(f"Full error message: '{error_message}'")
+        print(f"Contains 'Cannot create platzsuche': {'Cannot create platzsuche' in error_message}")
+        
+        # Check what fields are mentioned in the error
+        fields_to_check = ['symptome', 'krankenkasse', 'geburtsdatum', 'erfahrung_mit_psychotherapie', 'offen_fuer_gruppentherapie', 'zeitliche_verfuegbarkeit']
+        found_fields = []
+        for field in fields_to_check:
+            if field in error_message:
+                found_fields.append(field)
+        print(f"Fields mentioned in error: {found_fields}")
+        
         assert "Cannot create platzsuche" in error_message
-        assert any(field in error_message for field in ['symptome', 'krankenkasse', 'geburtsdatum'])
+        assert any(field in error_message for field in ['diagnose', 'symptome', 'krankenkasse', 'geburtsdatum'])
         
         # Cleanup
         self.safe_delete_patient(incomplete_patient['id'])

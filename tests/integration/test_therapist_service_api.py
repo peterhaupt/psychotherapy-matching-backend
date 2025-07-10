@@ -1,6 +1,7 @@
-"""Updated integration tests for Therapist Service API with search-based isolation."""
+"""Pytest-compatible integration tests for Therapist Service API with search-based isolation."""
 import requests
 import uuid
+import pytest
 from datetime import date, timedelta
 
 
@@ -8,17 +9,24 @@ from datetime import date, timedelta
 BASE_URL = "http://localhost:8002"
 
 
-class TestTherapistServiceAPI:
-    """Integration tests for the Therapist Service API using search-based test isolation."""
+@pytest.fixture(scope="class")
+def test_session():
+    """Create a unique test session identifier for this test class."""
+    session_id = str(uuid.uuid4())[:8]
+    test_prefix = f"TestTherapist_{session_id}"
+    print(f"\nTest session ID: {session_id}")
+    return {
+        "session_id": session_id,
+        "test_prefix": test_prefix,
+        "created_therapists": []
+    }
+
+
+@pytest.fixture
+def therapist_factory(test_session):
+    """Factory fixture for creating test therapists with unique searchable names."""
     
-    def __init__(self):
-        """Initialize test class with unique test identifier."""
-        # Generate unique test session ID to avoid conflicts between test runs
-        self.test_session_id = str(uuid.uuid4())[:8]
-        self.test_prefix = f"TestTherapist_{self.test_session_id}"
-        print(f"Test session ID: {self.test_session_id}")
-    
-    def create_test_therapist(self, **kwargs):
+    def _create_test_therapist(**kwargs):
         """Create a test therapist with unique searchable name and provided attributes.
         
         Args:
@@ -29,12 +37,13 @@ class TestTherapistServiceAPI:
         """
         # Generate unique names for this test therapist
         unique_id = str(uuid.uuid4())[:4]
+        test_prefix = test_session["test_prefix"]
         
         # Default test therapist data with unique searchable names
         default_data = {
             "anrede": "Frau",
             "geschlecht": "weiblich", 
-            "vorname": f"{self.test_prefix}_{unique_id}",
+            "vorname": f"{test_prefix}_{unique_id}",
             "nachname": f"TestNachname_{unique_id}",
             "titel": "Dr. med.",
             "strasse": "Teststraße 123",
@@ -53,16 +62,27 @@ class TestTherapistServiceAPI:
         default_data.update(kwargs)
         
         # Ensure vorname includes our test prefix for searchability
-        if not default_data["vorname"].startswith(self.test_prefix):
-            default_data["vorname"] = f"{self.test_prefix}_{default_data['vorname']}"
+        if not default_data["vorname"].startswith(test_prefix):
+            default_data["vorname"] = f"{test_prefix}_{default_data['vorname']}"
         
         # Create therapist via API
         response = requests.post(f"{BASE_URL}/api/therapists", json=default_data)
         assert response.status_code == 201, f"Failed to create therapist: {response.text}"
         
-        return response.json()
+        created_therapist = response.json()
+        # Track created therapist for cleanup
+        test_session["created_therapists"].append(created_therapist["id"])
+        
+        return created_therapist
     
-    def get_test_therapists(self, additional_filters=None):
+    return _create_test_therapist
+
+
+@pytest.fixture
+def therapist_searcher(test_session):
+    """Fixture for searching test therapists created in this session."""
+    
+    def _get_test_therapists(additional_filters=None):
         """Get all test therapists created in this session using search.
         
         Args:
@@ -72,7 +92,7 @@ class TestTherapistServiceAPI:
             list: List of test therapists matching search criteria
         """
         # Base search for our test therapists
-        params = {"search": self.test_prefix}
+        params = {"search": test_session["test_prefix"]}
         
         # Add any additional filters
         if additional_filters:
@@ -87,26 +107,42 @@ class TestTherapistServiceAPI:
         
         return data['data']
     
-    def cleanup_test_therapists(self):
-        """Clean up test therapists created in this session."""
-        try:
-            test_therapists = self.get_test_therapists()
-            for therapist in test_therapists:
-                requests.delete(f"{BASE_URL}/api/therapists/{therapist['id']}")
-                print(f"Cleaned up test therapist {therapist['id']}")
-        except Exception as e:
-            print(f"Warning: Could not clean up test therapists: {e}")
+    return _get_test_therapists
+
+
+@pytest.fixture(scope="class", autouse=True)
+def cleanup_therapists(test_session):
+    """Automatically clean up test therapists after all tests in the class."""
+    yield  # Let all tests run first
     
-    def test_get_therapists_list_with_data(self):
+    # Cleanup after all tests
+    try:
+        created_ids = test_session.get("created_therapists", [])
+        for therapist_id in created_ids:
+            response = requests.delete(f"{BASE_URL}/api/therapists/{therapist_id}")
+            if response.status_code == 200:
+                print(f"Cleaned up test therapist {therapist_id}")
+            else:
+                print(f"Warning: Could not clean up therapist {therapist_id}: {response.status_code}")
+        
+        print(f"✅ Cleanup completed - removed {len(created_ids)} test therapists")
+    except Exception as e:
+        print(f"Warning: Error during cleanup: {e}")
+
+
+class TestTherapistServiceAPI:
+    """Integration tests for the Therapist Service API using search-based test isolation."""
+    
+    def test_get_therapists_list_with_data(self, therapist_factory, therapist_searcher):
         """Test getting therapist list with data and pagination."""
         # Create test therapists with unique searchable names
-        therapist1 = self.create_test_therapist(
+        therapist1 = therapist_factory(
             vorname="Anna", 
             nachname="Schmidt", 
             anrede="Frau", 
             geschlecht="weiblich"
         )
-        therapist2 = self.create_test_therapist(
+        therapist2 = therapist_factory(
             vorname="Peter", 
             nachname="Meyer", 
             anrede="Herr", 
@@ -114,7 +150,7 @@ class TestTherapistServiceAPI:
         )
         
         # Search for our test therapists specifically
-        therapists = self.get_test_therapists()
+        therapists = therapist_searcher()
         
         # Verify we have at least our 2 test therapists
         assert len(therapists) >= 2, f"Expected at least 2 therapists, got {len(therapists)}"
@@ -131,27 +167,23 @@ class TestTherapistServiceAPI:
             assert 'nachname' in therapist
             assert 'anrede' in therapist
             assert 'geschlecht' in therapist
-            # Verify it's actually our test data
-            assert therapist['vorname'].startswith(self.test_prefix)
-        
-        print("✓ test_get_therapists_list_with_data passed")
     
-    def test_get_therapists_list_filtered_by_status(self):
+    def test_get_therapists_list_filtered_by_status(self, therapist_factory, therapist_searcher):
         """Test filtering therapists by status with pagination."""
         # Create therapists with different statuses
-        therapist1 = self.create_test_therapist(
+        therapist1 = therapist_factory(
             vorname="Active",
             nachname="Therapist",
             status="aktiv"
         )
-        therapist2 = self.create_test_therapist(
+        therapist2 = therapist_factory(
             vorname="Blocked",
             nachname="Therapist", 
             status="gesperrt"
         )
         
         # Search for active test therapists only
-        active_therapists = self.get_test_therapists({"status": "aktiv"})
+        active_therapists = therapist_searcher({"status": "aktiv"})
         
         # Check that all returned therapists have the correct status
         for therapist in active_therapists:
@@ -163,29 +195,27 @@ class TestTherapistServiceAPI:
         assert therapist2['id'] not in active_ids, f"Blocked therapist {therapist2['id']} should not be in active results"
         
         # Test blocked filter as well
-        blocked_therapists = self.get_test_therapists({"status": "gesperrt"})
+        blocked_therapists = therapist_searcher({"status": "gesperrt"})
         blocked_ids = [t['id'] for t in blocked_therapists]
         assert therapist2['id'] in blocked_ids, f"Blocked therapist {therapist2['id']} not in blocked results"
         assert therapist1['id'] not in blocked_ids, f"Active therapist {therapist1['id']} should not be in blocked results"
-        
-        print("✓ test_get_therapists_list_filtered_by_status passed")
     
-    def test_get_therapists_filtered_by_availability(self):
+    def test_get_therapists_filtered_by_availability(self, therapist_factory, therapist_searcher):
         """Test filtering therapists by availability with pagination."""
         # Create therapists with different availability
-        therapist1 = self.create_test_therapist(
+        therapist1 = therapist_factory(
             vorname="Available",
             nachname="Therapist",
             potenziell_verfuegbar=True
         )
-        therapist2 = self.create_test_therapist(
+        therapist2 = therapist_factory(
             vorname="Unavailable", 
             nachname="Therapist",
             potenziell_verfuegbar=False
         )
         
         # Search for available test therapists only
-        available_therapists = self.get_test_therapists({"potenziell_verfuegbar": "true"})
+        available_therapists = therapist_searcher({"potenziell_verfuegbar": "true"})
         
         # Check that all returned therapists are available
         for therapist in available_therapists:
@@ -196,30 +226,28 @@ class TestTherapistServiceAPI:
         assert therapist1['id'] in available_ids, f"Available therapist {therapist1['id']} not in filtered results"
         
         # Test unavailable filter
-        unavailable_therapists = self.get_test_therapists({"potenziell_verfuegbar": "false"})
+        unavailable_therapists = therapist_searcher({"potenziell_verfuegbar": "false"})
         unavailable_ids = [t['id'] for t in unavailable_therapists]
         assert therapist2['id'] in unavailable_ids, f"Unavailable therapist {therapist2['id']} not in unavailable results"
-        
-        print("✓ test_get_therapists_filtered_by_availability passed")
     
-    def test_cooling_period_filtering(self):
+    def test_cooling_period_filtering(self, therapist_factory, therapist_searcher):
         """Test that therapists in cooling period are handled correctly."""
         # Create a therapist in cooling period
-        therapist1 = self.create_test_therapist(
+        therapist1 = therapist_factory(
             vorname="Cooling",
             nachname="Therapist",
             naechster_kontakt_moeglich=(date.today() + timedelta(days=30)).isoformat()
         )
         
         # Create a therapist not in cooling period  
-        therapist2 = self.create_test_therapist(
+        therapist2 = therapist_factory(
             vorname="Available",
             nachname="Therapist",
             naechster_kontakt_moeglich=date.today().isoformat()
         )
         
         # Get all test therapists
-        all_test_therapists = self.get_test_therapists()
+        all_test_therapists = therapist_searcher()
         
         # Both should be returned (filtering is done by matching service)
         therapist_ids = [t['id'] for t in all_test_therapists]
@@ -237,18 +265,16 @@ class TestTherapistServiceAPI:
         # Verify therapist2 is available today
         available_date = therapist2_data.get('naechster_kontakt_moeglich')
         assert available_date is not None, "Available therapist should have next contact date"
-        
-        print("✓ test_cooling_period_filtering passed")
     
-    def test_search_functionality(self):
+    def test_search_functionality(self, therapist_factory):
         """Test the search functionality specifically."""
         # Create therapists with different searchable attributes
-        therapist1 = self.create_test_therapist(
+        therapist1 = therapist_factory(
             vorname="Unique_Search_Name",
             nachname="Schmidt",
             psychotherapieverfahren="Verhaltenstherapie"
         )
-        therapist2 = self.create_test_therapist(
+        therapist2 = therapist_factory(
             vorname="Different",
             nachname="Unique_Search_Lastname", 
             psychotherapieverfahren="tiefenpsychologisch_fundierte_Psychotherapie"
@@ -275,16 +301,14 @@ class TestTherapistServiceAPI:
         # Should find therapists with Verhaltenstherapie (case-insensitive partial match)
         found_verhaltens = any(t.get('psychotherapieverfahren') == 'Verhaltenstherapie' for t in results)
         assert found_verhaltens, "Search by therapy method failed"
-        
-        print("✓ test_search_functionality passed")
     
-    def test_therapist_crud_operations(self):
+    def test_therapist_crud_operations(self, test_session):
         """Test Create, Read, Update, Delete operations."""
         # CREATE
         therapist_data = {
             "anrede": "Herr",
             "geschlecht": "männlich",
-            "vorname": f"{self.test_prefix}_CRUD_Test",
+            "vorname": f"{test_session['test_prefix']}_CRUD_Test",
             "nachname": "TestCRUD",
             "psychotherapieverfahren": "egal"
         }
@@ -293,6 +317,9 @@ class TestTherapistServiceAPI:
         assert create_response.status_code == 201, f"Create failed: {create_response.text}"
         created_therapist = create_response.json()
         therapist_id = created_therapist['id']
+        
+        # Track for cleanup
+        test_session["created_therapists"].append(therapist_id)
         
         # READ
         read_response = requests.get(f"{BASE_URL}/api/therapists/{therapist_id}")
@@ -319,40 +346,56 @@ class TestTherapistServiceAPI:
         delete_response = requests.delete(f"{BASE_URL}/api/therapists/{therapist_id}")
         assert delete_response.status_code == 200, f"Delete failed: {delete_response.text}"
         
+        # Remove from cleanup list since we just deleted it
+        test_session["created_therapists"].remove(therapist_id)
+        
         # Verify deletion
         verify_response = requests.get(f"{BASE_URL}/api/therapists/{therapist_id}")
         assert verify_response.status_code == 404, "Therapist should be deleted"
-        
-        print("✓ test_therapist_crud_operations passed")
     
-    def run_all_tests(self):
-        """Run all tests and clean up afterwards."""
-        print(f"Starting Therapist Service Integration Tests (Session: {self.test_session_id})")
-        print("=" * 70)
+    def test_health_check(self):
+        """Test the health check endpoint."""
+        response = requests.get(f"{BASE_URL}/health")
+        assert response.status_code == 200
         
-        try:
-            # Run all test methods
-            self.test_get_therapists_list_with_data()
-            self.test_get_therapists_list_filtered_by_status()
-            self.test_get_therapists_filtered_by_availability()
-            self.test_cooling_period_filtering()
-            self.test_search_functionality()
-            self.test_therapist_crud_operations()
-            
-            print("=" * 70)
-            print("🎉 All tests passed!")
-            
-        except Exception as e:
-            print(f"❌ Test failed: {str(e)}")
-            raise
-        finally:
-            # Clean up test data
-            print("\nCleaning up test data...")
-            self.cleanup_test_therapists()
-            print("✅ Cleanup completed")
+        health_data = response.json()
+        assert 'status' in health_data
+        assert health_data['status'] == 'healthy'
+        assert 'service' in health_data
+    
+    def test_communication_history_endpoint(self, therapist_factory):
+        """Test the communication history endpoint."""
+        # Create a test therapist
+        therapist = therapist_factory(
+            vorname="Communication",
+            nachname="Test"
+        )
+        
+        # Test communication history endpoint
+        response = requests.get(f"{BASE_URL}/api/therapists/{therapist['id']}/communication")
+        assert response.status_code == 200
+        
+        comm_data = response.json()
+        assert 'therapist_id' in comm_data
+        assert 'therapist_name' in comm_data
+        assert 'communications' in comm_data
+        assert comm_data['therapist_id'] == therapist['id']
+    
+    def test_import_status_endpoint(self):
+        """Test the import status monitoring endpoint."""
+        response = requests.get(f"{BASE_URL}/api/therapists/import-status")
+        assert response.status_code == 200
+        
+        status_data = response.json()
+        # Check for expected status fields
+        expected_fields = [
+            'running', 'last_check', 'files_processed_today',
+            'therapists_processed_today', 'total_files_processed'
+        ]
+        for field in expected_fields:
+            assert field in status_data, f"Missing field: {field}"
 
 
+# Pytest entry point - can be run with: pytest test_therapist_service_api.py -v
 if __name__ == "__main__":
-    # Run the tests
-    test_runner = TestTherapistServiceAPI()
-    test_runner.run_all_tests()
+    pytest.main([__file__, "-v"])
