@@ -268,6 +268,38 @@ class CommunicationService:
             return None
     
     @staticmethod
+    def _format_german_date(date_string: str) -> str:
+        """Format ISO date string to German date format.
+        
+        Args:
+            date_string: Date in YYYY-MM-DD format
+            
+        Returns:
+            Date in "DD. MMMM YYYY" format (e.g., "03. Juli 2025")
+        """
+        if not date_string:
+            return date_string
+        
+        try:
+            date_obj = datetime.strptime(date_string, '%Y-%m-%d').date()
+            
+            # German month names
+            german_months = {
+                1: 'Januar', 2: 'Februar', 3: 'März', 4: 'April',
+                5: 'Mai', 6: 'Juni', 7: 'Juli', 8: 'August',
+                9: 'September', 10: 'Oktober', 11: 'November', 12: 'Dezember'
+            }
+            
+            day = date_obj.day
+            month = german_months[date_obj.month]
+            year = date_obj.year
+            
+            return f"{day:02d}. {month} {year}"
+        except (ValueError, TypeError):
+            logger.warning(f"Invalid date format for German conversion: {date_string}")
+            return date_string
+    
+    @staticmethod
     def _format_zeitliche_verfuegbarkeit(verfuegbarkeit: Dict[str, str]) -> str:
         """Format zeitliche verfuegbarkeit from JSONB to readable string.
         
@@ -275,7 +307,7 @@ class CommunicationService:
             verfuegbarkeit: Dictionary with weekday keys and time range values
             
         Returns:
-            Formatted string like "Montag: 09:00 bis 17:00 Uhr, Dienstag: ..."
+            Formatted string with each day on a new line like "Montag: 09:00 - 17:00 Uhr"
         """
         if not verfuegbarkeit or not isinstance(verfuegbarkeit, dict):
             return "Nicht angegeben"
@@ -321,16 +353,20 @@ class CommunicationService:
             if time_range:
                 german_day = weekday_mapping.get(day_key, day_key.capitalize())
                 
-                # Format time range to German format
-                if '-' in time_range:
-                    start_time, end_time = time_range.split('-', 1)
-                    formatted_time = f"{start_time.strip()} bis {end_time.strip()} Uhr"
+                # Handle array format like ['09:00-17:00']
+                if isinstance(time_range, list) and len(time_range) > 0:
+                    time_range = time_range[0]  # Extract first element from array
+                
+                # Format time range with spaces around dash
+                if '-' in str(time_range):
+                    start_time, end_time = str(time_range).split('-', 1)
+                    formatted_time = f"{start_time.strip()} - {end_time.strip()} Uhr"
                 else:
                     formatted_time = f"{time_range} Uhr"
                 
                 formatted_days.append(f"{german_day}: {formatted_time}")
         
-        return ', '.join(formatted_days) if formatted_days else "Nicht angegeben"
+        return '\n'.join(formatted_days) if formatted_days else "Nicht angegeben"
     
     @staticmethod 
     def create_anfrage_email(
@@ -389,6 +425,11 @@ class CommunicationService:
                 verfuegbarkeit = patient.get('zeitliche_verfuegbarkeit', {})
                 processed_patient['zeitliche_verfuegbarkeit_formatted'] = \
                     CommunicationService._format_zeitliche_verfuegbarkeit(verfuegbarkeit)
+                
+                # Format German date for letzte_sitzung_vorherige_psychotherapie
+                if patient.get('letzte_sitzung_vorherige_psychotherapie'):
+                    processed_patient['letzte_sitzung_vorherige_psychotherapie'] = \
+                        CommunicationService._format_german_date(patient['letzte_sitzung_vorherige_psychotherapie'])
                 
                 processed_patients.append(processed_patient)
             
