@@ -1,5 +1,3 @@
-# Psychotherapie Anfrage Email Template
-
 {% if therapist.anrede == "Frau" -%}
 Sehr geehrte Frau
 {%- elif therapist.anrede == "Herr" -%}
@@ -10,7 +8,7 @@ Sehr geehrte Damen und Herren
 
 ich bin auf der Suche nach Psychotherapieplätzen für {{ patient_count }} Patienten. Können Sie hier kurzfristig einen oder mehrere Plätze anbieten? Vielen Dank für eine kurze Info.
 
-Hier die wichtigsten Infos zu den Patienten. Aus Datenschutzgründen hier ohne Namen. Wenn Sie einen Platz anbieten können, stelle ich Ihnen für diese Patienten selbstverständlich auch den vollen Namen zur Verfügung.
+Hier die wichtigsten Infos zu den Patienten, aus Datenschutzgründen hier ohne Namen. Wenn Sie einen Platz anbieten können, stelle ich Ihnen für diese Patienten selbstverständlich auch den vollen Namen zur Verfügung.
 
 {% for patient in patients %}
 
@@ -20,12 +18,13 @@ Hier die wichtigsten Infos zu den Patienten. Aus Datenschutzgründen hier ohne N
 **Symptome:** {{ patient.symptome|default("Nicht angegeben") }}  
 **Krankenversicherung:** {{ patient.krankenkasse|default("Nicht angegeben") }}  
 **Alter:** {{ patient.age }} Jahre  
-**Erfahrung mit Psychotherapie:** {% if patient.erfahrung_mit_psychotherapie %}Ja{% else %}Nein{% endif %}  
-{% if patient.erfahrung_mit_psychotherapie and patient.letzte_sitzung_vorherige_psychotherapie -%}
-**Letzte Sitzung vorherige Psychotherapie:** {{ patient.letzte_sitzung_vorherige_psychotherapie }}  
-{%- endif %}
+**Erfahrung mit Psychotherapie:** {% if patient.erfahrung_mit_psychotherapie %}Ja{% else %}Nein{% endif %}
+{%- if patient.erfahrung_mit_psychotherapie and patient.letzte_sitzung_vorherige_psychotherapie %}  
+**Letzte Sitzung vorherige Psychotherapie:** {{ patient.letzte_sitzung_vorherige_psychotherapie }}
+{%- endif %}  
 **Offen für Gruppentherapie:** {% if patient.offen_fuer_gruppentherapie %}Ja{% else %}Nein{% endif %}  
-**Zeitliche Verfügbarkeit:** {{ patient.zeitliche_verfuegbarkeit_formatted|default("Nicht angegeben") }}
+**Zeitliche Verfügbarkeit:**
+{{ patient.zeitliche_verfuegbarkeit_formatted|default("Nicht angegeben") }}
 
 {% endfor %}
 
