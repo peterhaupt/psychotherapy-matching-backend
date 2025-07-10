@@ -1605,75 +1605,205 @@ curl -X POST "http://localhost:8004/api/system-messages" \
 
 ## GET /geocode
 
-**Description:** Convert an address to coordinates.
+**Description:** Convert an address to coordinates using Nominatim geocoding service.
 
 **Query Parameters:**
-- `address` (required): Address to geocode
+- `address` (required): Address string to geocode
+
+**Example Request:**
+```bash
+curl "http://localhost:8005/api/geocode?address=Berlin%2C%20Germany"
+```
 
 **Example Response:**
 ```json
 {
   "latitude": 52.5200,
   "longitude": 13.4050,
-  "display_name": "Berlin, Deutschland"
+  "display_name": "Berlin, Deutschland",
+  "address_components": {
+    "city": "Berlin",
+    "country": "Deutschland",
+    "postcode": "10117"
+  },
+  "source": "nominatim",
+  "status": "success"
+}
+```
+
+**Error Response:**
+```json
+{
+  "status": "error",
+  "error": "Geocoding failed"
 }
 ```
 
 ## GET /reverse-geocode
 
-**Description:** Convert coordinates to an address.
+**Description:** Convert coordinates to an address using reverse geocoding.
 
 **Query Parameters:**
-- `lat` (required): Latitude
-- `lon` (required): Longitude
+- `lat` (required): Latitude coordinate (float)
+- `lon` (required): Longitude coordinate (float)
+
+**Example Request:**
+```bash
+curl "http://localhost:8005/api/reverse-geocode?lat=52.5200&lon=13.4050"
+```
 
 **Example Response:**
 ```json
 {
   "display_name": "Berlin, Deutschland",
-  "address": {
+  "address_components": {
     "city": "Berlin",
     "country": "Deutschland",
     "postcode": "10117"
-  }
+  },
+  "latitude": 52.5200,
+  "longitude": 13.4050,
+  "source": "nominatim",
+  "status": "success"
+}
+```
+
+**Error Response:**
+```json
+{
+  "status": "error",
+  "error": "Reverse geocoding failed"
 }
 ```
 
 ## GET /calculate-distance
 
-**Description:** Calculate distance between two points.
+**Description:** Calculate distance and travel time between two points using OSRM routing service with fallbacks.
 
 **Query Parameters:**
-- `origin` (required): Address or coordinates (origin_lat, origin_lon)
-- `destination` (required): Address or coordinates (destination_lat, destination_lon)
-- `travel_mode` (optional): "car" or "transit" (default: "car")
-- `no_cache` (optional): Bypass cache (default: false)
 
-**Example Response:**
+**Origin (choose one):**
+- `origin` (string): Origin address
+- `origin_lat` + `origin_lon` (float): Origin coordinates
+
+**Destination (choose one):**
+- `destination` (string): Destination address  
+- `destination_lat` + `destination_lon` (float): Destination coordinates
+
+**Optional Parameters:**
+- `travel_mode` (string): "car" or "transit" (default: "car")
+- `no_cache` (boolean): Bypass cache for fresh calculation (default: false)
+- `use_plz_fallback` (boolean): Use PLZ-based fallback for addresses (default: true)
+
+**Calculation Hierarchy:**
+1. **OSRM Routing**: Attempts to get precise route with travel time
+2. **Haversine Distance**: Falls back to straight-line distance if routing fails
+3. **PLZ Centroids**: Uses postal code centroids for German addresses if coordinates unavailable
+
+**Example Requests:**
+```bash
+# Using addresses
+curl "http://localhost:8005/api/calculate-distance?origin=Berlin&destination=Munich&travel_mode=car"
+
+# Using coordinates
+curl "http://localhost:8005/api/calculate-distance?origin_lat=52.5200&origin_lon=13.4050&destination_lat=48.1351&destination_lon=11.5820"
+
+# With cache bypass
+curl "http://localhost:8005/api/calculate-distance?origin=Berlin&destination=Munich&no_cache=true"
+```
+
+**Example Response (OSRM Success):**
 ```json
 {
   "distance_km": 585.2,
-  "travel_time_minutes": 345.5
+  "status": "success",
+  "source": "osrm",
+  "travel_mode": "car",
+  "route_available": true
 }
 ```
 
-## POST /find-therapists
+**Example Response (Haversine Fallback):**
+```json
+{
+  "distance_km": 504.3,
+  "status": "partial",
+  "source": "haversine",
+  "travel_mode": "car",
+  "route_available": false
+}
+```
 
-**Description:** Find therapists within a specified distance from a patient.
+**Example Response (PLZ Fallback):**
+```json
+{
+  "distance_km": 510.1,
+  "status": "success",
+  "source": "plz_centroids",
+  "travel_mode": "car",
+  "route_available": false,
+  "note": "Approximate distance based on postal code areas"
+}
+```
+
+**Error Response:**
+```json
+{
+  "distance_km": 0,
+  "status": "error",
+  "error": "Could not resolve coordinates"
+}
+```
+
+## GET /calculate-plz-distance
+
+**Description:** Calculate straight-line distance between two German postal code centroids.
+
+**Query Parameters:**
+- `origin_plz` (required): Origin PLZ (5-digit German postal code)
+- `destination_plz` (required): Destination PLZ (5-digit German postal code)
+
+**Example Request:**
+```bash
+curl "http://localhost:8005/api/calculate-plz-distance?origin_plz=52062&destination_plz=10115"
+```
 
 **Example Response:**
 ```json
 {
-  "therapists": [
-    {
-      "id": 1,
-      "distance_km": 12.3,
-      "travel_time_minutes": 25.8,
-      "within_range": true
-    }
-  ]
+  "distance_km": 475.8,
+  "status": "success",
+  "source": "plz_centroids",
+  "origin_centroid": {
+    "latitude": 50.7753,
+    "longitude": 6.0839
+  },
+  "destination_centroid": {
+    "latitude": 52.5200,
+    "longitude": 13.4050
+  }
 }
 ```
+
+**Error Responses:**
+```json
+{
+  "status": "error",
+  "error": "Invalid origin PLZ format: ABC12"
+}
+```
+
+```json
+{
+  "status": "error",
+  "error": "One or both PLZ codes not found"
+}
+```
+
+**PLZ Validation:**
+- Must be exactly 5 digits
+- Must be within valid German PLZ range (01001-99998)
+- Both PLZ codes must exist in the centroids database
 
 ---
 
