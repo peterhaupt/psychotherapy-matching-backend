@@ -2,7 +2,7 @@
 
 **Single Source of Truth for All API Integration**
 
-Last Updated: January 2025
+Last Updated: July 2025
 
 ## Overview
 
@@ -24,6 +24,8 @@ The following values are configurable via environment variables and will be refl
 - **MIN_ANFRAGE_SIZE**: Minimum patients per inquiry (default: 1)
 - **MAX_ANFRAGE_SIZE**: Maximum patients per inquiry (default: 6) 
 - **PLZ_MATCH_DIGITS**: PLZ prefix length for filtering (default: 2)
+- **FOLLOW_UP_THRESHOLD_DAYS**: Days before follow-up needed (default: 7)
+- **DEFAULT_PHONE_CALL_TIME**: Default time for phone calls (default: "12:00")
 
 Error messages and validation will reflect the configured values, not hardcoded constants.
 
@@ -1036,10 +1038,30 @@ curl "http://localhost:8003/api/platzsuchen/1"
 
 ## POST /platzsuchen
 
-**Description:** Create a new patient search.
+**Description:** Create a new patient search with enhanced validation.
 
 **Required Fields:**
 - `patient_id` (integer)
+
+**Patient Data Validation:**
+Before creating a platzsuche, the patient must have the following required data:
+
+**Required String Fields (non-empty):**
+- `geschlecht`
+- `diagnose`
+- `symptome`
+- `krankenkasse`
+- `geburtsdatum`
+
+**Required Boolean Fields (explicitly set):**
+- `erfahrung_mit_psychotherapie`
+- `offen_fuer_gruppentherapie`
+
+**Required Complex Fields:**
+- `zeitliche_verfuegbarkeit` - Must have at least one valid time slot
+
+**Conditional Field:**
+- `letzte_sitzung_vorherige_psychotherapie` - Required if `erfahrung_mit_psychotherapie` is true
 
 **Example Request:**
 ```bash
@@ -1051,7 +1073,7 @@ curl -X POST "http://localhost:8003/api/platzsuchen" \
   }'
 ```
 
-**Example Response:**
+**Success Response:**
 ```json
 {
   "id": 1,
@@ -1059,6 +1081,30 @@ curl -X POST "http://localhost:8003/api/platzsuchen" \
   "status": "aktiv",
   "created_at": "2025-06-07",
   "message": "Patient search created successfully"
+}
+```
+
+**Validation Error Response:**
+```json
+{
+  "message": "Cannot create platzsuche: Patient field 'diagnose' is required and cannot be empty",
+  "patient_id": 123
+}
+```
+
+## DELETE /platzsuchen/{id}
+
+**Description:** Delete a patient search and all related records.
+
+**Example Request:**
+```bash
+curl -X DELETE "http://localhost:8003/api/platzsuchen/1"
+```
+
+**Example Response:**
+```json
+{
+  "message": "Patient search deleted successfully"
 }
 ```
 
@@ -1342,6 +1388,22 @@ curl -X PUT "http://localhost:8003/api/therapeutenanfragen/101/antwort" \
 }
 ```
 
+## DELETE /therapeutenanfragen/{id}
+
+**Description:** Delete a therapeutenanfrage and all related records.
+
+**Example Request:**
+```bash
+curl -X DELETE "http://localhost:8003/api/therapeutenanfragen/101"
+```
+
+**Example Response:**
+```json
+{
+  "message": "Therapeutenanfrage deleted successfully"
+}
+```
+
 ---
 
 # Communication Service API
@@ -1497,6 +1559,7 @@ curl -X DELETE "http://localhost:8004/api/emails/1"
 **Query Parameters:**
 - `therapist_id` (optional): Filter by therapist
 - `patient_id` (optional): Filter by patient
+- `therapeutenanfrage_id` (optional): Filter by therapeutenanfrage (NEW)
 - `recipient_type` (optional): Filter by recipient type ("therapist" or "patient")
 - `status` (optional): Filter by call status
 - `geplantes_datum` (optional): Filter by scheduled date
@@ -1511,6 +1574,7 @@ curl -X DELETE "http://localhost:8004/api/emails/1"
       "id": 1,
       "therapist_id": 123,
       "patient_id": null,
+      "therapeutenanfrage_id": 456,
       "geplantes_datum": "2025-06-10",
       "geplante_zeit": "14:30",
       "dauer_minuten": 5,
@@ -1537,6 +1601,7 @@ curl -X DELETE "http://localhost:8004/api/emails/1"
 - Either `therapist_id` (integer) OR `patient_id` (integer) - exactly one must be provided
 
 **Optional Fields:**
+- `therapeutenanfrage_id` (integer) - Link to therapeutenanfrage (NEW)
 - `geplantes_datum` (string, YYYY-MM-DD) - defaults to tomorrow
 - `geplante_zeit` (string, HH:MM) - for therapists: simple slot at 10:00 or 14:00; for patients: defaults to 10:00
 - `dauer_minuten` (integer) - defaults to 5 for therapists, 10 for patients
@@ -1551,6 +1616,7 @@ curl -X DELETE "http://localhost:8004/api/emails/1"
   "id": 3,
   "patient_id": 30,
   "therapist_id": null,
+  "therapeutenanfrage_id": null,
   "geplantes_datum": "2025-06-15",
   "geplante_zeit": "14:00",
   "dauer_minuten": 10,
@@ -1564,6 +1630,17 @@ curl -X DELETE "http://localhost:8004/api/emails/1"
 ## PUT /phone-calls/{id}
 
 **Description:** Update phone call status and outcome.
+
+**Optional Fields:**
+- `therapeutenanfrage_id` (integer) - Link to therapeutenanfrage (NEW)
+- `geplantes_datum` (string, YYYY-MM-DD)
+- `geplante_zeit` (string, HH:MM)
+- `dauer_minuten` (integer)
+- `tatsaechliches_datum` (string, YYYY-MM-DD)
+- `tatsaechliche_zeit` (string, HH:MM)
+- `status` (string)
+- `ergebnis` (string)
+- `notizen` (string)
 
 ## DELETE /phone-calls/{id}
 
@@ -1843,15 +1920,36 @@ All endpoints follow consistent error response patterns:
 
 # Key Changes from Previous Version
 
-## 🆕 **New Endpoint: Send Anfrage (January 2025)**
+## 🆕 **Latest Updates (July 2025)**
 
-### Matching Service:
-- Added `POST /api/therapeutenanfragen/{id}/senden`
-- Sends an unsent anfrage via email
-- Creates email as draft, then queues it for sending
-- Email will be automatically sent within 60 seconds
+### ✅ **DELETE Endpoints Added:**
+- `DELETE /api/therapeutenanfragen/{id}` - Delete therapeutenanfrage and related records
+- `DELETE /api/platzsuchen/{id}` - Actually delete record (not just cancel)
 
-## 🔍 **Search Functionality Added (January 2025):**
+### 📞 **Phone Call Enhancements:**
+- Added `therapeutenanfrage_id` field to phone calls
+- Links phone calls to specific anfragen for follow-up tracking
+- Updated all phone call endpoints to support anfrage linking
+
+### ✅ **Patient Validation for Platzsuche:**
+Enhanced validation when creating patient searches:
+- Required string fields must be non-empty
+- Required boolean fields must be explicitly set  
+- Conditional validation for therapy experience
+- Time availability must have at least one valid slot
+
+### 📧 **Send Anfrage Endpoint:**
+- New `POST /api/therapeutenanfragen/{id}/senden` endpoint
+- Sends unsent anfragen via email
+- Automatic email queuing and sending
+
+### ⚙️ **Follow-up Configuration:**
+- New environment variables for follow-up scheduling
+- `FOLLOW_UP_THRESHOLD_DAYS` (default: 7)
+- `DEFAULT_PHONE_CALL_TIME` (default: "12:00")
+- Automatic daily scheduling at 09:00
+
+## 🔍 **Search Functionality (Previous Update):**
 
 ### Patient Service:
 - Added `search` query parameter to `GET /patients`
@@ -1884,7 +1982,7 @@ All endpoints follow consistent error response patterns:
 - Automatic scheduling is simplified - just returns 10:00 or 14:00 slots
 - Not the sophisticated availability-based scheduling suggested in old docs
 
-## 🔧 **Model Updates (January 2025):**
+## 🔧 **Model Updates (Previous):**
 
 ### 🆕 **Therapist psychotherapieverfahren Change:**
 - Changed from JSONB array to single ENUM field
@@ -1967,4 +2065,9 @@ All endpoints follow consistent error response patterns:
 - Strict validation against allowed enum values
 - Clear error messages in English when validation fails
 
-**Note:** This API reference now accurately reflects the backend implementation after all database migrations and automatic field management are applied. Fields marked as **AUTOMATIC** are managed by the system and cannot be set manually.
+### Phase 5: Follow-up Automation
+- Daily automatic scheduling of follow-up phone calls at 09:00
+- Configurable threshold days for follow-up requirement
+- Automatic linking of phone calls to therapeutenanfragen
+
+**Note:** This API reference now accurately reflects the backend implementation after all database migrations, automatic field management, and latest feature additions including DELETE endpoints, enhanced phone call tracking, and patient validation.
