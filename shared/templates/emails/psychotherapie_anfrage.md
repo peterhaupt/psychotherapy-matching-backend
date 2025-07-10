@@ -38,5 +38,5 @@ Mit freundlichen Grüßen
 Telefon: +49 151 46359691
 
 {% if not therapist.ueber_curavani_informiert %}
-**PS:** Curavani ist eine Vermittlungsplattform, die Patienten bei der Suche nach Psychotherapieplätzen unterstützt. Wir übernehmen für die Patienten die zeitaufwendige Kontaktaufnahme mit Therapeuten und stellen sicher, dass nur qualifizierte Anfragen bei Ihnen ankommen. Diesen Service bieten wir in Kooperation mit zahlreichen Hausarztpraxen an.
+**PS:** Curavani ist eine Vermittlungsplattform, die Patienten bei der Suche nach Psychotherapieplätzen unterstützt. Wir übernehmen für die Patienten die Kontaktaufnahme mit Therapeuten und stellen sicher, dass nur qualifizierte Anfragen bei Ihnen ankommen. Diesen Service bieten wir in Kooperation mit zahlreichen Hausarztpraxen an.
 {% endif %}
