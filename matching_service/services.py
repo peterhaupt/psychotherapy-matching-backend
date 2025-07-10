@@ -360,7 +360,13 @@ class CommunicationService:
                 return None
             
             # Set up Jinja2 environment pointing to shared templates
-            shared_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'shared')
+            # In Docker container, shared is mounted at /app/shared
+            if os.path.exists('/app/shared'):
+                shared_path = '/app/shared'
+            else:
+                # Local development - go up from matching_service to project root
+                shared_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'shared')
+            
             template_dir = os.path.join(shared_path, 'templates', 'emails')
             
             if not os.path.exists(template_dir):
