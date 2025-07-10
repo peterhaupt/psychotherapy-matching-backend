@@ -1,8 +1,12 @@
 """Main application file for the Geocoding Service."""
 import logging
+import os
+import json
+from pathlib import Path
 from flask import Flask, jsonify
 from flask_restful import Api
 from flask_cors import CORS
+from sqlalchemy import create_engine, text
 
 from api.geocoding import (
     GeocodingResource,
@@ -12,6 +16,150 @@ from api.geocoding import (
 )
 from events.consumers import start_consumers
 from shared.config import get_config, setup_logging
+
+
+def check_plz_data_exists(engine):
+    """Check if PLZ centroids data exists in the database."""
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(
+                text("SELECT COUNT(*) FROM geocoding_service.plz_centroids")
+            ).scalar()
+            return result > 0
+    except Exception as e:
+        logging.error(f"Error checking PLZ data: {e}")
+        return False
+
+
+def import_plz_data(engine, json_file_path):
+    """Import PLZ data from JSON file into database."""
+    logger = logging.getLogger(__name__)
+    
+    try:
+        # Read JSON file
+        with open(json_file_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        # Filter for German entries
+        german_entries = [
+            entry for entry in data 
+            if entry.get('country_code') == 'DE'
+        ]
+        
+        logger.info(f"Found {len(german_entries)} German PLZ entries to import")
+        
+        if not german_entries:
+            logger.warning("No German postal codes found in the file!")
+            return False
+        
+        imported = 0
+        skipped = 0
+        
+        with engine.connect() as conn:
+            trans = conn.begin()
+            
+            try:
+                for entry in german_entries:
+                    # Map JSON fields to German database columns
+                    plz = entry.get('zipcode', '').strip()
+                    
+                    # Skip invalid PLZ
+                    if not plz or len(plz) != 5 or not plz.isdigit():
+                        skipped += 1
+                        continue
+                    
+                    # Prepare data
+                    data_dict = {
+                        'plz': plz,
+                        'ort': entry.get('place', '').strip(),
+                        'bundesland': entry.get('state', '').strip(),
+                        'bundesland_code': entry.get('state_code', '').strip(),
+                        'latitude': float(entry.get('latitude', 0)),
+                        'longitude': float(entry.get('longitude', 0))
+                    }
+                    
+                    # Validate coordinates
+                    if data_dict['latitude'] == 0 or data_dict['longitude'] == 0:
+                        skipped += 1
+                        continue
+                    
+                    # Insert (ignore duplicates)
+                    conn.execute(text("""
+                        INSERT INTO geocoding_service.plz_centroids 
+                        (plz, ort, bundesland, bundesland_code, latitude, longitude)
+                        VALUES (:plz, :ort, :bundesland, :bundesland_code, :latitude, :longitude)
+                        ON CONFLICT (plz) DO NOTHING
+                    """), data_dict)
+                    imported += 1
+                
+                trans.commit()
+                logger.info(f"Successfully imported {imported} PLZ entries ({skipped} skipped)")
+                return True
+                
+            except Exception as e:
+                trans.rollback()
+                logger.error(f"Error during PLZ import: {e}")
+                return False
+                
+    except FileNotFoundError:
+        logger.warning(f"PLZ data file not found: {json_file_path}")
+        return False
+    except json.JSONDecodeError as e:
+        logger.error(f"Invalid JSON in PLZ data file: {e}")
+        return False
+    except Exception as e:
+        logger.error(f"Unexpected error importing PLZ data: {e}")
+        return False
+
+
+def initialize_plz_data():
+    """Initialize PLZ centroids data if not already present."""
+    logger = logging.getLogger(__name__)
+    config = get_config()
+    
+    # Create engine with direct connection (not through PgBouncer)
+    engine = create_engine(config.get_database_uri(use_pgbouncer=False))
+    
+    try:
+        # Check if data already exists
+        if check_plz_data_exists(engine):
+            logger.info("PLZ centroids data already exists, skipping import")
+            return
+        
+        logger.info("PLZ centroids data not found, attempting to import...")
+        
+        # Try to find the zipcodes file
+        # In Docker, it should be mounted at /data/zipcodes.de.json
+        # For local development, try ../data/zipcodes.de.json
+        possible_paths = [
+            "/data/zipcodes.de.json",  # Docker mount
+            "../data/zipcodes.de.json",  # Local development
+            "data/zipcodes.de.json",  # Alternative local path
+        ]
+        
+        json_file_path = None
+        for path in possible_paths:
+            if os.path.exists(path):
+                json_file_path = path
+                logger.info(f"Found PLZ data file at: {path}")
+                break
+        
+        if not json_file_path:
+            logger.warning(
+                "PLZ data file (zipcodes.de.json) not found. "
+                "PLZ distance calculations will not work. "
+                "Please ensure the data folder is mounted or the file exists."
+            )
+            return
+        
+        # Import the data
+        if import_plz_data(engine, json_file_path):
+            logger.info("PLZ centroids data imported successfully")
+        else:
+            logger.warning("Failed to import PLZ centroids data")
+            
+    finally:
+        engine.dispose()
 
 
 def create_app():
@@ -52,6 +200,9 @@ def create_app():
             "status": "healthy",
             "service": "geocoding-service"
         }), 200
+
+    # Initialize PLZ data if needed
+    initialize_plz_data()
 
     # Start Kafka consumers
     start_consumers()

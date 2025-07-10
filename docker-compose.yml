@@ -232,6 +232,7 @@ services:
     volumes:
       - ./geocoding_service:/app
       - ./shared:/app/shared
+      - ./data:/data:ro  # Mount data folder as read-only
     depends_on:
       - pgbouncer
       - kafka
