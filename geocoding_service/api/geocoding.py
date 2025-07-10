@@ -41,18 +41,38 @@ plz_distance_fields = {
 }
 
 
+def format_validation_error(error_dict):
+    """Format Flask-RESTful validation errors to match API documentation.
+    
+    Converts {"field": "error message"} to a simple string.
+    """
+    if isinstance(error_dict, dict):
+        # Get the first error message
+        for field, message in error_dict.items():
+            return f"{message}"
+    return str(error_dict)
+
+
 class GeocodingResource(Resource):
     """REST resource for geocoding operations."""
     
-    @marshal_with(geocode_fields)
     def get(self):
         """Geocode an address to coordinates."""
         parser = reqparse.RequestParser()
         parser.add_argument('address', type=str, required=True,
                           help='Address is required',
-                          location='args')  # Look for arguments in query string
+                          location='args')
         
-        args = parser.parse_args()
+        try:
+            args = parser.parse_args()
+        except Exception as e:
+            # Handle validation errors to match API documentation
+            if hasattr(e, 'data') and 'message' in e.data:
+                return {
+                    'message': format_validation_error(e.data['message'])
+                }, 400
+            raise
+        
         address = args['address']
         
         result = geocode_address(address)
@@ -70,18 +90,26 @@ class GeocodingResource(Resource):
 class ReverseGeocodingResource(Resource):
     """REST resource for reverse geocoding operations."""
     
-    @marshal_with(geocode_fields)
     def get(self):
         """Convert coordinates to an address."""
         parser = reqparse.RequestParser()
         parser.add_argument('lat', type=float, required=True,
                           help='Latitude is required',
-                          location='args')  # Look for arguments in query string
+                          location='args')
         parser.add_argument('lon', type=float, required=True,
                           help='Longitude is required',
-                          location='args')  # Look for arguments in query string
+                          location='args')
         
-        args = parser.parse_args()
+        try:
+            args = parser.parse_args()
+        except Exception as e:
+            # Handle validation errors to match API documentation
+            if hasattr(e, 'data') and 'message' in e.data:
+                return {
+                    'message': format_validation_error(e.data['message'])
+                }, 400
+            raise
+        
         latitude = args['lat']
         longitude = args['lon']
         
@@ -100,45 +128,52 @@ class ReverseGeocodingResource(Resource):
 class DistanceCalculationResource(Resource):
     """REST resource for distance calculation operations."""
     
-    @marshal_with(distance_fields)
     def get(self):
         """Calculate distance between two points."""
         parser = reqparse.RequestParser()
         # Origin can be address or coordinates
         parser.add_argument('origin', type=str,
                           help='Origin address',
-                          location='args')  # Look for arguments in query string
+                          location='args')
         parser.add_argument('origin_lat', type=float,
                           help='Origin latitude',
-                          location='args')  # Look for arguments in query string
+                          location='args')
         parser.add_argument('origin_lon', type=float,
                           help='Origin longitude',
-                          location='args')  # Look for arguments in query string
+                          location='args')
         
         # Destination can be address or coordinates
         parser.add_argument('destination', type=str,
                           help='Destination address',
-                          location='args')  # Look for arguments in query string
+                          location='args')
         parser.add_argument('destination_lat', type=float,
                           help='Destination latitude',
-                          location='args')  # Look for arguments in query string
+                          location='args')
         parser.add_argument('destination_lon', type=float,
                           help='Destination longitude',
-                          location='args')  # Look for arguments in query string
+                          location='args')
         
         # Optional parameters
         parser.add_argument('travel_mode', type=str, default='car',
                           choices=['car', 'transit'],
                           help='Mode of transport (car or transit)',
-                          location='args')  # Look for arguments in query string
+                          location='args')
         parser.add_argument('no_cache', type=bool, default=False,
                           help='Bypass cache for fresh calculation',
-                          location='args')  # Look for arguments in query string
+                          location='args')
         parser.add_argument('use_plz_fallback', type=bool, default=True,
                           help='Use PLZ-based fallback for addresses',
-                          location='args')  # Look for arguments in query string
+                          location='args')
         
-        args = parser.parse_args()
+        try:
+            args = parser.parse_args()
+        except Exception as e:
+            # Handle validation errors
+            if hasattr(e, 'data') and 'message' in e.data:
+                return {
+                    'message': format_validation_error(e.data['message'])
+                }, 400
+            raise
         
         # Process origin
         origin = None
@@ -179,7 +214,6 @@ class DistanceCalculationResource(Resource):
 class PLZDistanceResource(Resource):
     """REST resource for PLZ-based distance calculation."""
     
-    @marshal_with(plz_distance_fields)
     def get(self):
         """Calculate distance between two PLZ centroids."""
         parser = reqparse.RequestParser()
@@ -190,7 +224,15 @@ class PLZDistanceResource(Resource):
                           help='Destination PLZ is required',
                           location='args')
         
-        args = parser.parse_args()
+        try:
+            args = parser.parse_args()
+        except Exception as e:
+            # Handle validation errors to match API documentation
+            if hasattr(e, 'data') and 'message' in e.data:
+                return {
+                    'message': format_validation_error(e.data['message'])
+                }, 400
+            raise
         
         # Validate PLZ format
         origin_plz = args['origin_plz'].strip()

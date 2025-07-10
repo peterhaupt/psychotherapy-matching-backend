@@ -184,14 +184,23 @@ def calculate_distance(
     route_result = get_route(origin_coords, destination_coords, travel_mode)
     
     if route_result:
-        # Cache the result
+        # Cache the result with original source
+        cache_data = {
+            "distance_km": route_result["distance_km"],
+            "status": "success",
+            "source": "osrm",
+            "travel_mode": travel_mode,
+            "route_available": True,
+            "original_source": "osrm"  # Store original source
+        }
         _cache_distance_result(
             origin_coords,
             destination_coords,
             travel_mode,
-            route_result
+            cache_data
         )
         
+        # Return without original_source field
         return {
             "distance_km": route_result["distance_km"],
             "status": "success",
@@ -210,7 +219,8 @@ def calculate_distance(
         "status": "partial",
         "source": "haversine",
         "travel_mode": travel_mode,
-        "route_available": False
+        "route_available": False,
+        "original_source": "haversine"  # Store original source
     }
     
     # Cache this result too
@@ -221,7 +231,14 @@ def calculate_distance(
         result
     )
     
-    return result
+    # Return without original_source field
+    return {
+        "distance_km": haversine_distance,
+        "status": "partial",
+        "source": "haversine",
+        "travel_mode": travel_mode,
+        "route_available": False
+    }
 
 
 def _ensure_coordinates(
@@ -296,20 +313,23 @@ def _get_cached_distance(
             
             # Parse route data if available
             route_data = None
+            original_source = "osrm"  # Default
             if cache_entry.route_data:
                 try:
                     route_data = json.loads(cache_entry.route_data)
+                    # Get original source if stored
+                    original_source = route_data.get("original_source", route_data.get("source", "osrm"))
                 except:
                     pass
             
-            # Return the cached result
+            # Return the cached result with 'cache' as the source
+            # Note: This indicates the data came from cache, which is useful information
             return {
                 "distance_km": cache_entry.distance_km,
                 "status": "success",
-                "source": "cache",
+                "source": "cache",  # Indicates this came from cache
                 "travel_mode": travel_mode,
-                "route_available": route_data is not None,
-                "route": route_data
+                "route_available": route_data is not None
             }
         
         return None

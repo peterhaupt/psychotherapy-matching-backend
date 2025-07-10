@@ -1,4 +1,4 @@
-"""Integration tests for Matching Service API with pagination support."""
+"""Integration tests for Matching Service API with pagination support - FIXED for enhanced patient validation."""
 import pytest
 import requests
 import time
@@ -32,21 +32,46 @@ class TestMatchingServiceAPI:
             pytest.fail("Matching service did not start in time")
 
     def create_test_patient(self, **kwargs):
-        """Helper to create a test patient in patient service."""
+        """Helper to create a test patient with ALL REQUIRED FIELDS for platzsuche validation."""
         default_data = {
-            "anrede": "Herr",  # Required field
-            "geschlecht": "männlich",  # Required field
+            # Required enum fields
+            "anrede": "Herr",
+            "geschlecht": "männlich",
+            
+            # Basic info
             "vorname": "Test",
             "nachname": "Patient",
             "plz": "52064",  # Aachen PLZ for testing
             "ort": "Aachen",
             "email": "test.patient@example.com",
-            "diagnose": "F32.1"
+            "telefon": "+49 123 456789",
+            "strasse": "Teststraße 123",
+            
+            # REQUIRED STRING FIELDS for platzsuche validation
+            "geburtsdatum": "1990-01-01",
+            "diagnose": "F32.1",
+            "symptome": "Niedergeschlagenheit, Schlafstörungen, Antriebslosigkeit",  # REQUIRED
+            "krankenkasse": "Test Krankenkasse",  # REQUIRED
+            
+            # REQUIRED BOOLEAN FIELDS for platzsuche validation  
+            "erfahrung_mit_psychotherapie": False,  # REQUIRED
+            "offen_fuer_gruppentherapie": False,  # REQUIRED
+            
+            # REQUIRED COMPLEX FIELD for platzsuche validation
+            "zeitliche_verfuegbarkeit": {  # REQUIRED with at least one time slot
+                "montag": ["09:00-17:00"],
+                "mittwoch": ["14:00-18:00"]
+            },
+            
+            # Optional but useful fields
+            "raeumliche_verfuegbarkeit": {"max_km": 25},
+            "bevorzugtes_therapeutengeschlecht": "Egal",
+            "bevorzugtes_therapieverfahren": "egal"
         }
         data = {**default_data, **kwargs}
         
         response = requests.post(f"{PATIENT_BASE_URL}/patients", json=data)
-        assert response.status_code == 201
+        assert response.status_code == 201, f"Failed to create patient: {response.status_code} - {response.text}"
         return response.json()
 
     def create_test_therapist(self, **kwargs):
@@ -59,6 +84,7 @@ class TestMatchingServiceAPI:
             "plz": "52062",  # Matching PLZ prefix
             "ort": "Aachen",
             "email": "test.therapeut@example.com",
+            "telefon": "+49 241 123456",
             "status": "aktiv",
             "potenziell_verfuegbar": True,
             "ueber_curavani_informiert": True
@@ -66,14 +92,41 @@ class TestMatchingServiceAPI:
         data = {**default_data, **kwargs}
         
         response = requests.post(f"{THERAPIST_BASE_URL}/therapists", json=data)
-        assert response.status_code == 201
+        assert response.status_code == 201, f"Failed to create therapist: {response.status_code} - {response.text}"
         return response.json()
+
+    def safe_delete_platzsuche(self, search_id):
+        """Safely delete a platzsuche, ignoring errors."""
+        try:
+            response = requests.delete(f"{BASE_URL}/platzsuchen/{search_id}")
+            if response.status_code not in [200, 404]:
+                print(f"Warning: Failed to delete platzsuche {search_id}: {response.status_code}")
+        except Exception as e:
+            print(f"Warning: Exception deleting platzsuche {search_id}: {e}")
+
+    def safe_delete_patient(self, patient_id):
+        """Safely delete a patient, ignoring errors."""
+        try:
+            response = requests.delete(f"{PATIENT_BASE_URL}/patients/{patient_id}")
+            if response.status_code not in [200, 404]:
+                print(f"Warning: Failed to delete patient {patient_id}: {response.status_code}")
+        except Exception as e:
+            print(f"Warning: Exception deleting patient {patient_id}: {e}")
+
+    def safe_delete_therapist(self, therapist_id):
+        """Safely delete a therapist, ignoring errors."""
+        try:
+            response = requests.delete(f"{THERAPIST_BASE_URL}/therapists/{therapist_id}")
+            if response.status_code not in [200, 404]:
+                print(f"Warning: Failed to delete therapist {therapist_id}: {response.status_code}")
+        except Exception as e:
+            print(f"Warning: Exception deleting therapist {therapist_id}: {e}")
 
     # Platzsuche (Patient Search) Tests
 
     def test_create_platzsuche(self):
         """Test creating a new patient search."""
-        # Create a patient first
+        # Create a patient first with all required fields
         patient = self.create_test_patient()
         
         # Create platzsuche
@@ -83,7 +136,7 @@ class TestMatchingServiceAPI:
         }
         
         response = requests.post(f"{BASE_URL}/platzsuchen", json=search_data)
-        assert response.status_code == 201
+        assert response.status_code == 201, f"Failed to create platzsuche: {response.status_code} - {response.text}"
         
         created_search = response.json()
         assert created_search["patient_id"] == patient['id']
@@ -91,8 +144,8 @@ class TestMatchingServiceAPI:
         assert "id" in created_search
         
         # Cleanup
-        requests.delete(f"{BASE_URL}/platzsuchen/{created_search['id']}")
-        requests.delete(f"{PATIENT_BASE_URL}/patients/{patient['id']}")
+        self.safe_delete_platzsuche(created_search['id'])
+        self.safe_delete_patient(patient['id'])
 
     def test_get_platzsuchen_list_empty(self):
         """Test getting empty platzsuche list with pagination."""
@@ -110,14 +163,28 @@ class TestMatchingServiceAPI:
 
     def test_get_platzsuchen_list_with_data(self):
         """Test getting platzsuche list with data and pagination."""
-        # Create test data
-        patient1 = self.create_test_patient(vorname="Anna", nachname="Müller", anrede="Frau", geschlecht="weiblich")
-        patient2 = self.create_test_patient(vorname="Max", nachname="Schmidt", anrede="Herr", geschlecht="männlich")
+        # Create test data with complete patient information
+        patient1 = self.create_test_patient(
+            vorname="Anna", 
+            nachname="Müller", 
+            anrede="Frau", 
+            geschlecht="weiblich",
+            email="anna.mueller@example.com"
+        )
+        patient2 = self.create_test_patient(
+            vorname="Max", 
+            nachname="Schmidt", 
+            anrede="Herr", 
+            geschlecht="männlich",
+            email="max.schmidt@example.com"
+        )
         
         search1_response = requests.post(f"{BASE_URL}/platzsuchen", json={"patient_id": patient1['id']})
-        search2_response = requests.post(f"{BASE_URL}/platzsuchen", json={"patient_id": patient2['id']})
-        
+        assert search1_response.status_code == 201, f"Failed to create search1: {search1_response.text}"
         search1 = search1_response.json()
+        
+        search2_response = requests.post(f"{BASE_URL}/platzsuchen", json={"patient_id": patient2['id']})
+        assert search2_response.status_code == 201, f"Failed to create search2: {search2_response.text}"
         search2 = search2_response.json()
         
         # Get list
@@ -140,10 +207,10 @@ class TestMatchingServiceAPI:
         assert data['total'] >= 2
         
         # Cleanup
-        requests.delete(f"{BASE_URL}/platzsuchen/{search1['id']}")
-        requests.delete(f"{BASE_URL}/platzsuchen/{search2['id']}")
-        requests.delete(f"{PATIENT_BASE_URL}/patients/{patient1['id']}")
-        requests.delete(f"{PATIENT_BASE_URL}/patients/{patient2['id']}")
+        self.safe_delete_platzsuche(search1['id'])
+        self.safe_delete_platzsuche(search2['id'])
+        self.safe_delete_patient(patient1['id'])
+        self.safe_delete_patient(patient2['id'])
 
     def test_get_platzsuchen_with_pagination(self):
         """Test platzsuche pagination parameters."""
@@ -164,6 +231,7 @@ class TestMatchingServiceAPI:
                 f"{BASE_URL}/platzsuchen",
                 json={"patient_id": patient['id']}
             )
+            assert search_response.status_code == 201, f"Failed to create search for patient {i}: {search_response.text}"
             created_searches.append(search_response.json())
         
         # Test page 1 with limit 2
@@ -187,9 +255,9 @@ class TestMatchingServiceAPI:
         
         # Cleanup
         for search in created_searches:
-            requests.delete(f"{BASE_URL}/platzsuchen/{search['id']}")
+            self.safe_delete_platzsuche(search['id'])
         for patient in created_patients:
-            requests.delete(f"{PATIENT_BASE_URL}/patients/{patient['id']}")
+            self.safe_delete_patient(patient['id'])
 
     def test_get_platzsuchen_filtered_by_status(self):
         """Test filtering platzsuche by status with pagination."""
@@ -200,13 +268,15 @@ class TestMatchingServiceAPI:
             f"{BASE_URL}/platzsuchen",
             json={"patient_id": patient['id']}
         )
+        assert search_response.status_code == 201
         search = search_response.json()
         
         # Update one to pausiert
-        requests.put(
+        update_response = requests.put(
             f"{BASE_URL}/platzsuchen/{search['id']}",
             json={"status": "pausiert"}
         )
+        assert update_response.status_code == 200
         
         # Filter by status
         response = requests.get(f"{BASE_URL}/platzsuchen?status=pausiert")
@@ -220,8 +290,8 @@ class TestMatchingServiceAPI:
             assert s['status'] == "pausiert"
         
         # Cleanup
-        requests.delete(f"{BASE_URL}/platzsuchen/{search['id']}")
-        requests.delete(f"{PATIENT_BASE_URL}/patients/{patient['id']}")
+        self.safe_delete_platzsuche(search['id'])
+        self.safe_delete_patient(patient['id'])
 
     def test_kontaktanfrage(self):
         """Test requesting additional contacts for a search."""
@@ -231,6 +301,7 @@ class TestMatchingServiceAPI:
             f"{BASE_URL}/platzsuchen",
             json={"patient_id": patient['id']}
         )
+        assert search_response.status_code == 201
         search = search_response.json()
         
         # Request additional contacts
@@ -248,8 +319,8 @@ class TestMatchingServiceAPI:
         assert result['search_id'] == search['id']
         
         # Cleanup
-        requests.delete(f"{BASE_URL}/platzsuchen/{search['id']}")
-        requests.delete(f"{PATIENT_BASE_URL}/patients/{patient['id']}")
+        self.safe_delete_platzsuche(search['id'])
+        self.safe_delete_patient(patient['id'])
 
     # Therapeuten zur Auswahl (Therapist Selection) Tests
 
@@ -261,18 +332,21 @@ class TestMatchingServiceAPI:
             potenziell_verfuegbar=True,
             ueber_curavani_informiert=True,
             anrede="Frau",
-            geschlecht="weiblich"
+            geschlecht="weiblich",
+            email="therapist1@example.com"
         )
         therapist2 = self.create_test_therapist(
             plz="52062",
             potenziell_verfuegbar=True,
             ueber_curavani_informiert=False,
             anrede="Herr",
-            geschlecht="männlich"
+            geschlecht="männlich",
+            email="therapist2@example.com"
         )
         therapist3 = self.create_test_therapist(
             plz="10115",  # Different PLZ prefix
-            potenziell_verfuegbar=True
+            potenziell_verfuegbar=True,
+            email="therapist3@example.com"
         )
         
         # Get therapists with PLZ prefix 52
@@ -298,9 +372,9 @@ class TestMatchingServiceAPI:
             assert therapist_index < len(therapists) - 1  # Should not be last
         
         # Cleanup
-        requests.delete(f"{THERAPIST_BASE_URL}/therapists/{therapist1['id']}")
-        requests.delete(f"{THERAPIST_BASE_URL}/therapists/{therapist2['id']}")
-        requests.delete(f"{THERAPIST_BASE_URL}/therapists/{therapist3['id']}")
+        self.safe_delete_therapist(therapist1['id'])
+        self.safe_delete_therapist(therapist2['id'])
+        self.safe_delete_therapist(therapist3['id'])
 
     def test_invalid_plz_prefix(self):
         """Test invalid PLZ prefix returns error."""
@@ -319,19 +393,39 @@ class TestMatchingServiceAPI:
     def test_create_therapeutenanfrage(self):
         """Test creating an anfrage for a manually selected therapist."""
         # Create test data
-        therapist = self.create_test_therapist(plz="52064", anrede="Frau", geschlecht="weiblich")
-        patient1 = self.create_test_patient(plz="52062", anrede="Herr", geschlecht="männlich")
-        patient2 = self.create_test_patient(plz="52068", anrede="Frau", geschlecht="divers")
+        therapist = self.create_test_therapist(
+            plz="52064", 
+            anrede="Frau", 
+            geschlecht="weiblich",
+            email="test.therapist@example.com"
+        )
+        patient1 = self.create_test_patient(
+            plz="52062", 
+            anrede="Herr", 
+            geschlecht="männlich",
+            email="patient1@example.com"
+        )
+        patient2 = self.create_test_patient(
+            plz="52068", 
+            anrede="Frau", 
+            geschlecht="divers",
+            email="patient2@example.com"
+        )
         
         # Create searches for patients
-        search1 = requests.post(
+        search1_response = requests.post(
             f"{BASE_URL}/platzsuchen",
             json={"patient_id": patient1['id']}
-        ).json()
-        search2 = requests.post(
+        )
+        assert search1_response.status_code == 201
+        search1 = search1_response.json()
+        
+        search2_response = requests.post(
             f"{BASE_URL}/platzsuchen",
             json={"patient_id": patient2['id']}
-        ).json()
+        )
+        assert search2_response.status_code == 201
+        search2 = search2_response.json()
         
         # Create anfrage
         response = requests.post(
@@ -353,14 +447,17 @@ class TestMatchingServiceAPI:
             assert 'anfrage_id' in anfrage
             
             # Cleanup anfrage
-            # Note: No delete endpoint for anfragen in the current implementation
+            try:
+                requests.delete(f"{BASE_URL}/therapeutenanfragen/{anfrage['anfrage_id']}")
+            except:
+                pass  # Ignore if delete endpoint doesn't exist
         
         # Cleanup
-        requests.delete(f"{BASE_URL}/platzsuchen/{search1['id']}")
-        requests.delete(f"{BASE_URL}/platzsuchen/{search2['id']}")
-        requests.delete(f"{THERAPIST_BASE_URL}/therapists/{therapist['id']}")
-        requests.delete(f"{PATIENT_BASE_URL}/patients/{patient1['id']}")
-        requests.delete(f"{PATIENT_BASE_URL}/patients/{patient2['id']}")
+        self.safe_delete_platzsuche(search1['id'])
+        self.safe_delete_platzsuche(search2['id'])
+        self.safe_delete_therapist(therapist['id'])
+        self.safe_delete_patient(patient1['id'])
+        self.safe_delete_patient(patient2['id'])
 
     def test_get_therapeutenanfragen_list_empty(self):
         """Test getting empty therapeutenanfrage list with pagination."""
@@ -460,10 +557,12 @@ class TestMatchingServiceAPI:
         """Test that creating duplicate active search fails."""
         # Create patient and first search
         patient = self.create_test_patient()
-        search1 = requests.post(
+        search1_response = requests.post(
             f"{BASE_URL}/platzsuchen",
             json={"patient_id": patient['id']}
-        ).json()
+        )
+        assert search1_response.status_code == 201
+        search1 = search1_response.json()
         
         # Try to create another active search for same patient
         response = requests.post(
@@ -474,17 +573,19 @@ class TestMatchingServiceAPI:
         assert "already has an active search" in response.json()['message']
         
         # Cleanup
-        requests.delete(f"{BASE_URL}/platzsuchen/{search1['id']}")
-        requests.delete(f"{PATIENT_BASE_URL}/patients/{patient['id']}")
+        self.safe_delete_platzsuche(search1['id'])
+        self.safe_delete_patient(patient['id'])
 
     def test_update_platzsuche_exclusions(self):
         """Test updating therapist exclusion list."""
         # Create search
         patient = self.create_test_patient()
-        search = requests.post(
+        search_response = requests.post(
             f"{BASE_URL}/platzsuchen",
             json={"patient_id": patient['id']}
-        ).json()
+        )
+        assert search_response.status_code == 201
+        search = search_response.json()
         
         # Update exclusions
         response = requests.put(
@@ -501,46 +602,52 @@ class TestMatchingServiceAPI:
         assert updated_search['ausgeschlossene_therapeuten'] == [101, 102, 103]
         
         # Cleanup
-        requests.delete(f"{BASE_URL}/platzsuchen/{search['id']}")
-        requests.delete(f"{PATIENT_BASE_URL}/patients/{patient['id']}")
+        self.safe_delete_platzsuche(search['id'])
+        self.safe_delete_patient(patient['id'])
 
     def test_matching_with_diverse_gender_patients(self):
         """Test matching service with patients of diverse and keine_Angabe gender."""
-        # Create diverse patients
+        # Create diverse patients with all required fields
         patient_diverse = self.create_test_patient(
             anrede="Herr",
             geschlecht="divers",
             vorname="Alex",
-            nachname="Diverse"
+            nachname="Diverse",
+            email="alex.diverse@example.com"
         )
         
         patient_keine_angabe = self.create_test_patient(
             anrede="Frau",
             geschlecht="keine_Angabe",
             vorname="Chris",
-            nachname="NoGender"
+            nachname="NoGender",
+            email="chris.nogender@example.com"
         )
         
         # Create searches
-        search1 = requests.post(
+        search1_response = requests.post(
             f"{BASE_URL}/platzsuchen",
             json={"patient_id": patient_diverse['id']}
-        ).json()
+        )
+        assert search1_response.status_code == 201
+        search1 = search1_response.json()
         
-        search2 = requests.post(
+        search2_response = requests.post(
             f"{BASE_URL}/platzsuchen",
             json={"patient_id": patient_keine_angabe['id']}
-        ).json()
+        )
+        assert search2_response.status_code == 201
+        search2 = search2_response.json()
         
         # Verify searches created successfully
         assert search1['patient_id'] == patient_diverse['id']
         assert search2['patient_id'] == patient_keine_angabe['id']
         
         # Cleanup
-        requests.delete(f"{BASE_URL}/platzsuchen/{search1['id']}")
-        requests.delete(f"{BASE_URL}/platzsuchen/{search2['id']}")
-        requests.delete(f"{PATIENT_BASE_URL}/patients/{patient_diverse['id']}")
-        requests.delete(f"{PATIENT_BASE_URL}/patients/{patient_keine_angabe['id']}")
+        self.safe_delete_platzsuche(search1['id'])
+        self.safe_delete_platzsuche(search2['id'])
+        self.safe_delete_patient(patient_diverse['id'])
+        self.safe_delete_patient(patient_keine_angabe['id'])
 
     def test_matching_with_diverse_gender_therapists(self):
         """Test therapist selection with diverse gender therapists."""
@@ -550,7 +657,8 @@ class TestMatchingServiceAPI:
             geschlecht="divers",
             vorname="Alex",
             nachname="DiverseTherapist",
-            plz="52064"
+            plz="52064",
+            email="alex.diverse.therapist@example.com"
         )
         
         therapist_keine_angabe = self.create_test_therapist(
@@ -558,7 +666,8 @@ class TestMatchingServiceAPI:
             geschlecht="keine_Angabe",
             vorname="Chris",
             nachname="NoGenderTherapist",
-            plz="52065"
+            plz="52065",
+            email="chris.nogender.therapist@example.com"
         )
         
         # Get therapists for selection
@@ -574,8 +683,60 @@ class TestMatchingServiceAPI:
         assert therapist_keine_angabe['id'] in therapist_ids
         
         # Cleanup
-        requests.delete(f"{THERAPIST_BASE_URL}/therapists/{therapist_diverse['id']}")
-        requests.delete(f"{THERAPIST_BASE_URL}/therapists/{therapist_keine_angabe['id']}")
+        self.safe_delete_therapist(therapist_diverse['id'])
+        self.safe_delete_therapist(therapist_keine_angabe['id'])
+
+    def test_patient_validation_errors(self):
+        """Test that patient validation works correctly."""
+        # Create patient with missing required fields
+        incomplete_patient_data = {
+            "anrede": "Herr",
+            "geschlecht": "männlich",
+            "vorname": "Incomplete",
+            "nachname": "Patient",
+            "email": "incomplete@example.com"
+            # Missing: symptome, krankenkasse, geburtsdatum, etc.
+        }
+        
+        response = requests.post(f"{PATIENT_BASE_URL}/patients", json=incomplete_patient_data)
+        assert response.status_code == 201  # Patient creation should still work
+        incomplete_patient = response.json()
+        
+        # Try to create platzsuche with incomplete patient
+        search_data = {
+            "patient_id": incomplete_patient['id'],
+            "notizen": "This should fail"
+        }
+        
+        response = requests.post(f"{BASE_URL}/platzsuchen", json=search_data)
+        assert response.status_code == 400  # Should fail validation
+        
+        error_message = response.json()['message']
+        assert "Cannot create platzsuche" in error_message
+        assert any(field in error_message for field in ['symptome', 'krankenkasse', 'geburtsdatum'])
+        
+        # Cleanup
+        self.safe_delete_patient(incomplete_patient['id'])
+
+    def test_patient_with_therapy_experience(self):
+        """Test patient validation when therapy experience is true."""
+        # Create patient with therapy experience (requires letzte_sitzung_vorherige_psychotherapie)
+        patient = self.create_test_patient(
+            erfahrung_mit_psychotherapie=True,
+            letzte_sitzung_vorherige_psychotherapie="2023-05-15"  # Required when experience is true
+        )
+        
+        # Should be able to create platzsuche
+        search_response = requests.post(
+            f"{BASE_URL}/platzsuchen",
+            json={"patient_id": patient['id']}
+        )
+        assert search_response.status_code == 201
+        search = search_response.json()
+        
+        # Cleanup
+        self.safe_delete_platzsuche(search['id'])
+        self.safe_delete_patient(patient['id'])
 
 
 if __name__ == "__main__":

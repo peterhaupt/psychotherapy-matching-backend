@@ -190,7 +190,7 @@ class TestGeocodingServiceAPI:
         assert "distance_km" in data
         assert data["travel_mode"] == "car"
         assert data["status"] in ["success", "partial"]
-        assert data["source"] in ["osrm", "haversine", "plz_centroids"]
+        assert data["source"] in ["osrm", "haversine", "plz_centroids", "cache"]
         
         # Distance between Berlin and Munich should be around 500-600 km
         assert 400 < data["distance_km"] < 700
