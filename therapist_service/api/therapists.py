@@ -127,6 +127,30 @@ therapist_fields = {
 }
 
 
+def parse_boolean_parameter(param_value: str) -> bool:
+    """Parse string boolean parameter to actual boolean.
+    
+    Args:
+        param_value: String value from request parameters
+        
+    Returns:
+        Boolean value, or None if param_value is None
+        
+    Raises:
+        ValueError: If param_value is not a valid boolean string
+    """
+    if param_value is None:
+        return None
+    
+    param_lower = param_value.lower().strip()
+    if param_lower == 'true':
+        return True
+    elif param_lower == 'false':
+        return False
+    else:
+        raise ValueError(f"Invalid boolean value '{param_value}'. Use 'true' or 'false'.")
+
+
 def validate_and_get_therapist_status(status_value: str) -> TherapistStatus:
     """Validate and return TherapistStatus enum.
     
@@ -399,8 +423,16 @@ class TherapistListResource(PaginatedListResource):
         """Get a list of therapists with optional filtering and pagination."""
         # Parse query parameters for filtering
         status = request.args.get('status')
-        potenziell_verfuegbar = request.args.get('potenziell_verfuegbar', type=bool)
         search = request.args.get('search', '').strip()
+        
+        # FIXED: Proper boolean parameter parsing
+        potenziell_verfuegbar_str = request.args.get('potenziell_verfuegbar')
+        potenziell_verfuegbar = None
+        if potenziell_verfuegbar_str is not None:
+            try:
+                potenziell_verfuegbar = parse_boolean_parameter(potenziell_verfuegbar_str)
+            except ValueError as e:
+                return {'message': str(e)}, 400
         
         db = SessionLocal()
         try:
@@ -420,6 +452,7 @@ class TherapistListResource(PaginatedListResource):
                         "total": 0
                     }
             
+            # Apply availability filter if provided
             if potenziell_verfuegbar is not None:
                 query = query.filter(Therapist.potenziell_verfuegbar == potenziell_verfuegbar)
             

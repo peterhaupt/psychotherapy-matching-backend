@@ -1,7 +1,8 @@
-"""Pytest-compatible integration tests for Therapist Service API with search-based isolation."""
+"""Pytest-compatible integration tests for Therapist Service API with search-based isolation and enhanced debugging."""
 import requests
 import uuid
 import pytest
+import time
 from datetime import date, timedelta
 
 
@@ -65,13 +66,38 @@ def therapist_factory(test_session):
         if not default_data["vorname"].startswith(test_prefix):
             default_data["vorname"] = f"{test_prefix}_{default_data['vorname']}"
         
+        print(f"\n=== DEBUG: Creating therapist with data ===")
+        for key, value in kwargs.items():
+            print(f"  Override: {key} = {value}")
+        print(f"  Final potenziell_verfuegbar: {default_data['potenziell_verfuegbar']}")
+        
         # Create therapist via API
         response = requests.post(f"{BASE_URL}/api/therapists", json=default_data)
+        
+        print(f"  Creation response status: {response.status_code}")
+        if response.status_code != 201:
+            print(f"  Creation failed: {response.text}")
+        
         assert response.status_code == 201, f"Failed to create therapist: {response.text}"
         
         created_therapist = response.json()
+        therapist_id = created_therapist["id"]
+        
+        print(f"  Created therapist ID: {therapist_id}")
+        print(f"  Created with availability: {created_therapist.get('potenziell_verfuegbar')}")
+        
         # Track created therapist for cleanup
-        test_session["created_therapists"].append(created_therapist["id"])
+        test_session["created_therapists"].append(therapist_id)
+        
+        # IMMEDIATE VERIFICATION: Get the therapist back to confirm it exists
+        verification_response = requests.get(f"{BASE_URL}/api/therapists/{therapist_id}")
+        if verification_response.ok:
+            verified_data = verification_response.json()
+            print(f"  Verification GET successful")
+            print(f"  Verified availability: {verified_data.get('potenziell_verfuegbar')}")
+            print(f"  Verified vorname: {verified_data.get('vorname')}")
+        else:
+            print(f"  Verification GET failed: {verification_response.status_code}")
         
         return created_therapist
     
@@ -98,14 +124,31 @@ def therapist_searcher(test_session):
         if additional_filters:
             params.update(additional_filters)
         
+        print(f"\n=== DEBUG: Searching with parameters ===")
+        for key, value in params.items():
+            print(f"  {key}: {value}")
+        
         response = requests.get(f"{BASE_URL}/api/therapists", params=params)
+        
+        print(f"  Search response status: {response.status_code}")
+        if response.status_code != 200:
+            print(f"  Search failed: {response.text}")
+        
         assert response.status_code == 200, f"Failed to search therapists: {response.text}"
         
         data = response.json()
         assert isinstance(data, dict), "Expected paginated response"
         assert 'data' in data, "Expected 'data' field in response"
         
-        return data['data']
+        therapists = data['data']
+        print(f"  Found {len(therapists)} therapists")
+        print(f"  Total in database: {data.get('total', 'unknown')}")
+        
+        # Show details of found therapists
+        for i, therapist in enumerate(therapists):
+            print(f"    Therapist {i+1}: ID={therapist['id']}, available={therapist.get('potenziell_verfuegbar')}, name={therapist.get('vorname', 'N/A')}")
+        
+        return therapists
     
     return _get_test_therapists
 
@@ -118,12 +161,13 @@ def cleanup_therapists(test_session):
     # Cleanup after all tests
     try:
         created_ids = test_session.get("created_therapists", [])
+        print(f"\n=== DEBUG: Cleanup starting for {len(created_ids)} therapists ===")
         for therapist_id in created_ids:
             response = requests.delete(f"{BASE_URL}/api/therapists/{therapist_id}")
             if response.status_code == 200:
-                print(f"Cleaned up test therapist {therapist_id}")
+                print(f"  Cleaned up test therapist {therapist_id}")
             else:
-                print(f"Warning: Could not clean up therapist {therapist_id}: {response.status_code}")
+                print(f"  Warning: Could not clean up therapist {therapist_id}: {response.status_code}")
         
         print(f"✅ Cleanup completed - removed {len(created_ids)} test therapists")
     except Exception as e:
@@ -202,33 +246,99 @@ class TestTherapistServiceAPI:
     
     def test_get_therapists_filtered_by_availability(self, therapist_factory, therapist_searcher):
         """Test filtering therapists by availability with pagination."""
+        print(f"\n{'='*60}")
+        print(f"STARTING AVAILABILITY FILTER TEST")
+        print(f"{'='*60}")
+        
         # Create therapists with different availability
+        print(f"\n--- Creating AVAILABLE therapist ---")
         therapist1 = therapist_factory(
             vorname="Available",
             nachname="Therapist",
             potenziell_verfuegbar=True
         )
+        
+        print(f"\n--- Creating UNAVAILABLE therapist ---")
         therapist2 = therapist_factory(
-            vorname="Unavailable", 
+            vorname="Unavailable",
             nachname="Therapist",
             potenziell_verfuegbar=False
         )
         
-        # Search for available test therapists only
+        print(f"\n--- Creation Summary ---")
+        print(f"Available therapist: ID {therapist1['id']}, availability: {therapist1.get('potenziell_verfuegbar')}")
+        print(f"Unavailable therapist: ID {therapist2['id']}, availability: {therapist2.get('potenziell_verfuegbar')}")
+        
+        # Small delay to ensure database consistency
+        print(f"\n--- Waiting 0.5 seconds for database consistency ---")
+        time.sleep(0.5)
+        
+        # DIRECT VERIFICATION: Get both therapists individually
+        print(f"\n--- Direct verification of created therapists ---")
+        for therapist_id, expected_available in [(therapist1['id'], True), (therapist2['id'], False)]:
+            direct_response = requests.get(f"{BASE_URL}/api/therapists/{therapist_id}")
+            if direct_response.ok:
+                direct_data = direct_response.json()
+                actual_available = direct_data.get('potenziell_verfuegbar')
+                print(f"  Therapist {therapist_id}: expected={expected_available}, actual={actual_available} ✓" if actual_available == expected_available else f"  Therapist {therapist_id}: expected={expected_available}, actual={actual_available} ❌")
+            else:
+                print(f"  Therapist {therapist_id}: FAILED to get directly (status {direct_response.status_code})")
+        
+        # Test AVAILABLE filter
+        print(f"\n--- Testing AVAILABLE filter ---")
         available_therapists = therapist_searcher({"potenziell_verfuegbar": "true"})
+        
+        print(f"\nAvailable filter results:")
+        print(f"  Found {len(available_therapists)} therapists")
+        available_ids = [t['id'] for t in available_therapists]
+        print(f"  IDs: {available_ids}")
         
         # Check that all returned therapists are available
         for therapist in available_therapists:
-            assert therapist['potenziell_verfuegbar'] is True, f"Expected available therapist, got {therapist['potenziell_verfuegbar']}"
+            actual_availability = therapist['potenziell_verfuegbar']
+            assert actual_availability is True, f"Expected available therapist, got {actual_availability} for therapist {therapist['id']}"
         
         # Verify therapist1 is in results
-        available_ids = [t['id'] for t in available_therapists]
+        if therapist1['id'] in available_ids:
+            print(f"  ✓ Available therapist {therapist1['id']} found in results")
+        else:
+            print(f"  ❌ Available therapist {therapist1['id']} NOT found in results")
+            print(f"  Available IDs: {available_ids}")
+        
         assert therapist1['id'] in available_ids, f"Available therapist {therapist1['id']} not in filtered results"
         
-        # Test unavailable filter
+        # Test UNAVAILABLE filter
+        print(f"\n--- Testing UNAVAILABLE filter ---")
         unavailable_therapists = therapist_searcher({"potenziell_verfuegbar": "false"})
+        
+        print(f"\nUnavailable filter results:")
+        print(f"  Found {len(unavailable_therapists)} therapists")
         unavailable_ids = [t['id'] for t in unavailable_therapists]
-        assert therapist2['id'] in unavailable_ids, f"Unavailable therapist {therapist2['id']} not in unavailable results"
+        print(f"  IDs: {unavailable_ids}")
+        
+        # Show detailed info about each unavailable therapist
+        for i, therapist in enumerate(unavailable_therapists):
+            print(f"    Therapist {i+1}: ID={therapist['id']}, available={therapist.get('potenziell_verfuegbar')}, name={therapist.get('vorname', 'N/A')}")
+        
+        # Check if our unavailable therapist is in the results
+        if therapist2['id'] in unavailable_ids:
+            print(f"  ✓ Unavailable therapist {therapist2['id']} found in results")
+        else:
+            print(f"  ❌ Unavailable therapist {therapist2['id']} NOT found in results")
+            print(f"  Unavailable IDs: {unavailable_ids}")
+            print(f"  Missing therapist created with: potenziell_verfuegbar=False")
+            
+            # Try to find it in all therapists
+            print(f"\n--- Searching for missing therapist in ALL results ---")
+            all_our_therapists = therapist_searcher()
+            for therapist in all_our_therapists:
+                if therapist['id'] == therapist2['id']:
+                    print(f"  Found missing therapist in general search: ID={therapist['id']}, available={therapist.get('potenziell_verfuegbar')}")
+                    break
+            else:
+                print(f"  Missing therapist {therapist2['id']} not found even in general search!")
+        
+        assert therapist2['id'] in unavailable_ids, f"Unavailable therapist {therapist2['id']} not in unavailable results. Found IDs: {unavailable_ids}"
     
     def test_cooling_period_filtering(self, therapist_factory, therapist_searcher):
         """Test that therapists in cooling period are handled correctly."""

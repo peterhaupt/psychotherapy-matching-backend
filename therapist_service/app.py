@@ -1,14 +1,25 @@
 """Main application file for the Therapist Service."""
 import os
 import threading
-from flask import Flask
-from flask_restful import Api
+from flask import Flask, jsonify
+from flask_restful import Api, Resource
 from flask_cors import CORS
 
 from api.therapists import TherapistResource, TherapistListResource, TherapistCommunicationResource, TherapistImportStatusResource
 from shared.config import get_config, setup_logging
 # NEW: Import the therapist import monitor
 from imports import start_therapist_import_monitor
+
+
+class HealthCheckResource(Resource):
+    """Health check endpoint for service monitoring."""
+    
+    def get(self):
+        """Return health status of the therapist service."""
+        return {
+            'status': 'healthy',
+            'service': 'therapist-service'
+        }
 
 
 def create_app():
@@ -31,19 +42,22 @@ def create_app():
     # Initialize RESTful API
     api = Api(app)
 
+    # Register health check endpoint (at root level, not under /api)
+    api.add_resource(HealthCheckResource, '/health')
+
     # Register API endpoints
     api.add_resource(TherapistListResource, '/api/therapists')
     api.add_resource(TherapistResource, '/api/therapists/<int:therapist_id>')
     
-    # NEW: Register communication history endpoint
+    # Communication history endpoint
     api.add_resource(TherapistCommunicationResource, 
                      '/api/therapists/<int:therapist_id>/communication')
     
-    # NEW: Register import status endpoint
+    # Import status endpoint
     api.add_resource(TherapistImportStatusResource, 
                      '/api/therapists/import-status')
     
-    # NEW: Start therapist import monitoring thread
+    # Start therapist import monitoring thread
     # IMPORTANT: Only start in the main worker process, not in the reloader process
     if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or not app.debug:
         therapist_import_thread = threading.Thread(
