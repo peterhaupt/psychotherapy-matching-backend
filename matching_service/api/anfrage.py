@@ -32,6 +32,71 @@ logger = logging.getLogger(__name__)
 config = get_config()
 
 
+def validate_patient_data_for_platzsuche(patient_data: dict) -> tuple:
+    """Validate that patient has all required fields for platzsuche creation.
+    
+    Args:
+        patient_data: Patient data dictionary
+        
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    # Required string fields that must not be empty/whitespace
+    required_string_fields = [
+        'geschlecht',
+        'diagnose',
+        'symptome',
+        'krankenkasse',
+        'geburtsdatum'
+    ]
+    
+    # Required boolean fields that must be explicitly set
+    required_boolean_fields = [
+        'erfahrung_mit_psychotherapie',
+        'offen_fuer_gruppentherapie'
+    ]
+    
+    # Check string fields
+    for field in required_string_fields:
+        value = patient_data.get(field)
+        if value is None or (isinstance(value, str) and not value.strip()):
+            return False, f"Patient field '{field}' is required and cannot be empty"
+    
+    # Check boolean fields
+    for field in required_boolean_fields:
+        value = patient_data.get(field)
+        if value is None:
+            return False, f"Patient field '{field}' must be explicitly set (true/false)"
+    
+    # Check zeitliche_verfuegbarkeit - must have at least one entry
+    zeitliche = patient_data.get('zeitliche_verfuegbarkeit')
+    if not zeitliche or not isinstance(zeitliche, dict):
+        return False, "Patient must have 'zeitliche_verfuegbarkeit' with at least one day/time"
+    
+    # Check if at least one day has time slots
+    has_availability = False
+    for day, times in zeitliche.items():
+        if times and isinstance(times, list) and len(times) > 0:
+            # Check if times are not empty strings
+            for time_slot in times:
+                if time_slot and str(time_slot).strip():
+                    has_availability = True
+                    break
+            if has_availability:
+                break
+    
+    if not has_availability:
+        return False, "Patient must have at least one valid time slot in 'zeitliche_verfuegbarkeit'"
+    
+    # Check conditional field
+    if patient_data.get('erfahrung_mit_psychotherapie') is True:
+        letzte_sitzung = patient_data.get('letzte_sitzung_vorherige_psychotherapie')
+        if letzte_sitzung is None or (isinstance(letzte_sitzung, str) and not letzte_sitzung.strip()):
+            return False, "Field 'letzte_sitzung_vorherige_psychotherapie' is required when 'erfahrung_mit_psychotherapie' is true"
+    
+    return True, None
+
+
 class PlatzsucheResource(Resource):
     """REST resource for individual patient search operations."""
 
@@ -143,7 +208,7 @@ class PlatzsucheResource(Resource):
             return {"message": "Internal server error"}, 500
 
     def delete(self, search_id):
-        """Cancel a patient search."""
+        """Delete a patient search and all related records."""
         try:
             with get_db_context() as db:
                 search = db.query(Platzsuche).filter_by(id=search_id).first()
@@ -151,23 +216,15 @@ class PlatzsucheResource(Resource):
                 if not search:
                     return {"message": f"Patient search {search_id} not found"}, 404
                 
-                # Cancel the search instead of deleting
-                old_status = search.status
-                search.cancel_search("Cancelled via API")
-                
-                # Publish cancellation event
-                publish_search_status_changed(
-                    search.id,
-                    search.patient_id,
-                    old_status.value,
-                    SuchStatus.abgebrochen.value
-                )
-                
+                # Delete the search (cascade will delete related TherapeutAnfragePatient entries)
+                db.delete(search)
                 db.commit()
-                return {"message": "Patient search cancelled successfully"}, 200
+                
+                logger.info(f"Deleted patient search {search_id} and related records")
+                return {"message": "Patient search deleted successfully"}, 200
                 
         except Exception as e:
-            logger.error(f"Error cancelling patient search: {str(e)}")
+            logger.error(f"Error deleting patient search: {str(e)}")
             return {"message": "Internal server error"}, 500
 
 
@@ -256,10 +313,18 @@ class PlatzsucheListResource(PaginatedListResource):
         
         try:
             with get_db_context() as db:
-                # Verify patient exists
+                # Verify patient exists and has required data
                 patient = PatientService.get_patient(args['patient_id'])
                 if not patient:
                     return {"message": f"Patient {args['patient_id']} not found"}, 404
+                
+                # Validate patient data
+                is_valid, error_message = validate_patient_data_for_platzsuche(patient)
+                if not is_valid:
+                    return {
+                        "message": "Cannot create platzsuche: " + error_message,
+                        "patient_id": args['patient_id']
+                    }, 400
                 
                 # Check if patient already has an active search
                 existing = db.query(Platzsuche).filter(
@@ -489,6 +554,26 @@ class TherapeutenanfrageResource(Resource):
             logger.error(f"Error fetching anfrage {anfrage_id}: {str(e)}")
             return {"message": "Internal server error"}, 500
 
+    def delete(self, anfrage_id):
+        """Delete a therapeutenanfrage and all related records."""
+        try:
+            with get_db_context() as db:
+                anfrage = db.query(Therapeutenanfrage).filter_by(id=anfrage_id).first()
+                
+                if not anfrage:
+                    return {"message": f"Anfrage {anfrage_id} not found"}, 404
+                
+                # Delete the anfrage (cascade will delete related TherapeutAnfragePatient entries)
+                db.delete(anfrage)
+                db.commit()
+                
+                logger.info(f"Deleted therapeutenanfrage {anfrage_id} and related records")
+                return {"message": "Therapeutenanfrage deleted successfully"}, 200
+                
+        except Exception as e:
+            logger.error(f"Error deleting therapeutenanfrage: {str(e)}")
+            return {"message": "Internal server error"}, 500
+
 
 class TherapeutenanfrageListResource(PaginatedListResource):
     """REST resource for anfrage collection operations."""
@@ -551,7 +636,11 @@ class TherapeutenanfrageListResource(PaginatedListResource):
                 
                 # Filter by nachverfolgung_erforderlich if specified
                 if args.get('nachverfolgung_erforderlich') is not None:
-                    anfragen = [a for a in anfragen if a.needs_follow_up() == args['nachverfolgung_erforderlich']]
+                    # Get follow-up threshold from config
+                    follow_up_config = config.get_follow_up_config()
+                    threshold_days = follow_up_config['threshold_days']
+                    
+                    anfragen = [a for a in anfragen if a.needs_follow_up(threshold_days) == args['nachverfolgung_erforderlich']]
                     if args['nachverfolgung_erforderlich']:
                         total = len(anfragen)  # Adjust total for filtered results
                 
@@ -562,6 +651,10 @@ class TherapeutenanfrageListResource(PaginatedListResource):
                     therapist_data = TherapistService.get_therapist(tid)
                     if therapist_data:
                         therapists[tid] = therapist_data
+                
+                # Get follow-up threshold from config for display
+                follow_up_config = config.get_follow_up_config()
+                threshold_days = follow_up_config['threshold_days']
                 
                 return {
                     "data": [{
@@ -577,7 +670,7 @@ class TherapeutenanfrageListResource(PaginatedListResource):
                         "angenommen_anzahl": a.angenommen_anzahl,
                         "abgelehnt_anzahl": a.abgelehnt_anzahl,
                         "keine_antwort_anzahl": a.keine_antwort_anzahl,
-                        "nachverfolgung_erforderlich": a.needs_follow_up(),
+                        "nachverfolgung_erforderlich": a.needs_follow_up(threshold_days),
                         "antwort_vollstaendig": a.is_response_complete()
                     } for a in anfragen],
                     "page": page,
@@ -587,7 +680,7 @@ class TherapeutenanfrageListResource(PaginatedListResource):
                         "total_anfragen": total,
                         "unsent_anfragen": sum(1 for a in anfragen if not a.gesendet_datum),
                         "pending_responses": sum(1 for a in anfragen if a.gesendet_datum and not a.antwort_datum),
-                        "needing_follow_up": sum(1 for a in anfragen if a.needs_follow_up())
+                        "needing_follow_up": sum(1 for a in anfragen if a.needs_follow_up(threshold_days))
                     }
                 }, 200
                 

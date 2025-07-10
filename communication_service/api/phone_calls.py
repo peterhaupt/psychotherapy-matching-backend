@@ -33,11 +33,12 @@ class TimeField(fields.Raw):
         return str(value)
 
 # Output fields definition for phone call responses - German field names
-# REMOVED: wiederholen_nach field
+# ADDED: therapeutenanfrage_id field
 phone_call_fields = {
     'id': fields.Integer,
     'therapist_id': NullableIntegerField,  # Use custom field
     'patient_id': NullableIntegerField,    # Use custom field
+    'therapeutenanfrage_id': NullableIntegerField,  # NEW field
     'geplantes_datum': fields.String,
     'geplante_zeit': TimeField,  # Use custom time field
     'dauer_minuten': fields.Integer,
@@ -78,7 +79,8 @@ class PhoneCallResource(Resource):
         parser.add_argument('status', type=str)
         parser.add_argument('ergebnis', type=str)
         parser.add_argument('notizen', type=str)
-        # REMOVED: wiederholen_nach argument
+        # ADDED: therapeutenanfrage_id argument
+        parser.add_argument('therapeutenanfrage_id', type=int)
         
         args = parser.parse_args()
         
@@ -133,6 +135,7 @@ class PhoneCallResource(Resource):
                     'call_id': phone_call.id,
                     'therapist_id': phone_call.therapist_id,
                     'patient_id': phone_call.patient_id,
+                    'therapeutenanfrage_id': phone_call.therapeutenanfrage_id,  # Include anfrage ID
                     'recipient_type': phone_call.recipient_type,
                     'status': phone_call.status,
                     'ergebnis': phone_call.ergebnis
@@ -144,13 +147,6 @@ class PhoneCallResource(Resource):
                     call_data_for_event,
                     outcome=phone_call.ergebnis
                 )
-            
-            # PHASE 2: Remove direct patient update - this will be handled by event consumer
-            # The following code block has been removed:
-            # if phone_call.patient_id and phone_call.status == PhoneCallStatus.abgeschlossen.value:
-            #     try:
-            #         import requests
-            #         ... update patient letzter_kontakt directly ...
             
             return marshal(phone_call, phone_call_fields)
         except SQLAlchemyError as e:
@@ -185,8 +181,9 @@ class PhoneCallListResource(PaginatedListResource):
         """Get a list of phone calls with optional filtering and pagination."""
         # Parse query parameters for filtering
         therapist_id = request.args.get('therapist_id', type=int)
-        patient_id = request.args.get('patient_id', type=int)  # NEW parameter
-        recipient_type = request.args.get('recipient_type')  # NEW parameter: 'therapist' or 'patient'
+        patient_id = request.args.get('patient_id', type=int)
+        therapeutenanfrage_id = request.args.get('therapeutenanfrage_id', type=int)  # NEW parameter
+        recipient_type = request.args.get('recipient_type')
         status = request.args.get('status')
         geplantes_datum = request.args.get('geplantes_datum')
         
@@ -213,6 +210,10 @@ class PhoneCallListResource(PaginatedListResource):
                     query = query.filter(PhoneCall.therapist_id == therapist_id)
                 if patient_id:
                     query = query.filter(PhoneCall.patient_id == patient_id)
+            
+            # NEW: Filter by therapeutenanfrage_id if provided
+            if therapeutenanfrage_id:
+                query = query.filter(PhoneCall.therapeutenanfrage_id == therapeutenanfrage_id)
             
             if status:
                 query = query.filter(PhoneCall.status == status)
@@ -245,7 +246,9 @@ class PhoneCallListResource(PaginatedListResource):
         parser = reqparse.RequestParser()
         # Recipient fields - now both optional
         parser.add_argument('therapist_id', type=int, required=False)
-        parser.add_argument('patient_id', type=int, required=False)  # NEW field
+        parser.add_argument('patient_id', type=int, required=False)
+        # NEW: therapeutenanfrage_id field
+        parser.add_argument('therapeutenanfrage_id', type=int, required=False)
         
         # Optional fields with automatic scheduling
         parser.add_argument('geplantes_datum', type=str)
@@ -311,6 +314,7 @@ class PhoneCallListResource(PaginatedListResource):
             phone_call = PhoneCall(
                 therapist_id=args.get('therapist_id'),
                 patient_id=args.get('patient_id'),
+                therapeutenanfrage_id=args.get('therapeutenanfrage_id'),  # NEW field
                 geplantes_datum=scheduled_date,
                 geplante_zeit=call_time,
                 dauer_minuten=args.get('dauer_minuten', 5),
@@ -327,6 +331,7 @@ class PhoneCallListResource(PaginatedListResource):
                 publish_phone_call_scheduled(phone_call.id, {
                     'therapist_id': phone_call.therapist_id,
                     'patient_id': phone_call.patient_id,
+                    'therapeutenanfrage_id': phone_call.therapeutenanfrage_id,  # Include anfrage ID
                     'recipient_type': phone_call.recipient_type,
                     'scheduled_date': phone_call.geplantes_datum.isoformat(),
                     'scheduled_time': phone_call.geplante_zeit.isoformat()

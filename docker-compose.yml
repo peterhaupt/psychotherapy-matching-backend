@@ -163,6 +163,9 @@ services:
       FLASK_ENV: ${FLASK_ENV}
       FLASK_DEBUG: ${FLASK_DEBUG}
       LOG_LEVEL: ${LOG_LEVEL}
+      # Follow-up Configuration - NEW
+      FOLLOW_UP_THRESHOLD_DAYS: ${FOLLOW_UP_THRESHOLD_DAYS}
+      DEFAULT_PHONE_CALL_TIME: ${DEFAULT_PHONE_CALL_TIME}
     ports:
       - "${MATCHING_SERVICE_PORT}:8003"
     volumes:
@@ -198,6 +201,8 @@ services:
       SMTP_USE_TLS: ${SMTP_USE_TLS}
       EMAIL_SENDER: ${EMAIL_SENDER}
       EMAIL_SENDER_NAME: ${EMAIL_SENDER_NAME}
+      # Follow-up Configuration - NEW
+      DEFAULT_PHONE_CALL_TIME: ${DEFAULT_PHONE_CALL_TIME}
     ports:
       - "${COMMUNICATION_SERVICE_PORT}:8004"
     volumes:

@@ -2,7 +2,7 @@
 import logging
 import os
 import requests
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, time
 from typing import List, Dict, Any, Optional, Tuple
 from jinja2 import Environment, FileSystemLoader
 
@@ -489,20 +489,70 @@ class CommunicationService:
             return None
     
     @staticmethod
-    def schedule_follow_up_call(therapist_id: int, anfrage_id: int) -> Optional[int]:
+    def schedule_follow_up_call(
+        therapist_id: int, 
+        anfrage_id: int,
+        scheduled_date: Optional[date] = None,
+        scheduled_time: Optional[str] = None
+    ) -> Optional[int]:
         """Schedule a follow-up phone call for an anfrage.
         
         Args:
             therapist_id: ID of the therapist
             anfrage_id: ID of the anfrage
+            scheduled_date: Date to schedule the call (optional)
+            scheduled_time: Time to schedule the call in HH:MM format (optional)
             
         Returns:
             Phone call ID if scheduled successfully, None otherwise
         """
         try:
+            # Get therapist data to check phone availability
+            therapist = TherapistService.get_therapist(therapist_id)
+            if not therapist:
+                logger.error(f"Could not fetch therapist {therapist_id} for phone scheduling")
+                return None
+            
+            # Determine date and time
+            if not scheduled_date:
+                scheduled_date = date.today() + timedelta(days=1)  # Tomorrow
+            
+            if not scheduled_time:
+                # Check therapist's phone availability
+                telefonische_erreichbarkeit = therapist.get('telefonische_erreichbarkeit', {})
+                
+                if telefonische_erreichbarkeit and isinstance(telefonische_erreichbarkeit, dict):
+                    # Get day name for the scheduled date
+                    day_names = ['montag', 'dienstag', 'mittwoch', 'donnerstag', 'freitag', 'samstag', 'sonntag']
+                    weekday = scheduled_date.weekday()  # 0 = Monday
+                    day_name = day_names[weekday]
+                    
+                    # Check if therapist is available on this day
+                    day_availability = telefonische_erreichbarkeit.get(day_name, [])
+                    if day_availability and isinstance(day_availability, list) and len(day_availability) > 0:
+                        # Use the first available time slot
+                        first_slot = day_availability[0]
+                        if '-' in str(first_slot):
+                            # Extract start time from range like "10:00-12:00"
+                            scheduled_time = str(first_slot).split('-')[0].strip()
+                        else:
+                            scheduled_time = str(first_slot).strip()
+                    else:
+                        # No availability on this day, use default
+                        follow_up_config = config.get_follow_up_config()
+                        scheduled_time = follow_up_config['default_call_time']
+                else:
+                    # No availability info, use default
+                    follow_up_config = config.get_follow_up_config()
+                    scheduled_time = follow_up_config['default_call_time']
+            
+            # Create phone call via Communication Service
             url = f"{config.get_service_url('communication', internal=True)}/api/phone-calls"
             data = {
                 'therapist_id': therapist_id,
+                'therapeutenanfrage_id': anfrage_id,
+                'geplantes_datum': scheduled_date.isoformat(),
+                'geplante_zeit': scheduled_time,
                 'notizen': f"Follow-up für Anfrage A{anfrage_id}"
             }
             
@@ -510,9 +560,11 @@ class CommunicationService:
             
             if response.status_code in [200, 201]:
                 call_data = response.json()
-                return call_data.get('id')
+                call_id = call_data.get('id')
+                logger.info(f"Scheduled follow-up call {call_id} for anfrage {anfrage_id} on {scheduled_date} at {scheduled_time}")
+                return call_id
             else:
-                logger.error(f"Failed to schedule phone call: {response.status_code}")
+                logger.error(f"Failed to schedule phone call: {response.status_code} - {response.text}")
                 return None
                 
         except requests.RequestException as e:
@@ -880,3 +932,62 @@ class AnfrageService:
                 })
         
         return conflicts
+    
+    @staticmethod
+    def schedule_follow_up_calls(db: Session) -> int:
+        """Schedule follow-up phone calls for anfragen that need them.
+        
+        This function checks all sent anfragen that haven't received responses
+        and schedules phone calls if they exceed the threshold.
+        
+        Args:
+            db: Database session
+            
+        Returns:
+            Number of phone calls scheduled
+        """
+        # Get follow-up configuration
+        follow_up_config = config.get_follow_up_config()
+        threshold_days = follow_up_config['threshold_days']
+        
+        # Find anfragen needing follow-up
+        anfragen_needing_followup = []
+        
+        # Query for sent anfragen without responses that don't already have phone calls
+        anfragen = db.query(Therapeutenanfrage).filter(
+            Therapeutenanfrage.gesendet_datum.isnot(None),
+            Therapeutenanfrage.antwort_datum.is_(None),
+            Therapeutenanfrage.phone_call_id.is_(None)
+        ).all()
+        
+        for anfrage in anfragen:
+            if anfrage.needs_follow_up(threshold_days):
+                anfragen_needing_followup.append(anfrage)
+        
+        logger.info(f"Found {len(anfragen_needing_followup)} anfragen needing follow-up calls")
+        
+        # Schedule calls for each anfrage
+        scheduled_count = 0
+        for anfrage in anfragen_needing_followup:
+            try:
+                # Schedule the call
+                call_id = CommunicationService.schedule_follow_up_call(
+                    anfrage.therapist_id,
+                    anfrage.id
+                )
+                
+                if call_id:
+                    # Update anfrage with phone call ID
+                    anfrage.phone_call_id = call_id
+                    db.commit()
+                    scheduled_count += 1
+                    logger.info(f"Scheduled follow-up call {call_id} for anfrage {anfrage.id}")
+                else:
+                    logger.error(f"Failed to schedule follow-up call for anfrage {anfrage.id}")
+                    
+            except Exception as e:
+                logger.error(f"Error scheduling follow-up call for anfrage {anfrage.id}: {str(e)}")
+                continue
+        
+        logger.info(f"Successfully scheduled {scheduled_count} follow-up calls")
+        return scheduled_count

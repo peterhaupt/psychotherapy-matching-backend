@@ -150,6 +150,10 @@ class Config:
     PLZ_MATCH_DIGITS: int = int(os.environ.get("PLZ_MATCH_DIGITS", "2"))
     DEFAULT_MAX_DISTANCE_KM: int = int(os.environ.get("DEFAULT_MAX_DISTANCE_KM", "25"))
     
+    # Follow-up Configuration - NEW ADDITIONS
+    FOLLOW_UP_THRESHOLD_DAYS: int = int(os.environ.get("FOLLOW_UP_THRESHOLD_DAYS", "7"))
+    DEFAULT_PHONE_CALL_TIME: str = os.environ.get("DEFAULT_PHONE_CALL_TIME", "12:00")
+    
     @classmethod
     def get_database_uri(cls, use_pgbouncer: bool = True) -> str:
         """Get the database connection URI.
@@ -237,6 +241,18 @@ class Config:
             "min_size": cls.MIN_ANFRAGE_SIZE,
             "plz_match_digits": cls.PLZ_MATCH_DIGITS,
             "default_max_distance_km": cls.DEFAULT_MAX_DISTANCE_KM
+        }
+    
+    @classmethod
+    def get_follow_up_config(cls) -> Dict[str, any]:
+        """Get follow-up configuration as a dictionary.
+        
+        Returns:
+            Dictionary with follow-up related configuration
+        """
+        return {
+            "threshold_days": cls.FOLLOW_UP_THRESHOLD_DAYS,
+            "default_call_time": cls.DEFAULT_PHONE_CALL_TIME
         }
 
 

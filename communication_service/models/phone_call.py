@@ -37,6 +37,9 @@ class PhoneCall(Base):
     therapist_id = Column(Integer, nullable=True)  # References therapist_service.therapeuten.id
     patient_id = Column(Integer, nullable=True)     # References patient_service.patienten.id
     
+    # NEW: Link to therapeutenanfrage (optional)
+    therapeutenanfrage_id = Column(Integer, nullable=True)  # References matching_service.therapeutenanfrage.id
+    
     # Scheduling - German field names
     geplantes_datum = Column(Date, nullable=False)  # scheduled_date
     geplante_zeit = Column(Time, nullable=False)  # scheduled_time
@@ -59,8 +62,9 @@ class PhoneCall(Base):
         """Provide a string representation of the PhoneCall instance."""
         recipient_type = "therapist" if self.therapist_id else "patient"
         recipient_id = self.therapist_id or self.patient_id
+        anfrage_info = f" anfrage={self.therapeutenanfrage_id}" if self.therapeutenanfrage_id else ""
         return (
-            f"<PhoneCall id={self.id} to={recipient_type}:{recipient_id} "
+            f"<PhoneCall id={self.id} to={recipient_type}:{recipient_id}{anfrage_info} "
             f"scheduled={self.geplantes_datum} {self.geplante_zeit} "
             f"status={self.status}>"
         )
@@ -83,6 +87,10 @@ class PhoneCall(Base):
     def is_for_therapist(self) -> bool:
         """Check if this phone call is for a therapist."""
         return self.therapist_id is not None
+    
+    def is_for_anfrage(self) -> bool:
+        """Check if this phone call is related to a therapeutenanfrage."""
+        return self.therapeutenanfrage_id is not None
     
     def mark_as_completed(self, 
                          actual_date: Optional[date] = None,

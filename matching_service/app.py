@@ -2,6 +2,9 @@
 import logging
 import signal
 import sys
+import threading
+import time
+from datetime import datetime, time as datetime_time
 
 from flask import Flask
 from flask_restful import Api
@@ -21,12 +24,56 @@ from api.anfrage import (
 )
 from events.consumers import start_consumers
 from shared.config import get_config, setup_logging
-# Commented out for Option 1: Use only Alembic migrations
-# from db import init_db, close_db
-from db import close_db
+from db import close_db, get_db_context
+from services import AnfrageService
 
 # Initialize Flask-SQLAlchemy (for potential future use with Flask-SQLAlchemy features)
 db = SQLAlchemy()
+
+# Global flag for graceful shutdown
+shutdown_flag = threading.Event()
+
+
+def schedule_follow_up_calls():
+    """Background task to schedule follow-up phone calls for unanswered anfragen."""
+    logger = logging.getLogger(__name__)
+    config = get_config()
+    
+    logger.info("Starting follow-up call scheduler thread")
+    
+    while not shutdown_flag.is_set():
+        try:
+            # Run at 09:00 daily
+            now = datetime.now()
+            target_time = now.replace(hour=9, minute=0, second=0, microsecond=0)
+            
+            # If it's already past 9 AM today, schedule for tomorrow
+            if now >= target_time:
+                target_time = target_time.replace(day=target_time.day + 1)
+            
+            # Calculate seconds until 9 AM
+            seconds_until_target = (target_time - now).total_seconds()
+            
+            logger.info(f"Next follow-up check scheduled for {target_time} ({seconds_until_target/3600:.1f} hours from now)")
+            
+            # Wait until target time or shutdown
+            if shutdown_flag.wait(timeout=seconds_until_target):
+                # Shutdown requested
+                break
+            
+            # Perform the follow-up scheduling
+            logger.info("Running daily follow-up call scheduling...")
+            
+            with get_db_context() as db:
+                scheduled_count = AnfrageService.schedule_follow_up_calls(db)
+                logger.info(f"Daily follow-up scheduling complete: {scheduled_count} calls scheduled")
+                
+        except Exception as e:
+            logger.error(f"Error in follow-up scheduler: {str(e)}", exc_info=True)
+            # Wait 5 minutes before retrying on error
+            shutdown_flag.wait(timeout=300)
+    
+    logger.info("Follow-up call scheduler thread stopped")
 
 
 def create_app():
@@ -76,6 +123,14 @@ def create_app():
     # Start Kafka consumers
     start_consumers()
     
+    # Start follow-up scheduler thread
+    scheduler_thread = threading.Thread(
+        target=schedule_follow_up_calls,
+        daemon=True,
+        name="follow-up-scheduler"
+    )
+    scheduler_thread.start()
+    
     return app
 
 
@@ -83,6 +138,9 @@ def signal_handler(sig, frame):
     """Handle shutdown signals gracefully."""
     logger = logging.getLogger(__name__)
     logger.info('Shutting down Matching Service...')
+    
+    # Signal the follow-up scheduler to stop
+    shutdown_flag.set()
     
     # Close database connections
     close_db()
@@ -100,16 +158,6 @@ if __name__ == "__main__":
     
     # Get configuration
     config = get_config()
-    
-    # COMMENTED OUT - Option 1: Use only Alembic migrations
-    # Initialize database (ensure tables exist)
-    # Note: In production, use Alembic migrations instead
-    # try:
-    #     init_db()
-    #     logging.info("Database initialized successfully")
-    # except Exception as e:
-    #     logging.error(f"Failed to initialize database: {str(e)}")
-    #     # Continue anyway - migrations might handle this
     
     # Create and run app
     app = create_app()
