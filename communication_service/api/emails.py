@@ -192,7 +192,7 @@ def convert_markdown_to_text(markdown_text: str) -> str:
 
 
 def add_legal_footer(body_html: str, body_text: str) -> tuple:
-    """Add legal footer to email content.
+    """Add legal footer to email content using centralized configuration.
     
     Args:
         body_html: HTML body content
@@ -201,31 +201,39 @@ def add_legal_footer(body_html: str, body_text: str) -> tuple:
     Returns:
         Tuple of (html_with_footer, text_with_footer)
     """
-    footer_html = """
+    config = get_config()
+    
+    footer_html = f"""
     <hr style="margin-top: 40px; border: 1px solid #e0e0e0;">
     <p style="font-size: 12px; color: #666; margin-top: 20px;">
-        <strong>Curavani Therapievermittlung GmbH</strong><br>
-        Musterstraße 123, 12345 Berlin<br>
-        Tel: +49 30 12345678 | E-Mail: info@curavani.de<br>
-        Geschäftsführer: Max Mustermann | HRB 12345 Berlin<br>
+        <strong>{config.COMPANY_NAME}</strong><br>
+        {config.COMPANY_STREET}<br>
+        {config.COMPANY_PLZ} {config.COMPANY_CITY}<br>
+        {config.COMPANY_COUNTRY}<br>
         <br>
-        Diese E-Mail kann vertrauliche Informationen enthalten. Falls Sie nicht der 
-        beabsichtigte Empfänger sind, benachrichtigen Sie bitte den Absender und 
-        löschen Sie diese E-Mail.
+        E-Mail: {config.EMAIL_SENDER}<br>
+        <br>
+        Geschäftsführer: {config.COMPANY_CEO}<br>
+        Handelsregister: {config.COMPANY_HRB}<br>
+        <br>
+        {config.LEGAL_FOOTER_PRIVACY_TEXT}
     </p>
     """
     
-    footer_text = """
+    footer_text = f"""
     
 --
-Curavani Therapievermittlung GmbH
-Musterstraße 123, 12345 Berlin
-Tel: +49 30 12345678 | E-Mail: info@curavani.de
-Geschäftsführer: Max Mustermann | HRB 12345 Berlin
+{config.COMPANY_NAME}
+{config.COMPANY_STREET}
+{config.COMPANY_PLZ} {config.COMPANY_CITY}
+{config.COMPANY_COUNTRY}
 
-Diese E-Mail kann vertrauliche Informationen enthalten. Falls Sie nicht der 
-beabsichtigte Empfänger sind, benachrichtigen Sie bitte den Absender und 
-löschen Sie diese E-Mail.
+E-Mail: {config.EMAIL_SENDER}
+
+Geschäftsführer: {config.COMPANY_CEO}
+Handelsregister: {config.COMPANY_HRB}
+
+{config.LEGAL_FOOTER_PRIVACY_TEXT}
     """
     
     return (body_html + footer_html, body_text + footer_text)

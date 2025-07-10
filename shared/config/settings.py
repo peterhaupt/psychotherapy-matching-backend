@@ -74,8 +74,20 @@ class Config:
     EMAIL_ADD_LEGAL_FOOTER: bool = os.environ.get("EMAIL_ADD_LEGAL_FOOTER", "true").lower() == "true"
     
     # Company Configuration
-    COMPANY_NAME: str = "Curavani Therapievermittlung GmbH"
+    COMPANY_NAME: str = os.environ.get("COMPANY_NAME", "Curavani GmbH")
     COMPANY_DOMAIN: str = "curavani.de"
+    
+    # Company Legal Information
+    COMPANY_STREET: str = os.environ.get("COMPANY_STREET", "Jülicher Str. 72a")
+    COMPANY_PLZ: str = os.environ.get("COMPANY_PLZ", "52070")
+    COMPANY_CITY: str = os.environ.get("COMPANY_CITY", "Aachen")
+    COMPANY_COUNTRY: str = os.environ.get("COMPANY_COUNTRY", "Deutschland")
+    COMPANY_CEO: str = os.environ.get("COMPANY_CEO", "Peter Haupt")
+    COMPANY_HRB: str = os.environ.get("COMPANY_HRB", "Amtsgericht Aachen, HRB 28791")
+    
+    # Legal Footer Configuration
+    LEGAL_FOOTER_PRIVACY_TEXT: str = os.environ.get("LEGAL_FOOTER_PRIVACY_TEXT", 
+        "Diese E-Mail kann vertrauliche Informationen enthalten. Falls Sie nicht der beabsichtigte Empfänger sind, benachrichtigen Sie bitte den Absender und löschen Sie diese E-Mail.")
     
     # System Notifications
     SYSTEM_NOTIFICATION_EMAIL: str = os.environ.get("SYSTEM_NOTIFICATION_EMAIL", "info@curavani.com")

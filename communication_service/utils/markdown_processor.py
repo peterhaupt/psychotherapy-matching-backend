@@ -3,6 +3,8 @@ from markdown_it import MarkdownIt
 from bs4 import BeautifulSoup
 from typing import Optional
 
+from shared.config import get_config
+
 # Initialize markdown processor with useful plugins
 md = MarkdownIt("commonmark", {"breaks": True, "html": True})
 md.enable(["table", "strikethrough"])
@@ -40,7 +42,6 @@ def wrap_with_styling(html_content: str, add_footer: bool = True) -> str:
     Returns:
         Styled HTML with optional footer
     """
-    from shared.config import get_config
     config = get_config()
     
     footer_html = ""
@@ -85,14 +86,20 @@ def wrap_with_styling(html_content: str, add_footer: bool = True) -> str:
     """
 
 def get_legal_footer() -> str:
-    """Get the legal footer HTML."""
-    return """
+    """Get the legal footer HTML using centralized configuration."""
+    config = get_config()
+    
+    return f"""
     <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #ccc; font-size: 12px; color: #666;">
-        <p><strong>Datenschutzhinweis:</strong> Diese E-Mail enthält vertrauliche und/oder gesundheitsbezogene Informationen und ist ausschließlich für den Adressaten bestimmt.</p>
-        <p>© 2025 Curavani Therapievermittlung GmbH<br>
-        Musterstraße 123, 12345 Berlin<br>
-        <a href="https://curavani.de/datenschutz">Datenschutz</a> | 
-        <a href="https://curavani.de/impressum">Impressum</a> | 
-        <a href="https://curavani.de/kontakt">Kontakt</a></p>
+        <p><strong>Datenschutzhinweis:</strong> {config.LEGAL_FOOTER_PRIVACY_TEXT}</p>
+        <p>© 2025 {config.COMPANY_NAME}<br>
+        {config.COMPANY_STREET}<br>
+        {config.COMPANY_PLZ} {config.COMPANY_CITY}<br>
+        {config.COMPANY_COUNTRY}<br>
+        <br>
+        E-Mail: {config.EMAIL_SENDER}<br>
+        <br>
+        Geschäftsführer: {config.COMPANY_CEO}<br>
+        Handelsregister: {config.COMPANY_HRB}</p>
     </div>
     """
