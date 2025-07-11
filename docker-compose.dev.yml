@@ -104,7 +104,9 @@ services:
 
   # Patient Service
   patient_service:
-    build: ./patient_service
+    build:
+      context: .
+      dockerfile: patient_service/Dockerfile
     container_name: patient_service
     environment:
       DB_USER: ${DB_USER}
@@ -138,7 +140,9 @@ services:
 
   # Therapist Service
   therapist_service:
-    build: ./therapist_service
+    build:
+      context: .
+      dockerfile: therapist_service/Dockerfile
     container_name: therapist_service
     environment:
       DB_USER: ${DB_USER}
@@ -168,7 +172,9 @@ services:
 
   # Matching Service
   matching_service:
-    build: ./matching_service
+    build:
+      context: .
+      dockerfile: matching_service/Dockerfile
     container_name: matching_service
     environment:
       DB_USER: ${DB_USER}
@@ -197,7 +203,9 @@ services:
 
   # Communication Service
   communication_service:
-    build: ./communication_service
+    build:
+      context: .
+      dockerfile: communication_service/Dockerfile
     container_name: communication_service
     environment:
       # Database Configuration
@@ -236,7 +244,9 @@ services:
 
   # Geocoding Service
   geocoding_service:
-    build: ./geocoding_service
+    build:
+      context: .
+      dockerfile: geocoding_service/Dockerfile
     container_name: geocoding_service
     environment:
       DB_USER: ${DB_USER}
