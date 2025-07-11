@@ -1,0 +1,253 @@
+services:
+  # PostgreSQL Database
+  postgres-prod:
+    image: postgres:16-alpine
+    container_name: postgres-prod
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # PgBouncer Connection Pooler
+  pgbouncer-prod:
+    image: bitnami/pgbouncer:latest
+    container_name: pgbouncer-prod
+    environment:
+      # Database connection settings
+      POSTGRESQL_HOST: postgres-prod
+      POSTGRESQL_PORT: 5432
+      POSTGRESQL_DATABASE: ${DB_NAME}
+      POSTGRESQL_USERNAME: ${DB_USER}
+      POSTGRESQL_PASSWORD: ${DB_PASSWORD}
+      # PgBouncer specific settings
+      PGBOUNCER_DATABASE: ${DB_NAME}
+      PGBOUNCER_PORT: 6432
+      PGBOUNCER_BIND_ADDRESS: 0.0.0.0
+      PGBOUNCER_AUTH_TYPE: md5
+      PGBOUNCER_AUTH_USER: ${DB_USER}
+      PGBOUNCER_AUTH_QUERY: "SELECT usename, passwd FROM pg_shadow WHERE usename=$1"
+      PGBOUNCER_POOL_MODE: session
+      PGBOUNCER_MAX_CLIENT_CONN: 1000
+      PGBOUNCER_DEFAULT_POOL_SIZE: 25
+      PGBOUNCER_IGNORE_STARTUP_PARAMETERS: "extra_float_digits"
+      # Create the databases.ini and users.ini files
+      PGBOUNCER_DSN_${DB_NAME}: "host=postgres-prod port=5432 dbname=${DB_NAME}"
+      # Set userlist
+      PGBOUNCER_USERLIST: "${DB_USER}:${DB_PASSWORD}"
+      # Admin user
+      PGBOUNCER_ADMIN_USERS: ${DB_USER}
+      # Stats user
+      PGBOUNCER_STATS_USERS: ${DB_USER}
+      # Extra settings for better compatibility
+      PGBOUNCER_EXTRA_FLAGS: "--verbose"
+    ports:
+      - "6433:6432"
+    depends_on:
+      postgres-prod:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "sh", "-c", "PGPASSWORD=${DB_PASSWORD} /opt/bitnami/postgresql/bin/psql -h localhost -p 6432 -U ${DB_USER} -d ${DB_NAME} -c 'SELECT 1'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Kafka Message Broker
+  zookeeper-prod:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: zookeeper-prod
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2182:2181"
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  kafka-prod:
+    image: confluentinc/cp-kafka:latest
+    container_name: kafka-prod
+    depends_on:
+      zookeeper-prod:
+        condition: service_healthy
+    ports:
+      - "9093:9092"
+      - "9095:9094"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper-prod:2181
+      KAFKA_ADVERTISED_LISTENERS: INSIDE://kafka-prod:9093,OUTSIDE://localhost:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT
+      KAFKA_LISTENERS: INSIDE://0.0.0.0:9093,OUTSIDE://0.0.0.0:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: INSIDE
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # Patient Service
+  patient_service-prod:
+    build: ./patient_service
+    container_name: patient_service-prod
+    environment:
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      DB_HOST: pgbouncer-prod
+      DB_PORT: 6432
+      KAFKA_BOOTSTRAP_SERVERS: kafka-prod:9093
+      FLASK_ENV: ${FLASK_ENV}
+      FLASK_DEBUG: ${FLASK_DEBUG}
+      LOG_LEVEL: ${LOG_LEVEL}
+      # GCS Configuration
+      GCS_READER_CREDENTIALS_PATH: ${GCS_READER_CREDENTIALS_PATH}
+      GCS_DELETER_CREDENTIALS_PATH: ${GCS_DELETER_CREDENTIALS_PATH}
+      GCS_IMPORT_BUCKET: ${GCS_IMPORT_BUCKET}
+      PATIENT_IMPORT_CHECK_INTERVAL_SECONDS: ${PATIENT_IMPORT_CHECK_INTERVAL_SECONDS}
+      PATIENT_IMPORT_LOCAL_PATH: ${PATIENT_IMPORT_LOCAL_PATH}
+    ports:
+      - "8011:8001"
+    volumes:
+      - ./credentials:/credentials:ro
+      - ./data/patient_imports:/data/patient_imports
+    depends_on:
+      pgbouncer-prod:
+        condition: service_healthy
+      kafka-prod:
+        condition: service_healthy
+    command: python app.py
+
+  # Therapist Service
+  therapist_service-prod:
+    build: ./therapist_service
+    container_name: therapist_service-prod
+    environment:
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      DB_HOST: pgbouncer-prod
+      DB_PORT: 6432
+      KAFKA_BOOTSTRAP_SERVERS: kafka-prod:9093
+      FLASK_ENV: ${FLASK_ENV}
+      FLASK_DEBUG: ${FLASK_DEBUG}
+      LOG_LEVEL: ${LOG_LEVEL}
+      THERAPIST_IMPORT_FOLDER_PATH: ${THERAPIST_IMPORT_FOLDER_PATH}
+      THERAPIST_IMPORT_CHECK_INTERVAL_SECONDS: ${THERAPIST_IMPORT_CHECK_INTERVAL_SECONDS}
+      THERAPIST_IMPORT_ENABLED: ${THERAPIST_IMPORT_ENABLED}
+    ports:
+      - "8012:8002"
+    volumes:
+      - ../curavani_scraping/data/processed:/scraping_data:ro
+    depends_on:
+      pgbouncer-prod:
+        condition: service_healthy
+      kafka-prod:
+        condition: service_healthy
+    command: python app.py
+
+  # Matching Service
+  matching_service-prod:
+    build: ./matching_service
+    container_name: matching_service-prod
+    environment:
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      DB_HOST: pgbouncer-prod
+      DB_PORT: 6432
+      KAFKA_BOOTSTRAP_SERVERS: kafka-prod:9093
+      FLASK_ENV: ${FLASK_ENV}
+      FLASK_DEBUG: ${FLASK_DEBUG}
+      LOG_LEVEL: ${LOG_LEVEL}
+      # Follow-up Configuration - NEW
+      FOLLOW_UP_THRESHOLD_DAYS: ${FOLLOW_UP_THRESHOLD_DAYS}
+      DEFAULT_PHONE_CALL_TIME: ${DEFAULT_PHONE_CALL_TIME}
+    ports:
+      - "8013:8003"
+    depends_on:
+      pgbouncer-prod:
+        condition: service_healthy
+      kafka-prod:
+        condition: service_healthy
+    command: python app.py
+
+  # Communication Service
+  communication_service-prod:
+    build: ./communication_service
+    container_name: communication_service-prod
+    environment:
+      # Database Configuration
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      DB_HOST: pgbouncer-prod
+      DB_PORT: 6432
+      # Kafka Configuration
+      KAFKA_BOOTSTRAP_SERVERS: kafka-prod:9093
+      # Flask Configuration
+      FLASK_ENV: ${FLASK_ENV}
+      FLASK_DEBUG: ${FLASK_DEBUG}
+      LOG_LEVEL: ${LOG_LEVEL}
+      # SMTP Configuration - Added for ProtonMail Bridge
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USERNAME: ${SMTP_USERNAME}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      SMTP_USE_TLS: ${SMTP_USE_TLS}
+      EMAIL_SENDER: ${EMAIL_SENDER}
+      EMAIL_SENDER_NAME: ${EMAIL_SENDER_NAME}
+      # Follow-up Configuration - NEW
+      DEFAULT_PHONE_CALL_TIME: ${DEFAULT_PHONE_CALL_TIME}
+    ports:
+      - "8014:8004"
+    depends_on:
+      pgbouncer-prod:
+        condition: service_healthy
+      kafka-prod:
+        condition: service_healthy
+    command: python app.py
+
+  # Geocoding Service
+  geocoding_service-prod:
+    build: ./geocoding_service
+    container_name: geocoding_service-prod
+    environment:
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      DB_HOST: pgbouncer-prod
+      DB_PORT: 6432
+      KAFKA_BOOTSTRAP_SERVERS: kafka-prod:9093
+      FLASK_ENV: ${FLASK_ENV}
+      FLASK_DEBUG: ${FLASK_DEBUG}
+      LOG_LEVEL: ${LOG_LEVEL}
+    ports:
+      - "8015:8005"
+    volumes:
+      - ./data:/data:ro  # Mount data folder as read-only
+    depends_on:
+      pgbouncer-prod:
+        condition: service_healthy
+      kafka-prod:
+        condition: service_healthy
+    command: python app.py
+
+volumes:
+  postgres_prod_data:

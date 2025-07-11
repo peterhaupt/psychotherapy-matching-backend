@@ -215,6 +215,8 @@ config/local/
 .env
 .env.local
 .env.*.local
+.env.dev
+.env.prod
 
 # Keep the example file
 !.env.example
@@ -227,3 +229,13 @@ data/patient_imports/
 
 # ignore subfolder old_patients in development_tools folder
 development_tools/old_patients/
+
+# Backup directories
+backups/
+backup/
+*.sql
+*.sql.gz
+
+# Deployment logs
+deploy.log
+rollback.log
