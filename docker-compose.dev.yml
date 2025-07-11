@@ -1,3 +1,4 @@
+name: curavani_backend_dev
 services:
   # PostgreSQL Database
   postgres:
@@ -17,6 +18,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - curavani_backend_dev
 
   # PgBouncer Connection Pooler
   pgbouncer:
@@ -60,6 +63,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - curavani_backend_dev
 
   # Kafka Message Broker
   zookeeper:
@@ -76,6 +81,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    networks:
+      - curavani_backend_dev
 
   kafka:
     image: confluentinc/cp-kafka:latest
@@ -101,6 +108,8 @@ services:
       timeout: 10s
       retries: 5
       start_period: 60s
+    networks:
+      - curavani_backend_dev
 
   # Patient Service
   patient_service:
@@ -137,6 +146,8 @@ services:
       kafka:
         condition: service_healthy
     command: python app.py
+    networks:
+      - curavani_backend_dev
 
   # Therapist Service
   therapist_service:
@@ -169,6 +180,8 @@ services:
       kafka:
         condition: service_healthy
     command: python app.py
+    networks:
+      - curavani_backend_dev
 
   # Matching Service
   matching_service:
@@ -200,6 +213,8 @@ services:
       kafka:
         condition: service_healthy
     command: python app.py
+    networks:
+      - curavani_backend_dev
 
   # Communication Service
   communication_service:
@@ -241,6 +256,8 @@ services:
       kafka:
         condition: service_healthy
     command: python app.py
+    networks:
+      - curavani_backend_dev
 
   # Geocoding Service
   geocoding_service:
@@ -270,6 +287,15 @@ services:
       kafka:
         condition: service_healthy
     command: python app.py
+    networks:
+      - curavani_backend_dev
 
 volumes:
   postgres_data:
+    external: true
+    name: curavani_backend_postgres_data  # Use your existing volume with data
+
+networks:
+  curavani_backend_dev:
+    name: curavani_backend_dev
+    driver: bridge

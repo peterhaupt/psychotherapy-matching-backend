@@ -1,3 +1,4 @@
+name: curavani_backend_prod
 services:
   # PostgreSQL Database
   postgres-prod:
@@ -17,6 +18,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - curavani_backend_prod
 
   # PgBouncer Connection Pooler
   pgbouncer-prod:
@@ -60,6 +63,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - curavani_backend_prod
 
   # Kafka Message Broker
   zookeeper-prod:
@@ -76,6 +81,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    networks:
+      - curavani_backend_prod
 
   kafka-prod:
     image: confluentinc/cp-kafka:latest
@@ -101,6 +108,8 @@ services:
       timeout: 10s
       retries: 5
       start_period: 60s
+    networks:
+      - curavani_backend_prod
 
   # Patient Service
   patient_service-prod:
@@ -135,6 +144,8 @@ services:
       kafka-prod:
         condition: service_healthy
     command: python app.py
+    networks:
+      - curavani_backend_prod
 
   # Therapist Service
   therapist_service-prod:
@@ -165,6 +176,8 @@ services:
       kafka-prod:
         condition: service_healthy
     command: python app.py
+    networks:
+      - curavani_backend_prod
 
   # Matching Service
   matching_service-prod:
@@ -193,6 +206,8 @@ services:
       kafka-prod:
         condition: service_healthy
     command: python app.py
+    networks:
+      - curavani_backend_prod
 
   # Communication Service
   communication_service-prod:
@@ -231,6 +246,8 @@ services:
       kafka-prod:
         condition: service_healthy
     command: python app.py
+    networks:
+      - curavani_backend_prod
 
   # Geocoding Service
   geocoding_service-prod:
@@ -258,6 +275,13 @@ services:
       kafka-prod:
         condition: service_healthy
     command: python app.py
+    networks:
+      - curavani_backend_prod
 
 volumes:
   postgres_prod_data:
+
+networks:
+  curavani_backend_prod:
+    name: curavani_backend_prod
+    driver: bridge
