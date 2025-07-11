@@ -56,7 +56,7 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "pg_isready", "-h", "localhost", "-p", "6432", "-U", "${DB_USER}"]
+      test: ["CMD", "sh", "-c", "PGPASSWORD=${DB_PASSWORD} /opt/bitnami/postgresql/bin/psql -h localhost -p 6432 -U ${DB_USER} -d ${DB_NAME} -c 'SELECT 1'"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -71,7 +71,7 @@ services:
     ports:
       - "2181:2181"
     healthcheck:
-      test: ["CMD", "bash", "-c", "echo ruok | nc localhost 2181 | grep -q imok"]
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
       interval: 10s
       timeout: 5s
       retries: 5
