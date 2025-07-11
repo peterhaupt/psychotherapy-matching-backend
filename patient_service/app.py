@@ -3,7 +3,7 @@ import os
 import threading
 import time
 from flask import Flask, jsonify
-from flask_restful import Api
+from flask_restful import Api, Resource
 from flask_cors import CORS
 
 from api.patients import PatientResource, PatientListResource, PatientCommunicationResource, PatientImportStatusResource
@@ -12,6 +12,17 @@ from shared.config import get_config, setup_logging
 from events.consumers import start_consumers
 # NEW: Import the patient import monitor
 from imports import start_patient_import_monitor
+
+
+class HealthCheckResource(Resource):
+    """Health check endpoint for service monitoring."""
+    
+    def get(self):
+        """Return health status of the patient service."""
+        return {
+            'status': 'healthy',
+            'service': 'patient-service'
+        }
 
 
 def create_app():
@@ -33,6 +44,9 @@ def create_app():
 
     # Initialize RESTful API
     api = Api(app)
+
+    # Register health check endpoint (at root level, not under /api)
+    api.add_resource(HealthCheckResource, '/health')
 
     # Register API endpoints
     api.add_resource(PatientListResource, '/api/patients')

@@ -70,12 +70,19 @@ services:
       ZOOKEEPER_TICK_TIME: 2000
     ports:
       - "2181:2181"
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo ruok | nc localhost 2181 | grep -q imok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   kafka:
     image: confluentinc/cp-kafka:latest
     container_name: kafka
     depends_on:
-      - zookeeper
+      zookeeper:
+        condition: service_healthy
     ports:
       - "9092:9092"
       - "9094:9094"
@@ -88,6 +95,12 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: INSIDE
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
 
   # Patient Service
   patient_service:
@@ -117,8 +130,10 @@ services:
       - ./credentials:/credentials:ro
       - ./data/patient_imports:/data/patient_imports
     depends_on:
-      - pgbouncer
-      - kafka
+      pgbouncer:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
     command: python app.py
 
   # Therapist Service
@@ -145,8 +160,10 @@ services:
       - ./shared:/app/shared
       - ../curavani_scraping/data/processed:/scraping_data:ro
     depends_on:
-      - pgbouncer
-      - kafka
+      pgbouncer:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
     command: python app.py
 
   # Matching Service
@@ -172,8 +189,10 @@ services:
       - ./matching_service:/app
       - ./shared:/app/shared
     depends_on:
-      - pgbouncer
-      - kafka
+      pgbouncer:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
     command: python app.py
 
   # Communication Service
@@ -209,8 +228,10 @@ services:
       - ./communication_service:/app
       - ./shared:/app/shared
     depends_on:
-      - pgbouncer
-      - kafka
+      pgbouncer:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
     command: python app.py
 
   # Geocoding Service
@@ -234,8 +255,10 @@ services:
       - ./shared:/app/shared
       - ./data:/data:ro  # Mount data folder as read-only
     depends_on:
-      - pgbouncer
-      - kafka
+      pgbouncer:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
     command: python app.py
 
 volumes:

@@ -4,7 +4,7 @@ import os
 import json
 from pathlib import Path
 from flask import Flask, jsonify
-from flask_restful import Api
+from flask_restful import Api, Resource
 from flask_cors import CORS
 from sqlalchemy import create_engine, text
 
@@ -16,6 +16,17 @@ from api.geocoding import (
 )
 from events.consumers import start_consumers
 from shared.config import get_config, setup_logging
+
+
+class HealthCheckResource(Resource):
+    """Health check endpoint for service monitoring."""
+    
+    def get(self):
+        """Return health status of the geocoding service."""
+        return {
+            'status': 'healthy',
+            'service': 'geocoding-service'
+        }
 
 
 def check_plz_data_exists(engine):
@@ -187,19 +198,14 @@ def create_app():
     # Initialize RESTful API
     api = Api(app)
 
+    # Register health check endpoint (at root level, not under /api)
+    api.add_resource(HealthCheckResource, '/health')
+
     # Register API endpoints
     api.add_resource(GeocodingResource, '/api/geocode')
     api.add_resource(ReverseGeocodingResource, '/api/reverse-geocode')
     api.add_resource(DistanceCalculationResource, '/api/calculate-distance')
     api.add_resource(PLZDistanceResource, '/api/calculate-plz-distance')
-
-    # Health check endpoint
-    @app.route('/health')
-    def health_check():
-        return jsonify({
-            "status": "healthy",
-            "service": "geocoding-service"
-        }), 200
 
     # Initialize PLZ data if needed
     initialize_plz_data()

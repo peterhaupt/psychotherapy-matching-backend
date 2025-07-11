@@ -1,6 +1,6 @@
 """Main application file for the Communication Service."""
 from flask import Flask
-from flask_restful import Api
+from flask_restful import Api, Resource
 from flask_cors import CORS
 
 from api.emails import EmailResource, EmailListResource
@@ -8,6 +8,17 @@ from api.phone_calls import PhoneCallResource, PhoneCallListResource
 from api.system_messages import SystemMessageResource
 from events.consumers import start_consumers
 from shared.config import get_config, setup_logging
+
+
+class HealthCheckResource(Resource):
+    """Health check endpoint for service monitoring."""
+    
+    def get(self):
+        """Return health status of the communication service."""
+        return {
+            'status': 'healthy',
+            'service': 'communication-service'
+        }
 
 
 def create_app():
@@ -39,6 +50,9 @@ def create_app():
 
     # Initialize RESTful API
     api = Api(app)
+
+    # Register health check endpoint (at root level, not under /api)
+    api.add_resource(HealthCheckResource, '/health')
 
     # Register API endpoints for emails
     api.add_resource(EmailListResource, '/api/emails')

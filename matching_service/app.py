@@ -7,7 +7,7 @@ import time
 from datetime import datetime, time as datetime_time
 
 from flask import Flask
-from flask_restful import Api
+from flask_restful import Api, Resource
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 
@@ -32,6 +32,17 @@ db = SQLAlchemy()
 
 # Global flag for graceful shutdown
 shutdown_flag = threading.Event()
+
+
+class HealthCheckResource(Resource):
+    """Health check endpoint for service monitoring."""
+    
+    def get(self):
+        """Return health status of the matching service."""
+        return {
+            'status': 'healthy',
+            'service': 'matching-service'
+        }
 
 
 def schedule_follow_up_calls():
@@ -99,6 +110,9 @@ def create_app():
     # Initialize RESTful API
     api = Api(app)
     
+    # Register health check endpoint (at root level, not under /api)
+    api.add_resource(HealthCheckResource, '/health')
+    
     # Register anfrage system API endpoints
     api.add_resource(PlatzsucheListResource, '/api/platzsuchen')
     api.add_resource(PlatzsucheResource, '/api/platzsuchen/<int:search_id>')
@@ -113,12 +127,6 @@ def create_app():
     api.add_resource(AnfrageCreationResource, '/api/therapeutenanfragen/erstellen-fuer-therapeut')
     api.add_resource(AnfrageResponseResource, '/api/therapeutenanfragen/<int:anfrage_id>/antwort')
     api.add_resource(AnfrageSendResource, '/api/therapeutenanfragen/<int:anfrage_id>/senden')
-
-    # Health check endpoint
-    @app.route('/health')
-    def health_check():
-        """Simple health check endpoint."""
-        return {'status': 'healthy', 'service': 'matching-service'}, 200
 
     # Start Kafka consumers
     start_consumers()
