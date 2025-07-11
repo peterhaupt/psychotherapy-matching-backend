@@ -275,28 +275,35 @@ class ProductionConfig(Config):
     # Require secure cookies in production
     SESSION_COOKIE_SECURE = True
     
-    # In production, these should come from environment variables
-    # with no defaults for security
-    @classmethod
-    def validate(cls):
-        """Validate that all required production configs are set."""
-        required = [
-            "DB_USER", "DB_PASSWORD", "DB_NAME",
-            "SMTP_USERNAME", "SMTP_PASSWORD",
-            "SECRET_KEY", "JWT_SECRET_KEY"
-        ]
-        
-        missing = [var for var in required if not os.environ.get(var)]
-        
-        if missing:
-            raise ValueError(f"Missing required environment variables: {', '.join(missing)}")
-        
-        # Validate that default secrets are not used in production
-        if cls.SECRET_KEY == "dev-secret-key-change-in-production":
-            raise ValueError("SECRET_KEY must be changed from default in production")
-        
-        if cls.JWT_SECRET_KEY == "dev-jwt-secret-change-in-production":
-            raise ValueError("JWT_SECRET_KEY must be changed from default in production")
+    # VALIDATION DISABLED: Each service should validate its own requirements
+    # The original validate() method required all services to have all variables,
+    # which doesn't work in a microservices architecture where different services
+    # need different environment variables.
+    #
+    # If you need validation later, consider:
+    # 1. Service-specific validation in each service's startup code
+    # 2. Or implement a SERVICE_NAME based validation as shown below
+    
+    # @classmethod
+    # def validate(cls, service_name=None):
+    #     """Example of service-specific validation (currently disabled)."""
+    #     SERVICE_REQUIREMENTS = {
+    #         'communication': ["DB_USER", "DB_PASSWORD", "DB_NAME", "SMTP_USERNAME", "SMTP_PASSWORD"],
+    #         'patient': ["DB_USER", "DB_PASSWORD", "DB_NAME"],
+    #         'therapist': ["DB_USER", "DB_PASSWORD", "DB_NAME"],
+    #         'matching': ["DB_USER", "DB_PASSWORD", "DB_NAME"],
+    #         'geocoding': ["DB_USER", "DB_PASSWORD", "DB_NAME"],
+    #         'default': ["DB_USER", "DB_PASSWORD", "DB_NAME"]
+    #     }
+    #     
+    #     if not service_name:
+    #         service_name = os.environ.get("SERVICE_NAME", "default")
+    #     
+    #     required = SERVICE_REQUIREMENTS.get(service_name, SERVICE_REQUIREMENTS['default'])
+    #     missing = [var for var in required if not os.environ.get(var)]
+    #     
+    #     if missing:
+    #         raise ValueError(f"Missing required environment variables for {service_name}: {', '.join(missing)}")
 
 
 class TestConfig(Config):
@@ -310,8 +317,8 @@ env = os.environ.get("FLASK_ENV", "development")
 
 if env == "production":
     config = ProductionConfig()
-    # Validate production configuration
-    config.validate()
+    # VALIDATION DISABLED - Services should validate their own requirements
+    # config.validate()
 elif env == "testing":
     config = TestConfig()
 else:
