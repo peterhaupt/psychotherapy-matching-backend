@@ -1,8 +1,10 @@
 name: curavani_backend_prod
 services:
-  # PostgreSQL Database
+  # PostgreSQL Database with built-in cron backup
   postgres-prod:
-    image: postgres:16-alpine
+    build:
+      context: ./docker/postgres
+      dockerfile: Dockerfile
     container_name: postgres-prod
     environment:
       POSTGRES_USER: ${DB_USER}
@@ -13,6 +15,7 @@ services:
     volumes:
       - postgres_prod_data:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./backups:/backups
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 10s

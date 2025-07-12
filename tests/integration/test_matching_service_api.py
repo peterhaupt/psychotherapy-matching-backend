@@ -1,4 +1,4 @@
-"""Integration tests for Matching Service API with pagination support - FIXED for enhanced patient validation."""
+"""Integration tests for Matching Service API with pagination support - UPDATED for email/phone preference testing."""
 import pytest
 import requests
 import time
@@ -797,6 +797,187 @@ class TestMatchingServiceAPI:
         
         # Cleanup
         self.safe_delete_platzsuche(search['id'])
+        self.safe_delete_patient(patient['id'])
+
+    # NEW EMAIL/PHONE PREFERENCE TESTS
+
+    def test_therapeuten_zur_auswahl_email_priority(self):
+        """Test that therapists with email are prioritized over those without."""
+        # Create therapist WITH email - available and informed (highest priority)
+        therapist_with_email = self.create_test_therapist(
+            plz="52064",
+            potenziell_verfuegbar=True,
+            ueber_curavani_informiert=True,
+            email="therapist.with.email@example.com",
+            vorname="WithEmail",
+            nachname="Therapist"
+        )
+        
+        # Create therapist WITHOUT email - available and informed (should be lower priority)
+        therapist_without_email = self.create_test_therapist(
+            plz="52065", 
+            potenziell_verfuegbar=True,
+            ueber_curavani_informiert=True,
+            email=None,  # No email
+            vorname="WithoutEmail",
+            nachname="Therapist"
+        )
+        
+        # Get therapists for selection
+        response = requests.get(f"{BASE_URL}/therapeuten-zur-auswahl?plz_prefix=52")
+        assert response.status_code == 200
+        
+        data = response.json()
+        therapists = data['data']
+        
+        # Find positions of our therapists
+        with_email_index = None
+        without_email_index = None
+        
+        for i, t in enumerate(therapists):
+            if t['id'] == therapist_with_email['id']:
+                with_email_index = i
+            elif t['id'] == therapist_without_email['id']:
+                without_email_index = i
+        
+        # Verify both therapists are found
+        assert with_email_index is not None, "Therapist with email not found"
+        assert without_email_index is not None, "Therapist without email not found"
+        
+        # Therapist with email should come before therapist without email
+        assert with_email_index < without_email_index, f"Email priority failed: with_email at {with_email_index}, without_email at {without_email_index}"
+        
+        # Cleanup
+        self.safe_delete_therapist(therapist_with_email['id'])
+        self.safe_delete_therapist(therapist_without_email['id'])
+
+    def test_send_anfrage_to_therapist_without_email(self):
+        """Test that sending anfrage to therapist without email creates phone call."""
+        # Create therapist WITHOUT email
+        therapist = self.create_test_therapist(
+            plz="52064",
+            email=None,  # No email address
+            telefon="+49 241 123456",
+            telefonische_erreichbarkeit={
+                "montag": ["10:00-12:00"],
+                "mittwoch": ["14:00-16:00"]
+            }
+        )
+        
+        # Create patient for anfrage
+        patient = self.create_test_patient(plz="52062")
+        search_response = requests.post(
+            f"{BASE_URL}/platzsuchen",
+            json={"patient_id": patient['id']}
+        )
+        assert search_response.status_code == 201
+        search = search_response.json()
+        
+        # Create anfrage
+        anfrage_response = requests.post(
+            f"{BASE_URL}/therapeutenanfragen/erstellen-fuer-therapeut",
+            json={
+                "therapist_id": therapist['id'],
+                "plz_prefix": "52",
+                "sofort_senden": False
+            }
+        )
+        
+        if anfrage_response.status_code == 201:
+            anfrage = anfrage_response.json()
+            
+            # Send the anfrage
+            send_response = requests.post(
+                f"{BASE_URL}/therapeutenanfragen/{anfrage['anfrage_id']}/senden"
+            )
+            assert send_response.status_code == 200
+            
+            send_data = send_response.json()
+            
+            # Verify response structure for phone call
+            assert send_data['communication_type'] == 'phone_call'
+            assert send_data['email_id'] is None
+            assert send_data['phone_call_id'] is not None
+            assert 'sent_date' in send_data
+            
+            # Verify phone call was actually created in communication service
+            phone_call_response = requests.get(
+                f"http://localhost:8004/api/phone-calls?therapist_id={therapist['id']}&therapeutenanfrage_id={anfrage['anfrage_id']}"
+            )
+            assert phone_call_response.status_code == 200
+            
+            phone_calls = phone_call_response.json()['data']
+            assert len(phone_calls) > 0, "Phone call was not created"
+            
+            phone_call = phone_calls[0]
+            assert phone_call['therapist_id'] == therapist['id']
+            assert phone_call['therapeutenanfrage_id'] == anfrage['anfrage_id']
+            assert phone_call['status'] == 'geplant'
+            
+            # Cleanup anfrage
+            try:
+                requests.delete(f"{BASE_URL}/therapeutenanfragen/{anfrage['anfrage_id']}")
+            except:
+                pass
+        
+        # Cleanup
+        self.safe_delete_platzsuche(search['id'])
+        self.safe_delete_therapist(therapist['id'])
+        self.safe_delete_patient(patient['id'])
+
+    def test_send_anfrage_to_therapist_with_email(self):
+        """Test that sending anfrage to therapist with email still works normally."""
+        # Create therapist WITH email
+        therapist = self.create_test_therapist(
+            plz="52064",
+            email="therapist@example.com"
+        )
+        
+        # Create patient for anfrage
+        patient = self.create_test_patient(plz="52062")
+        search_response = requests.post(
+            f"{BASE_URL}/platzsuchen",
+            json={"patient_id": patient['id']}
+        )
+        assert search_response.status_code == 201
+        search = search_response.json()
+        
+        # Create anfrage
+        anfrage_response = requests.post(
+            f"{BASE_URL}/therapeutenanfragen/erstellen-fuer-therapeut",
+            json={
+                "therapist_id": therapist['id'],
+                "plz_prefix": "52",
+                "sofort_senden": False
+            }
+        )
+        
+        if anfrage_response.status_code == 201:
+            anfrage = anfrage_response.json()
+            
+            # Send the anfrage
+            send_response = requests.post(
+                f"{BASE_URL}/therapeutenanfragen/{anfrage['anfrage_id']}/senden"
+            )
+            assert send_response.status_code == 200
+            
+            send_data = send_response.json()
+            
+            # Verify response structure for email
+            assert send_data['communication_type'] == 'email'
+            assert send_data['email_id'] is not None
+            assert send_data['phone_call_id'] is None
+            assert 'sent_date' in send_data
+            
+            # Cleanup anfrage
+            try:
+                requests.delete(f"{BASE_URL}/therapeutenanfragen/{anfrage['anfrage_id']}")
+            except:
+                pass
+        
+        # Cleanup
+        self.safe_delete_platzsuche(search['id'])
+        self.safe_delete_therapist(therapist['id'])
         self.safe_delete_patient(patient['id'])
 
 
