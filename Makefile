@@ -17,6 +17,9 @@ build-dev:
 test-start:
 	docker-compose -f docker-compose.test.yml --env-file .env.test up -d
 
+test-start-db-only:
+	docker-compose -f docker-compose.test.yml --env-file .env.test up -d postgres-test pgbouncer-test
+
 test-stop:
 	docker-compose -f docker-compose.test.yml --env-file .env.test down
 
@@ -160,14 +163,35 @@ deploy-test:
 	$(MAKE) test-build
 	# Stop test environment
 	$(MAKE) test-stop
-	# Start test environment
-	$(MAKE) test-start
-	# Wait for services to be ready
-	@echo "⏳ Waiting for test services to start..."
-	@sleep 15
-	# Reset test database
+	# Start ONLY database services first
+	@echo "🗄️  Starting database services..."
+	$(MAKE) test-start-db-only
+	# Wait for database services to be ready
+	@echo "⏳ Waiting for database services to start..."
+	@sleep 10
+	@echo "🔍 Verifying database connection..."
+	@for i in $$(seq 1 30); do \
+		if docker exec postgres-test pg_isready -U $$(grep DB_USER .env.test | cut -d '=' -f2) > /dev/null 2>&1; then \
+			echo "✅ Database is ready"; \
+			break; \
+		fi; \
+		if [ $$i -eq 30 ]; then \
+			echo "❌ Database failed to start after 30 attempts"; \
+			exit 1; \
+		fi; \
+		sleep 1; \
+	done
+	# Reset test database (now safe - no app connections)
+	@echo "🔄 Resetting test database..."
 	$(MAKE) reset-test-db
+	# Now start ALL services (including already-running database services)
+	@echo "🚀 Starting all application services..."
+	$(MAKE) test-start
+	# Wait for all services to be ready
+	@echo "⏳ Waiting for all services to start..."
+	@sleep 15
 	# Run migrations
+	@echo "📊 Running database migrations..."
 	$(MAKE) migrate-test
 	# Check migrations are current
 	$(MAKE) check-migrations-test
@@ -215,7 +239,7 @@ health-check:
 	@echo "Checking production health endpoints..."
 	@curl -s http://localhost:8021/health | jq '.' || echo "Patient service not responding"
 	@curl -s http://localhost:8022/health | jq '.' || echo "Therapist service not responding"
-	@curl -s http://localhost:8023/health | jq '.' || echo "Matching service not responding"
+	@curl -s http://localhost:8023/health | jq '.' || echo "Communication service not responding"
 	@curl -s http://localhost:8024/health | jq '.' || echo "Communication service not responding"
 	@curl -s http://localhost:8025/health | jq '.' || echo "Geocoding service not responding"
 
@@ -259,6 +283,7 @@ help:
 	@echo ""
 	@echo "Test Environment:"
 	@echo "  make test-start       - Start test environment"
+	@echo "  make test-start-db-only - Start only database services"
 	@echo "  make test-stop        - Stop test environment"
 	@echo "  make test-logs        - View test logs"
 	@echo "  make test-build       - Build test images"
