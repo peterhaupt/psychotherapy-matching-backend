@@ -61,32 +61,32 @@ db-prod:
 # Database migration commands
 migrate-dev:
 	@echo "Running Alembic migrations for development..."
-	cd patient_service && alembic upgrade head
+	cd migrations && alembic upgrade head
 
 migrate-test:
 	@echo "Running Alembic migrations for test environment..."
-	@export $$(cat .env.test | grep -v '^#' | xargs) && \
-	cd patient_service && alembic upgrade head
+	@export $(cat .env.test | grep -v '^#' | xargs) && \
+	cd migrations && alembic upgrade head
 
 migrate-prod:
 	@echo "Running Alembic migrations for production..."
-	@export $$(cat .env.prod | grep -v '^#' | xargs) && \
-	cd patient_service && alembic upgrade head
+	@export $(cat .env.prod | grep -v '^#' | xargs) && \
+	cd migrations && alembic upgrade head
 
 # Check if migrations are up to date
 check-migrations-dev:
 	@echo "Checking development database migrations..."
-	cd patient_service && alembic current
+	cd migrations && alembic current
 
 check-migrations-test:
 	@echo "Checking test database migrations..."
-	@export $$(cat .env.test | grep -v '^#' | xargs) && \
-	cd patient_service && alembic current
+	@export $(cat .env.test | grep -v '^#' | xargs) && \
+	cd migrations && alembic current
 
 check-migrations-prod:
 	@echo "Checking production database migrations..."
-	@export $$(cat .env.prod | grep -v '^#' | xargs) && \
-	cd patient_service && alembic current
+	@export $(cat .env.prod | grep -v '^#' | xargs) && \
+	cd migrations && alembic current
 
 # Test database management
 reset-test-db:
