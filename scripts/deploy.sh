@@ -55,17 +55,37 @@ echo "⏳ Waiting for services to be healthy..."
 echo "---------------------------------------"
 sleep 15  # Give services time to fully start
 
-# 6. Health checks
+# 6. Run Alembic migrations
+echo ""
+echo "🗃️  Running database migrations..."
+echo "---------------------------------"
+# Load production environment variables for migrations
+export $(cat .env.prod | grep -v '^#' | xargs)
+cd migrations && alembic upgrade head && cd ..
+if [ $? -eq 0 ]; then
+    echo "✅ Migrations completed successfully"
+else
+    echo "❌ Migration failed!"
+    exit 1
+fi
+
+# 7. Verify migration status
+echo ""
+echo "🔍 Verifying migration status..."
+echo "--------------------------------"
+cd migrations && alembic current && cd ..
+
+# 8. Health checks
 echo ""
 echo "❤️  Running health checks..."
 echo "---------------------------"
 
 SERVICES=(
-    "patient:8011"
-    "therapist:8012"
-    "matching:8013"
-    "communication:8014"
-    "geocoding:8015"
+    "patient:8021"
+    "therapist:8022"
+    "matching:8023"
+    "communication:8024"
+    "geocoding:8025"
 )
 
 ALL_HEALTHY=true
@@ -92,7 +112,7 @@ for SERVICE in "${SERVICES[@]}"; do
     fi
 done
 
-# 7. Run smoke tests if services are healthy
+# 9. Run smoke tests if services are healthy
 if $ALL_HEALTHY; then
     echo ""
     echo "🧪 Running smoke tests in production..."
@@ -101,27 +121,20 @@ if $ALL_HEALTHY; then
     # Run smoke tests against production endpoints
     SMOKE_TEST_FAILED=false
     
-    # Check if smoke test directory exists
-    if [ -d "./tests/smoke" ]; then
-        # Source production environment for tests
-        export PATIENT_API_URL="http://localhost:8011/api"
-        export THERAPIST_API_URL="http://localhost:8012/api"
-        export MATCHING_API_URL="http://localhost:8013/api"
-        export COMMUNICATION_API_URL="http://localhost:8014/api"
-        export GEOCODING_API_URL="http://localhost:8015/api"
-        
-        # Run smoke tests from the host (not inside containers)
-        # Assuming you have pytest installed locally
-        if command -v pytest &> /dev/null; then
-            pytest ./tests/smoke -v --tb=short || SMOKE_TEST_FAILED=true
-        else
-            echo "⚠️  pytest not found locally, trying to run tests in a container..."
-            # Alternative: Run tests inside one of the containers
-            $COMPOSE_PROD exec -T patient_service-prod pytest /app/tests/smoke -v --tb=short || SMOKE_TEST_FAILED=true
-        fi
+    # Set production environment variables for tests
+    export PATIENT_API_URL="http://localhost:8021/api"
+    export THERAPIST_API_URL="http://localhost:8022/api"
+    export MATCHING_API_URL="http://localhost:8023/api"
+    export COMMUNICATION_API_URL="http://localhost:8024/api"
+    export GEOCODING_API_URL="http://localhost:8025/api"
+    
+    # Run smoke tests from the host
+    if command -v pytest &> /dev/null; then
+        pytest ./tests/smoke -v --tb=short || SMOKE_TEST_FAILED=true
     else
-        echo "⚠️  No smoke tests found in ./tests/smoke"
-        echo "    Skipping smoke tests..."
+        echo "⚠️  pytest not found locally"
+        echo "    Please ensure pytest is installed: pip install pytest"
+        SMOKE_TEST_FAILED=true
     fi
     
     if $SMOKE_TEST_FAILED; then
@@ -132,7 +145,7 @@ if $ALL_HEALTHY; then
     fi
 fi
 
-# 8. Final status
+# 10. Final status
 echo ""
 echo "===================================================="
 if $ALL_HEALTHY; then
@@ -140,11 +153,13 @@ if $ALL_HEALTHY; then
     echo "All services are running and healthy."
     echo ""
     echo "Backend API endpoints available at:"
-    echo "  - Patient Service: http://localhost:8011/api"
-    echo "  - Therapist Service: http://localhost:8012/api"
-    echo "  - Matching Service: http://localhost:8013/api"
-    echo "  - Communication Service: http://localhost:8014/api"
-    echo "  - Geocoding Service: http://localhost:8015/api"
+    echo "  - Patient Service: http://localhost:8021/api"
+    echo "  - Therapist Service: http://localhost:8022/api"
+    echo "  - Matching Service: http://localhost:8023/api"
+    echo "  - Communication Service: http://localhost:8024/api"
+    echo "  - Geocoding Service: http://localhost:8025/api"
+    echo ""
+    echo "Automatic database backups are configured inside the postgres container."
 else
     echo "❌ BACKEND DEPLOYMENT COMPLETED WITH WARNINGS!"
     echo "Some services failed health checks or smoke tests failed."
