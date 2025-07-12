@@ -1185,11 +1185,17 @@ curl -X DELETE "http://localhost:8003/api/platzsuchen/1"
 **Query Parameters:**
 - `plz_prefix` (required): PLZ prefix with configurable digits (default: 2 digits, e.g., "52")
 
-**Sorting Order:**
-1. Available AND informed about Curavani
-2. Available AND NOT informed about Curavani
-3. Not available AND informed about Curavani
-4. Others (alphabetically by name)
+**Sorting Order (Email Priority):**
+1. Available AND informed about Curavani WITH email
+2. Available AND NOT informed about Curavani WITH email  
+3. Not available AND informed about Curavani WITH email
+4. Others WITH email (alphabetically by name)
+5. Available AND informed about Curavani WITHOUT email
+6. Available AND NOT informed about Curavani WITHOUT email
+7. Not available AND informed about Curavani WITHOUT email
+8. Others WITHOUT email (alphabetically by name)
+
+**Note:** Therapists with email addresses are always prioritized over those without email addresses within each availability/information tier.
 
 **Example Request:**
 ```bash
@@ -1387,7 +1393,7 @@ curl -X POST "http://localhost:8003/api/therapeutenanfragen/erstellen-fuer-thera
 
 ## POST /therapeutenanfragen/{id}/senden
 
-**Description:** Send an unsent anfrage via email.
+**Description:** Send an unsent anfrage via email or phone call.
 
 **No request body required.**
 
@@ -1396,15 +1402,40 @@ curl -X POST "http://localhost:8003/api/therapeutenanfragen/erstellen-fuer-thera
 curl -X POST "http://localhost:8003/api/therapeutenanfragen/101/senden"
 ```
 
-**Success Response:**
+**Success Response (Email):**
 ```json
 {
   "message": "Anfrage sent successfully",
   "anfrage_id": 101,
+  "communication_type": "email",
   "email_id": 456,
+  "phone_call_id": null,
   "sent_date": "2025-06-15T14:30:00"
 }
 ```
+
+**Success Response (Phone Call):**
+```json
+{
+  "message": "Anfrage sent successfully", 
+  "anfrage_id": 101,
+  "communication_type": "phone_call",
+  "email_id": null,
+  "phone_call_id": 789,
+  "sent_date": "2025-06-15T14:30:00"
+}
+```
+
+**Behavior:**
+- If therapist has an email address: Creates and sends email (existing behavior)
+- If therapist has no email address: Creates phone call with `therapeutenanfrage_id` link for follow-up
+- Phone calls are automatically scheduled using therapist's `telefonische_erreichbarkeit` or default time
+
+**Response Fields:**
+- `communication_type` (string): Either "email" or "phone_call" indicating how the anfrage was sent
+- `email_id` (integer|null): ID of created email if sent via email, null if sent via phone call
+- `phone_call_id` (integer|null): ID of created phone call if sent via phone call, null if sent via email
+- `sent_date` (string): ISO datetime when the communication was initiated
 
 **Error Response (Already Sent):**
 ```json
