@@ -217,6 +217,7 @@ config/local/
 .env.*.local
 .env.dev
 .env.prod
+.env.test
 
 # Keep the example file
 !.env.example
