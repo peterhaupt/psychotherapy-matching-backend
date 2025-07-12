@@ -780,24 +780,30 @@ class AnfrageService:
     def send_anfrage(
         db: Session,
         anfrage_id: int
-    ) -> bool:
-        """Send an anfrage to the therapist via email.
+    ) -> Dict[str, Any]:
+        """Send an anfrage to the therapist via email or phone call.
         
         Args:
             db: Database session
             anfrage_id: ID of the anfrage
             
         Returns:
-            True if sent successfully, False otherwise
+            Dictionary with sending result information
         """
         anfrage = db.query(Therapeutenanfrage).filter_by(id=anfrage_id).first()
         if not anfrage:
             logger.error(f"Anfrage {anfrage_id} not found")
-            return False
+            return {"success": False, "error": "Anfrage not found"}
         
         if anfrage.gesendet_datum:
             logger.warning(f"Anfrage {anfrage_id} already sent on {anfrage.gesendet_datum}")
-            return False
+            return {"success": False, "error": "Already sent", "sent_date": anfrage.gesendet_datum}
+        
+        # Get therapist data
+        therapist = TherapistService.get_therapist(anfrage.therapist_id)
+        if not therapist:
+            logger.error(f"Therapist {anfrage.therapist_id} not found")
+            return {"success": False, "error": "Therapist not found"}
         
         # Get patient data
         patient_ids = [ap.patient_id for ap in anfrage.anfrage_patients]
@@ -805,7 +811,7 @@ class AnfrageService:
         
         if len(patients) != anfrage.anfragegroesse:
             logger.error(f"Could not fetch all patients for anfrage {anfrage_id}")
-            return False
+            return {"success": False, "error": "Patient data incomplete"}
         
         # Create patient data list in anfrage order
         patient_data = []
@@ -813,22 +819,55 @@ class AnfrageService:
             if ap.patient_id in patients:
                 patient_data.append(patients[ap.patient_id])
         
-        # Create and send email
-        email_id = CommunicationService.create_anfrage_email(
-            anfrage.therapist_id,
-            patient_data,
-            anfrage.id
-        )
+        # Check if therapist has email
+        therapist_email = therapist.get('email')
         
-        if email_id:
-            anfrage.mark_as_sent(email_id=email_id)
-            db.commit()
+        if therapist_email:
+            # Send via email
+            email_id = CommunicationService.create_anfrage_email(
+                anfrage.therapist_id,
+                patient_data,
+                anfrage.id
+            )
             
-            logger.info(f"Anfrage {anfrage_id} sent successfully via email {email_id}")
-            return True
+            if email_id:
+                anfrage.mark_as_sent(email_id=email_id)
+                db.commit()
+                
+                logger.info(f"Anfrage {anfrage_id} sent successfully via email {email_id}")
+                return {
+                    "success": True,
+                    "communication_type": "email",
+                    "email_id": email_id,
+                    "phone_call_id": None,
+                    "sent_date": anfrage.gesendet_datum
+                }
+            else:
+                logger.error(f"Failed to create email for anfrage {anfrage_id}")
+                return {"success": False, "error": "Email creation failed"}
+        
         else:
-            logger.error(f"Failed to send anfrage {anfrage_id}")
-            return False
+            # No email - create phone call instead
+            phone_call_id = CommunicationService.schedule_follow_up_call(
+                anfrage.therapist_id,
+                anfrage.id
+            )
+            
+            if phone_call_id:
+                anfrage.mark_as_sent(phone_call_id=phone_call_id)
+                db.commit()
+                
+                logger.info(f"Anfrage {anfrage_id} sent successfully via phone call {phone_call_id}")
+                return {
+                    "success": True,
+                    "communication_type": "phone_call",
+                    "email_id": None,
+                    "phone_call_id": phone_call_id,
+                    "sent_date": anfrage.gesendet_datum
+                }
+            else:
+                logger.error(f"Failed to schedule phone call for anfrage {anfrage_id}")
+                return {"success": False, "error": "Phone call scheduling failed"}
     
     @staticmethod
     def handle_anfrage_response(

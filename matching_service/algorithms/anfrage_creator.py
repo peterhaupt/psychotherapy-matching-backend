@@ -2,6 +2,8 @@
 
 This module implements the manual therapist selection and anfrage creation
 with hard constraints only (no scoring or progressive filtering).
+
+Updated with 8-tier email priority sorting for Phase 2 implementation.
 """
 import logging
 from datetime import datetime, date
@@ -83,24 +85,37 @@ def get_therapists_for_selection(db: Session, plz_prefix: str) -> List[Dict[str,
             if next_contact is None or datetime.fromisoformat(next_contact).date() <= date.today():
                 filtered.append(therapist)
     
-    # Sort according to business rules
+    # Sort according to business rules - EMAIL FIRST WITHIN EACH TIER
     def sort_key(t):
         is_available = t.get('potenziell_verfuegbar', False)
         is_informed = t.get('ueber_curavani_informiert', False)
+        has_email = bool(t.get('email'))  # NEW: Check if therapist has email
         
-        # Priority order:
-        # 1. Available AND informed (return 0)
-        # 2. Available AND not informed (return 1)
-        # 3. Not available AND informed (return 2)
-        # 4. Others (return 3)
+        # Priority order with email preference:
+        # 1. Available AND informed WITH email (return 0)
+        # 2. Available AND not informed WITH email (return 1)
+        # 3. Not available AND informed WITH email (return 2)
+        # 4. Others WITH email (return 3)
+        # 5. Available AND informed WITHOUT email (return 4)
+        # 6. Available AND not informed WITHOUT email (return 5)
+        # 7. Not available AND informed WITHOUT email (return 6)
+        # 8. Others WITHOUT email (return 7)
+        
+        base_priority = 0
         if is_available and is_informed:
-            return (0, t.get('nachname', ''), t.get('vorname', ''))
+            base_priority = 0
         elif is_available and not is_informed:
-            return (1, t.get('nachname', ''), t.get('vorname', ''))
+            base_priority = 1
         elif not is_available and is_informed:
-            return (2, t.get('nachname', ''), t.get('vorname', ''))
+            base_priority = 2
         else:
-            return (3, t.get('nachname', ''), t.get('vorname', ''))
+            base_priority = 3
+        
+        # Add 4 to priority if no email (pushes to second tier)
+        if not has_email:
+            base_priority += 4
+        
+        return (base_priority, t.get('nachname', ''), t.get('vorname', ''))
     
     filtered.sort(key=sort_key)
     return filtered

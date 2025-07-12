@@ -743,13 +743,13 @@ class AnfrageCreationResource(Resource):
                 # Send anfrage if requested
                 if args.get('sofort_senden'):
                     try:
-                        success = AnfrageService.send_anfrage(db, anfrage.id)
-                        if success:
+                        result = AnfrageService.send_anfrage(db, anfrage.id)
+                        if result["success"]:
                             # Publish sent event
                             publish_anfrage_sent(
                                 anfrage.id,
-                                "email",
-                                anfrage.email_id
+                                result["communication_type"],
+                                result.get("email_id") or result.get("phone_call_id")
                             )
                     except Exception as e:
                         logger.error(f"Failed to send anfrage {anfrage.id}: {str(e)}")
@@ -896,7 +896,7 @@ class AnfrageSendResource(Resource):
     """REST resource for sending an unsent anfrage."""
     
     def post(self, anfrage_id):
-        """Send an anfrage via email."""
+        """Send an anfrage via email or phone call."""
         try:
             with get_db_context() as db:
                 anfrage = db.query(Therapeutenanfrage).filter_by(id=anfrage_id).first()
@@ -910,29 +910,27 @@ class AnfrageSendResource(Resource):
                         "sent_date": anfrage.gesendet_datum.isoformat()
                     }, 400
                 
-                # Send the anfrage
-                success = AnfrageService.send_anfrage(db, anfrage.id)
+                # Send the anfrage (handles both email and phone call)
+                result = AnfrageService.send_anfrage(db, anfrage.id)
                 
-                if success:
-                    # Refresh to get updated data
-                    db.refresh(anfrage)
-                    
-                    # Publish sent event
-                    publish_anfrage_sent(
-                        anfrage.id,
-                        "email",
-                        anfrage.email_id
-                    )
-                    
+                if result["success"]:
                     return {
                         "message": "Anfrage sent successfully",
                         "anfrage_id": anfrage.id,
-                        "email_id": anfrage.email_id,
-                        "sent_date": anfrage.gesendet_datum.isoformat() if anfrage.gesendet_datum else None
+                        "communication_type": result["communication_type"],
+                        "email_id": result.get("email_id"),
+                        "phone_call_id": result.get("phone_call_id"),
+                        "sent_date": result["sent_date"].isoformat() if result["sent_date"] else None
                     }, 200
                 else:
-                    return {"message": "Failed to send anfrage"}, 500
-                    
+                    if result.get("error") == "Already sent":
+                        return {
+                            "message": "Anfrage already sent",
+                            "sent_date": result["sent_date"].isoformat() if result.get("sent_date") else None
+                        }, 400
+                    else:
+                        return {"message": f"Failed to send anfrage: {result.get('error', 'Unknown error')}"}, 500
+                        
         except Exception as e:
             logger.error(f"Error sending anfrage {anfrage_id}: {str(e)}", exc_info=True)
             return {"message": "Internal server error"}, 500
