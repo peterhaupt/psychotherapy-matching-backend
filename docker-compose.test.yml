@@ -1,9 +1,9 @@
-name: curavani_backend_prod
+name: curavani_backend_test
 services:
   # PostgreSQL Database
-  postgres-prod:
+  postgres-test:
     image: postgres:16-alpine
-    container_name: postgres-prod
+    container_name: postgres-test
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
@@ -11,7 +11,7 @@ services:
     ports:
       - "${DB_EXTERNAL_PORT}:${DB_PORT}"
     volumes:
-      - postgres_prod_data:/var/lib/postgresql/data
+      - postgres_test_data:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
@@ -19,15 +19,15 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - curavani_backend_prod
+      - curavani_backend_test
 
   # PgBouncer Connection Pooler
-  pgbouncer-prod:
+  pgbouncer-test:
     image: bitnami/pgbouncer:latest
-    container_name: pgbouncer-prod
+    container_name: pgbouncer-test
     environment:
       # Database connection settings
-      POSTGRESQL_HOST: postgres-prod
+      POSTGRESQL_HOST: postgres-test
       POSTGRESQL_PORT: ${DB_PORT}
       POSTGRESQL_DATABASE: ${DB_NAME}
       POSTGRESQL_USERNAME: ${DB_USER}
@@ -44,7 +44,7 @@ services:
       PGBOUNCER_DEFAULT_POOL_SIZE: 25
       PGBOUNCER_IGNORE_STARTUP_PARAMETERS: "extra_float_digits"
       # Create the databases.ini and users.ini files
-      PGBOUNCER_DSN_${DB_NAME}: "host=postgres-prod port=${DB_PORT} dbname=${DB_NAME}"
+      PGBOUNCER_DSN_${DB_NAME}: "host=postgres-test port=${DB_PORT} dbname=${DB_NAME}"
       # Set userlist
       PGBOUNCER_USERLIST: "${DB_USER}:${DB_PASSWORD}"
       # Admin user
@@ -56,7 +56,7 @@ services:
     ports:
       - "${PGBOUNCER_EXTERNAL_PORT}:${PGBOUNCER_PORT}"
     depends_on:
-      postgres-prod:
+      postgres-test:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "sh", "-c", "PGPASSWORD=${DB_PASSWORD} /opt/bitnami/postgresql/bin/psql -h localhost -p ${PGBOUNCER_PORT} -U ${DB_USER} -d ${DB_NAME} -c 'SELECT 1'"]
@@ -64,17 +64,17 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - curavani_backend_prod
+      - curavani_backend_test
 
   # Kafka Message Broker
-  zookeeper-prod:
+  zookeeper-test:
     image: confluentinc/cp-zookeeper:latest
-    container_name: zookeeper-prod
+    container_name: zookeeper-test
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
     ports:
-      - "2183:2181"
+      - "2182:2181"
     healthcheck:
       test: ["CMD", "nc", "-z", "localhost", "2181"]
       interval: 10s
@@ -82,21 +82,21 @@ services:
       retries: 5
       start_period: 30s
     networks:
-      - curavani_backend_prod
+      - curavani_backend_test
 
-  kafka-prod:
+  kafka-test:
     image: confluentinc/cp-kafka:latest
-    container_name: kafka-prod
+    container_name: kafka-test
     depends_on:
-      zookeeper-prod:
+      zookeeper-test:
         condition: service_healthy
     ports:
-      - "9094:9092"
-      - "9096:9094"
+      - "9093:9092"
+      - "9095:9094"
     environment:
       KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper-prod:2181
-      KAFKA_ADVERTISED_LISTENERS: INSIDE://kafka-prod:9093,OUTSIDE://localhost:9094
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper-test:2181
+      KAFKA_ADVERTISED_LISTENERS: INSIDE://kafka-test:9093,OUTSIDE://localhost:9093
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT
       KAFKA_LISTENERS: INSIDE://0.0.0.0:9093,OUTSIDE://0.0.0.0:9092
       KAFKA_INTER_BROKER_LISTENER_NAME: INSIDE
@@ -109,26 +109,26 @@ services:
       retries: 5
       start_period: 60s
     networks:
-      - curavani_backend_prod
+      - curavani_backend_test
 
   # Patient Service
-  patient_service-prod:
+  patient_service-test:
     build:
       context: .
       dockerfile: patient_service/Dockerfile
-    container_name: patient_service-prod
+    container_name: patient_service-test
     environment:
       # Core Database Configuration
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME}
-      DB_HOST: postgres-prod
+      DB_HOST: postgres-test
       DB_PORT: ${DB_PORT}
       # PgBouncer Configuration
-      PGBOUNCER_HOST: pgbouncer-prod
+      PGBOUNCER_HOST: pgbouncer-test
       PGBOUNCER_PORT: ${PGBOUNCER_PORT}
       # Kafka Configuration
-      KAFKA_BOOTSTRAP_SERVERS: kafka-prod:9093
+      KAFKA_BOOTSTRAP_SERVERS: kafka-test:9093
       KAFKA_LOG_LEVEL: ${KAFKA_LOG_LEVEL}
       # Flask Configuration
       FLASK_ENV: ${FLASK_ENV}
@@ -151,37 +151,39 @@ services:
       PATIENT_IMPORT_CHECK_INTERVAL_SECONDS: ${PATIENT_IMPORT_CHECK_INTERVAL_SECONDS}
       PATIENT_IMPORT_LOCAL_PATH: ${PATIENT_IMPORT_LOCAL_PATH}
     ports:
-      - "8021:8001"
+      - "8011:8001"
     volumes:
+      - ./patient_service:/app
+      - ./shared:/app/shared
       - ./credentials:/credentials:ro
       - ./data/patient_imports:/data/patient_imports
     depends_on:
-      pgbouncer-prod:
+      pgbouncer-test:
         condition: service_healthy
-      kafka-prod:
+      kafka-test:
         condition: service_healthy
     command: python app.py
     networks:
-      - curavani_backend_prod
+      - curavani_backend_test
 
   # Therapist Service
-  therapist_service-prod:
+  therapist_service-test:
     build:
       context: .
       dockerfile: therapist_service/Dockerfile
-    container_name: therapist_service-prod
+    container_name: therapist_service-test
     environment:
       # Core Database Configuration
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME}
-      DB_HOST: postgres-prod
+      DB_HOST: postgres-test
       DB_PORT: ${DB_PORT}
       # PgBouncer Configuration
-      PGBOUNCER_HOST: pgbouncer-prod
+      PGBOUNCER_HOST: pgbouncer-test
       PGBOUNCER_PORT: ${PGBOUNCER_PORT}
       # Kafka Configuration
-      KAFKA_BOOTSTRAP_SERVERS: kafka-prod:9093
+      KAFKA_BOOTSTRAP_SERVERS: kafka-test:9093
       KAFKA_LOG_LEVEL: ${KAFKA_LOG_LEVEL}
       # Flask Configuration
       FLASK_ENV: ${FLASK_ENV}
@@ -202,36 +204,38 @@ services:
       THERAPIST_IMPORT_CHECK_INTERVAL_SECONDS: ${THERAPIST_IMPORT_CHECK_INTERVAL_SECONDS}
       THERAPIST_IMPORT_ENABLED: ${THERAPIST_IMPORT_ENABLED}
     ports:
-      - "8022:8002"
+      - "8012:8002"
     volumes:
+      - ./therapist_service:/app
+      - ./shared:/app/shared
       - ../curavani_scraping/data/processed:/scraping_data:ro
     depends_on:
-      pgbouncer-prod:
+      pgbouncer-test:
         condition: service_healthy
-      kafka-prod:
+      kafka-test:
         condition: service_healthy
     command: python app.py
     networks:
-      - curavani_backend_prod
+      - curavani_backend_test
 
   # Matching Service
-  matching_service-prod:
+  matching_service-test:
     build:
       context: .
       dockerfile: matching_service/Dockerfile
-    container_name: matching_service-prod
+    container_name: matching_service-test
     environment:
       # Core Database Configuration
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME}
-      DB_HOST: postgres-prod
+      DB_HOST: postgres-test
       DB_PORT: ${DB_PORT}
       # PgBouncer Configuration
-      PGBOUNCER_HOST: pgbouncer-prod
+      PGBOUNCER_HOST: pgbouncer-test
       PGBOUNCER_PORT: ${PGBOUNCER_PORT}
       # Kafka Configuration
-      KAFKA_BOOTSTRAP_SERVERS: kafka-prod:9093
+      KAFKA_BOOTSTRAP_SERVERS: kafka-test:9093
       KAFKA_LOG_LEVEL: ${KAFKA_LOG_LEVEL}
       # Flask Configuration
       FLASK_ENV: ${FLASK_ENV}
@@ -256,34 +260,37 @@ services:
       FOLLOW_UP_THRESHOLD_DAYS: ${FOLLOW_UP_THRESHOLD_DAYS}
       DEFAULT_PHONE_CALL_TIME: ${DEFAULT_PHONE_CALL_TIME}
     ports:
-      - "8023:8003"
+      - "8013:8003"
+    volumes:
+      - ./matching_service:/app
+      - ./shared:/app/shared
     depends_on:
-      pgbouncer-prod:
+      pgbouncer-test:
         condition: service_healthy
-      kafka-prod:
+      kafka-test:
         condition: service_healthy
     command: python app.py
     networks:
-      - curavani_backend_prod
+      - curavani_backend_test
 
   # Communication Service
-  communication_service-prod:
+  communication_service-test:
     build:
       context: .
       dockerfile: communication_service/Dockerfile
-    container_name: communication_service-prod
+    container_name: communication_service-test
     environment:
       # Core Database Configuration
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME}
-      DB_HOST: postgres-prod
+      DB_HOST: postgres-test
       DB_PORT: ${DB_PORT}
       # PgBouncer Configuration
-      PGBOUNCER_HOST: pgbouncer-prod
+      PGBOUNCER_HOST: pgbouncer-test
       PGBOUNCER_PORT: ${PGBOUNCER_PORT}
       # Kafka Configuration
-      KAFKA_BOOTSTRAP_SERVERS: kafka-prod:9093
+      KAFKA_BOOTSTRAP_SERVERS: kafka-test:9093
       KAFKA_LOG_LEVEL: ${KAFKA_LOG_LEVEL}
       # Flask Configuration
       FLASK_ENV: ${FLASK_ENV}
@@ -317,34 +324,37 @@ services:
       # Follow-up Configuration
       DEFAULT_PHONE_CALL_TIME: ${DEFAULT_PHONE_CALL_TIME}
     ports:
-      - "8024:8004"
+      - "8014:8004"
+    volumes:
+      - ./communication_service:/app
+      - ./shared:/app/shared
     depends_on:
-      pgbouncer-prod:
+      pgbouncer-test:
         condition: service_healthy
-      kafka-prod:
+      kafka-test:
         condition: service_healthy
     command: python app.py
     networks:
-      - curavani_backend_prod
+      - curavani_backend_test
 
   # Geocoding Service
-  geocoding_service-prod:
+  geocoding_service-test:
     build:
       context: .
       dockerfile: geocoding_service/Dockerfile
-    container_name: geocoding_service-prod
+    container_name: geocoding_service-test
     environment:
       # Core Database Configuration
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME}
-      DB_HOST: postgres-prod
+      DB_HOST: postgres-test
       DB_PORT: ${DB_PORT}
       # PgBouncer Configuration
-      PGBOUNCER_HOST: pgbouncer-prod
+      PGBOUNCER_HOST: pgbouncer-test
       PGBOUNCER_PORT: ${PGBOUNCER_PORT}
       # Kafka Configuration
-      KAFKA_BOOTSTRAP_SERVERS: kafka-prod:9093
+      KAFKA_BOOTSTRAP_SERVERS: kafka-test:9093
       KAFKA_LOG_LEVEL: ${KAFKA_LOG_LEVEL}
       # Flask Configuration
       FLASK_ENV: ${FLASK_ENV}
@@ -377,22 +387,24 @@ services:
       GEOCODING_RATE_LIMIT_SLEEP: ${GEOCODING_RATE_LIMIT_SLEEP}
       GEOCODING_COORDINATE_PRECISION: ${GEOCODING_COORDINATE_PRECISION}
     ports:
-      - "8025:8005"
+      - "8015:8005"
     volumes:
+      - ./geocoding_service:/app
+      - ./shared:/app/shared
       - ./data:/data:ro  # Mount data folder as read-only
     depends_on:
-      pgbouncer-prod:
+      pgbouncer-test:
         condition: service_healthy
-      kafka-prod:
+      kafka-test:
         condition: service_healthy
     command: python app.py
     networks:
-      - curavani_backend_prod
+      - curavani_backend_test
 
 volumes:
-  postgres_prod_data:
+  postgres_test_data:
 
 networks:
-  curavani_backend_prod:
-    name: curavani_backend_prod
+  curavani_backend_test:
+    name: curavani_backend_test
     driver: bridge
