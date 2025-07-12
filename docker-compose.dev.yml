@@ -118,15 +118,26 @@ services:
       dockerfile: patient_service/Dockerfile
     container_name: patient_service
     environment:
+      # Core Database Configuration
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME}
-      DB_HOST: ${PGBOUNCER_HOST}
-      DB_PORT: ${PGBOUNCER_PORT}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      # PgBouncer Configuration
+      PGBOUNCER_HOST: ${PGBOUNCER_HOST}
+      PGBOUNCER_PORT: ${PGBOUNCER_PORT}
+      # Kafka Configuration
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      KAFKA_LOG_LEVEL: ${KAFKA_LOG_LEVEL}
+      # Flask Configuration
       FLASK_ENV: ${FLASK_ENV}
       FLASK_DEBUG: ${FLASK_DEBUG}
       LOG_LEVEL: ${LOG_LEVEL}
+      # Service Configuration
+      SERVICE_ENV_SUFFIX: ${SERVICE_ENV_SUFFIX}
+      SERVICE_HOST: ${SERVICE_HOST}
+      PATIENT_SERVICE_PORT: ${PATIENT_SERVICE_PORT}
       # GCS Configuration
       GCS_READER_CREDENTIALS_PATH: ${GCS_READER_CREDENTIALS_PATH}
       GCS_DELETER_CREDENTIALS_PATH: ${GCS_DELETER_CREDENTIALS_PATH}
@@ -156,15 +167,27 @@ services:
       dockerfile: therapist_service/Dockerfile
     container_name: therapist_service
     environment:
+      # Core Database Configuration
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME}
-      DB_HOST: ${PGBOUNCER_HOST}
-      DB_PORT: ${PGBOUNCER_PORT}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      # PgBouncer Configuration
+      PGBOUNCER_HOST: ${PGBOUNCER_HOST}
+      PGBOUNCER_PORT: ${PGBOUNCER_PORT}
+      # Kafka Configuration
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      KAFKA_LOG_LEVEL: ${KAFKA_LOG_LEVEL}
+      # Flask Configuration
       FLASK_ENV: ${FLASK_ENV}
       FLASK_DEBUG: ${FLASK_DEBUG}
       LOG_LEVEL: ${LOG_LEVEL}
+      # Service Configuration
+      SERVICE_ENV_SUFFIX: ${SERVICE_ENV_SUFFIX}
+      SERVICE_HOST: ${SERVICE_HOST}
+      THERAPIST_SERVICE_PORT: ${THERAPIST_SERVICE_PORT}
+      # Import Configuration
       THERAPIST_IMPORT_FOLDER_PATH: ${THERAPIST_IMPORT_FOLDER_PATH}
       THERAPIST_IMPORT_CHECK_INTERVAL_SECONDS: ${THERAPIST_IMPORT_CHECK_INTERVAL_SECONDS}
       THERAPIST_IMPORT_ENABLED: ${THERAPIST_IMPORT_ENABLED}
@@ -190,16 +213,32 @@ services:
       dockerfile: matching_service/Dockerfile
     container_name: matching_service
     environment:
+      # Core Database Configuration
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME}
-      DB_HOST: ${PGBOUNCER_HOST}
-      DB_PORT: ${PGBOUNCER_PORT}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      # PgBouncer Configuration
+      PGBOUNCER_HOST: ${PGBOUNCER_HOST}
+      PGBOUNCER_PORT: ${PGBOUNCER_PORT}
+      # Kafka Configuration
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      KAFKA_LOG_LEVEL: ${KAFKA_LOG_LEVEL}
+      # Flask Configuration
       FLASK_ENV: ${FLASK_ENV}
       FLASK_DEBUG: ${FLASK_DEBUG}
       LOG_LEVEL: ${LOG_LEVEL}
-      # Follow-up Configuration - NEW
+      # Service Configuration
+      SERVICE_ENV_SUFFIX: ${SERVICE_ENV_SUFFIX}
+      SERVICE_HOST: ${SERVICE_HOST}
+      MATCHING_SERVICE_PORT: ${MATCHING_SERVICE_PORT}
+      # Matching Configuration
+      MAX_ANFRAGE_SIZE: ${MAX_ANFRAGE_SIZE}
+      MIN_ANFRAGE_SIZE: ${MIN_ANFRAGE_SIZE}
+      PLZ_MATCH_DIGITS: ${PLZ_MATCH_DIGITS}
+      DEFAULT_MAX_DISTANCE_KM: ${DEFAULT_MAX_DISTANCE_KM}
+      # Follow-up Configuration
       FOLLOW_UP_THRESHOLD_DAYS: ${FOLLOW_UP_THRESHOLD_DAYS}
       DEFAULT_PHONE_CALL_TIME: ${DEFAULT_PHONE_CALL_TIME}
     ports:
@@ -223,19 +262,27 @@ services:
       dockerfile: communication_service/Dockerfile
     container_name: communication_service
     environment:
-      # Database Configuration
+      # Core Database Configuration
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME}
-      DB_HOST: ${PGBOUNCER_HOST}
-      DB_PORT: ${PGBOUNCER_PORT}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      # PgBouncer Configuration
+      PGBOUNCER_HOST: ${PGBOUNCER_HOST}
+      PGBOUNCER_PORT: ${PGBOUNCER_PORT}
       # Kafka Configuration
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      KAFKA_LOG_LEVEL: ${KAFKA_LOG_LEVEL}
       # Flask Configuration
       FLASK_ENV: ${FLASK_ENV}
       FLASK_DEBUG: ${FLASK_DEBUG}
       LOG_LEVEL: ${LOG_LEVEL}
-      # SMTP Configuration - Added for ProtonMail Bridge
+      # Service Configuration
+      SERVICE_ENV_SUFFIX: ${SERVICE_ENV_SUFFIX}
+      SERVICE_HOST: ${SERVICE_HOST}
+      COMMUNICATION_SERVICE_PORT: ${COMMUNICATION_SERVICE_PORT}
+      # SMTP Configuration
       SMTP_HOST: ${SMTP_HOST}
       SMTP_PORT: ${SMTP_PORT}
       SMTP_USERNAME: ${SMTP_USERNAME}
@@ -243,7 +290,14 @@ services:
       SMTP_USE_TLS: ${SMTP_USE_TLS}
       EMAIL_SENDER: ${EMAIL_SENDER}
       EMAIL_SENDER_NAME: ${EMAIL_SENDER_NAME}
-      # Follow-up Configuration - NEW
+      EMAIL_ADD_LEGAL_FOOTER: ${EMAIL_ADD_LEGAL_FOOTER}
+      # System Configuration
+      SYSTEM_NOTIFICATION_EMAIL: ${SYSTEM_NOTIFICATION_EMAIL}
+      # Communication Configuration
+      COMMUNICATION_EMAIL_BATCH_LIMIT: ${COMMUNICATION_EMAIL_BATCH_LIMIT}
+      COMMUNICATION_TIMEOUT_SHORT: ${COMMUNICATION_TIMEOUT_SHORT}
+      COMMUNICATION_TIMEOUT_LONG: ${COMMUNICATION_TIMEOUT_LONG}
+      # Follow-up Configuration
       DEFAULT_PHONE_CALL_TIME: ${DEFAULT_PHONE_CALL_TIME}
     ports:
       - "${COMMUNICATION_SERVICE_PORT}:8004"
@@ -266,15 +320,42 @@ services:
       dockerfile: geocoding_service/Dockerfile
     container_name: geocoding_service
     environment:
+      # Core Database Configuration
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME}
-      DB_HOST: ${PGBOUNCER_HOST}
-      DB_PORT: ${PGBOUNCER_PORT}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      # PgBouncer Configuration
+      PGBOUNCER_HOST: ${PGBOUNCER_HOST}
+      PGBOUNCER_PORT: ${PGBOUNCER_PORT}
+      # Kafka Configuration
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      KAFKA_LOG_LEVEL: ${KAFKA_LOG_LEVEL}
+      # Flask Configuration
       FLASK_ENV: ${FLASK_ENV}
       FLASK_DEBUG: ${FLASK_DEBUG}
       LOG_LEVEL: ${LOG_LEVEL}
+      # Service Configuration
+      SERVICE_ENV_SUFFIX: ${SERVICE_ENV_SUFFIX}
+      SERVICE_HOST: ${SERVICE_HOST}
+      GEOCODING_SERVICE_PORT: ${GEOCODING_SERVICE_PORT}
+      # Geocoding Configuration
+      OSM_API_URL: ${OSM_API_URL}
+      OSM_USER_AGENT: ${OSM_USER_AGENT}
+      OSM_TIMEOUT: ${OSM_TIMEOUT}
+      OSM_MAX_RETRIES: ${OSM_MAX_RETRIES}
+      OSM_RATE_LIMIT: ${OSM_RATE_LIMIT}
+      OSRM_API_URL: ${OSRM_API_URL}
+      OSRM_PROFILE_CAR: ${OSRM_PROFILE_CAR}
+      OSRM_PROFILE_TRANSIT: ${OSRM_PROFILE_TRANSIT}
+      # Cache Configuration
+      CACHE_TTL_SECONDS: ${CACHE_TTL_SECONDS}
+      CACHE_MAX_SIZE: ${CACHE_MAX_SIZE}
+      GEOCODING_REQUEST_TIMEOUT: ${GEOCODING_REQUEST_TIMEOUT}
+      GEOCODING_RETRY_DELAY_BASE: ${GEOCODING_RETRY_DELAY_BASE}
+      GEOCODING_RATE_LIMIT_SLEEP: ${GEOCODING_RATE_LIMIT_SLEEP}
+      GEOCODING_COORDINATE_PRECISION: ${GEOCODING_COORDINATE_PRECISION}
     ports:
       - "${GEOCODING_SERVICE_PORT}:8005"
     volumes:
