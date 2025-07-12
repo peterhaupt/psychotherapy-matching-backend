@@ -11,6 +11,9 @@ from alembic import context
 # Add the project root directory to Python's path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
+# Import the shared config system
+from shared.config import get_config  # noqa: E402
+
 # Import the Base class and models
 from shared.utils.database import Base  # noqa: E402
 # Need to import all models that will be part of migrations
@@ -42,20 +45,25 @@ except ImportError:
 # access to the values within the .ini file in use.
 config = context.config
 
-# Override the sqlalchemy.url with environment variables
-db_user = os.environ.get('DB_USER', 'your_db_user')
-db_password = os.environ.get('DB_PASSWORD', 'your_secure_password')
-db_name = os.environ.get('DB_NAME', 'therapy_platform')
-db_host = 'localhost'  # Always use localhost when running migrations from host
-db_port = os.environ.get('PGBOUNCER_PORT', '6432')
+# Get the shared configuration and build database URL for external connections
+shared_config = get_config()
 
-# Build the database URL
-database_url = f'postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}'
+# Use external_url=True to get localhost connection for migrations running from host
+database_url = shared_config.get_database_uri(external_url=True)
 
 # Set the URL in the config
 config.set_main_option('sqlalchemy.url', database_url)
 
-print(f"Using database connection: postgresql://{db_user}:****@{db_host}:{db_port}/{db_name}")
+# Parse connection details for logging (without exposing password)
+if '://' in database_url and '@' in database_url:
+    # postgresql://user:password@host:port/database
+    protocol_part, rest = database_url.split('://', 1)
+    auth_part, host_part = rest.split('@', 1)
+    user = auth_part.split(':', 1)[0]
+    host_and_db = host_part
+    print(f"Using database connection: {protocol_part}://{user}:****@{host_and_db}")
+else:
+    print(f"Using database connection: {database_url}")
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
