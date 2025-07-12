@@ -28,9 +28,24 @@ class GCSMonitor:
     def __init__(self):
         """Initialize the GCS monitor."""
         self.config = get_config()
-        self.bucket_name = os.environ.get('GCS_IMPORT_BUCKET', 'dev-patient-import')
-        self.local_base_path = os.environ.get('PATIENT_IMPORT_LOCAL_PATH', '/data/patient_imports/development')
-        self.check_interval = int(os.environ.get('PATIENT_IMPORT_CHECK_INTERVAL_SECONDS', '300'))
+        
+        # Get configuration from environment variables (no defaults)
+        self.bucket_name = os.environ.get('GCS_IMPORT_BUCKET')
+        self.local_base_path = os.environ.get('PATIENT_IMPORT_LOCAL_PATH')
+        check_interval_str = os.environ.get('PATIENT_IMPORT_CHECK_INTERVAL_SECONDS')
+        
+        # Validate required environment variables
+        if not self.bucket_name:
+            raise ValueError("GCS_IMPORT_BUCKET environment variable is required")
+        if not self.local_base_path:
+            raise ValueError("PATIENT_IMPORT_LOCAL_PATH environment variable is required")
+        if not check_interval_str:
+            raise ValueError("PATIENT_IMPORT_CHECK_INTERVAL_SECONDS environment variable is required")
+        
+        try:
+            self.check_interval = int(check_interval_str)
+        except ValueError:
+            raise ValueError(f"PATIENT_IMPORT_CHECK_INTERVAL_SECONDS must be a valid integer, got: {check_interval_str}")
         
         # Initialize GCS clients
         self.reader_client = self._init_gcs_client('reader')

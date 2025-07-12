@@ -27,17 +27,20 @@ class LocalFileMonitor:
         """Initialize the local file monitor."""
         self.config = get_config()
         
-        # Get base path from environment or use default
-        self.base_path = os.environ.get(
-            'THERAPIST_IMPORT_FOLDER_PATH',
-            '../../curavani_scraping/data/processed'
-        )
+        # Get configuration from environment variables (no defaults)
+        self.base_path = os.environ.get('THERAPIST_IMPORT_FOLDER_PATH')
+        check_interval_str = os.environ.get('THERAPIST_IMPORT_CHECK_INTERVAL_SECONDS')
         
-        # Check interval (24 hours in seconds)
-        self.check_interval = int(os.environ.get(
-            'THERAPIST_IMPORT_CHECK_INTERVAL_SECONDS',
-            '86400'  # 24 hours
-        ))
+        # Validate required environment variables
+        if not self.base_path:
+            raise ValueError("THERAPIST_IMPORT_FOLDER_PATH environment variable is required")
+        if not check_interval_str:
+            raise ValueError("THERAPIST_IMPORT_CHECK_INTERVAL_SECONDS environment variable is required")
+        
+        try:
+            self.check_interval = int(check_interval_str)
+        except ValueError:
+            raise ValueError(f"THERAPIST_IMPORT_CHECK_INTERVAL_SECONDS must be a valid integer, got: {check_interval_str}")
         
         # Initialize importer
         self.importer = TherapistImporter()

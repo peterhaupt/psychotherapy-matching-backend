@@ -26,8 +26,14 @@ def create_app():
     """Create and configure the Flask application."""
     app = Flask(__name__)
     
-    # Get configuration
+    # Get and validate configuration
     config = get_config()
+    config.validate("therapist")
+    
+    # Log configuration status (non-sensitive values only)
+    app.logger.info(f"Configuration validated for therapist service")
+    app.logger.info(f"Flask Environment: {config.FLASK_ENV}")
+    app.logger.info(f"Database: {config.DB_NAME}")
 
     # Configure CORS using centralized settings
     CORS(app, **config.get_cors_settings())
