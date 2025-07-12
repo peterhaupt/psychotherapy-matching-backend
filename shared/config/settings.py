@@ -2,11 +2,13 @@
 
 This module provides a single source of truth for all configuration values
 across the microservices architecture. It reads from environment variables
-with sensible defaults for development.
+with NO defaults - all required values must be explicitly set.
+
+Phase 3.1: Removed all default values and added validation.
 """
 import os
 import logging
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Set
 
 # Try to load .env file if python-dotenv is available
 try:
@@ -20,139 +22,250 @@ except ImportError:
     pass
 
 
+def _get_env_bool(var_name: str) -> Optional[bool]:
+    """Convert environment variable to boolean, return None if not set."""
+    value = os.environ.get(var_name)
+    if value is None:
+        return None
+    return value.lower() in ('true', '1', 'yes', 'on')
+
+
+def _get_env_int(var_name: str) -> Optional[int]:
+    """Convert environment variable to integer, return None if not set."""
+    value = os.environ.get(var_name)
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except ValueError:
+        raise ValueError(f"Environment variable {var_name} must be a valid integer, got: {value}")
+
+
+def _get_env_float(var_name: str) -> Optional[float]:
+    """Convert environment variable to float, return None if not set."""
+    value = os.environ.get(var_name)
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except ValueError:
+        raise ValueError(f"Environment variable {var_name} must be a valid float, got: {value}")
+
+
+def _get_env_list(var_name: str, separator: str = ",") -> Optional[List[str]]:
+    """Convert environment variable to list, return None if not set."""
+    value = os.environ.get(var_name)
+    if value is None:
+        return None
+    return [item.strip() for item in value.split(separator) if item.strip()]
+
+
 class Config:
-    """Base configuration class with common settings."""
+    """Base configuration class with NO default values.
     
-    # Database Configuration
-    DB_USER: str = os.environ.get("DB_USER", "your_db_user")
-    DB_PASSWORD: str = os.environ.get("DB_PASSWORD", "your_secure_password")
-    DB_NAME: str = os.environ.get("DB_NAME", "therapy_platform")
-    DB_HOST: str = os.environ.get("DB_HOST", "postgres")
-    DB_PORT: int = int(os.environ.get("DB_PORT", "5432"))
+    All configuration must be provided via environment variables.
+    Use validate() method to check required variables are set.
+    """
+    
+    # Critical Infrastructure - Required for all services
+    DB_USER: Optional[str] = os.environ.get("DB_USER")
+    DB_PASSWORD: Optional[str] = os.environ.get("DB_PASSWORD")
+    DB_NAME: Optional[str] = os.environ.get("DB_NAME")
+    DB_HOST: Optional[str] = os.environ.get("DB_HOST")
+    DB_PORT: Optional[int] = _get_env_int("DB_PORT")
     
     # PgBouncer Configuration
-    PGBOUNCER_HOST: str = os.environ.get("PGBOUNCER_HOST", "pgbouncer")
-    PGBOUNCER_PORT: int = int(os.environ.get("PGBOUNCER_PORT", "6432"))
-    PGBOUNCER_ADMIN_USER: str = os.environ.get("PGBOUNCER_ADMIN_USER", os.environ.get("DB_USER", "your_db_user"))
-    PGBOUNCER_ADMIN_PASSWORD: str = os.environ.get("PGBOUNCER_ADMIN_PASSWORD", os.environ.get("DB_PASSWORD", "your_secure_password"))
+    PGBOUNCER_HOST: Optional[str] = os.environ.get("PGBOUNCER_HOST")
+    PGBOUNCER_PORT: Optional[int] = _get_env_int("PGBOUNCER_PORT")
+    PGBOUNCER_ADMIN_USER: Optional[str] = os.environ.get("PGBOUNCER_ADMIN_USER")
+    PGBOUNCER_ADMIN_PASSWORD: Optional[str] = os.environ.get("PGBOUNCER_ADMIN_PASSWORD")
     
     # Kafka Configuration
-    KAFKA_BOOTSTRAP_SERVERS: str = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
-    KAFKA_ZOOKEEPER_CONNECT: str = os.environ.get("KAFKA_ZOOKEEPER_CONNECT", "zookeeper:2181")
-    KAFKA_LOG_LEVEL: str = os.environ.get("KAFKA_LOG_LEVEL", "WARNING")  # NEW: Separate Kafka log level
+    KAFKA_BOOTSTRAP_SERVERS: Optional[str] = os.environ.get("KAFKA_BOOTSTRAP_SERVERS")
+    KAFKA_ZOOKEEPER_CONNECT: Optional[str] = os.environ.get("KAFKA_ZOOKEEPER_CONNECT")
+    KAFKA_LOG_LEVEL: Optional[str] = os.environ.get("KAFKA_LOG_LEVEL")
+    
+    # Environment Settings
+    FLASK_ENV: Optional[str] = os.environ.get("FLASK_ENV")
+    FLASK_DEBUG: Optional[bool] = _get_env_bool("FLASK_DEBUG")
+    LOG_LEVEL: Optional[str] = os.environ.get("LOG_LEVEL")
+    SERVICE_ENV_SUFFIX: Optional[str] = os.environ.get("SERVICE_ENV_SUFFIX")
+    SERVICE_HOST: Optional[str] = os.environ.get("SERVICE_HOST")
     
     # Service Ports
-    PATIENT_SERVICE_PORT: int = int(os.environ.get("PATIENT_SERVICE_PORT", "8001"))
-    THERAPIST_SERVICE_PORT: int = int(os.environ.get("THERAPIST_SERVICE_PORT", "8002"))
-    MATCHING_SERVICE_PORT: int = int(os.environ.get("MATCHING_SERVICE_PORT", "8003"))
-    COMMUNICATION_SERVICE_PORT: int = int(os.environ.get("COMMUNICATION_SERVICE_PORT", "8004"))
-    GEOCODING_SERVICE_PORT: int = int(os.environ.get("GEOCODING_SERVICE_PORT", "8005"))
-    SCRAPING_SERVICE_PORT: int = int(os.environ.get("SCRAPING_SERVICE_PORT", "8006"))
-    
-    # Application Settings
-    FLASK_ENV: str = os.environ.get("FLASK_ENV", "development")
-    FLASK_DEBUG: bool = os.environ.get("FLASK_DEBUG", "true").lower() == "true"
-    LOG_LEVEL: str = os.environ.get("LOG_LEVEL", "INFO")
+    PATIENT_SERVICE_PORT: Optional[int] = _get_env_int("PATIENT_SERVICE_PORT")
+    THERAPIST_SERVICE_PORT: Optional[int] = _get_env_int("THERAPIST_SERVICE_PORT")
+    MATCHING_SERVICE_PORT: Optional[int] = _get_env_int("MATCHING_SERVICE_PORT")
+    COMMUNICATION_SERVICE_PORT: Optional[int] = _get_env_int("COMMUNICATION_SERVICE_PORT")
+    GEOCODING_SERVICE_PORT: Optional[int] = _get_env_int("GEOCODING_SERVICE_PORT")
+    SCRAPING_SERVICE_PORT: Optional[int] = _get_env_int("SCRAPING_SERVICE_PORT")
     
     # CORS Configuration
-    CORS_ALLOWED_ORIGINS: List[str] = os.environ.get(
-        "CORS_ALLOWED_ORIGINS", 
-        "http://localhost:3000"
-    ).split(",")
-    CORS_ALLOWED_METHODS: List[str] = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
-    CORS_ALLOWED_HEADERS: List[str] = ["Content-Type", "Authorization"]
-    CORS_SUPPORTS_CREDENTIALS: bool = os.environ.get("CORS_SUPPORTS_CREDENTIALS", "true").lower() == "true"
+    CORS_ALLOWED_ORIGINS: Optional[List[str]] = _get_env_list("CORS_ALLOWED_ORIGINS")
+    CORS_SUPPORTS_CREDENTIALS: Optional[bool] = _get_env_bool("CORS_SUPPORTS_CREDENTIALS")
     
-    # Email Configuration (for Communication Service)
-    SMTP_HOST: str = os.environ.get("SMTP_HOST", "localhost")
-    SMTP_PORT: int = int(os.environ.get("SMTP_PORT", "1025"))
-    SMTP_USERNAME: str = os.environ.get("SMTP_USERNAME", "")
-    SMTP_PASSWORD: str = os.environ.get("SMTP_PASSWORD", "")
-    SMTP_USE_TLS: bool = os.environ.get("SMTP_USE_TLS", "false").lower() == "true"
-    EMAIL_SENDER: str = os.environ.get("EMAIL_SENDER", "noreply@curavani.de")
-    EMAIL_SENDER_NAME: str = os.environ.get("EMAIL_SENDER_NAME", "Curavani Therapievermittlung")
-    EMAIL_ADD_LEGAL_FOOTER: bool = os.environ.get("EMAIL_ADD_LEGAL_FOOTER", "true").lower() == "true"
+    # Email Configuration (Communication Service)
+    SMTP_HOST: Optional[str] = os.environ.get("SMTP_HOST")
+    SMTP_PORT: Optional[int] = _get_env_int("SMTP_PORT")
+    SMTP_USERNAME: Optional[str] = os.environ.get("SMTP_USERNAME")
+    SMTP_PASSWORD: Optional[str] = os.environ.get("SMTP_PASSWORD")
+    SMTP_USE_TLS: Optional[bool] = _get_env_bool("SMTP_USE_TLS")
+    EMAIL_SENDER: Optional[str] = os.environ.get("EMAIL_SENDER")
+    EMAIL_SENDER_NAME: Optional[str] = os.environ.get("EMAIL_SENDER_NAME")
+    EMAIL_ADD_LEGAL_FOOTER: Optional[bool] = _get_env_bool("EMAIL_ADD_LEGAL_FOOTER")
     
-    # Company Configuration
-    COMPANY_NAME: str = os.environ.get("COMPANY_NAME", "Curavani GmbH")
-    COMPANY_DOMAIN: str = "curavani.de"
-    
-    # Company Legal Information
-    COMPANY_STREET: str = os.environ.get("COMPANY_STREET", "Jülicher Str. 72a")
-    COMPANY_PLZ: str = os.environ.get("COMPANY_PLZ", "52070")
-    COMPANY_CITY: str = os.environ.get("COMPANY_CITY", "Aachen")
-    COMPANY_COUNTRY: str = os.environ.get("COMPANY_COUNTRY", "Deutschland")
-    COMPANY_CEO: str = os.environ.get("COMPANY_CEO", "Peter Haupt")
-    COMPANY_HRB: str = os.environ.get("COMPANY_HRB", "Amtsgericht Aachen, HRB 28791")
-    
-    # Legal Footer Configuration
-    LEGAL_FOOTER_PRIVACY_TEXT: str = os.environ.get("LEGAL_FOOTER_PRIVACY_TEXT", 
-        "Diese E-Mail kann vertrauliche Informationen enthalten. Falls Sie nicht der beabsichtigte Empfänger sind, benachrichtigen Sie bitte den Absender und löschen Sie diese E-Mail.")
+    # Company Information
+    COMPANY_NAME: Optional[str] = os.environ.get("COMPANY_NAME")
+    COMPANY_STREET: Optional[str] = os.environ.get("COMPANY_STREET")
+    COMPANY_PLZ: Optional[str] = os.environ.get("COMPANY_PLZ")
+    COMPANY_CITY: Optional[str] = os.environ.get("COMPANY_CITY")
+    COMPANY_COUNTRY: Optional[str] = os.environ.get("COMPANY_COUNTRY")
+    COMPANY_CEO: Optional[str] = os.environ.get("COMPANY_CEO")
+    COMPANY_HRB: Optional[str] = os.environ.get("COMPANY_HRB")
+    LEGAL_FOOTER_PRIVACY_TEXT: Optional[str] = os.environ.get("LEGAL_FOOTER_PRIVACY_TEXT")
     
     # System Notifications
-    SYSTEM_NOTIFICATION_EMAIL: str = os.environ.get("SYSTEM_NOTIFICATION_EMAIL", "info@curavani.com")
+    SYSTEM_NOTIFICATION_EMAIL: Optional[str] = os.environ.get("SYSTEM_NOTIFICATION_EMAIL")
     
-    # Geocoding Configuration
-    OSM_API_URL: str = os.environ.get("OSM_API_URL", "https://nominatim.openstreetmap.org")
-    OSM_USER_AGENT: str = os.environ.get("OSM_USER_AGENT", "TherapyPlatform/1.0")
-    OSM_TIMEOUT: int = int(os.environ.get("OSM_TIMEOUT", "10"))
-    OSM_MAX_RETRIES: int = int(os.environ.get("OSM_MAX_RETRIES", "3"))
-    OSM_RATE_LIMIT: float = float(os.environ.get("OSM_RATE_LIMIT", "1.0"))
-    OSRM_API_URL: str = os.environ.get("OSRM_API_URL", "https://router.project-osrm.org")
-    OSRM_PROFILE_CAR: str = os.environ.get("OSRM_PROFILE_CAR", "car")
-    OSRM_PROFILE_TRANSIT: str = os.environ.get("OSRM_PROFILE_TRANSIT", "foot")
-    CACHE_TTL_SECONDS: int = int(os.environ.get("CACHE_TTL_SECONDS", "2592000"))  # 30 days
-    CACHE_MAX_SIZE: int = int(os.environ.get("CACHE_MAX_SIZE", "1000"))
+    # Patient Service Configuration
+    GCS_IMPORT_BUCKET: Optional[str] = os.environ.get("GCS_IMPORT_BUCKET")
+    GCS_READER_CREDENTIALS_PATH: Optional[str] = os.environ.get("GCS_READER_CREDENTIALS_PATH")
+    GCS_DELETER_CREDENTIALS_PATH: Optional[str] = os.environ.get("GCS_DELETER_CREDENTIALS_PATH")
+    PATIENT_IMPORT_LOCAL_PATH: Optional[str] = os.environ.get("PATIENT_IMPORT_LOCAL_PATH")
+    PATIENT_IMPORT_CHECK_INTERVAL_SECONDS: Optional[int] = _get_env_int("PATIENT_IMPORT_CHECK_INTERVAL_SECONDS")
+    
+    # Therapist Service Configuration
+    THERAPIST_IMPORT_FOLDER_PATH: Optional[str] = os.environ.get("THERAPIST_IMPORT_FOLDER_PATH")
+    THERAPIST_IMPORT_CHECK_INTERVAL_SECONDS: Optional[int] = _get_env_int("THERAPIST_IMPORT_CHECK_INTERVAL_SECONDS")
+    THERAPIST_IMPORT_ENABLED: Optional[bool] = _get_env_bool("THERAPIST_IMPORT_ENABLED")
+    
+    # Matching Service Configuration
+    MAX_ANFRAGE_SIZE: Optional[int] = _get_env_int("MAX_ANFRAGE_SIZE")
+    MIN_ANFRAGE_SIZE: Optional[int] = _get_env_int("MIN_ANFRAGE_SIZE")
+    PLZ_MATCH_DIGITS: Optional[int] = _get_env_int("PLZ_MATCH_DIGITS")
+    DEFAULT_MAX_DISTANCE_KM: Optional[int] = _get_env_int("DEFAULT_MAX_DISTANCE_KM")
+    FOLLOW_UP_THRESHOLD_DAYS: Optional[int] = _get_env_int("FOLLOW_UP_THRESHOLD_DAYS")
+    DEFAULT_PHONE_CALL_TIME: Optional[str] = os.environ.get("DEFAULT_PHONE_CALL_TIME")
+    MATCHING_FALLBACK_TIME_MORNING: Optional[str] = os.environ.get("MATCHING_FALLBACK_TIME_MORNING")
+    MATCHING_FALLBACK_TIME_AFTERNOON: Optional[str] = os.environ.get("MATCHING_FALLBACK_TIME_AFTERNOON")
+    MATCHING_CALL_DURATION_SHORT: Optional[int] = _get_env_int("MATCHING_CALL_DURATION_SHORT")
+    MATCHING_CALL_DURATION_STANDARD: Optional[int] = _get_env_int("MATCHING_CALL_DURATION_STANDARD")
+    MATCHING_TOMORROW_OFFSET_DAYS: Optional[int] = _get_env_int("MATCHING_TOMORROW_OFFSET_DAYS")
+    
+    # Communication Service Configuration
+    COMMUNICATION_EMAIL_BATCH_LIMIT: Optional[int] = _get_env_int("COMMUNICATION_EMAIL_BATCH_LIMIT")
+    COMMUNICATION_TIMEOUT_SHORT: Optional[int] = _get_env_int("COMMUNICATION_TIMEOUT_SHORT")
+    COMMUNICATION_TIMEOUT_LONG: Optional[int] = _get_env_int("COMMUNICATION_TIMEOUT_LONG")
+    
+    # Geocoding Service Configuration
+    OSM_API_URL: Optional[str] = os.environ.get("OSM_API_URL")
+    OSM_USER_AGENT: Optional[str] = os.environ.get("OSM_USER_AGENT")
+    OSM_TIMEOUT: Optional[int] = _get_env_int("OSM_TIMEOUT")
+    OSM_MAX_RETRIES: Optional[int] = _get_env_int("OSM_MAX_RETRIES")
+    OSM_RATE_LIMIT: Optional[float] = _get_env_float("OSM_RATE_LIMIT")
+    OSRM_API_URL: Optional[str] = os.environ.get("OSRM_API_URL")
+    OSRM_PROFILE_CAR: Optional[str] = os.environ.get("OSRM_PROFILE_CAR")
+    OSRM_PROFILE_TRANSIT: Optional[str] = os.environ.get("OSRM_PROFILE_TRANSIT")
+    CACHE_TTL_SECONDS: Optional[int] = _get_env_int("CACHE_TTL_SECONDS")
+    CACHE_MAX_SIZE: Optional[int] = _get_env_int("CACHE_MAX_SIZE")
+    GEOCODING_REQUEST_TIMEOUT: Optional[int] = _get_env_int("GEOCODING_REQUEST_TIMEOUT")
+    GEOCODING_RETRY_DELAY_BASE: Optional[int] = _get_env_int("GEOCODING_RETRY_DELAY_BASE")
+    GEOCODING_RATE_LIMIT_SLEEP: Optional[int] = _get_env_int("GEOCODING_RATE_LIMIT_SLEEP")
+    GEOCODING_COORDINATE_PRECISION: Optional[int] = _get_env_int("GEOCODING_COORDINATE_PRECISION")
     
     # Security Configuration
-    SECRET_KEY: str = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
-    JWT_SECRET_KEY: str = os.environ.get("JWT_SECRET_KEY", "dev-jwt-secret-change-in-production")
+    SECRET_KEY: Optional[str] = os.environ.get("SECRET_KEY")
+    JWT_SECRET_KEY: Optional[str] = os.environ.get("JWT_SECRET_KEY")
+    SESSION_LIFETIME_MINUTES: Optional[int] = _get_env_int("SESSION_LIFETIME_MINUTES")
+    SESSION_COOKIE_SECURE: Optional[bool] = _get_env_bool("SESSION_COOKIE_SECURE")
+    SESSION_COOKIE_HTTPONLY: Optional[bool] = _get_env_bool("SESSION_COOKIE_HTTPONLY")
     
     # Feature Flags
-    ENABLE_SCRAPING: bool = os.environ.get("ENABLE_SCRAPING", "true").lower() == "true"
-    ENABLE_EMAIL_SENDING: bool = os.environ.get("ENABLE_EMAIL_SENDING", "true").lower() == "true"
-    ENABLE_PHONE_SCHEDULING: bool = os.environ.get("ENABLE_PHONE_SCHEDULING", "true").lower() == "true"
-    
-    # Scraping Service Configuration
-    SCRAPING_BUCKET_NAME: str = os.environ.get("SCRAPING_BUCKET_NAME", "therapy-scraping-data")
-    SCRAPING_BUCKET_REGION: str = os.environ.get("SCRAPING_BUCKET_REGION", "eu-central-1")
-    SCRAPING_SERVICE_ACCOUNT_PATH: str = os.environ.get("SCRAPING_SERVICE_ACCOUNT_PATH", "")
-    
-    # Monitoring and Logging
-    SENTRY_DSN: str = os.environ.get("SENTRY_DSN", "")
-    ENABLE_PERFORMANCE_MONITORING: bool = os.environ.get("ENABLE_PERFORMANCE_MONITORING", "false").lower() == "true"
+    ENABLE_SCRAPING: Optional[bool] = _get_env_bool("ENABLE_SCRAPING")
+    ENABLE_EMAIL_SENDING: Optional[bool] = _get_env_bool("ENABLE_EMAIL_SENDING")
+    ENABLE_PHONE_SCHEDULING: Optional[bool] = _get_env_bool("ENABLE_PHONE_SCHEDULING")
     
     # Rate Limiting
-    API_RATE_LIMIT_PER_MINUTE: int = int(os.environ.get("API_RATE_LIMIT_PER_MINUTE", "60"))
-    API_RATE_LIMIT_PER_HOUR: int = int(os.environ.get("API_RATE_LIMIT_PER_HOUR", "1000"))
-    
-    # Session Configuration
-    SESSION_LIFETIME_MINUTES: int = int(os.environ.get("SESSION_LIFETIME_MINUTES", "1440"))
-    SESSION_COOKIE_SECURE: bool = os.environ.get("SESSION_COOKIE_SECURE", "false").lower() == "true"
-    SESSION_COOKIE_HTTPONLY: bool = os.environ.get("SESSION_COOKIE_HTTPONLY", "true").lower() == "true"
+    API_RATE_LIMIT_PER_MINUTE: Optional[int] = _get_env_int("API_RATE_LIMIT_PER_MINUTE")
+    API_RATE_LIMIT_PER_HOUR: Optional[int] = _get_env_int("API_RATE_LIMIT_PER_HOUR")
     
     # Development Tools
-    ENABLE_DEBUG_TOOLBAR: bool = os.environ.get("ENABLE_DEBUG_TOOLBAR", "true").lower() == "true"
-    ENABLE_PROFILING: bool = os.environ.get("ENABLE_PROFILING", "false").lower() == "true"
-    SQL_ECHO: bool = os.environ.get("SQL_ECHO", "false").lower() == "true"
+    ENABLE_DEBUG_TOOLBAR: Optional[bool] = _get_env_bool("ENABLE_DEBUG_TOOLBAR")
+    ENABLE_PROFILING: Optional[bool] = _get_env_bool("ENABLE_PROFILING")
+    SQL_ECHO: Optional[bool] = _get_env_bool("SQL_ECHO")
+    
+    # Monitoring and Logging
+    SENTRY_DSN: Optional[str] = os.environ.get("SENTRY_DSN")
+    ENABLE_PERFORMANCE_MONITORING: Optional[bool] = _get_env_bool("ENABLE_PERFORMANCE_MONITORING")
     
     # Frontend Configuration (for reference by backend services if needed)
-    REACT_APP_USE_MOCK_DATA: bool = os.environ.get("REACT_APP_USE_MOCK_DATA", "false").lower() == "true"
-    REACT_APP_PATIENT_API: str = os.environ.get("REACT_APP_PATIENT_API", "http://localhost:8001/api")
-    REACT_APP_THERAPIST_API: str = os.environ.get("REACT_APP_THERAPIST_API", "http://localhost:8002/api")
-    REACT_APP_MATCHING_API: str = os.environ.get("REACT_APP_MATCHING_API", "http://localhost:8003/api")
-    REACT_APP_COMMUNICATION_API: str = os.environ.get("REACT_APP_COMMUNICATION_API", "http://localhost:8004/api")
-    REACT_APP_GEOCODING_API: str = os.environ.get("REACT_APP_GEOCODING_API", "http://localhost:8005/api")
+    REACT_APP_USE_MOCK_DATA: Optional[bool] = _get_env_bool("REACT_APP_USE_MOCK_DATA")
+    REACT_APP_PATIENT_API: Optional[str] = os.environ.get("REACT_APP_PATIENT_API")
+    REACT_APP_THERAPIST_API: Optional[str] = os.environ.get("REACT_APP_THERAPIST_API")
+    REACT_APP_MATCHING_API: Optional[str] = os.environ.get("REACT_APP_MATCHING_API")
+    REACT_APP_COMMUNICATION_API: Optional[str] = os.environ.get("REACT_APP_COMMUNICATION_API")
+    REACT_APP_GEOCODING_API: Optional[str] = os.environ.get("REACT_APP_GEOCODING_API")
     
-    # Anfrage (Inquiry) Configuration - PHASE 4 ADDITIONS
-    MAX_ANFRAGE_SIZE: int = int(os.environ.get("MAX_ANFRAGE_SIZE", "6"))
-    MIN_ANFRAGE_SIZE: int = int(os.environ.get("MIN_ANFRAGE_SIZE", "1"))
-    PLZ_MATCH_DIGITS: int = int(os.environ.get("PLZ_MATCH_DIGITS", "2"))
-    DEFAULT_MAX_DISTANCE_KM: int = int(os.environ.get("DEFAULT_MAX_DISTANCE_KM", "25"))
+    # Define required variables by service
+    REQUIRED_CORE_VARS: Set[str] = {
+        "DB_USER", "DB_PASSWORD", "DB_NAME", "DB_HOST", "DB_PORT",
+        "FLASK_ENV", "LOG_LEVEL"
+    }
     
-    # Follow-up Configuration - NEW ADDITIONS
-    FOLLOW_UP_THRESHOLD_DAYS: int = int(os.environ.get("FOLLOW_UP_THRESHOLD_DAYS", "7"))
-    DEFAULT_PHONE_CALL_TIME: str = os.environ.get("DEFAULT_PHONE_CALL_TIME", "12:00")
+    REQUIRED_BY_SERVICE: Dict[str, Set[str]] = {
+        "patient": {
+            "PATIENT_SERVICE_PORT", "KAFKA_BOOTSTRAP_SERVERS",
+            "GCS_IMPORT_BUCKET", "PATIENT_IMPORT_LOCAL_PATH",
+            "PATIENT_IMPORT_CHECK_INTERVAL_SECONDS"
+        },
+        "therapist": {
+            "THERAPIST_SERVICE_PORT", "KAFKA_BOOTSTRAP_SERVERS",
+            "THERAPIST_IMPORT_FOLDER_PATH", "THERAPIST_IMPORT_CHECK_INTERVAL_SECONDS"
+        },
+        "matching": {
+            "MATCHING_SERVICE_PORT", "KAFKA_BOOTSTRAP_SERVERS",
+            "MAX_ANFRAGE_SIZE", "MIN_ANFRAGE_SIZE", "PLZ_MATCH_DIGITS",
+            "FOLLOW_UP_THRESHOLD_DAYS", "DEFAULT_PHONE_CALL_TIME"
+        },
+        "communication": {
+            "COMMUNICATION_SERVICE_PORT", "KAFKA_BOOTSTRAP_SERVERS",
+            "SMTP_HOST", "SMTP_PORT", "SMTP_USERNAME", "SMTP_PASSWORD",
+            "EMAIL_SENDER", "EMAIL_SENDER_NAME", "SYSTEM_NOTIFICATION_EMAIL"
+        },
+        "geocoding": {
+            "GEOCODING_SERVICE_PORT", "KAFKA_BOOTSTRAP_SERVERS",
+            "OSM_API_URL", "OSM_USER_AGENT", "OSRM_API_URL"
+        }
+    }
+    
+    @classmethod
+    def validate(cls, service_name: Optional[str] = None) -> None:
+        """Validate that all required environment variables are set.
+        
+        Args:
+            service_name: Optional service name for service-specific validation
+            
+        Raises:
+            ValueError: If required environment variables are missing
+        """
+        missing_vars = []
+        
+        # Check core required variables
+        for var_name in cls.REQUIRED_CORE_VARS:
+            if getattr(cls, var_name) is None:
+                missing_vars.append(var_name)
+        
+        # Check service-specific required variables
+        if service_name and service_name in cls.REQUIRED_BY_SERVICE:
+            for var_name in cls.REQUIRED_BY_SERVICE[service_name]:
+                if getattr(cls, var_name) is None:
+                    missing_vars.append(var_name)
+        
+        if missing_vars:
+            raise ValueError(
+                f"Missing required environment variables{' for ' + service_name if service_name else ''}: "
+                f"{', '.join(sorted(missing_vars))}"
+            )
     
     @classmethod
     def get_database_uri(cls, use_pgbouncer: bool = True) -> str:
@@ -163,10 +276,17 @@ class Config:
             
         Returns:
             PostgreSQL connection string
+            
+        Raises:
+            ValueError: If required database variables are not set
         """
         if use_pgbouncer:
+            if not all([cls.DB_USER, cls.DB_PASSWORD, cls.PGBOUNCER_HOST, cls.PGBOUNCER_PORT, cls.DB_NAME]):
+                raise ValueError("Database configuration incomplete for PgBouncer connection")
             return f"postgresql://{cls.DB_USER}:{cls.DB_PASSWORD}@{cls.PGBOUNCER_HOST}:{cls.PGBOUNCER_PORT}/{cls.DB_NAME}"
         else:
+            if not all([cls.DB_USER, cls.DB_PASSWORD, cls.DB_HOST, cls.DB_PORT, cls.DB_NAME]):
+                raise ValueError("Database configuration incomplete for direct connection")
             return f"postgresql://{cls.DB_USER}:{cls.DB_PASSWORD}@{cls.DB_HOST}:{cls.DB_PORT}/{cls.DB_NAME}"
     
     @classmethod
@@ -179,6 +299,9 @@ class Config:
             
         Returns:
             Service URL
+            
+        Raises:
+            ValueError: If service is unknown or port not configured
         """
         service_map = {
             "patient": ("patient_service", cls.PATIENT_SERVICE_PORT),
@@ -193,7 +316,13 @@ class Config:
         
         hostname, port = service_map[service]
         
+        if port is None:
+            raise ValueError(f"Port not configured for service: {service}")
+        
         if internal:
+            # Add service suffix if configured
+            if cls.SERVICE_ENV_SUFFIX:
+                hostname = f"{hostname}{cls.SERVICE_ENV_SUFFIX}"
             return f"http://{hostname}:{port}"
         else:
             return f"http://localhost:{port}"
@@ -204,15 +333,23 @@ class Config:
         
         Returns:
             Dictionary with SMTP configuration
+            
+        Raises:
+            ValueError: If required SMTP settings are missing
         """
+        required_smtp = ["SMTP_HOST", "SMTP_PORT", "EMAIL_SENDER"]
+        missing = [var for var in required_smtp if getattr(cls, var) is None]
+        if missing:
+            raise ValueError(f"Missing required SMTP settings: {', '.join(missing)}")
+        
         return {
             "host": cls.SMTP_HOST,
             "port": cls.SMTP_PORT,
-            "username": cls.SMTP_USERNAME,
-            "password": cls.SMTP_PASSWORD,
-            "use_tls": cls.SMTP_USE_TLS,
+            "username": cls.SMTP_USERNAME or "",
+            "password": cls.SMTP_PASSWORD or "",
+            "use_tls": cls.SMTP_USE_TLS or False,
             "sender": cls.EMAIL_SENDER,
-            "sender_name": cls.EMAIL_SENDER_NAME
+            "sender_name": cls.EMAIL_SENDER_NAME or cls.EMAIL_SENDER
         }
     
     @classmethod
@@ -223,10 +360,10 @@ class Config:
             Dictionary with CORS configuration
         """
         return {
-            "origins": cls.CORS_ALLOWED_ORIGINS,
-            "methods": cls.CORS_ALLOWED_METHODS,
-            "allow_headers": cls.CORS_ALLOWED_HEADERS,
-            "supports_credentials": cls.CORS_SUPPORTS_CREDENTIALS
+            "origins": cls.CORS_ALLOWED_ORIGINS or ["*"],
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"],
+            "supports_credentials": cls.CORS_SUPPORTS_CREDENTIALS or False
         }
     
     @classmethod
@@ -235,12 +372,20 @@ class Config:
         
         Returns:
             Dictionary with Anfrage-related configuration
+            
+        Raises:
+            ValueError: If required Anfrage settings are missing
         """
+        required_anfrage = ["MAX_ANFRAGE_SIZE", "MIN_ANFRAGE_SIZE", "PLZ_MATCH_DIGITS"]
+        missing = [var for var in required_anfrage if getattr(cls, var) is None]
+        if missing:
+            raise ValueError(f"Missing required Anfrage settings: {', '.join(missing)}")
+        
         return {
             "max_size": cls.MAX_ANFRAGE_SIZE,
             "min_size": cls.MIN_ANFRAGE_SIZE,
             "plz_match_digits": cls.PLZ_MATCH_DIGITS,
-            "default_max_distance_km": cls.DEFAULT_MAX_DISTANCE_KM
+            "default_max_distance_km": cls.DEFAULT_MAX_DISTANCE_KM or 25
         }
     
     @classmethod
@@ -251,75 +396,64 @@ class Config:
             Dictionary with follow-up related configuration
         """
         return {
-            "threshold_days": cls.FOLLOW_UP_THRESHOLD_DAYS,
-            "default_call_time": cls.DEFAULT_PHONE_CALL_TIME
+            "threshold_days": cls.FOLLOW_UP_THRESHOLD_DAYS or 7,
+            "default_call_time": cls.DEFAULT_PHONE_CALL_TIME or "12:00"
         }
 
 
 class DevelopmentConfig(Config):
-    """Development-specific configuration."""
-    FLASK_DEBUG = True
-    LOG_LEVEL = "DEBUG"
+    """Development-specific configuration with safe defaults for dev tools."""
+    
+    @classmethod
+    def get_cors_settings(cls) -> dict:
+        """Override CORS for development with permissive defaults."""
+        base_settings = super().get_cors_settings()
+        if not cls.CORS_ALLOWED_ORIGINS:
+            base_settings["origins"] = ["http://localhost:3000", "http://localhost:8080"]
+        return base_settings
 
 
 class ProductionConfig(Config):
-    """Production-specific configuration."""
-    FLASK_DEBUG = False
-    LOG_LEVEL = "WARNING"
+    """Production-specific configuration with strict validation."""
     
-    # Disable all development tools in production
-    ENABLE_DEBUG_TOOLBAR = False
-    ENABLE_PROFILING = False
-    SQL_ECHO = False
+    REQUIRED_PRODUCTION_VARS: Set[str] = {
+        "SECRET_KEY", "JWT_SECRET_KEY", "SYSTEM_NOTIFICATION_EMAIL"
+    }
     
-    # Require secure cookies in production
-    SESSION_COOKIE_SECURE = True
-    
-    # VALIDATION DISABLED: Each service should validate its own requirements
-    # The original validate() method required all services to have all variables,
-    # which doesn't work in a microservices architecture where different services
-    # need different environment variables.
-    #
-    # If you need validation later, consider:
-    # 1. Service-specific validation in each service's startup code
-    # 2. Or implement a SERVICE_NAME based validation as shown below
-    
-    # @classmethod
-    # def validate(cls, service_name=None):
-    #     """Example of service-specific validation (currently disabled)."""
-    #     SERVICE_REQUIREMENTS = {
-    #         'communication': ["DB_USER", "DB_PASSWORD", "DB_NAME", "SMTP_USERNAME", "SMTP_PASSWORD"],
-    #         'patient': ["DB_USER", "DB_PASSWORD", "DB_NAME"],
-    #         'therapist': ["DB_USER", "DB_PASSWORD", "DB_NAME"],
-    #         'matching': ["DB_USER", "DB_PASSWORD", "DB_NAME"],
-    #         'geocoding': ["DB_USER", "DB_PASSWORD", "DB_NAME"],
-    #         'default': ["DB_USER", "DB_PASSWORD", "DB_NAME"]
-    #     }
-    #     
-    #     if not service_name:
-    #         service_name = os.environ.get("SERVICE_NAME", "default")
-    #     
-    #     required = SERVICE_REQUIREMENTS.get(service_name, SERVICE_REQUIREMENTS['default'])
-    #     missing = [var for var in required if not os.environ.get(var)]
-    #     
-    #     if missing:
-    #         raise ValueError(f"Missing required environment variables for {service_name}: {', '.join(missing)}")
+    @classmethod
+    def validate(cls, service_name: Optional[str] = None) -> None:
+        """Enhanced validation for production environment."""
+        # Call parent validation first
+        super().validate(service_name)
+        
+        # Check production-specific requirements
+        missing_vars = []
+        for var_name in cls.REQUIRED_PRODUCTION_VARS:
+            if getattr(cls, var_name) is None:
+                missing_vars.append(var_name)
+        
+        if missing_vars:
+            raise ValueError(f"Missing required production environment variables: {', '.join(missing_vars)}")
+        
+        # Validate security settings
+        if cls.SECRET_KEY and len(cls.SECRET_KEY) < 32:
+            raise ValueError("SECRET_KEY must be at least 32 characters in production")
+        
+        if cls.JWT_SECRET_KEY and len(cls.JWT_SECRET_KEY) < 32:
+            raise ValueError("JWT_SECRET_KEY must be at least 32 characters in production")
 
 
 class TestConfig(Config):
     """Test-specific configuration."""
-    DB_NAME = "therapy_platform_test"
-    LOG_LEVEL = "ERROR"
+    pass
 
 
 # Select configuration based on FLASK_ENV
-env = os.environ.get("FLASK_ENV", "development")
+env = os.environ.get("FLASK_ENV")
 
 if env == "production":
     config = ProductionConfig()
-    # VALIDATION DISABLED - Services should validate their own requirements
-    # config.validate()
-elif env == "testing":
+elif env == "test":
     config = TestConfig()
 else:
     config = DevelopmentConfig()
@@ -350,9 +484,13 @@ def setup_logging(service_name: str = "unknown-service") -> None:
     # Get the current configuration
     current_config = get_config()
     
-    # Determine the root log level
+    # Use INFO as fallback if LOG_LEVEL not set
+    log_level_name = current_config.LOG_LEVEL or "INFO"
+    root_level = getattr(logging, log_level_name, logging.INFO)
+    
     # In debug mode, use DEBUG for root logger; otherwise use configured level
-    root_level = logging.DEBUG if current_config.FLASK_DEBUG else getattr(logging, current_config.LOG_LEVEL)
+    if current_config.FLASK_DEBUG:
+        root_level = logging.DEBUG
     
     # Set up basic logging configuration
     logging.basicConfig(
@@ -362,36 +500,23 @@ def setup_logging(service_name: str = "unknown-service") -> None:
     )
     
     # Get the kafka log level (default to WARNING if not set)
-    kafka_level = getattr(logging, current_config.KAFKA_LOG_LEVEL, logging.WARNING)
+    kafka_level_name = current_config.KAFKA_LOG_LEVEL or "WARNING"
+    kafka_level = getattr(logging, kafka_level_name, logging.WARNING)
     
     # List of Kafka-related logger names to silence
     kafka_loggers = [
-        'kafka',
-        'kafka.client',
-        'kafka.consumer',
-        'kafka.consumer.fetcher',
-        'kafka.consumer.group',
-        'kafka.conn',
-        'kafka.connection',
-        'kafka.coordinator',
-        'kafka.coordinator.consumer',
-        'kafka.coordinator.base',
-        'kafka.metrics',
-        'kafka.protocol',
-        'kafka.protocol.parser',
-        'kafka.producer',
-        'kafka.producer.kafka',
-        'kafka.producer.record_accumulator',
-        'kafka.producer.sender',
+        'kafka', 'kafka.client', 'kafka.consumer', 'kafka.consumer.fetcher',
+        'kafka.consumer.group', 'kafka.conn', 'kafka.connection',
+        'kafka.coordinator', 'kafka.coordinator.consumer', 'kafka.coordinator.base',
+        'kafka.metrics', 'kafka.protocol', 'kafka.protocol.parser',
+        'kafka.producer', 'kafka.producer.kafka', 'kafka.producer.record_accumulator',
+        'kafka.producer.sender', 'kafka.python'
     ]
     
     # Set all Kafka loggers to WARNING level or higher
     for logger_name in kafka_loggers:
         kafka_logger = logging.getLogger(logger_name)
         kafka_logger.setLevel(kafka_level)
-    
-    # Also set the kafka-python logger specifically
-    logging.getLogger('kafka.python').setLevel(kafka_level)
     
     # Log the configuration for debugging
     logger = logging.getLogger(__name__)
