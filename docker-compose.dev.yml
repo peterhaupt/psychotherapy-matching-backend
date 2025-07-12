@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
     ports:
-      - "${DB_PORT}:5432"
+      - "${DB_EXTERNAL_PORT}:${DB_PORT}"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -34,7 +34,7 @@ services:
       POSTGRESQL_PASSWORD: ${DB_PASSWORD}
       # PgBouncer specific settings
       PGBOUNCER_DATABASE: ${DB_NAME}
-      PGBOUNCER_PORT: 6432
+      PGBOUNCER_PORT: ${PGBOUNCER_PORT}
       PGBOUNCER_BIND_ADDRESS: 0.0.0.0
       PGBOUNCER_AUTH_TYPE: md5
       PGBOUNCER_AUTH_USER: ${DB_USER}
@@ -54,12 +54,12 @@ services:
       # Extra settings for better compatibility
       PGBOUNCER_EXTRA_FLAGS: "--verbose"
     ports:
-      - "${PGBOUNCER_PORT}:6432"
+      - "${PGBOUNCER_EXTERNAL_PORT}:${PGBOUNCER_PORT}"
     depends_on:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "sh", "-c", "PGPASSWORD=${DB_PASSWORD} /opt/bitnami/postgresql/bin/psql -h localhost -p 6432 -U ${DB_USER} -d ${DB_NAME} -c 'SELECT 1'"]
+      test: ["CMD", "sh", "-c", "PGPASSWORD=${DB_PASSWORD} /opt/bitnami/postgresql/bin/psql -h localhost -p ${PGBOUNCER_PORT} -U ${DB_USER} -d ${DB_NAME} -c 'SELECT 1'"]
       interval: 10s
       timeout: 5s
       retries: 5

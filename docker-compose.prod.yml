@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
     ports:
-      - "5433:5432"
+      - "${DB_EXTERNAL_PORT}:${DB_PORT}"
     volumes:
       - postgres_prod_data:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -28,13 +28,13 @@ services:
     environment:
       # Database connection settings
       POSTGRESQL_HOST: postgres-prod
-      POSTGRESQL_PORT: 5432
+      POSTGRESQL_PORT: ${DB_PORT}
       POSTGRESQL_DATABASE: ${DB_NAME}
       POSTGRESQL_USERNAME: ${DB_USER}
       POSTGRESQL_PASSWORD: ${DB_PASSWORD}
       # PgBouncer specific settings
       PGBOUNCER_DATABASE: ${DB_NAME}
-      PGBOUNCER_PORT: 6432
+      PGBOUNCER_PORT: ${PGBOUNCER_PORT}
       PGBOUNCER_BIND_ADDRESS: 0.0.0.0
       PGBOUNCER_AUTH_TYPE: md5
       PGBOUNCER_AUTH_USER: ${DB_USER}
@@ -44,7 +44,7 @@ services:
       PGBOUNCER_DEFAULT_POOL_SIZE: 25
       PGBOUNCER_IGNORE_STARTUP_PARAMETERS: "extra_float_digits"
       # Create the databases.ini and users.ini files
-      PGBOUNCER_DSN_${DB_NAME}: "host=postgres-prod port=5432 dbname=${DB_NAME}"
+      PGBOUNCER_DSN_${DB_NAME}: "host=postgres-prod port=${DB_PORT} dbname=${DB_NAME}"
       # Set userlist
       PGBOUNCER_USERLIST: "${DB_USER}:${DB_PASSWORD}"
       # Admin user
@@ -54,12 +54,12 @@ services:
       # Extra settings for better compatibility
       PGBOUNCER_EXTRA_FLAGS: "--verbose"
     ports:
-      - "6433:6432"
+      - "${PGBOUNCER_EXTERNAL_PORT}:${PGBOUNCER_PORT}"
     depends_on:
       postgres-prod:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "sh", "-c", "PGPASSWORD=${DB_PASSWORD} /opt/bitnami/postgresql/bin/psql -h localhost -p 6432 -U ${DB_USER} -d ${DB_NAME} -c 'SELECT 1'"]
+      test: ["CMD", "sh", "-c", "PGPASSWORD=${DB_PASSWORD} /opt/bitnami/postgresql/bin/psql -h localhost -p ${PGBOUNCER_PORT} -U ${DB_USER} -d ${DB_NAME} -c 'SELECT 1'"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -123,10 +123,10 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME}
       DB_HOST: postgres-prod
-      DB_PORT: 5432
+      DB_PORT: ${DB_PORT}
       # PgBouncer Configuration
       PGBOUNCER_HOST: pgbouncer-prod
-      PGBOUNCER_PORT: 6432
+      PGBOUNCER_PORT: ${PGBOUNCER_PORT}
       # Kafka Configuration
       KAFKA_BOOTSTRAP_SERVERS: kafka-prod:9093
       KAFKA_LOG_LEVEL: ${KAFKA_LOG_LEVEL}
@@ -176,10 +176,10 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME}
       DB_HOST: postgres-prod
-      DB_PORT: 5432
+      DB_PORT: ${DB_PORT}
       # PgBouncer Configuration
       PGBOUNCER_HOST: pgbouncer-prod
-      PGBOUNCER_PORT: 6432
+      PGBOUNCER_PORT: ${PGBOUNCER_PORT}
       # Kafka Configuration
       KAFKA_BOOTSTRAP_SERVERS: kafka-prod:9093
       KAFKA_LOG_LEVEL: ${KAFKA_LOG_LEVEL}
@@ -226,10 +226,10 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME}
       DB_HOST: postgres-prod
-      DB_PORT: 5432
+      DB_PORT: ${DB_PORT}
       # PgBouncer Configuration
       PGBOUNCER_HOST: pgbouncer-prod
-      PGBOUNCER_PORT: 6432
+      PGBOUNCER_PORT: ${PGBOUNCER_PORT}
       # Kafka Configuration
       KAFKA_BOOTSTRAP_SERVERS: kafka-prod:9093
       KAFKA_LOG_LEVEL: ${KAFKA_LOG_LEVEL}
@@ -278,10 +278,10 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME}
       DB_HOST: postgres-prod
-      DB_PORT: 5432
+      DB_PORT: ${DB_PORT}
       # PgBouncer Configuration
       PGBOUNCER_HOST: pgbouncer-prod
-      PGBOUNCER_PORT: 6432
+      PGBOUNCER_PORT: ${PGBOUNCER_PORT}
       # Kafka Configuration
       KAFKA_BOOTSTRAP_SERVERS: kafka-prod:9093
       KAFKA_LOG_LEVEL: ${KAFKA_LOG_LEVEL}
@@ -339,10 +339,10 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME}
       DB_HOST: postgres-prod
-      DB_PORT: 5432
+      DB_PORT: ${DB_PORT}
       # PgBouncer Configuration
       PGBOUNCER_HOST: pgbouncer-prod
-      PGBOUNCER_PORT: 6432
+      PGBOUNCER_PORT: ${PGBOUNCER_PORT}
       # Kafka Configuration
       KAFKA_BOOTSTRAP_SERVERS: kafka-prod:9093
       KAFKA_LOG_LEVEL: ${KAFKA_LOG_LEVEL}
