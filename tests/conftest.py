@@ -47,6 +47,12 @@ def pytest_configure(config):
             print(f"📄 Fallback: Loaded default .env file")
         else:
             print(f"⚠️  No environment files found. Using system environment variables only.")
+    
+    # Override Docker hostnames to localhost for local testing
+    # This allows tests to connect to Docker containers from host machine
+    os.environ['DB_HOST'] = 'localhost'
+    os.environ['PGBOUNCER_HOST'] = 'localhost'
+    print(f"🔧 Overridden DB_HOST and PGBOUNCER_HOST to 'localhost' for local testing")
 
 
 def pytest_report_header(config):
