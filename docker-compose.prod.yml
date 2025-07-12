@@ -14,7 +14,6 @@ services:
       - "${DB_EXTERNAL_PORT}:${DB_PORT}"
     volumes:
       - postgres_prod_data:/var/lib/postgresql/data
-      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
       - ./backups:/backups
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
