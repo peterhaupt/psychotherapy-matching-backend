@@ -1,10 +1,27 @@
 """Unit tests for GCS patient import file processing."""
 import json
 import os
+import sys
 import pytest
 from unittest.mock import Mock, patch, mock_open, MagicMock, call
 from datetime import datetime
 
+# Mock all the problematic imports BEFORE importing the module under test
+# This prevents import errors when running tests from project root
+sys.modules['models'] = MagicMock()
+sys.modules['models.patient'] = MagicMock()
+sys.modules['events'] = MagicMock()
+sys.modules['events.producers'] = MagicMock()
+
+# Create mock Patient class for the imports
+MockPatient = MagicMock()
+sys.modules['models.patient'].Patient = MockPatient
+
+# Create mock functions for events
+mock_publish_patient_created = MagicMock()
+sys.modules['events.producers'].publish_patient_created = mock_publish_patient_created
+
+# Now we can safely import our modules under test
 from patient_service.imports.gcs_monitor import GCSMonitor
 from patient_service.imports.import_status import ImportStatus
 
