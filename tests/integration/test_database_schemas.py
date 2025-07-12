@@ -42,7 +42,8 @@ config = get_config()
 def db_engine():
     """Create a database engine for testing."""
     # Use direct connection (not through PgBouncer) for schema inspection
-    engine = create_engine(config.get_database_uri(use_pgbouncer=False))
+    # Use external_url=True for connections outside Docker environment
+    engine = create_engine(config.get_database_uri(use_pgbouncer=False, external_url=True))
     yield engine
     engine.dispose()
 

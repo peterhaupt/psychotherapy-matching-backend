@@ -74,6 +74,10 @@ class Config:
     DB_HOST: Optional[str] = os.environ.get("DB_HOST")
     DB_PORT: Optional[int] = _get_env_int("DB_PORT")
     
+    # External port mappings (for host-side connections)
+    DB_EXTERNAL_PORT: Optional[int] = _get_env_int("DB_EXTERNAL_PORT")
+    PGBOUNCER_EXTERNAL_PORT: Optional[int] = _get_env_int("PGBOUNCER_EXTERNAL_PORT")
+    
     # PgBouncer Configuration
     PGBOUNCER_HOST: Optional[str] = os.environ.get("PGBOUNCER_HOST")
     PGBOUNCER_PORT: Optional[int] = _get_env_int("PGBOUNCER_PORT")
@@ -268,11 +272,12 @@ class Config:
             )
     
     @classmethod
-    def get_database_uri(cls, use_pgbouncer: bool = True) -> str:
+    def get_database_uri(cls, use_pgbouncer: bool = True, external_url: bool = False) -> str:
         """Get the database connection URI.
         
         Args:
             use_pgbouncer: Whether to connect through PgBouncer (default: True)
+            external_url: Whether to use external ports for connections outside Docker (default: False)
             
         Returns:
             PostgreSQL connection string
@@ -281,13 +286,37 @@ class Config:
             ValueError: If required database variables are not set
         """
         if use_pgbouncer:
-            if not all([cls.DB_USER, cls.DB_PASSWORD, cls.PGBOUNCER_HOST, cls.PGBOUNCER_PORT, cls.DB_NAME]):
-                raise ValueError("Database configuration incomplete for PgBouncer connection")
-            return f"postgresql://{cls.DB_USER}:{cls.DB_PASSWORD}@{cls.PGBOUNCER_HOST}:{cls.PGBOUNCER_PORT}/{cls.DB_NAME}"
+            # Determine which host and port to use
+            if external_url:
+                host = "localhost"  # External connections use localhost
+                port = cls.PGBOUNCER_EXTERNAL_PORT
+                required_vars = [cls.DB_USER, cls.DB_PASSWORD, cls.DB_NAME, port]
+                if not all(required_vars):
+                    raise ValueError("Database configuration incomplete for external PgBouncer connection")
+            else:
+                host = cls.PGBOUNCER_HOST
+                port = cls.PGBOUNCER_PORT
+                required_vars = [cls.DB_USER, cls.DB_PASSWORD, cls.PGBOUNCER_HOST, cls.PGBOUNCER_PORT, cls.DB_NAME]
+                if not all(required_vars):
+                    raise ValueError("Database configuration incomplete for PgBouncer connection")
+            
+            return f"postgresql://{cls.DB_USER}:{cls.DB_PASSWORD}@{host}:{port}/{cls.DB_NAME}"
         else:
-            if not all([cls.DB_USER, cls.DB_PASSWORD, cls.DB_HOST, cls.DB_PORT, cls.DB_NAME]):
-                raise ValueError("Database configuration incomplete for direct connection")
-            return f"postgresql://{cls.DB_USER}:{cls.DB_PASSWORD}@{cls.DB_HOST}:{cls.DB_PORT}/{cls.DB_NAME}"
+            # Determine which host and port to use
+            if external_url:
+                host = "localhost"  # External connections use localhost
+                port = cls.DB_EXTERNAL_PORT
+                required_vars = [cls.DB_USER, cls.DB_PASSWORD, cls.DB_NAME, port]
+                if not all(required_vars):
+                    raise ValueError("Database configuration incomplete for external direct connection")
+            else:
+                host = cls.DB_HOST
+                port = cls.DB_PORT
+                required_vars = [cls.DB_USER, cls.DB_PASSWORD, cls.DB_HOST, cls.DB_PORT, cls.DB_NAME]
+                if not all(required_vars):
+                    raise ValueError("Database configuration incomplete for direct connection")
+            
+            return f"postgresql://{cls.DB_USER}:{cls.DB_PASSWORD}@{host}:{port}/{cls.DB_NAME}"
     
     @classmethod
     def get_service_url(cls, service: str, internal: bool = True) -> str:
