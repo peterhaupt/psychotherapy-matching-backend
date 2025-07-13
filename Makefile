@@ -138,8 +138,8 @@ restore-dev:
 		echo "Use 'make list-backups' to see available production backups"; \
 		exit 1; \
 	fi
-	@echo "🔄 Restoring development database from production backup: $(BACKUP)"; \
-	@echo "================================================================"; \
+	@echo "🔄 Restoring development database from production backup: $(BACKUP)"
+	@echo "================================================================"
 	@# Verify backup exists first
 	@$(MAKE) backup-verify-prod BACKUP=$(BACKUP)
 	@echo ""
@@ -205,8 +205,8 @@ restore-test:
 		echo "Use 'make list-backups' to see available production backups"; \
 		exit 1; \
 	fi
-	@echo "🔄 Restoring test database from production backup: $(BACKUP)"; \
-	@echo "==========================================================="; \
+	@echo "🔄 Restoring test database from production backup: $(BACKUP)"
+	@echo "==========================================================="
 	@# Verify backup exists first
 	@$(MAKE) backup-verify-prod BACKUP=$(BACKUP)
 	@echo ""
@@ -272,9 +272,9 @@ restore-prod:
 		$(MAKE) list-backups; \
 		exit 1; \
 	fi
-	@echo "🔄 Starting PRODUCTION database restore from backup: $(BACKUP)"; \
-	@echo "⚠️  WARNING: This will restore production data!"; \
-	@echo "============================================================"; \
+	@echo "🔄 Starting PRODUCTION database restore from backup: $(BACKUP)"
+	@echo "⚠️  WARNING: This will restore production data!"
+	@echo "============================================================"
 	@echo ""
 	@echo -n "Are you sure you want to restore production? Type 'yes' to continue: "
 	@read CONFIRM && [ "$${CONFIRM}" = "yes" ] || (echo "Aborted." && exit 1)
