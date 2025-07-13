@@ -8,7 +8,7 @@ from flask_cors import CORS
 from api.therapists import TherapistResource, TherapistListResource, TherapistCommunicationResource, TherapistImportStatusResource
 from shared.config import get_config, setup_logging
 # NEW: Import the therapist import monitor
-from imports import start_therapist_import_monitor
+from imports import start_therapist_import_monitor, ImportStatus
 
 
 class HealthCheckResource(Resource):
@@ -20,6 +20,14 @@ class HealthCheckResource(Resource):
             'status': 'healthy',
             'service': 'therapist-service'
         }
+
+
+class ImportHealthCheckResource(Resource):
+    """Health check endpoint for therapist import monitoring."""
+    
+    def get(self):
+        """Return health status of the therapist import system."""
+        return ImportStatus.get_health_status()
 
 
 def create_app():
@@ -48,8 +56,9 @@ def create_app():
     # Initialize RESTful API
     api = Api(app)
 
-    # Register health check endpoint (at root level, not under /api)
+    # Register health check endpoints (at root level, not under /api)
     api.add_resource(HealthCheckResource, '/health')
+    api.add_resource(ImportHealthCheckResource, '/health/import')
 
     # Register API endpoints
     api.add_resource(TherapistListResource, '/api/therapists')

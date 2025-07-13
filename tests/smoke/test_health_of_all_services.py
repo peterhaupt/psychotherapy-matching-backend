@@ -10,6 +10,7 @@ SERVICES = [
     ("patient", os.environ["PATIENT_HEALTH_URL"], "patient"),
     ("patient-import", os.environ["PATIENT_HEALTH_URL"].replace("/health", "/health/import"), "patient-import"),
     ("therapist", os.environ["THERAPIST_HEALTH_URL"], "therapist"),
+    ("therapist-import", os.environ["THERAPIST_HEALTH_URL"].replace("/health", "/health/import"), "therapist-import"),
     ("matching", os.environ["MATCHING_HEALTH_URL"], "matching"),
     ("communication", os.environ["COMMUNICATION_HEALTH_URL"], "communication"),
     ("geocoding", os.environ["GEOCODING_HEALTH_URL"], "geocoding"),
