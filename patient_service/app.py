@@ -11,7 +11,7 @@ from shared.config import get_config, setup_logging
 # PHASE 2: Import start_consumers
 from events.consumers import start_consumers
 # NEW: Import the patient import monitor
-from imports import start_patient_import_monitor
+from imports import start_patient_import_monitor, ImportStatus
 
 
 class HealthCheckResource(Resource):
@@ -23,6 +23,14 @@ class HealthCheckResource(Resource):
             'status': 'healthy',
             'service': 'patient-service'
         }
+
+
+class ImportHealthCheckResource(Resource):
+    """Health check endpoint for GCS import monitoring."""
+    
+    def get(self):
+        """Return health status of the patient import system."""
+        return ImportStatus.get_health_status()
 
 
 def create_app():
@@ -51,8 +59,9 @@ def create_app():
     # Initialize RESTful API
     api = Api(app)
 
-    # Register health check endpoint (at root level, not under /api)
+    # Register health check endpoints (at root level, not under /api)
     api.add_resource(HealthCheckResource, '/health')
+    api.add_resource(ImportHealthCheckResource, '/health/import')
 
     # Register API endpoints
     api.add_resource(PatientListResource, '/api/patients')

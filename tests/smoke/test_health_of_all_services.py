@@ -8,6 +8,7 @@ import os
 # Service configurations: (name, url, expected_service_identifier)
 SERVICES = [
     ("patient", os.environ["PATIENT_HEALTH_URL"], "patient"),
+    ("patient-import", os.environ["PATIENT_HEALTH_URL"].replace("/health", "/health/import"), "patient-import"),
     ("therapist", os.environ["THERAPIST_HEALTH_URL"], "therapist"),
     ("matching", os.environ["MATCHING_HEALTH_URL"], "matching"),
     ("communication", os.environ["COMMUNICATION_HEALTH_URL"], "communication"),
@@ -192,7 +193,7 @@ class TestServiceConnectivity:
             status_icon = "✅" if success else "❌"
             status_text = "HEALTHY" if success else "UNHEALTHY"
             
-            print(f"{status_icon} {service_name.upper():12} | {url:35} | {status_text}")
+            print(f"{status_icon} {service_name.upper():15} | {url:35} | {status_text}")
             
             if success:
                 healthy_count += 1
