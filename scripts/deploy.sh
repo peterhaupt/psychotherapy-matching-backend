@@ -128,6 +128,13 @@ if $ALL_HEALTHY; then
     export COMMUNICATION_API_URL="http://localhost:8024/api"
     export GEOCODING_API_URL="http://localhost:8025/api"
     
+    # Set health URLs for smoke tests
+    export PATIENT_HEALTH_URL="http://localhost:8021/health"
+    export THERAPIST_HEALTH_URL="http://localhost:8022/health"
+    export MATCHING_HEALTH_URL="http://localhost:8023/health"
+    export COMMUNICATION_HEALTH_URL="http://localhost:8024/health"
+    export GEOCODING_HEALTH_URL="http://localhost:8025/health"
+    
     # Run smoke tests from the host
     if command -v pytest &> /dev/null; then
         pytest ./tests/smoke -v --tb=short --env=prod || SMOKE_TEST_FAILED=true
