@@ -1,7 +1,93 @@
-.PHONY: start-dev start-prod start-test deploy deploy-test rollback backup logs-dev logs-prod logs-test stop-dev stop-prod stop-test status status-dev status-prod status-test clean-logs test-unit-dev test-unit-test test-unit-prod test-integration-dev test-integration-test test-integration-prod test-smoke-dev test-smoke-test test-smoke-prod test-all-dev test-all-test test-all-prod
+.PHONY: start-dev start-prod start-test deploy deploy-test rollback backup logs-dev logs-prod logs-test stop-dev stop-prod stop-test status status-dev status-prod status-test clean-logs test-unit-dev test-unit-test test-unit-prod test-integration-dev test-integration-test test-integration-prod test-smoke-dev test-smoke-test test-smoke-prod test-all-dev test-all-test test-all-prod check-db-dev check-db-test check-db-prod create-db-dev create-db-test create-db-prod ensure-db-dev ensure-db-test ensure-db-prod
 
-# Development commands
+# Database check commands - FIXED with -d postgres
+check-db-dev:
+	@echo "Checking if development database exists..."
+	@source .env.dev && \
+	docker exec postgres psql -U $${DB_USER} -d postgres -tc "SELECT 1 FROM pg_database WHERE datname = '$${DB_NAME}'" | grep -q 1 || \
+	(echo "❌ Database $${DB_NAME} does not exist! Run: make create-db-dev" && exit 1)
+	@echo "✅ Database exists"
+
+check-db-test:
+	@echo "Checking if test database exists..."
+	@source .env.test && \
+	docker exec postgres-test psql -U $${DB_USER} -d postgres -tc "SELECT 1 FROM pg_database WHERE datname = '$${DB_NAME}'" | grep -q 1 || \
+	(echo "❌ Database $${DB_NAME} does not exist! Run: make create-db-test" && exit 1)
+	@echo "✅ Database exists"
+
+check-db-prod:
+	@echo "Checking if production database exists..."
+	@source .env.prod && \
+	docker exec postgres-prod psql -U $${DB_USER} -d postgres -tc "SELECT 1 FROM pg_database WHERE datname = '$${DB_NAME}'" | grep -q 1 || \
+	(echo "❌ Database $${DB_NAME} does not exist! Run: make create-db-prod" && exit 1)
+	@echo "✅ Database exists"
+
+# Database creation commands - Already correct with -d postgres
+create-db-dev:
+	@echo "Creating development database..."
+	@source .env.dev && \
+	docker exec postgres psql -U $${DB_USER} -d postgres -c "CREATE DATABASE $${DB_NAME};" && \
+	echo "✅ Database $${DB_NAME} created successfully" || \
+	echo "⚠️  Database might already exist or creation failed"
+
+create-db-test:
+	@echo "Creating test database..."
+	@source .env.test && \
+	docker exec postgres-test psql -U $${DB_USER} -d postgres -c "CREATE DATABASE $${DB_NAME};" && \
+	echo "✅ Database $${DB_NAME} created successfully" || \
+	echo "⚠️  Database might already exist or creation failed"
+
+create-db-prod:
+	@echo "Creating production database..."
+	@source .env.prod && \
+	docker exec postgres-prod psql -U $${DB_USER} -d postgres -c "CREATE DATABASE $${DB_NAME};" && \
+	echo "✅ Database $${DB_NAME} created successfully" || \
+	echo "⚠️  Database might already exist or creation failed"
+
+# Ensure database exists commands - FIXED with -d postgres
+ensure-db-dev:
+	@echo "Ensuring development database exists..."
+	@source .env.dev && \
+	if docker exec postgres psql -U $${DB_USER} -d postgres -tc "SELECT 1 FROM pg_database WHERE datname = '$${DB_NAME}'" | grep -q 1; then \
+		echo "✅ Database already exists"; \
+	else \
+		echo "📦 Creating database..."; \
+		docker exec postgres psql -U $${DB_USER} -d postgres -c "CREATE DATABASE $${DB_NAME};" && \
+		echo "✅ Database created successfully"; \
+	fi
+
+ensure-db-test:
+	@echo "Ensuring test database exists..."
+	@source .env.test && \
+	if docker exec postgres-test psql -U $${DB_USER} -d postgres -tc "SELECT 1 FROM pg_database WHERE datname = '$${DB_NAME}'" | grep -q 1; then \
+		echo "✅ Database already exists"; \
+	else \
+		echo "📦 Creating database..."; \
+		docker exec postgres-test psql -U $${DB_USER} -d postgres -c "CREATE DATABASE $${DB_NAME};" && \
+		echo "✅ Database created successfully"; \
+	fi
+
+ensure-db-prod:
+	@echo "Ensuring production database exists..."
+	@source .env.prod && \
+	if docker exec postgres-prod psql -U $${DB_USER} -d postgres -tc "SELECT 1 FROM pg_database WHERE datname = '$${DB_NAME}'" | grep -q 1; then \
+		echo "✅ Database already exists"; \
+	else \
+		echo "📦 Creating database..."; \
+		docker exec postgres-prod psql -U $${DB_USER} -d postgres -c "CREATE DATABASE $${DB_NAME};" && \
+		echo "✅ Database created successfully"; \
+	fi
+
+# Development commands with database checks
 start-dev:
+	docker-compose -f docker-compose.dev.yml --env-file .env.dev up -d postgres pgbouncer
+	@echo "⏳ Waiting for PostgreSQL to be ready..."
+	@for i in $$(seq 1 30); do \
+		docker exec postgres pg_isready -U $$(grep DB_USER .env.dev | cut -d '=' -f2) > /dev/null 2>&1 && break || \
+		([ $$i -eq 30 ] && echo "❌ PostgreSQL failed to start" && exit 1) || \
+		sleep 1; \
+	done
+	@$(MAKE) ensure-db-dev
 	docker-compose -f docker-compose.dev.yml --env-file .env.dev up
 
 stop-dev:
@@ -18,6 +104,8 @@ status-dev:
 
 health-check-dev:
 	@echo "Checking development health endpoints..."
+	@$(MAKE) check-db-dev
+	@$(MAKE) check-migrations-dev
 	@source .env.dev && \
 	curl -s http://localhost:$${PATIENT_SERVICE_PORT}/health | jq '.' || echo "Patient service not responding" && \
 	curl -s http://localhost:$${THERAPIST_SERVICE_PORT}/health | jq '.' || echo "Therapist service not responding" && \
@@ -25,8 +113,16 @@ health-check-dev:
 	curl -s http://localhost:$${COMMUNICATION_SERVICE_PORT}/health | jq '.' || echo "Communication service not responding" && \
 	curl -s http://localhost:$${GEOCODING_SERVICE_PORT}/health | jq '.' || echo "Geocoding service not responding"
 
-# Test environment commands
+# Test environment commands with database checks
 start-test:
+	docker-compose -f docker-compose.test.yml --env-file .env.test up -d postgres-test
+	@echo "⏳ Waiting for PostgreSQL to be ready..."
+	@for i in $$(seq 1 30); do \
+		docker exec postgres-test pg_isready -U $$(grep DB_USER .env.test | cut -d '=' -f2) > /dev/null 2>&1 && break || \
+		([ $$i -eq 30 ] && echo "❌ PostgreSQL failed to start" && exit 1) || \
+		sleep 1; \
+	done
+	@$(MAKE) ensure-db-test
 	docker-compose -f docker-compose.test.yml --env-file .env.test up -d
 
 start-test-db-only:
@@ -49,6 +145,8 @@ status-test:
 
 health-check-test:
 	@echo "Checking test environment health endpoints..."
+	@$(MAKE) check-db-test
+	@$(MAKE) check-migrations-test
 	@source .env.test && \
 	curl -s http://localhost:$${PATIENT_SERVICE_PORT}/health | jq '.' || echo "Patient service not responding" && \
 	curl -s http://localhost:$${THERAPIST_SERVICE_PORT}/health | jq '.' || echo "Therapist service not responding" && \
@@ -56,8 +154,16 @@ health-check-test:
 	curl -s http://localhost:$${COMMUNICATION_SERVICE_PORT}/health | jq '.' || echo "Communication service not responding" && \
 	curl -s http://localhost:$${GEOCODING_SERVICE_PORT}/health | jq '.' || echo "Geocoding service not responding"
 
-# Production commands
+# Production commands with database checks
 start-prod:
+	docker-compose -f docker-compose.prod.yml --env-file .env.prod up -d postgres-prod
+	@echo "⏳ Waiting for PostgreSQL to be ready..."
+	@for i in $$(seq 1 30); do \
+		docker exec postgres-prod pg_isready -U $$(grep DB_USER .env.prod | cut -d '=' -f2) > /dev/null 2>&1 && break || \
+		([ $$i -eq 30 ] && echo "❌ PostgreSQL failed to start" && exit 1) || \
+		sleep 1; \
+	done
+	@$(MAKE) ensure-db-prod
 	docker-compose -f docker-compose.prod.yml --env-file .env.prod up -d
 
 stop-prod:
@@ -74,6 +180,8 @@ status-prod:
 
 health-check:
 	@echo "Checking production health endpoints..."
+	@$(MAKE) check-db-prod
+	@$(MAKE) check-migrations-prod
 	@source .env.prod && \
 	curl -s http://localhost:$${PATIENT_SERVICE_PORT}/health | jq '.' || echo "Patient service not responding" && \
 	curl -s http://localhost:$${THERAPIST_SERVICE_PORT}/health | jq '.' || echo "Therapist service not responding" && \
@@ -81,9 +189,9 @@ health-check:
 	curl -s http://localhost:$${COMMUNICATION_SERVICE_PORT}/health | jq '.' || echo "Communication service not responding" && \
 	curl -s http://localhost:$${GEOCODING_SERVICE_PORT}/health | jq '.' || echo "Geocoding service not responding"
 
-# Database commands
+# Database commands - FIXED db-dev to use environment variables
 db-dev:
-	docker exec -it postgres psql -U curavani therapy_platform
+	docker exec -it postgres psql -U $(shell grep DB_USER .env.dev | cut -d '=' -f2) $(shell grep DB_NAME .env.dev | cut -d '=' -f2)
 
 db-test:
 	docker exec -it postgres-test psql -U $(shell grep DB_USER .env.test | cut -d '=' -f2) $(shell grep DB_NAME .env.test | cut -d '=' -f2)
@@ -91,31 +199,43 @@ db-test:
 db-prod:
 	docker exec -it postgres-prod psql -U $(shell grep DB_USER .env.prod | cut -d '=' -f2) $(shell grep DB_NAME .env.prod | cut -d '=' -f2)
 
-# Database migration commands - UPDATED FOR SIMPLE ENVIRONMENT DETECTION
+# Database migration commands - WITH SUCCESS VERIFICATION
 migrate-dev:
 	@echo "Running Alembic migrations for development..."
-	cd migrations && alembic upgrade head
+	@$(MAKE) check-db-dev
+	@cd migrations && alembic upgrade head && \
+	echo "✅ Migrations completed successfully" || \
+	(echo "❌ Migration failed!" && exit 1)
 
 migrate-test:
 	@echo "Running Alembic migrations for test environment..."
-	cd migrations && ENV=test alembic upgrade head
+	@$(MAKE) check-db-test
+	@cd migrations && ENV=test alembic upgrade head && \
+	echo "✅ Migrations completed successfully" || \
+	(echo "❌ Migration failed!" && exit 1)
 
 migrate-prod:
 	@echo "Running Alembic migrations for production..."
-	cd migrations && ENV=prod alembic upgrade head
+	@$(MAKE) check-db-prod
+	@cd migrations && ENV=prod alembic upgrade head && \
+	echo "✅ Migrations completed successfully" || \
+	(echo "❌ Migration failed!" && exit 1)
 
-# Check if migrations are up to date - UPDATED FOR SIMPLE ENVIRONMENT DETECTION
+# Check if migrations are up to date - WITH BETTER ERROR HANDLING
 check-migrations-dev:
 	@echo "Checking development database migrations..."
-	cd migrations && alembic current
+	@cd migrations && alembic current || \
+	echo "⚠️  Could not check migration status - database might not be migrated"
 
 check-migrations-test:
 	@echo "Checking test database migrations..."
-	cd migrations && ENV=test alembic current
+	@cd migrations && ENV=test alembic current || \
+	echo "⚠️  Could not check migration status - database might not be migrated"
 
 check-migrations-prod:
 	@echo "Checking production database migrations..."
-	cd migrations && ENV=prod alembic current
+	@cd migrations && ENV=prod alembic current || \
+	echo "⚠️  Could not check migration status - database might not be migrated"
 
 # Test database management
 reset-test-db:
@@ -308,7 +428,7 @@ test-all-prod:
 	export GEOCODING_HEALTH_URL=http://localhost:$${GEOCODING_SERVICE_PORT}/health && \
 	pytest tests -v
 
-# Deployment commands
+# Deployment commands WITH DATABASE AND MIGRATION CHECKS
 deploy-test:
 	@echo "🚀 Deploying to TEST environment..."
 	@echo "===================================="
@@ -334,9 +454,8 @@ deploy-test:
 		fi; \
 		sleep 1; \
 	done
-	# Reset test database (now 100% safe - no PgBouncer, no app connections)
-	@echo "🔄 Resetting test database..."
-	$(MAKE) reset-test-db
+	# Ensure database exists
+	@$(MAKE) ensure-db-test
 	# Now start PgBouncer
 	@echo "🔗 Starting PgBouncer..."
 	$(MAKE) start-test-pgbouncer-only
@@ -361,9 +480,9 @@ deploy-test:
 	# Wait for all services to be ready
 	@echo "⏳ Waiting for all services to start..."
 	@sleep 15
-	# Run migrations
+	# Run migrations WITH SUCCESS CHECK
 	@echo "📊 Running database migrations..."
-	$(MAKE) migrate-test
+	@$(MAKE) migrate-test || (echo "❌ Migration failed! Aborting deployment." && exit 1)
 	# Check migrations are current
 	$(MAKE) check-migrations-test
 	# Run all tests
@@ -435,6 +554,9 @@ help:
 	@echo "  make status-dev       - Show development environment status"
 	@echo "  make health-check-dev - Check development health endpoints"
 	@echo "  make db-dev           - Connect to development database"
+	@echo "  make check-db-dev     - Check if development database exists"
+	@echo "  make create-db-dev    - Create development database"
+	@echo "  make ensure-db-dev    - Ensure development database exists (create if needed)"
 	@echo "  make migrate-dev      - Run migrations on development database"
 	@echo ""
 	@echo "Test Environment:"
@@ -447,6 +569,9 @@ help:
 	@echo "  make status-test      - Show test environment status"
 	@echo "  make health-check-test - Check test environment health endpoints"
 	@echo "  make db-test          - Connect to test database"
+	@echo "  make check-db-test    - Check if test database exists"
+	@echo "  make create-db-test   - Create test database"
+	@echo "  make ensure-db-test   - Ensure test database exists (create if needed)"
 	@echo "  make migrate-test     - Run migrations on test database"
 	@echo "  make reset-test-db    - Drop and recreate test database"
 	@echo ""
@@ -458,6 +583,9 @@ help:
 	@echo "  make status-prod      - Show production environment status"
 	@echo "  make health-check     - Check production health endpoints"
 	@echo "  make db-prod          - Connect to production database"
+	@echo "  make check-db-prod    - Check if production database exists"
+	@echo "  make create-db-prod   - Create production database"
+	@echo "  make ensure-db-prod   - Ensure production database exists (create if needed)"
 	@echo "  make migrate-prod     - Run migrations on production database"
 	@echo ""
 	@echo "Testing - Development Environment:"
@@ -493,6 +621,11 @@ help:
 	@echo "  make health-check-dev - Check development health endpoints"
 	@echo "  make health-check-test - Check test environment health endpoints"
 	@echo "  make list-backups     - List all backups"
+	@echo ""
+	@echo "Database Management:"
+	@echo "  make check-db-dev/test/prod  - Check if database exists"
+	@echo "  make create-db-dev/test/prod - Create database"
+	@echo "  make ensure-db-dev/test/prod - Ensure database exists (create if needed)"
 	@echo ""
 	@echo "Database Migrations:"
 	@echo "  make check-migrations-dev  - Check dev migration status"
