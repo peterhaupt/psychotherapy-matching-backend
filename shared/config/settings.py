@@ -10,18 +10,6 @@ import os
 import logging
 from typing import Optional, List, Dict, Set
 
-# Try to load .env file if python-dotenv is available
-try:
-    from dotenv import load_dotenv
-    # Load .env file from project root (two levels up from shared/config/)
-    env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env')
-    if os.path.exists(env_path):
-        load_dotenv(env_path)
-except ImportError:
-    # python-dotenv not installed, rely on environment variables only
-    pass
-
-
 def _get_env_bool(var_name: str) -> Optional[bool]:
     """Convert environment variable to boolean, return None if not set."""
     value = os.environ.get(var_name)
