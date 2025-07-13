@@ -3,9 +3,10 @@ import pytest
 import requests
 import time
 from datetime import date
+import os
 
 # Base URL for the Patient Service
-BASE_URL = "http://localhost:8001/api"
+BASE_URL = os.environ["PATIENT_API_URL"]
 
 
 class TestPatientServiceAPI:

@@ -3,14 +3,14 @@ import pytest
 import requests
 import time
 from datetime import date, datetime, timedelta
+import os
 
 # Base URL for the Communication Service
-BASE_URL = "http://localhost:8004/api"
+BASE_URL = os.environ["COMMUNICATION_API_URL"]
 
 # Base URLs for other services (for cross-service testing)
-PATIENT_BASE_URL = "http://localhost:8001/api"
-THERAPIST_BASE_URL = "http://localhost:8002/api"
-
+PATIENT_BASE_URL = os.environ["PATIENT_API_URL"]
+THERAPIST_BASE_URL = os.environ["THERAPIST_API_URL"]
 
 class TestCommunicationServiceAPI:
     """Test class for Communication Service API endpoints."""

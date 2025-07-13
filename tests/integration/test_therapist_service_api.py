@@ -4,10 +4,10 @@ import uuid
 import pytest
 import time
 from datetime import date, timedelta
-
+import os
 
 # Base URL for the therapist service
-BASE_URL = "http://localhost:8002"
+BASE_URL = os.environ["THERAPIST_API_URL"]
 
 
 @pytest.fixture(scope="class")

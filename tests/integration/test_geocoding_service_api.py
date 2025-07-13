@@ -2,10 +2,11 @@
 import pytest
 import requests
 import time
+import os
 
 # Base URL for the Geocoding Service
-BASE_URL = "http://localhost:8005/api"
-HEALTH_URL = "http://localhost:8005/health"
+BASE_URL = os.environ["GEOCODING_API_URL"]
+HEALTH_URL = os.environ["GEOCODING_HEALTH_URL"]
 
 
 class TestGeocodingServiceAPI:

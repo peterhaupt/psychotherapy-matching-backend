@@ -3,13 +3,14 @@ import pytest
 import requests
 import time
 from datetime import date, datetime
+import os
 
 # Base URL for the Matching Service
-BASE_URL = "http://localhost:8003/api"
+BASE_URL = os.environ["MATCHING_API_URL"]
 
 # Base URLs for other services (for setup)
-PATIENT_BASE_URL = "http://localhost:8001/api"
-THERAPIST_BASE_URL = "http://localhost:8002/api"
+PATIENT_BASE_URL = os.environ["PATIENT_API_URL"]
+THERAPIST_BASE_URL = os.environ["THERAPIST_API_URL"]
 
 
 class TestMatchingServiceAPI:

@@ -1,4 +1,4 @@
-.PHONY: dev prod test deploy deploy-test rollback backup logs-dev logs-prod logs-test stop-dev stop-prod stop-test status clean-logs test-unit test-integration test-smoke test-all
+.PHONY: dev prod test deploy deploy-test rollback backup logs-dev logs-prod logs-test stop-dev stop-prod stop-test status clean-logs test-unit-dev test-unit-test test-unit-prod test-integration-dev test-integration-test test-integration-prod test-smoke-dev test-smoke-test test-smoke-prod test-all-dev test-all-test test-all-prod
 
 # Development commands
 dev:
@@ -92,23 +92,7 @@ reset-test-db:
 	docker exec -it postgres-test psql -U $${DB_USER} -d postgres -c "CREATE DATABASE $${DB_NAME};" && \
 	echo "Test database reset complete"
 
-# Testing commands
-test-unit:
-	@echo "Running unit tests..."
-	pytest tests/unit -v
-
-test-integration:
-	@echo "Running integration tests..."
-	pytest tests/integration -v
-
-test-smoke:
-	@echo "Running smoke tests..."
-	pytest tests/smoke -v
-
-test-all: test-unit test-integration test-smoke
-	@echo "All tests completed"
-
-# Test against specific environment
+# Development Environment Testing Commands
 test-unit-dev:
 	@echo "Running unit tests against development..."
 	@export PATIENT_API_URL=http://localhost:8001/api && \
@@ -116,8 +100,45 @@ test-unit-dev:
 	export MATCHING_API_URL=http://localhost:8003/api && \
 	export COMMUNICATION_API_URL=http://localhost:8004/api && \
 	export GEOCODING_API_URL=http://localhost:8005/api && \
+	export PATIENT_HEALTH_URL=http://localhost:8001/health && \
+	export THERAPIST_HEALTH_URL=http://localhost:8002/health && \
+	export MATCHING_HEALTH_URL=http://localhost:8003/health && \
+	export COMMUNICATION_HEALTH_URL=http://localhost:8004/health && \
+	export GEOCODING_HEALTH_URL=http://localhost:8005/health && \
 	pytest tests/unit -v
 
+test-integration-dev:
+	@echo "Running integration tests against development..."
+	@export PATIENT_API_URL=http://localhost:8001/api && \
+	export THERAPIST_API_URL=http://localhost:8002/api && \
+	export MATCHING_API_URL=http://localhost:8003/api && \
+	export COMMUNICATION_API_URL=http://localhost:8004/api && \
+	export GEOCODING_API_URL=http://localhost:8005/api && \
+	export PATIENT_HEALTH_URL=http://localhost:8001/health && \
+	export THERAPIST_HEALTH_URL=http://localhost:8002/health && \
+	export MATCHING_HEALTH_URL=http://localhost:8003/health && \
+	export COMMUNICATION_HEALTH_URL=http://localhost:8004/health && \
+	export GEOCODING_HEALTH_URL=http://localhost:8005/health && \
+	pytest tests/integration -v
+
+test-smoke-dev:
+	@echo "Running smoke tests against development..."
+	@export PATIENT_API_URL=http://localhost:8001/api && \
+	export THERAPIST_API_URL=http://localhost:8002/api && \
+	export MATCHING_API_URL=http://localhost:8003/api && \
+	export COMMUNICATION_API_URL=http://localhost:8004/api && \
+	export GEOCODING_API_URL=http://localhost:8005/api && \
+	export PATIENT_HEALTH_URL=http://localhost:8001/health && \
+	export THERAPIST_HEALTH_URL=http://localhost:8002/health && \
+	export MATCHING_HEALTH_URL=http://localhost:8003/health && \
+	export COMMUNICATION_HEALTH_URL=http://localhost:8004/health && \
+	export GEOCODING_HEALTH_URL=http://localhost:8005/health && \
+	pytest tests/smoke -v
+
+test-all-dev: test-unit-dev test-integration-dev test-smoke-dev
+	@echo "All development tests completed"
+
+# Test Environment Testing Commands
 test-unit-test:
 	@echo "Running unit tests against test environment..."
 	@export PATIENT_API_URL=http://localhost:8011/api && \
@@ -125,6 +146,11 @@ test-unit-test:
 	export MATCHING_API_URL=http://localhost:8013/api && \
 	export COMMUNICATION_API_URL=http://localhost:8014/api && \
 	export GEOCODING_API_URL=http://localhost:8015/api && \
+	export PATIENT_HEALTH_URL=http://localhost:8011/health && \
+	export THERAPIST_HEALTH_URL=http://localhost:8012/health && \
+	export MATCHING_HEALTH_URL=http://localhost:8013/health && \
+	export COMMUNICATION_HEALTH_URL=http://localhost:8014/health && \
+	export GEOCODING_HEALTH_URL=http://localhost:8015/health && \
 	pytest tests/unit -v
 
 test-integration-test:
@@ -134,6 +160,11 @@ test-integration-test:
 	export MATCHING_API_URL=http://localhost:8013/api && \
 	export COMMUNICATION_API_URL=http://localhost:8014/api && \
 	export GEOCODING_API_URL=http://localhost:8015/api && \
+	export PATIENT_HEALTH_URL=http://localhost:8011/health && \
+	export THERAPIST_HEALTH_URL=http://localhost:8012/health && \
+	export MATCHING_HEALTH_URL=http://localhost:8013/health && \
+	export COMMUNICATION_HEALTH_URL=http://localhost:8014/health && \
+	export GEOCODING_HEALTH_URL=http://localhost:8015/health && \
 	pytest tests/integration -v
 
 test-smoke-test:
@@ -143,7 +174,44 @@ test-smoke-test:
 	export MATCHING_API_URL=http://localhost:8013/api && \
 	export COMMUNICATION_API_URL=http://localhost:8014/api && \
 	export GEOCODING_API_URL=http://localhost:8015/api && \
+	export PATIENT_HEALTH_URL=http://localhost:8011/health && \
+	export THERAPIST_HEALTH_URL=http://localhost:8012/health && \
+	export MATCHING_HEALTH_URL=http://localhost:8013/health && \
+	export COMMUNICATION_HEALTH_URL=http://localhost:8014/health && \
+	export GEOCODING_HEALTH_URL=http://localhost:8015/health && \
 	pytest tests/smoke -v
+
+test-all-test: test-unit-test test-integration-test test-smoke-test
+	@echo "All test environment tests completed"
+
+# Production Environment Testing Commands
+test-unit-prod:
+	@echo "Running unit tests against production..."
+	@export PATIENT_API_URL=http://localhost:8021/api && \
+	export THERAPIST_API_URL=http://localhost:8022/api && \
+	export MATCHING_API_URL=http://localhost:8023/api && \
+	export COMMUNICATION_API_URL=http://localhost:8024/api && \
+	export GEOCODING_API_URL=http://localhost:8025/api && \
+	export PATIENT_HEALTH_URL=http://localhost:8021/health && \
+	export THERAPIST_HEALTH_URL=http://localhost:8022/health && \
+	export MATCHING_HEALTH_URL=http://localhost:8023/health && \
+	export COMMUNICATION_HEALTH_URL=http://localhost:8024/health && \
+	export GEOCODING_HEALTH_URL=http://localhost:8025/health && \
+	pytest tests/unit -v
+
+test-integration-prod:
+	@echo "Running integration tests against production..."
+	@export PATIENT_API_URL=http://localhost:8021/api && \
+	export THERAPIST_API_URL=http://localhost:8022/api && \
+	export MATCHING_API_URL=http://localhost:8023/api && \
+	export COMMUNICATION_API_URL=http://localhost:8024/api && \
+	export GEOCODING_API_URL=http://localhost:8025/api && \
+	export PATIENT_HEALTH_URL=http://localhost:8021/health && \
+	export THERAPIST_HEALTH_URL=http://localhost:8022/health && \
+	export MATCHING_HEALTH_URL=http://localhost:8023/health && \
+	export COMMUNICATION_HEALTH_URL=http://localhost:8024/health && \
+	export GEOCODING_HEALTH_URL=http://localhost:8025/health && \
+	pytest tests/integration -v
 
 test-smoke-prod:
 	@echo "Running smoke tests against production..."
@@ -152,7 +220,15 @@ test-smoke-prod:
 	export MATCHING_API_URL=http://localhost:8023/api && \
 	export COMMUNICATION_API_URL=http://localhost:8024/api && \
 	export GEOCODING_API_URL=http://localhost:8025/api && \
+	export PATIENT_HEALTH_URL=http://localhost:8021/health && \
+	export THERAPIST_HEALTH_URL=http://localhost:8022/health && \
+	export MATCHING_HEALTH_URL=http://localhost:8023/health && \
+	export COMMUNICATION_HEALTH_URL=http://localhost:8024/health && \
+	export GEOCODING_HEALTH_URL=http://localhost:8025/health && \
 	pytest tests/smoke -v
+
+test-all-prod: test-unit-prod test-integration-prod test-smoke-prod
+	@echo "All production tests completed"
 
 # Deployment commands
 deploy-test:
@@ -214,9 +290,7 @@ deploy-test:
 	$(MAKE) check-migrations-test
 	# Run all tests
 	@echo "🧪 Running all tests in test environment..."
-	$(MAKE) test-unit-test
-	$(MAKE) test-integration-test
-	$(MAKE) test-smoke-test
+	$(MAKE) test-all-test
 	@echo "✅ Test deployment complete!"
 
 deploy: deploy-test
@@ -318,13 +392,23 @@ help:
 	@echo "  make db-prod          - Connect to production database"
 	@echo "  make migrate-prod     - Run migrations on production database"
 	@echo ""
-	@echo "Testing:"
-	@echo "  make test-unit        - Run unit tests"
-	@echo "  make test-integration - Run integration tests"
-	@echo "  make test-smoke       - Run smoke tests"
-	@echo "  make test-all         - Run all tests"
-	@echo "  make test-unit-test   - Run unit tests against test environment"
-	@echo "  make test-smoke-prod  - Run smoke tests against production"
+	@echo "Testing - Development Environment:"
+	@echo "  make test-unit-dev        - Run unit tests against dev (ports 8001-8005)"
+	@echo "  make test-integration-dev - Run integration tests against dev"
+	@echo "  make test-smoke-dev       - Run smoke tests against dev"
+	@echo "  make test-all-dev         - Run all tests against dev"
+	@echo ""
+	@echo "Testing - Test Environment:"
+	@echo "  make test-unit-test        - Run unit tests against test env (ports 8011-8015)"
+	@echo "  make test-integration-test - Run integration tests against test env"
+	@echo "  make test-smoke-test       - Run smoke tests against test env"
+	@echo "  make test-all-test         - Run all tests against test env"
+	@echo ""
+	@echo "Testing - Production Environment:"
+	@echo "  make test-unit-prod        - Run unit tests against prod (ports 8021-8025)"
+	@echo "  make test-integration-prod - Run integration tests against prod"
+	@echo "  make test-smoke-prod       - Run smoke tests against prod"
+	@echo "  make test-all-prod         - Run all tests against prod"
 	@echo ""
 	@echo "Deployment:"
 	@echo "  make deploy-test      - Deploy to test environment only"

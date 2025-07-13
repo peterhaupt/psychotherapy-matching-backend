@@ -3,15 +3,15 @@ import pytest
 import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
-
+import os
 
 # Service configurations: (name, url, expected_service_identifier)
 SERVICES = [
-    ("patient", "http://localhost:8001/health", "patient"),
-    ("therapist", "http://localhost:8002/health", "therapist"),
-    ("matching", "http://localhost:8003/health", "matching"),
-    ("communication", "http://localhost:8004/health", "communication"),
-    ("geocoding", "http://localhost:8005/health", "geocoding"),
+    ("patient", os.environ["PATIENT_HEALTH_URL"], "patient"),
+    ("therapist", os.environ["THERAPIST_HEALTH_URL"], "therapist"),
+    ("matching", os.environ["MATCHING_HEALTH_URL"], "matching"),
+    ("communication", os.environ["COMMUNICATION_HEALTH_URL"], "communication"),
+    ("geocoding", os.environ["GEOCODING_HEALTH_URL"], "geocoding"),
 ]
 
 TIMEOUT = 10  # seconds
