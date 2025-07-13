@@ -87,6 +87,6 @@ if __name__ == "__main__":
     app = create_app()
     app.run(
         host="0.0.0.0", 
-        port=8002, 
+        port=config.THERAPIST_SERVICE_INTERNAL_PORT,
         debug=config.FLASK_DEBUG
     )

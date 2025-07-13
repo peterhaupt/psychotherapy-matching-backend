@@ -232,6 +232,6 @@ if __name__ == "__main__":
     app = create_app()
     app.run(
         host="0.0.0.0", 
-        port=8005, 
+        port=config.GEOCODING_SERVICE_INTERNAL_PORT,
         debug=config.FLASK_DEBUG
     )
