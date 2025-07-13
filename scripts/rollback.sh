@@ -77,11 +77,11 @@ sleep 15
 # Health check
 echo "❤️  Running health checks..."
 SERVICES=(
-    "patient:8011"
-    "therapist:8012"
-    "matching:8013"
-    "communication:8014"
-    "geocoding:8015"
+    "patient:8021"
+    "therapist:8022"
+    "matching:8023"
+    "communication:8024"
+    "geocoding:8025"
 )
 
 ALL_HEALTHY=true

@@ -61,7 +61,7 @@ echo "🗃️  Running database migrations..."
 echo "---------------------------------"
 # Load production environment variables for migrations
 export $(cat .env.prod | grep -v '^#' | xargs)
-cd migrations && alembic upgrade head && cd ..
+cd migrations && ENV=prod alembic upgrade head && cd ..
 if [ $? -eq 0 ]; then
     echo "✅ Migrations completed successfully"
 else
@@ -73,7 +73,7 @@ fi
 echo ""
 echo "🔍 Verifying migration status..."
 echo "--------------------------------"
-cd migrations && alembic current && cd ..
+cd migrations && ENV=prod alembic current && cd ..
 
 # 8. Health checks
 echo ""
@@ -130,7 +130,7 @@ if $ALL_HEALTHY; then
     
     # Run smoke tests from the host
     if command -v pytest &> /dev/null; then
-        pytest ./tests/smoke -v --tb=short || SMOKE_TEST_FAILED=true
+        pytest ./tests/smoke -v --tb=short --env=prod || SMOKE_TEST_FAILED=true
     else
         echo "⚠️  pytest not found locally"
         echo "    Please ensure pytest is installed: pip install pytest"
