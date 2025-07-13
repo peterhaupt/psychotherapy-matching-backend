@@ -1,4 +1,4 @@
-.PHONY: start-dev start-prod start-test deploy deploy-test rollback backup logs-dev logs-prod logs-test stop-dev stop-prod stop-test status status-dev status-prod status-test clean-logs test-unit-dev test-unit-test test-unit-prod test-integration-dev test-integration-test test-integration-prod test-smoke-dev test-smoke-test test-smoke-prod test-all-dev test-all-test test-all-prod check-db-dev check-db-test check-db-prod create-db-dev create-db-test create-db-prod ensure-db-dev ensure-db-test ensure-db-prod backup-prod list-backups backup-verify-prod restore-dev restore-test restore-prod test-restore-test
+.PHONY: start-dev start-prod start-test deploy deploy-test rollback logs-dev logs-prod logs-test stop-dev stop-prod stop-test status status-dev status-prod status-test clean-logs test-unit-dev test-unit-test test-unit-prod test-integration-dev test-integration-test test-integration-prod test-smoke-dev test-smoke-test test-smoke-prod test-all-dev test-all-test test-all-prod check-db-dev check-db-test check-db-prod create-db-dev create-db-test create-db-prod ensure-db-dev ensure-db-test ensure-db-prod backup-prod list-backups backup-verify-prod restore-dev restore-test restore-prod test-restore-test build-dev build-test build-prod db-dev db-test db-prod migrate-dev migrate-test migrate-prod check-migrations-dev check-migrations-test check-migrations-prod reset-test-db health-check health-check-dev health-check-test start-test-db-only start-test-pgbouncer-only clean-docker debug-env-urls dev prod help
 
 # Database check commands - FIXED with -d postgres
 check-db-dev:
@@ -859,9 +859,6 @@ rollback:
 	@echo "Usage: make rollback TIMESTAMP=20240115_143022"
 	@[ -n "$(TIMESTAMP)" ] && ./scripts/rollback.sh $(TIMESTAMP) || echo "Error: TIMESTAMP required"
 
-backup:
-	./scripts/backup-hourly.sh
-
 # Status and monitoring
 status:
 	@echo "=== Backend Development Status ==="
@@ -878,13 +875,7 @@ clean-logs:
 	rm -f backups/*.log
 	find backups/postgres/hourly -name "*.sql.gz" -mtime +7 -delete
 	find backups/postgres/weekly -name "*.sql.gz" -mtime +90 -delete
-
-list-backups:
-	@echo "=== Hourly Backups ==="
-	@ls -lh backups/postgres/hourly/*.sql.gz 2>/dev/null || echo "No hourly backups found"
-	@echo ""
-	@echo "=== Weekly Backups ==="
-	@ls -lh backups/postgres/weekly/*.sql.gz 2>/dev/null || echo "No weekly backups found"
+	find backups/postgres/manual -name "*.sql.gz" -mtime +30 -delete
 
 # Docker cleanup
 clean-docker:
@@ -993,7 +984,6 @@ help:
 	@echo "  make deploy-test      - Deploy to test environment only"
 	@echo "  make deploy           - Full deployment (test + production)"
 	@echo "  make rollback TIMESTAMP=xxx - Rollback to specific backup"
-	@echo "  make backup           - Create manual backup"
 	@echo ""
 	@echo "Monitoring:"
 	@echo "  make status           - Show all environments status"
