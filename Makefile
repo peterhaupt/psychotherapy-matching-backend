@@ -500,6 +500,8 @@ deploy: deploy-test
 	$(MAKE) check-migrations-prod
 	# Run smoke tests on production
 	$(MAKE) test-smoke-prod
+	# Shutdown test environment after successful deployment
+	$(MAKE) stop-test
 	@echo "✅ Full deployment complete!"
 
 rollback:

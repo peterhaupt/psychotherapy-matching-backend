@@ -133,9 +133,14 @@ services:
       FLASK_ENV: ${FLASK_ENV}
       FLASK_DEBUG: ${FLASK_DEBUG}
       LOG_LEVEL: ${LOG_LEVEL}
+      # Security Configuration
+      SECRET_KEY: ${SECRET_KEY}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       # Service Configuration
       SERVICE_ENV_SUFFIX: ${SERVICE_ENV_SUFFIX}
       SERVICE_HOST: ${SERVICE_HOST}
+      # System Configuration
+      SYSTEM_NOTIFICATION_EMAIL: ${SYSTEM_NOTIFICATION_EMAIL}
       # Service Ports (all services need to know all ports for inter-service communication)
       PATIENT_SERVICE_PORT: ${PATIENT_SERVICE_PORT}
       THERAPIST_SERVICE_PORT: ${THERAPIST_SERVICE_PORT}
@@ -192,9 +197,14 @@ services:
       FLASK_ENV: ${FLASK_ENV}
       FLASK_DEBUG: ${FLASK_DEBUG}
       LOG_LEVEL: ${LOG_LEVEL}
+      # Security Configuration
+      SECRET_KEY: ${SECRET_KEY}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       # Service Configuration
       SERVICE_ENV_SUFFIX: ${SERVICE_ENV_SUFFIX}
       SERVICE_HOST: ${SERVICE_HOST}
+      # System Configuration
+      SYSTEM_NOTIFICATION_EMAIL: ${SYSTEM_NOTIFICATION_EMAIL}
       # Service Ports (all services need to know all ports for inter-service communication)
       PATIENT_SERVICE_PORT: ${PATIENT_SERVICE_PORT}
       THERAPIST_SERVICE_PORT: ${THERAPIST_SERVICE_PORT}
@@ -248,9 +258,14 @@ services:
       FLASK_ENV: ${FLASK_ENV}
       FLASK_DEBUG: ${FLASK_DEBUG}
       LOG_LEVEL: ${LOG_LEVEL}
+      # Security Configuration
+      SECRET_KEY: ${SECRET_KEY}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       # Service Configuration
       SERVICE_ENV_SUFFIX: ${SERVICE_ENV_SUFFIX}
       SERVICE_HOST: ${SERVICE_HOST}
+      # System Configuration
+      SYSTEM_NOTIFICATION_EMAIL: ${SYSTEM_NOTIFICATION_EMAIL}
       # Service Ports (all services need to know all ports for inter-service communication)
       PATIENT_SERVICE_PORT: ${PATIENT_SERVICE_PORT}
       THERAPIST_SERVICE_PORT: ${THERAPIST_SERVICE_PORT}
@@ -306,6 +321,9 @@ services:
       FLASK_ENV: ${FLASK_ENV}
       FLASK_DEBUG: ${FLASK_DEBUG}
       LOG_LEVEL: ${LOG_LEVEL}
+      # Security Configuration
+      SECRET_KEY: ${SECRET_KEY}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       # Service Configuration
       SERVICE_ENV_SUFFIX: ${SERVICE_ENV_SUFFIX}
       SERVICE_HOST: ${SERVICE_HOST}
@@ -382,9 +400,14 @@ services:
       FLASK_ENV: ${FLASK_ENV}
       FLASK_DEBUG: ${FLASK_DEBUG}
       LOG_LEVEL: ${LOG_LEVEL}
+      # Security Configuration
+      SECRET_KEY: ${SECRET_KEY}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       # Service Configuration
       SERVICE_ENV_SUFFIX: ${SERVICE_ENV_SUFFIX}
       SERVICE_HOST: ${SERVICE_HOST}
+      # System Configuration
+      SYSTEM_NOTIFICATION_EMAIL: ${SYSTEM_NOTIFICATION_EMAIL}
       # Service Ports (all services need to know all ports for inter-service communication)
       PATIENT_SERVICE_PORT: ${PATIENT_SERVICE_PORT}
       THERAPIST_SERVICE_PORT: ${THERAPIST_SERVICE_PORT}
