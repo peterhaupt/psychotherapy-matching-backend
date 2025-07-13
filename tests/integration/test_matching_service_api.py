@@ -11,6 +11,7 @@ BASE_URL = os.environ["MATCHING_API_URL"]
 # Base URLs for other services (for setup)
 PATIENT_BASE_URL = os.environ["PATIENT_API_URL"]
 THERAPIST_BASE_URL = os.environ["THERAPIST_API_URL"]
+COMMUNICATION_BASE_URL = os.environ["COMMUNICATION_API_URL"]  # ADDED: Communication service URL
 
 
 class TestMatchingServiceAPI:
@@ -903,7 +904,7 @@ class TestMatchingServiceAPI:
             
             # Verify phone call was actually created in communication service
             phone_call_response = requests.get(
-                f"http://localhost:8004/api/phone-calls?therapist_id={therapist['id']}&therapeutenanfrage_id={anfrage['anfrage_id']}"
+                f"{COMMUNICATION_BASE_URL}/phone-calls?therapist_id={therapist['id']}&therapeutenanfrage_id={anfrage['anfrage_id']}"  # FIXED: Using environment variable
             )
             assert phone_call_response.status_code == 200
             
