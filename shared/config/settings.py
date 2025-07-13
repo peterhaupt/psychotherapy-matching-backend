@@ -103,6 +103,13 @@ class Config:
     COMMUNICATION_SERVICE_PORT: Optional[int] = _get_env_int("COMMUNICATION_SERVICE_PORT")
     GEOCODING_SERVICE_PORT: Optional[int] = _get_env_int("GEOCODING_SERVICE_PORT")
     SCRAPING_SERVICE_PORT: Optional[int] = _get_env_int("SCRAPING_SERVICE_PORT")
+
+    # Internal Docker ports (fixed across environments)
+    PATIENT_SERVICE_INTERNAL_PORT: Optional[int] = _get_env_int("PATIENT_SERVICE_INTERNAL_PORT")
+    THERAPIST_SERVICE_INTERNAL_PORT: Optional[int] = _get_env_int("THERAPIST_SERVICE_INTERNAL_PORT")
+    MATCHING_SERVICE_INTERNAL_PORT: Optional[int] = _get_env_int("MATCHING_SERVICE_INTERNAL_PORT")
+    COMMUNICATION_SERVICE_INTERNAL_PORT: Optional[int] = _get_env_int("COMMUNICATION_SERVICE_INTERNAL_PORT")
+    GEOCODING_SERVICE_INTERNAL_PORT: Optional[int] = _get_env_int("GEOCODING_SERVICE_INTERNAL_PORT")
     
     # CORS Configuration
     CORS_ALLOWED_ORIGINS: Optional[List[str]] = _get_env_list("CORS_ALLOWED_ORIGINS")
@@ -332,28 +339,32 @@ class Config:
         Raises:
             ValueError: If service is unknown or port not configured
         """
+        # Map service names to hostnames and both internal/external ports
         service_map = {
-            "patient": ("patient_service", cls.PATIENT_SERVICE_PORT),
-            "therapist": ("therapist_service", cls.THERAPIST_SERVICE_PORT),
-            "matching": ("matching_service", cls.MATCHING_SERVICE_PORT),
-            "communication": ("communication_service", cls.COMMUNICATION_SERVICE_PORT),
-            "geocoding": ("geocoding_service", cls.GEOCODING_SERVICE_PORT),
+            "patient": ("patient_service", cls.PATIENT_SERVICE_INTERNAL_PORT, cls.PATIENT_SERVICE_PORT),
+            "therapist": ("therapist_service", cls.THERAPIST_SERVICE_INTERNAL_PORT, cls.THERAPIST_SERVICE_PORT),
+            "matching": ("matching_service", cls.MATCHING_SERVICE_INTERNAL_PORT, cls.MATCHING_SERVICE_PORT),
+            "communication": ("communication_service", cls.COMMUNICATION_SERVICE_INTERNAL_PORT, cls.COMMUNICATION_SERVICE_PORT),
+            "geocoding": ("geocoding_service", cls.GEOCODING_SERVICE_INTERNAL_PORT, cls.GEOCODING_SERVICE_PORT),
         }
         
         if service not in service_map:
             raise ValueError(f"Unknown service: {service}")
         
-        hostname, port = service_map[service]
-        
-        if port is None:
-            raise ValueError(f"Port not configured for service: {service}")
+        hostname, internal_port, external_port = service_map[service]
         
         if internal:
+            port = internal_port
+            if port is None:
+                raise ValueError(f"Internal port not configured for service: {service}")
             # Add service suffix if configured
             if cls.SERVICE_ENV_SUFFIX:
                 hostname = f"{hostname}{cls.SERVICE_ENV_SUFFIX}"
             return f"http://{hostname}:{port}"
         else:
+            port = external_port
+            if port is None:
+                raise ValueError(f"External port not configured for service: {service}")
             return f"http://localhost:{port}"
     
     @classmethod
