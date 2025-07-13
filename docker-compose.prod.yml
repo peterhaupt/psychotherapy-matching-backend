@@ -73,12 +73,12 @@ services:
     image: confluentinc/cp-zookeeper:latest
     container_name: zookeeper-prod
     environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_CLIENT_PORT: ${ZOOKEEPER_CLIENT_PORT}
+      ZOOKEEPER_TICK_TIME: ${ZOOKEEPER_TICK_TIME}
     ports:
-      - "2183:2181"
+      - "${ZOOKEEPER_EXTERNAL_PORT}:${ZOOKEEPER_CLIENT_PORT}"
     healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      test: ["CMD", "nc", "-z", "localhost", "${ZOOKEEPER_CLIENT_PORT}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -93,14 +93,14 @@ services:
       zookeeper-prod:
         condition: service_healthy
     environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper-prod:2181
-      KAFKA_ADVERTISED_LISTENERS: INSIDE://kafka-prod:9093,OUTSIDE://localhost:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT
-      KAFKA_LISTENERS: INSIDE://0.0.0.0:9093,OUTSIDE://0.0.0.0:9092
-      KAFKA_INTER_BROKER_LISTENER_NAME: INSIDE
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_BROKER_ID: ${KAFKA_BROKER_ID}
+      KAFKA_ZOOKEEPER_CONNECT: ${KAFKA_ZOOKEEPER_CONNECT}
+      KAFKA_ADVERTISED_LISTENERS: ${KAFKA_ADVERTISED_LISTENERS}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: ${KAFKA_LISTENER_SECURITY_PROTOCOL_MAP}
+      KAFKA_LISTENERS: ${KAFKA_LISTENERS}
+      KAFKA_INTER_BROKER_LISTENER_NAME: ${KAFKA_INTER_BROKER_LISTENER_NAME}
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: ${KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR}
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: '${KAFKA_AUTO_CREATE_TOPICS_ENABLE}'
     healthcheck:
       test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
       interval: 10s
@@ -127,7 +127,7 @@ services:
       PGBOUNCER_HOST: pgbouncer-prod
       PGBOUNCER_PORT: ${PGBOUNCER_PORT}
       # Kafka Configuration
-      KAFKA_BOOTSTRAP_SERVERS: kafka-prod:9093
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
       KAFKA_LOG_LEVEL: ${KAFKA_LOG_LEVEL}
       # Flask Configuration
       FLASK_ENV: ${FLASK_ENV}
@@ -180,7 +180,7 @@ services:
       PGBOUNCER_HOST: pgbouncer-prod
       PGBOUNCER_PORT: ${PGBOUNCER_PORT}
       # Kafka Configuration
-      KAFKA_BOOTSTRAP_SERVERS: kafka-prod:9093
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
       KAFKA_LOG_LEVEL: ${KAFKA_LOG_LEVEL}
       # Flask Configuration
       FLASK_ENV: ${FLASK_ENV}
@@ -230,7 +230,7 @@ services:
       PGBOUNCER_HOST: pgbouncer-prod
       PGBOUNCER_PORT: ${PGBOUNCER_PORT}
       # Kafka Configuration
-      KAFKA_BOOTSTRAP_SERVERS: kafka-prod:9093
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
       KAFKA_LOG_LEVEL: ${KAFKA_LOG_LEVEL}
       # Flask Configuration
       FLASK_ENV: ${FLASK_ENV}
@@ -282,7 +282,7 @@ services:
       PGBOUNCER_HOST: pgbouncer-prod
       PGBOUNCER_PORT: ${PGBOUNCER_PORT}
       # Kafka Configuration
-      KAFKA_BOOTSTRAP_SERVERS: kafka-prod:9093
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
       KAFKA_LOG_LEVEL: ${KAFKA_LOG_LEVEL}
       # Flask Configuration
       FLASK_ENV: ${FLASK_ENV}
@@ -352,7 +352,7 @@ services:
       PGBOUNCER_HOST: pgbouncer-prod
       PGBOUNCER_PORT: ${PGBOUNCER_PORT}
       # Kafka Configuration
-      KAFKA_BOOTSTRAP_SERVERS: kafka-prod:9093
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
       KAFKA_LOG_LEVEL: ${KAFKA_LOG_LEVEL}
       # Flask Configuration
       FLASK_ENV: ${FLASK_ENV}
