@@ -1,4 +1,4 @@
-"""Alembic environment configuration."""
+"""Alembic environment configuration - Manual migrations with environment detection."""
 import os
 import sys
 from logging.config import fileConfig
@@ -8,36 +8,30 @@ from sqlalchemy import pool
 
 from alembic import context
 
-# Add the project root directory to Python's path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-
-# Import the shared config system
-from shared.config import get_config  # noqa: E402
-
-# Import the Base class and models
-from shared.utils.database import Base  # noqa: E402
-# Need to import all models that will be part of migrations
-from patient_service.models.patient import Patient  # noqa: F401, E402
-from therapist_service.models.therapist import Therapist  # noqa: F401, E402
-# PlacementRequest removed - using bundle system instead
-from matching_service.models.platzsuche import Platzsuche  # noqa: F401, E402
-from matching_service.models.therapeutenanfrage import Therapeutenanfrage  # noqa: F401, E402
-from matching_service.models.therapeut_anfrage_patient import TherapeutAnfragePatient  # noqa: F401, E402
-from communication_service.models.email import Email  # noqa: F401, E402
-from communication_service.models.phone_call import PhoneCall  # noqa: F401, E402
-from geocoding_service.models.geocache import GeoCache, DistanceCache  # noqa: F401, E402
-
 # Try to load environment variables
 try:
     from dotenv import load_dotenv
-    # Load .env file from project root (two levels up from alembic/)
-    env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env')
+    
+    # Determine environment from ENV variable (defaults to 'dev')
+    env = os.environ.get('ENV', 'dev')
+    
+    # Load the appropriate .env file
+    env_file_map = {
+        'dev': '.env.dev',
+        'test': '.env.test', 
+        'prod': '.env.prod'
+    }
+    
+    env_file = env_file_map.get(env, '.env.dev')
+    env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), env_file)
+    
     if os.path.exists(env_path):
         load_dotenv(env_path)
         print(f"Loaded environment variables from: {env_path}")
     else:
-        print(f"Warning: .env file not found at {env_path}")
+        print(f"Warning: Environment file not found at {env_path}")
         print(f"Using system environment variables.")
+        
 except ImportError:
     print("Warning: python-dotenv not installed. Using system environment variables.")
 
@@ -45,33 +39,29 @@ except ImportError:
 # access to the values within the .ini file in use.
 config = context.config
 
-# Get the shared configuration and build database URL for external connections
-shared_config = get_config()
+# Construct database URL directly from environment variables
+# Always use localhost with external port for migrations from host machine
+db_user = os.environ.get('DB_USER', 'your_db_user')
+db_password = os.environ.get('DB_PASSWORD', 'your_secure_password')
+db_name = os.environ.get('DB_NAME', 'therapy_platform')
+db_external_port = os.environ.get('DB_EXTERNAL_PORT', '5432')
 
-# Use external_url=True to get localhost connection for migrations running from host
-database_url = shared_config.get_database_uri(external_url=True)
+database_url = f"postgresql://{db_user}:{db_password}@localhost:{db_external_port}/{db_name}"
 
 # Set the URL in the config
 config.set_main_option('sqlalchemy.url', database_url)
 
-# Parse connection details for logging (without exposing password)
-if '://' in database_url and '@' in database_url:
-    # postgresql://user:password@host:port/database
-    protocol_part, rest = database_url.split('://', 1)
-    auth_part, host_part = rest.split('@', 1)
-    user = auth_part.split(':', 1)[0]
-    host_and_db = host_part
-    print(f"Using database connection: {protocol_part}://{user}:****@{host_and_db}")
-else:
-    print(f"Using database connection: {database_url}")
+# Log connection details (without exposing password)
+print(f"Using database connection: postgresql://{db_user}:****@localhost:{db_external_port}/{db_name}")
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Set the MetaData object for 'autogenerate' support
-target_metadata = Base.metadata
+# Set target_metadata to None for manual migrations only
+# No auto-generation support
+target_metadata = None
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:

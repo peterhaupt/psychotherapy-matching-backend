@@ -58,35 +58,31 @@ db-test:
 db-prod:
 	docker exec -it postgres-prod psql -U $(shell grep DB_USER .env.prod | cut -d '=' -f2) $(shell grep DB_NAME .env.prod | cut -d '=' -f2)
 
-# Database migration commands
+# Database migration commands - UPDATED FOR SIMPLE ENVIRONMENT DETECTION
 migrate-dev:
 	@echo "Running Alembic migrations for development..."
 	cd migrations && alembic upgrade head
 
 migrate-test:
 	@echo "Running Alembic migrations for test environment..."
-	@export $(cat .env.test | grep -v '^#' | xargs) && \
-	cd migrations && alembic upgrade head
+	cd migrations && ENV=test alembic upgrade head
 
 migrate-prod:
 	@echo "Running Alembic migrations for production..."
-	@export $(cat .env.prod | grep -v '^#' | xargs) && \
-	cd migrations && alembic upgrade head
+	cd migrations && ENV=prod alembic upgrade head
 
-# Check if migrations are up to date
+# Check if migrations are up to date - UPDATED FOR SIMPLE ENVIRONMENT DETECTION
 check-migrations-dev:
 	@echo "Checking development database migrations..."
 	cd migrations && alembic current
 
 check-migrations-test:
 	@echo "Checking test database migrations..."
-	@export $(cat .env.test | grep -v '^#' | xargs) && \
-	cd migrations && alembic current
+	cd migrations && ENV=test alembic current
 
 check-migrations-prod:
 	@echo "Checking production database migrations..."
-	@export $(cat .env.prod | grep -v '^#' | xargs) && \
-	cd migrations && alembic current
+	cd migrations && ENV=prod alembic current
 
 # Test database management
 reset-test-db:
