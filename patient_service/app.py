@@ -98,6 +98,6 @@ if __name__ == "__main__":
     
     app.run(
         host="0.0.0.0", 
-        port=config.PATIENT_SERVICE_PORT, 
+        port=8001, 
         debug=config.FLASK_DEBUG
     )

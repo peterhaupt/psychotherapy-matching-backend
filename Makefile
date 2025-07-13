@@ -245,7 +245,7 @@ reset-test-db:
 	docker exec -it postgres-test psql -U $${DB_USER} -d postgres -c "CREATE DATABASE $${DB_NAME};" && \
 	echo "Test database reset complete"
 
-# Development Environment Testing Commands
+# Development Environment Testing Commands - WITH --env=dev
 test-unit-dev:
 	@echo "Running unit tests against development..."
 	@source .env.dev && \
@@ -259,7 +259,7 @@ test-unit-dev:
 	export MATCHING_HEALTH_URL=http://localhost:$${MATCHING_SERVICE_PORT}/health && \
 	export COMMUNICATION_HEALTH_URL=http://localhost:$${COMMUNICATION_SERVICE_PORT}/health && \
 	export GEOCODING_HEALTH_URL=http://localhost:$${GEOCODING_SERVICE_PORT}/health && \
-	pytest tests/unit -v
+	pytest tests/unit -v --env=dev
 
 test-integration-dev:
 	@echo "Running integration tests against development..."
@@ -274,7 +274,7 @@ test-integration-dev:
 	export MATCHING_HEALTH_URL=http://localhost:$${MATCHING_SERVICE_PORT}/health && \
 	export COMMUNICATION_HEALTH_URL=http://localhost:$${COMMUNICATION_SERVICE_PORT}/health && \
 	export GEOCODING_HEALTH_URL=http://localhost:$${GEOCODING_SERVICE_PORT}/health && \
-	pytest tests/integration -v
+	pytest tests/integration -v --env=dev
 
 test-smoke-dev:
 	@echo "Running smoke tests against development..."
@@ -289,7 +289,7 @@ test-smoke-dev:
 	export MATCHING_HEALTH_URL=http://localhost:$${MATCHING_SERVICE_PORT}/health && \
 	export COMMUNICATION_HEALTH_URL=http://localhost:$${COMMUNICATION_SERVICE_PORT}/health && \
 	export GEOCODING_HEALTH_URL=http://localhost:$${GEOCODING_SERVICE_PORT}/health && \
-	pytest tests/smoke -v
+	pytest tests/smoke -v --env=dev
 
 test-all-dev:
 	@echo "Running all tests against development..."
@@ -304,9 +304,9 @@ test-all-dev:
 	export MATCHING_HEALTH_URL=http://localhost:$${MATCHING_SERVICE_PORT}/health && \
 	export COMMUNICATION_HEALTH_URL=http://localhost:$${COMMUNICATION_SERVICE_PORT}/health && \
 	export GEOCODING_HEALTH_URL=http://localhost:$${GEOCODING_SERVICE_PORT}/health && \
-	pytest tests -v
+	pytest tests -v --env=dev
 
-# Test Environment Testing Commands
+# Test Environment Testing Commands - WITH --env=test
 test-unit-test:
 	@echo "Running unit tests against test environment..."
 	@source .env.test && \
@@ -320,7 +320,7 @@ test-unit-test:
 	export MATCHING_HEALTH_URL=http://localhost:$${MATCHING_SERVICE_PORT}/health && \
 	export COMMUNICATION_HEALTH_URL=http://localhost:$${COMMUNICATION_SERVICE_PORT}/health && \
 	export GEOCODING_HEALTH_URL=http://localhost:$${GEOCODING_SERVICE_PORT}/health && \
-	pytest tests/unit -v
+	pytest tests/unit -v --env=test
 
 test-integration-test:
 	@echo "Running integration tests against test environment..."
@@ -335,7 +335,7 @@ test-integration-test:
 	export MATCHING_HEALTH_URL=http://localhost:$${MATCHING_SERVICE_PORT}/health && \
 	export COMMUNICATION_HEALTH_URL=http://localhost:$${COMMUNICATION_SERVICE_PORT}/health && \
 	export GEOCODING_HEALTH_URL=http://localhost:$${GEOCODING_SERVICE_PORT}/health && \
-	pytest tests/integration -v
+	pytest tests/integration -v --env=test
 
 test-smoke-test:
 	@echo "Running smoke tests against test environment..."
@@ -350,7 +350,7 @@ test-smoke-test:
 	export MATCHING_HEALTH_URL=http://localhost:$${MATCHING_SERVICE_PORT}/health && \
 	export COMMUNICATION_HEALTH_URL=http://localhost:$${COMMUNICATION_SERVICE_PORT}/health && \
 	export GEOCODING_HEALTH_URL=http://localhost:$${GEOCODING_SERVICE_PORT}/health && \
-	pytest tests/smoke -v
+	pytest tests/smoke -v --env=test
 
 test-all-test:
 	@echo "Running all tests against test environment..."
@@ -365,9 +365,9 @@ test-all-test:
 	export MATCHING_HEALTH_URL=http://localhost:$${MATCHING_SERVICE_PORT}/health && \
 	export COMMUNICATION_HEALTH_URL=http://localhost:$${COMMUNICATION_SERVICE_PORT}/health && \
 	export GEOCODING_HEALTH_URL=http://localhost:$${GEOCODING_SERVICE_PORT}/health && \
-	pytest tests -v
+	pytest tests -v --env=test
 
-# Production Environment Testing Commands
+# Production Environment Testing Commands - WITH --env=prod
 test-unit-prod:
 	@echo "Running unit tests against production..."
 	@source .env.prod && \
@@ -381,7 +381,7 @@ test-unit-prod:
 	export MATCHING_HEALTH_URL=http://localhost:$${MATCHING_SERVICE_PORT}/health && \
 	export COMMUNICATION_HEALTH_URL=http://localhost:$${COMMUNICATION_SERVICE_PORT}/health && \
 	export GEOCODING_HEALTH_URL=http://localhost:$${GEOCODING_SERVICE_PORT}/health && \
-	pytest tests/unit -v
+	pytest tests/unit -v --env=prod
 
 test-integration-prod:
 	@echo "Running integration tests against production..."
@@ -396,7 +396,7 @@ test-integration-prod:
 	export MATCHING_HEALTH_URL=http://localhost:$${MATCHING_SERVICE_PORT}/health && \
 	export COMMUNICATION_HEALTH_URL=http://localhost:$${COMMUNICATION_SERVICE_PORT}/health && \
 	export GEOCODING_HEALTH_URL=http://localhost:$${GEOCODING_SERVICE_PORT}/health && \
-	pytest tests/integration -v
+	pytest tests/integration -v --env=prod
 
 test-smoke-prod:
 	@echo "Running smoke tests against production..."
@@ -411,7 +411,7 @@ test-smoke-prod:
 	export MATCHING_HEALTH_URL=http://localhost:$${MATCHING_SERVICE_PORT}/health && \
 	export COMMUNICATION_HEALTH_URL=http://localhost:$${COMMUNICATION_SERVICE_PORT}/health && \
 	export GEOCODING_HEALTH_URL=http://localhost:$${GEOCODING_SERVICE_PORT}/health && \
-	pytest tests/smoke -v
+	pytest tests/smoke -v --env=prod
 
 test-all-prod:
 	@echo "Running all tests against production..."
@@ -426,7 +426,7 @@ test-all-prod:
 	export MATCHING_HEALTH_URL=http://localhost:$${MATCHING_SERVICE_PORT}/health && \
 	export COMMUNICATION_HEALTH_URL=http://localhost:$${COMMUNICATION_SERVICE_PORT}/health && \
 	export GEOCODING_HEALTH_URL=http://localhost:$${GEOCODING_SERVICE_PORT}/health && \
-	pytest tests -v
+	pytest tests -v --env=prod
 
 # Deployment commands WITH DATABASE AND MIGRATION CHECKS
 deploy-test:
@@ -538,6 +538,27 @@ clean-docker:
 	docker system prune -f
 	docker volume prune -f
 
+# Debug target to check environment variable loading
+debug-env-urls:
+	@echo "=== CHECKING ENVIRONMENT VARIABLE LOADING ==="
+	@echo ""
+	@echo "--- DEV Environment ---"
+	@source .env.dev && \
+	echo "COMMUNICATION_SERVICE_PORT: $${COMMUNICATION_SERVICE_PORT}" && \
+	echo "COMMUNICATION_API_URL: http://localhost:$${COMMUNICATION_SERVICE_PORT}/api"
+	@echo ""
+	@echo "--- TEST Environment ---"
+	@source .env.test && \
+	echo "COMMUNICATION_SERVICE_PORT: $${COMMUNICATION_SERVICE_PORT}" && \
+	echo "COMMUNICATION_API_URL: http://localhost:$${COMMUNICATION_SERVICE_PORT}/api"
+	@echo ""
+	@echo "--- PROD Environment ---"
+	@source .env.prod && \
+	echo "COMMUNICATION_SERVICE_PORT: $${COMMUNICATION_SERVICE_PORT}" && \
+	echo "COMMUNICATION_API_URL: http://localhost:$${COMMUNICATION_SERVICE_PORT}/api"
+	@echo ""
+	@echo "=== END ==="
+
 # Backwards compatibility aliases
 dev: start-dev
 prod: start-prod
@@ -635,6 +656,7 @@ help:
 	@echo "Utilities:"
 	@echo "  make clean-logs       - Clean old logs and backups"
 	@echo "  make clean-docker     - Clean Docker system"
+	@echo "  make debug-env-urls   - Debug environment variable loading"
 	@echo ""
 	@echo "Backwards Compatibility:"
 	@echo "  make dev              - Alias for start-dev"
