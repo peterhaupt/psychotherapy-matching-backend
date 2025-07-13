@@ -1,4 +1,4 @@
-.PHONY: start-dev start-prod start-test deploy deploy-test rollback backup logs-dev logs-prod logs-test stop-dev stop-prod stop-test status status-dev status-prod status-test clean-logs test-unit-dev test-unit-test test-unit-prod test-integration-dev test-integration-test test-integration-prod test-smoke-dev test-smoke-test test-smoke-prod test-all-dev test-all-test test-all-prod check-db-dev check-db-test check-db-prod create-db-dev create-db-test create-db-prod ensure-db-dev ensure-db-test ensure-db-prod
+.PHONY: start-dev start-prod start-test deploy deploy-test rollback backup logs-dev logs-prod logs-test stop-dev stop-prod stop-test status status-dev status-prod status-test clean-logs test-unit-dev test-unit-test test-unit-prod test-integration-dev test-integration-test test-integration-prod test-smoke-dev test-smoke-test test-smoke-prod test-all-dev test-all-test test-all-prod check-db-dev check-db-test check-db-prod create-db-dev create-db-test create-db-prod ensure-db-dev ensure-db-test ensure-db-prod backup-dev backup-test backup-prod list-backups-dev list-backups-test list-backups-prod backup-verify-dev backup-verify-test backup-verify-prod restore-dev restore-test restore-prod test-restore-dev test-restore-test test-restore-prod
 
 # Database check commands - FIXED with -d postgres
 check-db-dev:
@@ -77,6 +77,437 @@ ensure-db-prod:
 		docker exec postgres-prod psql -U $${DB_USER} -d postgres -c "CREATE DATABASE $${DB_NAME};" && \
 		echo "✅ Database created successfully"; \
 	fi
+
+# Backup commands
+backup-dev:
+	@echo "Creating development database backup..."
+	@mkdir -p backups/postgres/dev
+	@source .env.dev && \
+	TIMESTAMP=$$(date +%Y%m%d_%H%M%S) && \
+	docker exec postgres pg_dump -U $${DB_USER} $${DB_NAME} | gzip > backups/postgres/dev/backup_$${TIMESTAMP}.sql.gz && \
+	BACKUP_SIZE=$$(du -h backups/postgres/dev/backup_$${TIMESTAMP}.sql.gz | cut -f1) && \
+	echo "✅ Backup created: backup_$${TIMESTAMP}.sql.gz (Size: $${BACKUP_SIZE})" && \
+	echo "   Location: backups/postgres/dev/"
+
+backup-test:
+	@echo "Creating test database backup..."
+	@mkdir -p backups/postgres/test
+	@source .env.test && \
+	TIMESTAMP=$$(date +%Y%m%d_%H%M%S) && \
+	docker exec postgres-test pg_dump -U $${DB_USER} $${DB_NAME} | gzip > backups/postgres/test/backup_$${TIMESTAMP}.sql.gz && \
+	BACKUP_SIZE=$$(du -h backups/postgres/test/backup_$${TIMESTAMP}.sql.gz | cut -f1) && \
+	echo "✅ Backup created: backup_$${TIMESTAMP}.sql.gz (Size: $${BACKUP_SIZE})" && \
+	echo "   Location: backups/postgres/test/"
+
+backup-prod:
+	@echo "Creating production database backup..."
+	@mkdir -p backups/postgres/manual
+	@source .env.prod && \
+	TIMESTAMP=$$(date +%Y%m%d_%H%M%S) && \
+	docker exec postgres-prod pg_dump -U $${DB_USER} $${DB_NAME} | gzip > backups/postgres/manual/backup_$${TIMESTAMP}.sql.gz && \
+	BACKUP_SIZE=$$(du -h backups/postgres/manual/backup_$${TIMESTAMP}.sql.gz | cut -f1) && \
+	echo "✅ Backup created: backup_$${TIMESTAMP}.sql.gz (Size: $${BACKUP_SIZE})" && \
+	echo "   Location: backups/postgres/manual/"
+
+# List backups commands
+list-backups-dev:
+	@echo "=== Development Backups ==="
+	@ls -lah backups/postgres/dev/*.sql.gz 2>/dev/null | awk '{print $$5 "\t" $$9}' | sort -k2 -r || echo "No development backups found"
+
+list-backups-test:
+	@echo "=== Test Backups ==="
+	@ls -lah backups/postgres/test/*.sql.gz 2>/dev/null | awk '{print $$5 "\t" $$9}' | sort -k2 -r || echo "No test backups found"
+
+list-backups-prod:
+	@echo "=== Production Backups ==="
+	@echo ""
+	@echo "Manual Backups:"
+	@ls -lah backups/postgres/manual/*.sql.gz 2>/dev/null | awk '{print $$5 "\t" $$9}' | sort -k2 -r || echo "No manual backups found"
+	@echo ""
+	@echo "Hourly Backups (automatic):"
+	@ls -lah backups/postgres/hourly/*.sql.gz 2>/dev/null | tail -24 | awk '{print $$5 "\t" $$9}' | sort -k2 -r || echo "No hourly backups found"
+	@echo ""
+	@echo "Weekly Backups (automatic):"
+	@ls -lah backups/postgres/weekly/*.sql.gz 2>/dev/null | awk '{print $$5 "\t" $$9}' | sort -k2 -r || echo "No weekly backups found"
+
+# Backup verification commands
+backup-verify-dev:
+	@if [ -z "$(BACKUP)" ]; then \
+		echo "❌ Error: BACKUP parameter required"; \
+		echo "Usage: make backup-verify-dev BACKUP=20240115_143022"; \
+		exit 1; \
+	fi
+	@echo "Verifying development backup: $(BACKUP)..."
+	@if [ -f "backups/postgres/dev/backup_$(BACKUP).sql.gz" ]; then \
+		gunzip -t backups/postgres/dev/backup_$(BACKUP).sql.gz && \
+		echo "✅ Backup file is valid" && \
+		echo "   Size: $$(du -h backups/postgres/dev/backup_$(BACKUP).sql.gz | cut -f1)"; \
+	else \
+		echo "❌ Backup file not found: backups/postgres/dev/backup_$(BACKUP).sql.gz"; \
+		exit 1; \
+	fi
+
+backup-verify-test:
+	@if [ -z "$(BACKUP)" ]; then \
+		echo "❌ Error: BACKUP parameter required"; \
+		echo "Usage: make backup-verify-test BACKUP=20240115_143022"; \
+		exit 1; \
+	fi
+	@echo "Verifying test backup: $(BACKUP)..."
+	@if [ -f "backups/postgres/test/backup_$(BACKUP).sql.gz" ]; then \
+		gunzip -t backups/postgres/test/backup_$(BACKUP).sql.gz && \
+		echo "✅ Backup file is valid" && \
+		echo "   Size: $$(du -h backups/postgres/test/backup_$(BACKUP).sql.gz | cut -f1)"; \
+	else \
+		echo "❌ Backup file not found: backups/postgres/test/backup_$(BACKUP).sql.gz"; \
+		exit 1; \
+	fi
+
+backup-verify-prod:
+	@if [ -z "$(BACKUP)" ]; then \
+		echo "❌ Error: BACKUP parameter required"; \
+		echo "Usage: make backup-verify-prod BACKUP=20240115_143022"; \
+		exit 1; \
+	fi
+	@echo "Verifying production backup: $(BACKUP)..."
+	@# Check in multiple locations
+	@if [ -f "backups/postgres/manual/backup_$(BACKUP).sql.gz" ]; then \
+		gunzip -t backups/postgres/manual/backup_$(BACKUP).sql.gz && \
+		echo "✅ Backup file is valid (manual backup)" && \
+		echo "   Size: $$(du -h backups/postgres/manual/backup_$(BACKUP).sql.gz | cut -f1)"; \
+	elif [ -f "backups/postgres/hourly/backup_$(BACKUP).sql.gz" ]; then \
+		gunzip -t backups/postgres/hourly/backup_$(BACKUP).sql.gz && \
+		echo "✅ Backup file is valid (hourly backup)" && \
+		echo "   Size: $$(du -h backups/postgres/hourly/backup_$(BACKUP).sql.gz | cut -f1)"; \
+	elif [ -f "backups/postgres/weekly/weekly_backup_$(BACKUP).sql.gz" ]; then \
+		gunzip -t backups/postgres/weekly/weekly_backup_$(BACKUP).sql.gz && \
+		echo "✅ Backup file is valid (weekly backup)" && \
+		echo "   Size: $$(du -h backups/postgres/weekly/weekly_backup_$(BACKUP).sql.gz | cut -f1)"; \
+	else \
+		echo "❌ Backup file not found in any location for timestamp: $(BACKUP)"; \
+		echo "   Checked: manual/, hourly/, weekly/"; \
+		exit 1; \
+	fi
+
+# Restore commands
+restore-dev:
+	@if [ -z "$(BACKUP)" ]; then \
+		echo "❌ Error: BACKUP parameter required"; \
+		echo "Usage: make restore-dev BACKUP=20240115_143022"; \
+		echo ""; \
+		$(MAKE) list-backups-dev; \
+		exit 1; \
+	fi
+	@echo "🔄 Starting development database restore from backup: $(BACKUP)"; \
+	@echo "==============================================================="; \
+	@# Verify backup exists first
+	@$(MAKE) backup-verify-dev BACKUP=$(BACKUP)
+	@echo ""
+	@# Create safety backup
+	@echo "💾 Creating safety backup of current state..."
+	@$(MAKE) backup-dev
+	@echo ""
+	@# Stop application services
+	@echo "🛑 Stopping application services..."
+	@docker-compose -f docker-compose.dev.yml --env-file .env.dev stop \
+		patient_service-dev \
+		therapist_service-dev \
+		matching_service-dev \
+		communication_service-dev \
+		geocoding_service-dev
+	@echo ""
+	@# Drop and recreate database
+	@echo "🗄️  Dropping and recreating database..."
+	@source .env.dev && \
+	docker exec postgres psql -U $${DB_USER} -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='$${DB_NAME}' AND pid <> pg_backend_pid();" && \
+	docker exec postgres psql -U $${DB_USER} -d postgres -c "DROP DATABASE IF EXISTS $${DB_NAME};" && \
+	docker exec postgres psql -U $${DB_USER} -d postgres -c "CREATE DATABASE $${DB_NAME};"
+	@echo ""
+	@# Restore from backup
+	@echo "📥 Restoring from backup..."
+	@source .env.dev && \
+	gunzip -c backups/postgres/dev/backup_$(BACKUP).sql.gz | docker exec -i postgres psql -U $${DB_USER} $${DB_NAME}
+	@echo "✅ Database restored"
+	@echo ""
+	@# Check and run migrations
+	@echo "🔍 Checking migration status..."
+	@cd migrations && alembic current || echo "Could not check migrations"
+	@echo ""
+	@echo "📊 Running any missing migrations..."
+	@$(MAKE) migrate-dev
+	@echo ""
+	@# Start application services
+	@echo "🚀 Starting application services..."
+	@docker-compose -f docker-compose.dev.yml --env-file .env.dev start \
+		patient_service-dev \
+		therapist_service-dev \
+		matching_service-dev \
+		communication_service-dev \
+		geocoding_service-dev
+	@echo ""
+	@# Health check
+	@echo "❤️  Running health checks..."
+	@sleep 10
+	@$(MAKE) health-check-dev || echo "⚠️  Some services may still be starting"
+	@echo ""
+	@echo "==============================================================="
+	@echo "✅ Development restore complete from backup: $(BACKUP)"
+	@echo "==============================================================="
+
+restore-test:
+	@if [ -z "$(BACKUP)" ]; then \
+		echo "❌ Error: BACKUP parameter required"; \
+		echo "Usage: make restore-test BACKUP=20240115_143022"; \
+		echo ""; \
+		$(MAKE) list-backups-test; \
+		exit 1; \
+	fi
+	@echo "🔄 Starting test database restore from backup: $(BACKUP)"; \
+	@echo "========================================================="; \
+	@# Verify backup exists first
+	@$(MAKE) backup-verify-test BACKUP=$(BACKUP)
+	@echo ""
+	@# Create safety backup
+	@echo "💾 Creating safety backup of current state..."
+	@$(MAKE) backup-test
+	@echo ""
+	@# Stop application services
+	@echo "🛑 Stopping application services..."
+	@docker-compose -f docker-compose.test.yml --env-file .env.test stop \
+		patient_service-test \
+		therapist_service-test \
+		matching_service-test \
+		communication_service-test \
+		geocoding_service-test
+	@echo ""
+	@# Drop and recreate database
+	@echo "🗄️  Dropping and recreating database..."
+	@source .env.test && \
+	docker exec postgres-test psql -U $${DB_USER} -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='$${DB_NAME}' AND pid <> pg_backend_pid();" && \
+	docker exec postgres-test psql -U $${DB_USER} -d postgres -c "DROP DATABASE IF EXISTS $${DB_NAME};" && \
+	docker exec postgres-test psql -U $${DB_USER} -d postgres -c "CREATE DATABASE $${DB_NAME};"
+	@echo ""
+	@# Restore from backup
+	@echo "📥 Restoring from backup..."
+	@source .env.test && \
+	gunzip -c backups/postgres/test/backup_$(BACKUP).sql.gz | docker exec -i postgres-test psql -U $${DB_USER} $${DB_NAME}
+	@echo "✅ Database restored"
+	@echo ""
+	@# Check and run migrations
+	@echo "🔍 Checking migration status..."
+	@cd migrations && ENV=test alembic current || echo "Could not check migrations"
+	@echo ""
+	@echo "📊 Running any missing migrations..."
+	@$(MAKE) migrate-test
+	@echo ""
+	@# Start application services
+	@echo "🚀 Starting application services..."
+	@docker-compose -f docker-compose.test.yml --env-file .env.test start \
+		patient_service-test \
+		therapist_service-test \
+		matching_service-test \
+		communication_service-test \
+		geocoding_service-test
+	@echo ""
+	@# Health check
+	@echo "❤️  Running health checks..."
+	@sleep 10
+	@$(MAKE) health-check-test || echo "⚠️  Some services may still be starting"
+	@echo ""
+	@echo "==========================================================="
+	@echo "✅ Test restore complete from backup: $(BACKUP)"
+	@echo "==========================================================="
+
+restore-prod:
+	@if [ -z "$(BACKUP)" ]; then \
+		echo "❌ Error: BACKUP parameter required"; \
+		echo "Usage: make restore-prod BACKUP=20240115_143022"; \
+		echo ""; \
+		$(MAKE) list-backups-prod; \
+		exit 1; \
+	fi
+	@echo "🔄 Starting PRODUCTION database restore from backup: $(BACKUP)"; \
+	@echo "⚠️  WARNING: This will restore production data!"; \
+	@echo "============================================================"; \
+	@echo ""
+	@echo -n "Are you sure you want to restore production? Type 'yes' to continue: "
+	@read CONFIRM && [ "$${CONFIRM}" = "yes" ] || (echo "Aborted." && exit 1)
+	@echo ""
+	@# Verify backup exists first
+	@$(MAKE) backup-verify-prod BACKUP=$(BACKUP)
+	@echo ""
+	@# Create safety backup
+	@echo "💾 Creating safety backup of current state..."
+	@$(MAKE) backup-prod
+	@echo ""
+	@# Stop application services
+	@echo "🛑 Stopping application services..."
+	@docker-compose -f docker-compose.prod.yml --env-file .env.prod stop \
+		patient_service-prod \
+		therapist_service-prod \
+		matching_service-prod \
+		communication_service-prod \
+		geocoding_service-prod
+	@echo ""
+	@# Drop and recreate database
+	@echo "🗄️  Dropping and recreating database..."
+	@source .env.prod && \
+	docker exec postgres-prod psql -U $${DB_USER} -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='$${DB_NAME}' AND pid <> pg_backend_pid();" && \
+	docker exec postgres-prod psql -U $${DB_USER} -d postgres -c "DROP DATABASE IF EXISTS $${DB_NAME};" && \
+	docker exec postgres-prod psql -U $${DB_USER} -d postgres -c "CREATE DATABASE $${DB_NAME};"
+	@echo ""
+	@# Restore from backup - check multiple locations
+	@echo "📥 Restoring from backup..."
+	@source .env.prod && \
+	if [ -f "backups/postgres/manual/backup_$(BACKUP).sql.gz" ]; then \
+		gunzip -c backups/postgres/manual/backup_$(BACKUP).sql.gz | docker exec -i postgres-prod psql -U $${DB_USER} $${DB_NAME}; \
+	elif [ -f "backups/postgres/hourly/backup_$(BACKUP).sql.gz" ]; then \
+		gunzip -c backups/postgres/hourly/backup_$(BACKUP).sql.gz | docker exec -i postgres-prod psql -U $${DB_USER} $${DB_NAME}; \
+	elif [ -f "backups/postgres/weekly/weekly_backup_$(BACKUP).sql.gz" ]; then \
+		gunzip -c backups/postgres/weekly/weekly_backup_$(BACKUP).sql.gz | docker exec -i postgres-prod psql -U $${DB_USER} $${DB_NAME}; \
+	fi
+	@echo "✅ Database restored"
+	@echo ""
+	@# Check and run migrations
+	@echo "🔍 Checking migration status..."
+	@cd migrations && ENV=prod alembic current || echo "Could not check migrations"
+	@echo ""
+	@echo "📊 Running any missing migrations..."
+	@$(MAKE) migrate-prod
+	@echo ""
+	@# Start application services
+	@echo "🚀 Starting application services..."
+	@docker-compose -f docker-compose.prod.yml --env-file .env.prod start \
+		patient_service-prod \
+		therapist_service-prod \
+		matching_service-prod \
+		communication_service-prod \
+		geocoding_service-prod
+	@echo ""
+	@# Health check
+	@echo "❤️  Running health checks..."
+	@sleep 10
+	@$(MAKE) health-check || echo "⚠️  Some services may still be starting"
+	@echo ""
+	@echo "============================================================"
+	@echo "✅ PRODUCTION restore complete from backup: $(BACKUP)"
+	@echo "============================================================"
+
+# Test restore process commands
+test-restore-dev:
+	@echo "🧪 Testing development restore process..."
+	@echo "========================================"
+	@echo ""
+	@# First ensure dev environment is running
+	@echo "📦 Ensuring development environment is running..."
+	@$(MAKE) start-dev > /dev/null 2>&1 || true
+	@sleep 10
+	@echo ""
+	@# Create test data
+	@echo "📝 Creating test data..."
+	@source .env.dev && \
+	TEST_ID=$$(date +%s) && \
+	docker exec postgres psql -U $${DB_USER} $${DB_NAME} -c "INSERT INTO patients (email, first_name, last_name) VALUES ('test$${TEST_ID}@example.com', 'Test', 'Restore$${TEST_ID}');" && \
+	echo "   Created patient: test$${TEST_ID}@example.com"
+	@echo ""
+	@# Create backup
+	@echo "💾 Creating test backup..."
+	@BACKUP_TIMESTAMP=$$(date +%Y%m%d_%H%M%S) && \
+	$(MAKE) backup-dev && \
+	echo "   Backup timestamp: $${BACKUP_TIMESTAMP}" > .test_restore_dev.tmp
+	@echo ""
+	@# Delete test data
+	@echo "🗑️  Deleting test data to simulate data loss..."
+	@source .env.dev && \
+	docker exec postgres psql -U $${DB_USER} $${DB_NAME} -c "DELETE FROM patients WHERE email LIKE 'test%@example.com';"
+	@echo ""
+	@# Verify data is gone
+	@echo "🔍 Verifying data is deleted..."
+	@source .env.dev && \
+	COUNT=$$(docker exec postgres psql -U $${DB_USER} $${DB_NAME} -tc "SELECT COUNT(*) FROM patients WHERE email LIKE 'test%@example.com';" | tr -d ' ') && \
+	echo "   Test patients count: $${COUNT}"
+	@echo ""
+	@# Restore from backup
+	@echo "🔄 Restoring from backup..."
+	@BACKUP_TIMESTAMP=$$(cat .test_restore_dev.tmp | grep "Backup timestamp:" | cut -d: -f2 | tr -d ' ') && \
+	$(MAKE) restore-dev BACKUP=$${BACKUP_TIMESTAMP}
+	@echo ""
+	@# Verify data is restored
+	@echo "✅ Verifying data is restored..."
+	@source .env.dev && \
+	COUNT=$$(docker exec postgres psql -U $${DB_USER} $${DB_NAME} -tc "SELECT COUNT(*) FROM patients WHERE email LIKE 'test%@example.com';" | tr -d ' ') && \
+	echo "   Test patients count after restore: $${COUNT}" && \
+	if [ "$${COUNT}" -gt "0" ]; then \
+		echo "✅ Restore test PASSED - data successfully restored!"; \
+	else \
+		echo "❌ Restore test FAILED - data not restored!"; \
+		exit 1; \
+	fi
+	@rm -f .test_restore_dev.tmp
+	@echo ""
+	@echo "========================================"
+	@echo "✅ Development restore test complete!"
+	@echo "========================================"
+
+test-restore-test:
+	@echo "🧪 Testing test environment restore process..."
+	@echo "============================================"
+	@echo ""
+	@# First ensure test environment is running
+	@echo "📦 Ensuring test environment is running..."
+	@$(MAKE) start-test > /dev/null 2>&1 || true
+	@sleep 10
+	@echo ""
+	@# Create test data
+	@echo "📝 Creating test data..."
+	@source .env.test && \
+	TEST_ID=$$(date +%s) && \
+	docker exec postgres-test psql -U $${DB_USER} $${DB_NAME} -c "INSERT INTO patients (email, first_name, last_name) VALUES ('test$${TEST_ID}@example.com', 'Test', 'Restore$${TEST_ID}');" && \
+	echo "   Created patient: test$${TEST_ID}@example.com"
+	@echo ""
+	@# Create backup
+	@echo "💾 Creating test backup..."
+	@BACKUP_TIMESTAMP=$$(date +%Y%m%d_%H%M%S) && \
+	$(MAKE) backup-test && \
+	echo "   Backup timestamp: $${BACKUP_TIMESTAMP}" > .test_restore_test.tmp
+	@echo ""
+	@# Delete test data
+	@echo "🗑️  Deleting test data to simulate data loss..."
+	@source .env.test && \
+	docker exec postgres-test psql -U $${DB_USER} $${DB_NAME} -c "DELETE FROM patients WHERE email LIKE 'test%@example.com';"
+	@echo ""
+	@# Verify data is gone
+	@echo "🔍 Verifying data is deleted..."
+	@source .env.test && \
+	COUNT=$$(docker exec postgres-test psql -U $${DB_USER} $${DB_NAME} -tc "SELECT COUNT(*) FROM patients WHERE email LIKE 'test%@example.com';" | tr -d ' ') && \
+	echo "   Test patients count: $${COUNT}"
+	@echo ""
+	@# Restore from backup
+	@echo "🔄 Restoring from backup..."
+	@BACKUP_TIMESTAMP=$$(cat .test_restore_test.tmp | grep "Backup timestamp:" | cut -d: -f2 | tr -d ' ') && \
+	$(MAKE) restore-test BACKUP=$${BACKUP_TIMESTAMP}
+	@echo ""
+	@# Verify data is restored
+	@echo "✅ Verifying data is restored..."
+	@source .env.test && \
+	COUNT=$$(docker exec postgres-test psql -U $${DB_USER} $${DB_NAME} -tc "SELECT COUNT(*) FROM patients WHERE email LIKE 'test%@example.com';" | tr -d ' ') && \
+	echo "   Test patients count after restore: $${COUNT}" && \
+	if [ "$${COUNT}" -gt "0" ]; then \
+		echo "✅ Restore test PASSED - data successfully restored!"; \
+	else \
+		echo "❌ Restore test FAILED - data not restored!"; \
+		exit 1; \
+	fi
+	@rm -f .test_restore_test.tmp
+	@echo ""
+	@echo "============================================"
+	@echo "✅ Test environment restore test complete!"
+	@echo "============================================"
+
+test-restore-prod:
+	@echo "❌ Production restore testing is not allowed!"
+	@echo "Please use test-restore-test instead."
+	@exit 1
 
 # Development commands with database checks
 start-dev:
@@ -610,6 +1041,13 @@ help:
 	@echo "  make create-db-prod   - Create production database"
 	@echo "  make ensure-db-prod   - Ensure production database exists (create if needed)"
 	@echo "  make migrate-prod     - Run migrations on production database"
+	@echo ""
+	@echo "Backup and Restore:"
+	@echo "  make backup-dev/test/prod    - Create manual backup"
+	@echo "  make list-backups-dev/test/prod - List available backups"
+	@echo "  make backup-verify-dev/test/prod BACKUP=timestamp - Verify backup integrity"
+	@echo "  make restore-dev/test/prod BACKUP=timestamp - Restore from backup"
+	@echo "  make test-restore-dev/test   - Test restore process"
 	@echo ""
 	@echo "Testing - Development Environment:"
 	@echo "  make test-unit-dev        - Run unit tests against dev (ports 8001-8005)"
