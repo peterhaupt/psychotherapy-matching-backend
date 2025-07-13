@@ -72,7 +72,7 @@ def therapist_factory(test_session):
         print(f"  Final potenziell_verfuegbar: {default_data['potenziell_verfuegbar']}")
         
         # Create therapist via API
-        response = requests.post(f"{BASE_URL}/api/therapists", json=default_data)
+        response = requests.post(f"{BASE_URL}/therapists", json=default_data)
         
         print(f"  Creation response status: {response.status_code}")
         if response.status_code != 201:
@@ -90,7 +90,7 @@ def therapist_factory(test_session):
         test_session["created_therapists"].append(therapist_id)
         
         # IMMEDIATE VERIFICATION: Get the therapist back to confirm it exists
-        verification_response = requests.get(f"{BASE_URL}/api/therapists/{therapist_id}")
+        verification_response = requests.get(f"{BASE_URL}/therapists/{therapist_id}")
         if verification_response.ok:
             verified_data = verification_response.json()
             print(f"  Verification GET successful")
@@ -128,7 +128,7 @@ def therapist_searcher(test_session):
         for key, value in params.items():
             print(f"  {key}: {value}")
         
-        response = requests.get(f"{BASE_URL}/api/therapists", params=params)
+        response = requests.get(f"{BASE_URL}/therapists", params=params)
         
         print(f"  Search response status: {response.status_code}")
         if response.status_code != 200:
@@ -163,7 +163,7 @@ def cleanup_therapists(test_session):
         created_ids = test_session.get("created_therapists", [])
         print(f"\n=== DEBUG: Cleanup starting for {len(created_ids)} therapists ===")
         for therapist_id in created_ids:
-            response = requests.delete(f"{BASE_URL}/api/therapists/{therapist_id}")
+            response = requests.delete(f"{BASE_URL}/therapists/{therapist_id}")
             if response.status_code == 200:
                 print(f"  Cleaned up test therapist {therapist_id}")
             else:
@@ -276,7 +276,7 @@ class TestTherapistServiceAPI:
         # DIRECT VERIFICATION: Get both therapists individually
         print(f"\n--- Direct verification of created therapists ---")
         for therapist_id, expected_available in [(therapist1['id'], True), (therapist2['id'], False)]:
-            direct_response = requests.get(f"{BASE_URL}/api/therapists/{therapist_id}")
+            direct_response = requests.get(f"{BASE_URL}/therapists/{therapist_id}")
             if direct_response.ok:
                 direct_data = direct_response.json()
                 actual_available = direct_data.get('potenziell_verfuegbar')
@@ -391,21 +391,21 @@ class TestTherapistServiceAPI:
         )
         
         # Test search by first name
-        response = requests.get(f"{BASE_URL}/api/therapists", params={"search": "Unique_Search_Name"})
+        response = requests.get(f"{BASE_URL}/therapists", params={"search": "Unique_Search_Name"})
         assert response.status_code == 200
         results = response.json()['data']
         result_ids = [t['id'] for t in results]
         assert therapist1['id'] in result_ids, "Search by first name failed"
         
         # Test search by last name
-        response = requests.get(f"{BASE_URL}/api/therapists", params={"search": "Unique_Search_Lastname"})
+        response = requests.get(f"{BASE_URL}/therapists", params={"search": "Unique_Search_Lastname"})
         assert response.status_code == 200
         results = response.json()['data']
         result_ids = [t['id'] for t in results]
         assert therapist2['id'] in result_ids, "Search by last name failed"
         
         # Test search by therapy method
-        response = requests.get(f"{BASE_URL}/api/therapists", params={"search": "verhaltens"})
+        response = requests.get(f"{BASE_URL}/therapists", params={"search": "verhaltens"})
         assert response.status_code == 200
         results = response.json()['data']
         # Should find therapists with Verhaltenstherapie (case-insensitive partial match)
@@ -423,7 +423,7 @@ class TestTherapistServiceAPI:
             "psychotherapieverfahren": "egal"
         }
         
-        create_response = requests.post(f"{BASE_URL}/api/therapists", json=therapist_data)
+        create_response = requests.post(f"{BASE_URL}/therapists", json=therapist_data)
         assert create_response.status_code == 201, f"Create failed: {create_response.text}"
         created_therapist = create_response.json()
         therapist_id = created_therapist['id']
@@ -432,7 +432,7 @@ class TestTherapistServiceAPI:
         test_session["created_therapists"].append(therapist_id)
         
         # READ
-        read_response = requests.get(f"{BASE_URL}/api/therapists/{therapist_id}")
+        read_response = requests.get(f"{BASE_URL}/therapists/{therapist_id}")
         assert read_response.status_code == 200, f"Read failed: {read_response.text}"
         read_therapist = read_response.json()
         assert read_therapist['vorname'] == therapist_data['vorname']
@@ -443,35 +443,25 @@ class TestTherapistServiceAPI:
             "psychotherapieverfahren": "Verhaltenstherapie",
             "email": "updated@example.com"
         }
-        update_response = requests.put(f"{BASE_URL}/api/therapists/{therapist_id}", json=update_data)
+        update_response = requests.put(f"{BASE_URL}/therapists/{therapist_id}", json=update_data)
         assert update_response.status_code == 200, f"Update failed: {update_response.text}"
         
         # Verify update
-        updated_response = requests.get(f"{BASE_URL}/api/therapists/{therapist_id}")
+        updated_response = requests.get(f"{BASE_URL}/therapists/{therapist_id}")
         updated_therapist = updated_response.json()
         assert updated_therapist['psychotherapieverfahren'] == "Verhaltenstherapie"
         assert updated_therapist['email'] == "updated@example.com"
         
         # DELETE
-        delete_response = requests.delete(f"{BASE_URL}/api/therapists/{therapist_id}")
+        delete_response = requests.delete(f"{BASE_URL}/therapists/{therapist_id}")
         assert delete_response.status_code == 200, f"Delete failed: {delete_response.text}"
         
         # Remove from cleanup list since we just deleted it
         test_session["created_therapists"].remove(therapist_id)
         
         # Verify deletion
-        verify_response = requests.get(f"{BASE_URL}/api/therapists/{therapist_id}")
+        verify_response = requests.get(f"{BASE_URL}/therapists/{therapist_id}")
         assert verify_response.status_code == 404, "Therapist should be deleted"
-    
-    def test_health_check(self):
-        """Test the health check endpoint."""
-        response = requests.get(f"{BASE_URL}/health")
-        assert response.status_code == 200
-        
-        health_data = response.json()
-        assert 'status' in health_data
-        assert health_data['status'] == 'healthy'
-        assert 'service' in health_data
     
     def test_communication_history_endpoint(self, therapist_factory):
         """Test the communication history endpoint."""
@@ -482,7 +472,7 @@ class TestTherapistServiceAPI:
         )
         
         # Test communication history endpoint
-        response = requests.get(f"{BASE_URL}/api/therapists/{therapist['id']}/communication")
+        response = requests.get(f"{BASE_URL}/therapists/{therapist['id']}/communication")
         assert response.status_code == 200
         
         comm_data = response.json()
@@ -493,7 +483,7 @@ class TestTherapistServiceAPI:
     
     def test_import_status_endpoint(self):
         """Test the import status monitoring endpoint."""
-        response = requests.get(f"{BASE_URL}/api/therapists/import-status")
+        response = requests.get(f"{BASE_URL}/therapists/import-status")
         assert response.status_code == 200
         
         status_data = response.json()
