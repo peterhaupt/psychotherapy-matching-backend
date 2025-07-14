@@ -1,6 +1,6 @@
 # Future Enhancements - Priority Items
 
-**Document Version:** 2.0  
+**Document Version:** 2.1  
 **Date:** January 2025  
 **Status:** Requirements Gathering
 
@@ -138,6 +138,34 @@ PostgreSQL database in production is frequently crashing, causing system downtim
 
 ---
 
+## 7. Email Delivery Testing and Verification
+
+### Requirement
+Implement comprehensive testing to verify that emails are actually being sent and delivered successfully.
+
+### Questions for Discussion
+- Should we implement a **test mode** that sends emails to designated test addresses?
+- Do we need **delivery confirmation tracking** (open rates, bounce handling)?
+- Should we maintain an **email audit log** showing all sent emails and their status?
+- What level of **integration testing** is needed for email workflows?
+- Should we implement **periodic health checks** that send test emails to verify the system is working?
+
+### Implementation Considerations
+- Set up dedicated test email addresses for different email types
+- Implement email delivery status tracking
+- Create email sending reports and dashboards
+- Add unit and integration tests for email functionality
+- Consider using email testing services (e.g., Mailtrap) for development/staging
+- Implement bounce and complaint handling
+- Add monitoring and alerting for email delivery failures
+
+### Related Features
+- Affects Item #1 (Patient Import Notifications)
+- Affects Item #4 (Weekly Patient Status Emails)
+- Any future email-based features
+
+---
+
 ## Implementation Priority
 
 | Priority | Enhancement | Complexity | Impact |
@@ -145,6 +173,7 @@ PostgreSQL database in production is frequently crashing, causing system downtim
 | **CRITICAL** | PostgreSQL Database Stability | High | Critical |
 | **High** | Patient Import Email Notifications | Low | Medium |
 | **High** | Kafka/Zookeeper Stability | Medium-High | High |
+| **High** | Email Delivery Testing and Verification | Medium | High |
 | **Medium** | GCS Deletion Logic | Medium | Medium |
 | **Medium** | Therapist Import Reporting Fix | Low-Medium | Medium |
 | **Low** | Weekly Patient Status Emails | Medium | Low |
@@ -153,9 +182,9 @@ PostgreSQL database in production is frequently crashing, causing system downtim
 
 ## Next Steps
 
-1. **Requirements Clarification:** Schedule discussion sessions for items 2-5
+1. **Requirements Clarification:** Schedule discussion sessions for items 2-5 and 7
 2. **Technical Investigation:** Deep dive into Kafka/Zookeeper issues
-3. **Audit Current Systems:** Review therapist import reporting logic
+3. **Audit Current Systems:** Review therapist import reporting logic and email delivery
 4. **Implementation Planning:** Create detailed technical specifications
 
 ---
