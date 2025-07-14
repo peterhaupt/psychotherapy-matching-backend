@@ -227,6 +227,7 @@ credentials/
 
 # ignore subfolder patient_imports in data folder
 data/patient_imports/
+data/initial_patient_import/
 
 # ignore subfolder old_patients in development_tools folder
 development_tools/old_patients/
