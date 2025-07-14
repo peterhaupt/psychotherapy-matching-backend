@@ -4,6 +4,7 @@ This module implements the manual therapist selection and anfrage creation
 with hard constraints only (no scoring or progressive filtering).
 
 Updated with 8-tier email priority sorting for Phase 2 implementation.
+FIXED: Hard constraints for therapy procedure, gender preference, and group therapy matching.
 """
 import logging
 from datetime import datetime, date
@@ -298,36 +299,35 @@ def check_patient_preferences(
     Returns:
         True if all preferences satisfied or not specified
     """
-    # Gender preference
+    # FIXED: Gender preference
     gender_pref = patient.get('bevorzugtes_therapeutengeschlecht')
     if gender_pref and gender_pref != 'Egal':
-        therapist_gender = (therapist.get('geschlecht') or '').lower()
-        # Map therapist gender to preference format
-        if therapist_gender in ['m', 'männlich', 'mann']:
-            therapist_gender = 'Männlich'
-        elif therapist_gender in ['f', 'w', 'weiblich', 'frau']:
-            therapist_gender = 'Weiblich'
+        therapist_gender = therapist.get('geschlecht')
         
-        if therapist_gender != gender_pref:
-            logger.debug(f"Gender preference not met: wanted {gender_pref}, got {therapist_gender}")
+        # Map therapist gender to preference format for comparison
+        if therapist_gender == 'männlich':
+            therapist_gender_mapped = 'Männlich'
+        elif therapist_gender == 'weiblich':
+            therapist_gender_mapped = 'Weiblich'
+        else:
+            # For 'divers' and 'keine_Angabe', they don't match specific preferences
+            therapist_gender_mapped = therapist_gender
+        
+        if therapist_gender_mapped != gender_pref:
+            logger.debug(f"Gender preference not met: patient wants {gender_pref}, therapist is {therapist_gender}")
             return False
     
-    # REMOVED: Age preference check for therapist age
-    
-    # Therapy procedure preference
-    preferred_procedures = patient.get('bevorzugtes_therapieverfahren') or []
-    if preferred_procedures and 'egal' not in preferred_procedures:
-        therapist_procedures = therapist.get('psychotherapieverfahren') or []
-        # Check if at least one preferred procedure matches
-        if not any(proc in therapist_procedures for proc in preferred_procedures):
-            logger.debug(f"No matching therapy procedures")
+    # FIXED: Therapy procedure preference (now single enum, not array)
+    preferred_procedure = patient.get('bevorzugtes_therapieverfahren')
+    if preferred_procedure and preferred_procedure != 'egal':
+        therapist_procedure = therapist.get('psychotherapieverfahren')
+        
+        if therapist_procedure != preferred_procedure:
+            logger.debug(f"Therapy procedure preference not met: patient wants {preferred_procedure}, therapist offers {therapist_procedure}")
             return False
     
-    # Group therapy preference - None treated as False
-    if patient.get('offen_fuer_gruppentherapie', False) is False:
-        if therapist.get('bevorzugt_gruppentherapie') is True:
-            logger.debug("Patient not open for group therapy but therapist prefers it")
-            return False
+    # Group therapy preference - patients can be sent to any therapist regardless of their preference
+    # This constraint is only enforced from the therapist side (see check_therapist_preferences)
     
     return True
 
@@ -386,15 +386,28 @@ def check_therapist_preferences(
     # Gender preference
     gender_pref = therapist.get('geschlechtspraeferenz')
     if gender_pref and gender_pref != 'Egal':
-        patient_gender = (patient.get('geschlecht') or '').lower()
-        # Normalize gender values
-        if patient_gender in ['m', 'männlich', 'mann']:
-            patient_gender = 'Männlich'
-        elif patient_gender in ['f', 'w', 'weiblich', 'frau']:
-            patient_gender = 'Weiblich'
+        patient_gender = patient.get('geschlecht')
         
-        if patient_gender != gender_pref:
-            logger.debug(f"Therapist gender preference not met: wanted {gender_pref}, got {patient_gender}")
+        # Map patient gender to preference format for comparison
+        if patient_gender == 'männlich':
+            patient_gender_mapped = 'Männlich'
+        elif patient_gender == 'weiblich':
+            patient_gender_mapped = 'Weiblich'
+        else:
+            # For 'divers' and 'keine_Angabe', they don't match specific preferences
+            patient_gender_mapped = patient_gender
+        
+        if patient_gender_mapped != gender_pref:
+            logger.debug(f"Therapist gender preference not met: therapist wants {gender_pref}, patient is {patient_gender}")
+            return False
+    
+    # FIXED: Group therapy preference (one-directional constraint)
+    # If therapist prefers group therapy, only patients open to group therapy should be sent
+    therapist_prefers_group = therapist.get('bevorzugt_gruppentherapie')
+    if therapist_prefers_group is True:
+        patient_open_to_group = patient.get('offen_fuer_gruppentherapie')
+        if patient_open_to_group is not True:
+            logger.debug(f"Therapist prefers group therapy but patient is not open to it")
             return False
     
     return True
