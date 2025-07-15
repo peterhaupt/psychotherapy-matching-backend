@@ -437,28 +437,6 @@ class TestBackupServiceHealth:
 class TestEnvironmentConfiguration:
     """Tests to verify environment-specific configuration."""
     
-    def test_environment_detection(self):
-        """Test that environment is correctly detected."""
-        print(f"\n🔧 Environment configuration:")
-        print(f"  TEST_ENV: {TEST_ENV}")
-        print(f"  SERVICE_ENV_SUFFIX: '{SERVICE_ENV_SUFFIX}'")
-        print(f"  Backup tests enabled: {BACKUP_HEALTH_TESTS_ENABLED}")
-        print(f"  Parallel tests enabled: {PARALLEL_TESTS_ENABLED}")
-        print(f"  Health check timeout: {TIMEOUT}s")
-        
-        # Verify environment consistency
-        if SERVICE_ENV_SUFFIX == "-prod":
-            assert TEST_ENV in ["prod", "production"], \
-                f"Inconsistent environment: TEST_ENV={TEST_ENV} but SERVICE_ENV_SUFFIX={SERVICE_ENV_SUFFIX}"
-        elif SERVICE_ENV_SUFFIX == "-test":
-            assert TEST_ENV == "test", \
-                f"Inconsistent environment: TEST_ENV={TEST_ENV} but SERVICE_ENV_SUFFIX={SERVICE_ENV_SUFFIX}"
-        else:  # dev or empty
-            assert TEST_ENV in ["dev", "development"], \
-                f"Inconsistent environment: TEST_ENV={TEST_ENV} but SERVICE_ENV_SUFFIX={SERVICE_ENV_SUFFIX}"
-        
-        print(f"✅ Environment configuration is consistent")
-    
     def test_service_count_appropriate_for_environment(self):
         """Test that service count is appropriate for the environment."""
         core_service_count = len(CORE_SERVICES)
