@@ -1,15 +1,24 @@
 FROM alpine:3.18
 
-# Install required packages
+# Install required packages with PostgreSQL 16 client
 RUN apk add --no-cache \
     bash \
     dcron \
-    postgresql-client \
     curl \
     bc \
     findutils \
     coreutils \
     netcat-openbsd
+
+# Install PostgreSQL 16 client from edge repository
+RUN apk add --no-cache \
+    postgresql16-client \
+    --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main
+
+# Create symbolic links for compatibility (optional, in case scripts expect 'psql' not 'psql16')
+RUN ln -sf /usr/bin/psql16 /usr/local/bin/psql && \
+    ln -sf /usr/bin/pg_dump16 /usr/local/bin/pg_dump && \
+    ln -sf /usr/bin/pg_isready16 /usr/local/bin/pg_isready
 
 # Create backup user
 RUN adduser -D -s /bin/bash backup
