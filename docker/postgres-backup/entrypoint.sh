@@ -108,7 +108,7 @@ else
     exit 1
 fi
 
-# Start backup watchdog in background as backup user
+# Start backup watchdog in background AS ROOT (it needs to manage cron)
 log_startup "🐕 Starting backup watchdog..."
 
 # Create watchdog wrapper that preserves environment
@@ -123,9 +123,9 @@ export DB_PORT="$DB_PORT"
 exec /usr/local/bin/backup-watchdog.sh
 EOF
 chmod +x /tmp/watchdog-wrapper.sh
-chown backup:backup /tmp/watchdog-wrapper.sh
 
-su backup -c '/tmp/watchdog-wrapper.sh' &
+# Run watchdog as ROOT (not as backup user)
+/tmp/watchdog-wrapper.sh &
 WATCHDOG_PID=$!
 
 # Wait a moment and verify watchdog started
@@ -137,7 +137,7 @@ else
     exit 1
 fi
 
-# Start HTTP server for health checks in background as backup user
+# Start HTTP server for health checks in background AS ROOT (needs access to /tmp/health)
 log_startup "🌐 Starting health check HTTP server on port 8080..."
 
 # Create HTTP server wrapper
@@ -146,9 +146,9 @@ cat > /tmp/http-wrapper.sh << EOF
 exec /usr/local/bin/http-server.sh
 EOF
 chmod +x /tmp/http-wrapper.sh
-chown backup:backup /tmp/http-wrapper.sh
 
-su backup -c '/tmp/http-wrapper.sh' &
+# Run HTTP server as ROOT (not as backup user)
+/tmp/http-wrapper.sh &
 HTTP_PID=$!
 
 # Wait a moment and verify HTTP server started
@@ -211,14 +211,14 @@ while true; do
     # Check if watchdog is still running
     if ! kill -0 $WATCHDOG_PID 2>/dev/null; then
         log_startup "❌ Watchdog died, restarting..."
-        su backup -c '/tmp/watchdog-wrapper.sh' &
+        /tmp/watchdog-wrapper.sh &
         WATCHDOG_PID=$!
     fi
     
     # Check if HTTP server is still running
     if ! kill -0 $HTTP_PID 2>/dev/null; then
         log_startup "❌ HTTP server died, restarting..."
-        su backup -c '/tmp/http-wrapper.sh' &
+        /tmp/http-wrapper.sh &
         HTTP_PID=$!
     fi
     

@@ -32,16 +32,12 @@ COPY docker/postgres-backup/backup-script.sh /usr/local/bin/backup-script.sh
 COPY docker/postgres-backup/backup-watchdog.sh /usr/local/bin/backup-watchdog.sh
 COPY docker/postgres-backup/entrypoint.sh /usr/local/bin/entrypoint.sh
 
-# Make scripts executable and set ownership
+# Make copied scripts executable and set ownership
 RUN chmod +x /usr/local/bin/backup-script.sh \
              /usr/local/bin/backup-watchdog.sh \
-             /usr/local/bin/entrypoint.sh \
-             /usr/local/bin/health-check.sh \
-             /usr/local/bin/http-server.sh && \
+             /usr/local/bin/entrypoint.sh && \
     chown backup:backup /usr/local/bin/backup-script.sh \
-                        /usr/local/bin/backup-watchdog.sh \
-                        /usr/local/bin/health-check.sh \
-                        /usr/local/bin/http-server.sh
+                        /usr/local/bin/backup-watchdog.sh
 
 # Create health check script
 RUN echo '#!/bin/bash' > /usr/local/bin/health-check.sh && \
@@ -59,6 +55,12 @@ RUN echo '#!/bin/bash' > /usr/local/bin/http-server.sh && \
     echo '  response="HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n$(/usr/local/bin/health-check.sh)"' >> /usr/local/bin/http-server.sh && \
     echo '  echo -e "$response" | nc -l -p 8080' >> /usr/local/bin/http-server.sh && \
     echo 'done' >> /usr/local/bin/http-server.sh
+
+# Make generated scripts executable and set ownership
+RUN chmod +x /usr/local/bin/health-check.sh \
+             /usr/local/bin/http-server.sh && \
+    chown backup:backup /usr/local/bin/health-check.sh \
+                        /usr/local/bin/http-server.sh
 
 # Set working directory
 WORKDIR /backups

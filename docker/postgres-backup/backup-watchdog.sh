@@ -195,9 +195,9 @@ while true; do
         log_watchdog "⚠️ Skipping backup freshness check due to database connectivity issues"
     fi
     
-    # Check disk space
-    local disk_usage=$(df "$BACKUP_DIR" | awk 'NR==2 {print $5}' | sed 's/%//' 2>/dev/null || echo 0)
-    local disk_available=$(df -h "$BACKUP_DIR" | awk 'NR==2 {print $4}' 2>/dev/null || echo "Unknown")
+    # Check disk space (no 'local' keyword here - these are in the main script body)
+    disk_usage=$(df "$BACKUP_DIR" | awk 'NR==2 {print $5}' | sed 's/%//' 2>/dev/null || echo 0)
+    disk_available=$(df -h "$BACKUP_DIR" | awk 'NR==2 {print $4}' 2>/dev/null || echo "Unknown")
     
     if [ "$disk_usage" -gt 90 ]; then
         log_watchdog "🚨 CRITICAL disk usage: ${disk_usage}% (${disk_available} available)"
@@ -208,14 +208,14 @@ while true; do
         log_watchdog "💾 Disk usage: ${disk_usage}% (${disk_available} available)"
     fi
     
-    # Count total backups based on environment
+    # Count total backups based on environment (no 'local' keyword here)
     if [ "$BACKUP_ENV" = "prod" ]; then
-        local hourly_count=$(find "$BACKUP_DIR" -name "backup_*.sql.gz" -type f 2>/dev/null | wc -l)
-        local weekly_count=$(find "/backups/postgres/weekly" -name "weekly_backup_*.sql.gz" -type f 2>/dev/null | wc -l)
-        local manual_count=$(find "/backups/postgres/manual" -name "backup_*.sql.gz" -type f 2>/dev/null | wc -l)
+        hourly_count=$(find "$BACKUP_DIR" -name "backup_*.sql.gz" -type f 2>/dev/null | wc -l)
+        weekly_count=$(find "/backups/postgres/weekly" -name "weekly_backup_*.sql.gz" -type f 2>/dev/null | wc -l)
+        manual_count=$(find "/backups/postgres/manual" -name "backup_*.sql.gz" -type f 2>/dev/null | wc -l)
         log_watchdog "📊 Backup inventory: $hourly_count hourly, $weekly_count weekly, $manual_count manual"
     else
-        local backup_count=$(find "$BACKUP_DIR" -name "${BACKUP_PREFIX}_*.sql.gz" -type f 2>/dev/null | wc -l)
+        backup_count=$(find "$BACKUP_DIR" -name "${BACKUP_PREFIX}_*.sql.gz" -type f 2>/dev/null | wc -l)
         log_watchdog "📊 Total ${BACKUP_ENV} backups: $backup_count"
     fi
     
