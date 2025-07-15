@@ -113,13 +113,15 @@ check_database_connectivity() {
     local db_port="${DB_PORT:-5432}"
     local db_user="${DB_USER}"
     local db_password="${DB_PASSWORD}"
+    local db_name="${DB_NAME}"  # Added this line
     
-    if [ -z "$db_host" ] || [ -z "$db_user" ]; then
+    if [ -z "$db_host" ] || [ -z "$db_user" ] || [ -z "$db_name" ]; then
         log_watchdog "⚠️ Database connection info not available for connectivity check"
         return 1
     fi
     
-    if PGPASSWORD="$db_password" pg_isready -h "$db_host" -p "$db_port" -U "$db_user" >/dev/null 2>&1; then
+    # Fixed: Added -d "$db_name" to specify the database
+    if PGPASSWORD="$db_password" pg_isready -h "$db_host" -p "$db_port" -U "$db_user" -d "$db_name" >/dev/null 2>&1; then
         log_watchdog "✅ Database connectivity OK"
         return 0
     else

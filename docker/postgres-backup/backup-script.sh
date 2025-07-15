@@ -74,7 +74,8 @@ check_postgres_ready() {
     local count=0
     
     while [ $count -lt $retries ]; do
-        if PGPASSWORD="$DB_PASSWORD" pg_isready -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" >/dev/null 2>&1; then
+        # Fixed: Added -d "$DB_NAME" to specify the database
+        if PGPASSWORD="$DB_PASSWORD" pg_isready -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" >/dev/null 2>&1; then
             return 0
         fi
         count=$((count + 1))
