@@ -235,7 +235,7 @@ restore-dev:
 	echo "✅ Database restored"; \
 	echo ""; \
 	echo "🔍 Checking migration status..."; \
-	cd migrations && alembic current || echo "Could not check migrations"; \
+	(cd migrations && alembic current) || echo "Could not check migrations"; \
 	echo ""; \
 	echo "📊 Running any missing migrations..."; \
 	$(MAKE) migrate-dev; \
@@ -312,7 +312,7 @@ restore-test:
 	echo "✅ Database restored"; \
 	echo ""; \
 	echo "🔍 Checking migration status..."; \
-	cd migrations && ENV=test alembic current || echo "Could not check migrations"; \
+	(cd migrations && ENV=test alembic current) || echo "Could not check migrations"; \
 	echo ""; \
 	echo "📊 Running any missing migrations..."; \
 	$(MAKE) migrate-test; \
@@ -381,7 +381,7 @@ restore-prod:
 	echo "✅ Database restored"; \
 	echo ""; \
 	echo "🔍 Checking migration status..."; \
-	cd migrations && ENV=prod alembic current || echo "Could not check migrations"; \
+	(cd migrations && ENV=prod alembic current) || echo "Could not check migrations"; \
 	echo ""; \
 	echo "📊 Running any missing migrations..."; \
 	$(MAKE) migrate-prod; \
@@ -583,38 +583,38 @@ db-prod:
 migrate-dev:
 	@echo "Running Alembic migrations for development..."
 	@$(MAKE) check-db-dev
-	@cd migrations && alembic upgrade head && \
+	@(cd migrations && alembic upgrade head) && \
 	echo "✅ Migrations completed successfully" || \
 	(echo "❌ Migration failed!" && exit 1)
 
 migrate-test:
 	@echo "Running Alembic migrations for test environment..."
 	@$(MAKE) check-db-test
-	@cd migrations && ENV=test alembic upgrade head && \
+	@(cd migrations && ENV=test alembic upgrade head) && \
 	echo "✅ Migrations completed successfully" || \
 	(echo "❌ Migration failed!" && exit 1)
 
 migrate-prod:
 	@echo "Running Alembic migrations for production..."
 	@$(MAKE) check-db-prod
-	@cd migrations && ENV=prod alembic upgrade head && \
+	@(cd migrations && ENV=prod alembic upgrade head) && \
 	echo "✅ Migrations completed successfully" || \
 	(echo "❌ Migration failed!" && exit 1)
 
 # Check if migrations are up to date - WITH BETTER ERROR HANDLING
 check-migrations-dev:
 	@echo "Checking development database migrations..."
-	@cd migrations && alembic current || \
+	@(cd migrations && alembic current) || \
 	echo "⚠️  Could not check migration status - database might not be migrated"
 
 check-migrations-test:
 	@echo "Checking test database migrations..."
-	@cd migrations && ENV=test alembic current || \
+	@(cd migrations && ENV=test alembic current) || \
 	echo "⚠️  Could not check migration status - database might not be migrated"
 
 check-migrations-prod:
 	@echo "Checking production database migrations..."
-	@cd migrations && ENV=prod alembic current || \
+	@(cd migrations && ENV=prod alembic current) || \
 	echo "⚠️  Could not check migration status - database might not be migrated"
 
 # Test database management

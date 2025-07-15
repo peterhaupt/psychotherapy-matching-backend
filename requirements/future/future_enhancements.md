@@ -1,6 +1,6 @@
 # Future Enhancements - Priority Items
 
-**Document Version:** 2.3  
+**Document Version:** 2.4  
 **Date:** January 2025  
 **Status:** Requirements Gathering
 
@@ -273,34 +273,273 @@ In the local production environment, therapeutenanfragen IDs show unexpected gap
 
 ---
 
+## 11. PTV11 Form Email Reminder - **NEW**
+
+### Requirement
+Implement one-click functionality to automatically remind patients to send their PTV11 form.
+
+### Specification
+- **Trigger:** Manual one-click action from admin interface
+- **Target:** Patients who haven't submitted their PTV11 form yet
+- **Email Content:**
+  - Reminder about required PTV11 form
+  - Instructions for submission
+  - Deadline or urgency information
+  - Contact information for questions
+
+### Implementation Details
+- Add "Send PTV11 Reminder" button in patient management interface
+- Create email template for PTV11 form reminders
+- Track reminder emails sent (avoid spam/duplicate reminders)
+- Consider batch operations for multiple patients
+- Add to email audit log system
+
+### Technical Considerations
+- Integrate with existing communication service
+- Add patient form status tracking
+- Consider rate limiting for reminder emails
+- Update patient record with reminder timestamp
+
+---
+
+## 12. Internal Server Error After Sending Patient Emails - **CRITICAL NEW**
+
+### Current Issue
+Internal server errors are occurring intermittently after sending emails to patients, causing system instability.
+
+### Investigation Required
+- **Error Log Analysis:** Identify specific error messages and stack traces
+- **Timing Analysis:** Determine if errors occur immediately after send or with delay
+- **Email Type Correlation:** Check if specific types of emails trigger the error
+- **Service Dependencies:** Review communication service health and dependencies
+- **Resource Monitoring:** Check for memory leaks or resource exhaustion
+- **Database Connection Issues:** Verify if email sending affects database connections
+
+### Immediate Actions Needed
+- **Enhanced Error Logging:** Add more detailed logging around email sending process
+- **Error Handling:** Implement proper exception handling and recovery
+- **Health Checks:** Add monitoring for email service health
+- **Rollback Plan:** Prepare alternative email sending mechanisms
+- **User Experience:** Implement user-friendly error messages
+
+### Priority
+**CRITICAL** - Affects core functionality and user experience
+
+---
+
+## 13. Fix Therapeutenanfrage Frontend Exit Issue - **NEW**
+
+### Current Issue
+When a therapeutenanfrage is created but contains 0 patients, the frontend provides no proper way to exit or quit the process.
+
+### Requirement
+Implement proper navigation controls for empty therapeutenanfragen.
+
+### Implementation Details
+- **Add Exit/Cancel Button:** Clear navigation option to return to previous screen
+- **Empty State Handling:** Show appropriate message when no patients are present
+- **Navigation Logic:** 
+  - Return to patient selection screen
+  - Option to add patients directly
+  - Clear indication of next steps
+
+### Frontend Changes
+- Add "Cancel" or "Back" button with proper routing
+- Implement empty state UI component
+- Add confirmation dialog for unsaved changes
+- Update breadcrumb navigation
+
+### User Experience Improvements
+- Clear visual indicators for empty state
+- Helpful guidance text for next actions
+- Consistent with other form cancellation patterns
+
+---
+
+## 14. Improve Patient Eligibility Criteria for Platzsuche Creation - **NEW**
+
+### Current Issue
+When creating a new platzsuche, the patient list shows patients who are not eligible (e.g., patients without PTV11 form), making the selection process inefficient and potentially creating invalid platzsuchen.
+
+### Requirement
+Implement stricter eligibility criteria to only show patients who are truly eligible for platzsuche creation.
+
+### Current Problems
+- Patients without PTV11 form are selectable
+- Criteria are too broad for practical use
+- Creates unhelpful platzsuchen for ineligible patients
+
+### Implementation Details
+- **Eligibility Criteria:**
+  - Must have status "Sucht Therapie"
+  - Must have completed PTV11 form
+  - Must not have an active platzsuche already
+  - Must not have a successful (erfolgreich) platzsuche
+  - Additional medical/administrative requirements (TBD)
+
+### Technical Changes
+- Update patient filtering query in platzsuche creation endpoint
+- Add eligibility validation on backend
+- Update frontend patient selection component
+- Add clear indicators for why patients are excluded
+- Implement eligibility status checking service
+
+### User Experience
+- Show only eligible patients in selection list
+- Display clear reasons when patients are filtered out
+- Add patient count indicators (total vs eligible)
+- Provide guidance for making patients eligible
+
+---
+
+## 15. Track Incoming Emails - **NEW**
+
+### Requirement
+Implement comprehensive incoming email tracking system to monitor and integrate email communications with patient records.
+
+### Specification
+- **IMAP Connector:** Integrate IMAP functionality into communication service
+- **Email Monitoring:** Track incoming emails to system email addresses
+- **Patient Correlation:** Match incoming emails to patient records
+- **Response Tracking:** Track replies to system-sent emails
+
+### Implementation Details
+- **IMAP Integration:**
+  - Connect to email server via IMAP
+  - Monitor specified inboxes (info@curavani.com, etc.)
+  - Parse incoming email metadata and content
+  - Handle attachments and embedded content
+
+- **Email Processing:**
+  - Extract sender information and correlate with patient records
+  - Categorize email types (replies, new inquiries, form submissions)
+  - Store email content and metadata in database
+  - Trigger appropriate workflow actions
+
+### Technical Considerations
+- Implement secure IMAP connection with authentication
+- Add email parsing and content extraction
+- Create database schema for incoming email tracking
+- Implement duplicate detection and deduplication
+- Add email archiving and retention policies
+- Consider spam filtering and security scanning
+
+### Integration Points
+- Patient management system
+- Communication service
+- Notification system
+- Admin dashboard for email monitoring
+
+---
+
+## 16. Add Pagination for Therapist Selection in Vermittlung - **NEW**
+
+### Requirement
+Implement pagination for therapist selection in the vermittlung process of therapeutenanfragen to improve performance and user experience.
+
+### Current Issue
+Large therapist lists in the therapeutenanfrage form cause performance issues and poor user experience.
+
+### Implementation Details
+- **Frontend Pagination:**
+  - Add pagination controls to therapist selection component
+  - Implement page size options (10, 25, 50 therapists per page)
+  - Add search and filtering capabilities
+  - Maintain selected therapists across pages
+
+- **Backend Optimization:**
+  - Implement paginated API endpoints for therapist retrieval
+  - Add efficient database queries with LIMIT/OFFSET
+  - Include total count and pagination metadata
+  - Optimize therapist filtering and search queries
+
+### Technical Changes
+- Update therapeutenanfrage form component
+- Add pagination component library or custom implementation
+- Modify therapist API endpoints
+- Update state management for selected therapists
+- Add search and filter functionality
+
+### User Experience Improvements
+- Faster page loading with smaller data sets
+- Better navigation through large therapist lists
+- Improved search and filtering capabilities
+- Clear indication of total available therapists
+
+---
+
+## 17. Fix Dashboard "Ohne Aktive Platzsuche" Section - **NEW**
+
+### Current Issue
+The dashboard section "ohne aktive Platzsuche" incorrectly includes patients with successful (erfolgreich) platzsuchen, who no longer need therapy placement.
+
+### Requirement
+Adjust the dashboard logic to exclude patients who have successfully been matched with therapists.
+
+### Implementation Details
+- **Filtering Logic:**
+  - Exclude patients with platzsuche status "erfolgreich"
+  - Exclude patients currently matched with therapists
+  - Only show patients who genuinely need new therapy placement
+
+- **Updated Criteria for "Ohne Aktive Platzsuche":**
+  - Patients with no platzsuche at all
+  - Patients with failed/cancelled platzsuchen
+  - Patients with expired platzsuchen
+  - Exclude patients with successful matches
+
+### Technical Changes
+- Update dashboard query logic
+- Modify platzsuche status filtering
+- Add proper JOIN conditions to exclude successful matches
+- Update dashboard component rendering
+- Add clear status indicators
+
+### User Experience
+- More accurate dashboard statistics
+- Clearer understanding of patients needing help
+- Reduced confusion about patient status
+- Better decision-making data for staff
+
+---
+
 ## Implementation Priority
 
 | Priority | Enhancement | Complexity | Impact |
 |----------|-------------|------------|--------|
 | **CRITICAL** | Database ID Gap Investigation (#10) | Medium | Critical |
-| **CRITICAL** | PostgreSQL Database Stability | High | Critical |
+| **CRITICAL** | Internal Server Error After Sending Emails (#12) | Medium-High | Critical |
+| **CRITICAL** | PostgreSQL Database Stability (#6) | High | Critical |
+| **High** | Fix Therapeutenanfrage Frontend Exit Issue (#13) | Low | High |
+| **High** | Improve Patient Eligibility Criteria (#14) | Medium | High |
 | **High** | Automatic Removal of Successful Platzsuchen (#8) | Medium | High |
 | **High** | Track Successful Match Details (#9) | Low-Medium | High |
-| **High** | Patient Import Email Notifications | Low | Medium |
-| **High** | Kafka/Zookeeper Stability | Medium-High | High |
-| **High** | Email Delivery Testing and Verification | Medium | High |
-| **Medium** | GCS Deletion Logic | Medium | Medium |
-| **Medium** | Therapist Import Reporting Fix | Low-Medium | Medium |
-| **Low** | Weekly Patient Status Emails | Medium | Low |
+| **High** | Fix Dashboard "Ohne Aktive Platzsuche" (#17) | Low-Medium | High |
+| **High** | Patient Import Email Notifications (#1) | Low | Medium |
+| **High** | Kafka/Zookeeper Stability (#3) | Medium-High | High |
+| **High** | Email Delivery Testing and Verification (#7) | Medium | High |
+| **Medium** | PTV11 Form Email Reminder (#11) | Low-Medium | Medium |
+| **Medium** | Track Incoming Emails (#15) | High | Medium |
+| **Medium** | Add Pagination for Therapist Selection (#16) | Medium | Medium |
+| **Medium** | GCS Deletion Logic (#2) | Medium | Medium |
+| **Medium** | Therapist Import Reporting Fix (#5) | Low-Medium | Medium |
+| **Low** | Weekly Patient Status Emails (#4) | Medium | Low |
 
 ---
 
 ## Next Steps
 
 1. **URGENT:** Investigate database ID gaps in production environment
-2. **Requirements Clarification:** Schedule discussion sessions for items 2-5 and 7
-3. **Technical Investigation:** Deep dive into Kafka/Zookeeper issues
-4. **Audit Current Systems:** Review therapist import reporting logic and email delivery
-5. **Implementation Planning:** Create detailed technical specifications
-6. **Quick Wins:** Prioritize items #8 and #9 as they directly improve user experience
+2. **URGENT:** Resolve internal server errors affecting email functionality
+3. **Quick Wins:** Implement frontend fixes (#13, #17) and eligibility improvements (#14)
+4. **Requirements Clarification:** Schedule discussion sessions for items #2-5, #7, and #15
+5. **Technical Investigation:** Deep dive into Kafka/Zookeeper issues
+6. **Audit Current Systems:** Review therapist import reporting logic and email delivery
+7. **Implementation Planning:** Create detailed technical specifications for high-priority items
+8. **User Experience:** Prioritize items #8, #9, #13, #14, and #17 for immediate UX improvements
 
 ---
 
 **Document Owner:** Development Team  
 **Last Updated:** January 2025  
-**Next Review:** After database investigation and requirements clarification sessions
+**Next Review:** After critical issue resolution and requirements clarification sessions
