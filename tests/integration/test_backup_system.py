@@ -239,7 +239,7 @@ class TestBackupSystem:
         
         # Verify backup contains SQL content
         result = subprocess.run(
-            ["zcat", backup_file],
+            ["zcat", os.path.abspath(backup_file)],
             capture_output=True,
             text=True,
             timeout=60

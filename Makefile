@@ -78,38 +78,24 @@ ensure-db-prod:
 		echo "✅ Database created successfully"; \
 	fi
 
-# Development backup commands
+# Manual backup commands - Now using existing backup script
 backup-dev:
-	@echo "Creating development database backup..."
-	@mkdir -p backups/postgres/dev
-	@source .env.dev && \
-	TIMESTAMP=$$(date +%Y%m%d_%H%M%S) && \
-	docker exec postgres-backup PGPASSWORD=$${DB_PASSWORD} pg_dump -h postgres -U $${DB_USER} -d $${DB_NAME} | gzip > backups/postgres/dev/dev_backup_$${TIMESTAMP}.sql.gz && \
-	BACKUP_SIZE=$$(du -h backups/postgres/dev/dev_backup_$${TIMESTAMP}.sql.gz | cut -f1) && \
-	echo "✅ Development backup created: dev_backup_$${TIMESTAMP}.sql.gz (Size: $${BACKUP_SIZE})" && \
-	echo "   Location: backups/postgres/dev/"
+	@echo "Creating development database backup using backup script..."
+	@docker exec postgres-backup /usr/local/bin/backup-script.sh
+	@echo "✅ Development backup completed!"
+	@echo "   Check backups/postgres/dev/ for the new backup file"
 
-# Test backup commands
 backup-test:
-	@echo "Creating test database backup..."
-	@mkdir -p backups/postgres/test
-	@source .env.test && \
-	TIMESTAMP=$$(date +%Y%m%d_%H%M%S) && \
-	docker exec postgres-backup-test PGPASSWORD=$${DB_PASSWORD} pg_dump -h postgres-test -U $${DB_USER} -d $${DB_NAME} | gzip > backups/postgres/test/test_backup_$${TIMESTAMP}.sql.gz && \
-	BACKUP_SIZE=$$(du -h backups/postgres/test/test_backup_$${TIMESTAMP}.sql.gz | cut -f1) && \
-	echo "✅ Test backup created: test_backup_$${TIMESTAMP}.sql.gz (Size: $${BACKUP_SIZE})" && \
-	echo "   Location: backups/postgres/test/"
+	@echo "Creating test database backup using backup script..."
+	@docker exec postgres-backup-test /usr/local/bin/backup-script.sh
+	@echo "✅ Test backup completed!"
+	@echo "   Check backups/postgres/test/ for the new backup file"
 
-# Production backup commands
 backup-prod:
-	@echo "Creating production database backup..."
-	@mkdir -p backups/postgres/manual
-	@source .env.prod && \
-	TIMESTAMP=$$(date +%Y%m%d_%H%M%S) && \
-	docker exec postgres-backup-prod PGPASSWORD=$${DB_PASSWORD} pg_dump -h postgres-prod -U $${DB_USER} -d $${DB_NAME} | gzip > backups/postgres/manual/backup_$${TIMESTAMP}.sql.gz && \
-	BACKUP_SIZE=$$(du -h backups/postgres/manual/backup_$${TIMESTAMP}.sql.gz | cut -f1) && \
-	echo "✅ Backup created: backup_$${TIMESTAMP}.sql.gz (Size: $${BACKUP_SIZE})" && \
-	echo "   Location: backups/postgres/manual/"
+	@echo "Creating production database backup using backup script..."
+	@docker exec postgres-backup-prod /usr/local/bin/backup-script.sh
+	@echo "✅ Production backup completed!"
+	@echo "   Check backups/postgres/manual/ for the new backup file"
 
 # List all backups from all environments
 list-backups:
@@ -1024,9 +1010,9 @@ help:
 	@echo "  make migrate-prod     - Run migrations on production database"
 	@echo ""
 	@echo "Backup and Restore:"
-	@echo "  make backup-dev       - Create manual development backup"
-	@echo "  make backup-test      - Create manual test backup"
-	@echo "  make backup-prod      - Create manual production backup"
+	@echo "  make backup-dev       - Create manual development backup using backup script"
+	@echo "  make backup-test      - Create manual test backup using backup script"
+	@echo "  make backup-prod      - Create manual production backup using backup script"
 	@echo "  make list-backups     - List all backups (dev, test, prod: manual, hourly, weekly)"
 	@echo "  make backup-verify-dev BACKUP=timestamp   - Verify dev backup integrity"
 	@echo "  make backup-verify-test BACKUP=timestamp  - Verify test backup integrity"
