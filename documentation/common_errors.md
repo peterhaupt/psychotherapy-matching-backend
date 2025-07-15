@@ -62,6 +62,57 @@ Use socket-based health checks instead of network-based checks.
 
 ---
 
+## PostgreSQL "database does not exist" Error
+
+### Error
+```
+FATAL: database "curavani" does not exist
+```
+
+### Cause
+PostgreSQL utilities (`psql`, `pg_isready`, `pg_dump`) default to using the username as the database name when no database is explicitly specified. If your username is `curavani` but your database is `therapy_platform`, connection attempts without `-d` flag will fail.
+
+### Common Locations
+1. **Health checks** in docker-compose.yml
+2. **Backup scripts** (pg_isready, pg_dump commands)
+3. **PgBouncer health checks**
+4. **Manual psql commands**
+
+### Solution
+Always explicitly specify the database name with `-d` flag:
+
+```bash
+# Incorrect (will try to connect to database with same name as user)
+pg_isready -U curavani -h postgres
+psql -U curavani -h postgres
+
+# Correct
+pg_isready -U curavani -h postgres -d therapy_platform
+psql -U curavani -h postgres -d therapy_platform
+
+# In scripts
+PGPASSWORD="$DB_PASSWORD" pg_isready -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME"
+```
+
+### Debugging Steps
+1. Check all services one by one:
+```bash
+docker-compose up postgres -d
+docker logs postgres | grep "database.*does not exist"
+```
+
+2. Common culprits:
+- `postgres-backup` service watchdog and backup scripts
+- PgBouncer health check commands
+- Service initialization scripts
+
+### Prevention
+- Always use `-d $DB_NAME` in all PostgreSQL commands
+- Set `PGDATABASE` environment variable as a fallback
+- Use connection strings that include the database name
+
+---
+
 ## Enum Value Mismatch in API Requests
 
 ### Error
@@ -131,21 +182,6 @@ SELECT t.typname, e.enumlabel
 FROM pg_type t 
 JOIN pg_enum e ON t.oid = e.enumtypid
 ORDER BY t.typname, e.enumsortorder;
-```
-
----
-
-## PostgreSQL Connection Issues
-
-### Error
-```
-FATAL: database "boona" does not exist
-```
-
-### Solution
-Always specify database name in connection strings and health checks:
-```bash
-pg_isready -U boona -d therapy_platform
 ```
 
 ---
