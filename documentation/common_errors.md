@@ -50,6 +50,61 @@ This is safe because:
 
 ---
 
+## PostgreSQL Client Version Mismatch in Backup Container
+
+### Error
+```
+pg_dump: error: server version: 16.6; pg_dump version: 15.8
+pg_dump: error: aborting because of server version mismatch
+```
+
+### Cause
+The backup container is using a different version of PostgreSQL client tools than the main PostgreSQL server. The Alpine Linux `postgresql-client` package installs an older version (15.x) while the main PostgreSQL container runs version 16.x.
+
+### Solution
+Update the backup container Dockerfile to use PostgreSQL 16 client tools:
+
+```dockerfile
+FROM alpine:latest
+
+# Install PostgreSQL 16 client from edge repository
+RUN apk add --no-cache \
+    curl \
+    && echo "http://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositories \
+    && apk add --no-cache postgresql16-client \
+    && ln -s /usr/bin/psql16 /usr/bin/psql \
+    && ln -s /usr/bin/pg_dump16 /usr/bin/pg_dump \
+    && ln -s /usr/bin/pg_restore16 /usr/bin/pg_restore \
+    && ln -s /usr/bin/pg_isready16 /usr/bin/pg_isready
+
+COPY backup.sh /backup.sh
+RUN chmod +x /backup.sh
+
+CMD ["/backup.sh"]
+```
+
+### Rebuild Process
+```bash
+# Stop the current backup container
+docker-compose -f docker-compose.dev.yml stop postgres-backup
+
+# Rebuild with the new Dockerfile
+docker-compose -f docker-compose.dev.yml build postgres-backup
+
+# Start it back up
+docker-compose -f docker-compose.dev.yml up -d postgres-backup
+
+# Verify the fix
+docker exec postgres-backup pg_dump --version
+```
+
+### Key Changes
+1. **Removed** the generic `postgresql-client` package (installs v15)
+2. **Added** `postgresql16-client` from Alpine edge repository
+3. **Created symbolic links** for compatibility (`psql16` → `psql`, etc.)
+
+---
+
 ## PgBouncer Health Check Issues
 
 ### Error

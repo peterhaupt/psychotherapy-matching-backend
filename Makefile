@@ -84,7 +84,7 @@ backup-dev:
 	@mkdir -p backups/postgres/dev
 	@source .env.dev && \
 	TIMESTAMP=$$(date +%Y%m%d_%H%M%S) && \
-	docker exec postgres-backup pg_dump -h postgres -U $${DB_USER} $${DB_NAME} | gzip > backups/postgres/dev/dev_backup_$${TIMESTAMP}.sql.gz && \
+	docker exec postgres-backup PGPASSWORD=$${DB_PASSWORD} pg_dump -h postgres -U $${DB_USER} -d $${DB_NAME} | gzip > backups/postgres/dev/dev_backup_$${TIMESTAMP}.sql.gz && \
 	BACKUP_SIZE=$$(du -h backups/postgres/dev/dev_backup_$${TIMESTAMP}.sql.gz | cut -f1) && \
 	echo "✅ Development backup created: dev_backup_$${TIMESTAMP}.sql.gz (Size: $${BACKUP_SIZE})" && \
 	echo "   Location: backups/postgres/dev/"
@@ -95,7 +95,7 @@ backup-test:
 	@mkdir -p backups/postgres/test
 	@source .env.test && \
 	TIMESTAMP=$$(date +%Y%m%d_%H%M%S) && \
-	docker exec postgres-backup-test pg_dump -h postgres-test -U $${DB_USER} $${DB_NAME} | gzip > backups/postgres/test/test_backup_$${TIMESTAMP}.sql.gz && \
+	docker exec postgres-backup-test PGPASSWORD=$${DB_PASSWORD} pg_dump -h postgres-test -U $${DB_USER} -d $${DB_NAME} | gzip > backups/postgres/test/test_backup_$${TIMESTAMP}.sql.gz && \
 	BACKUP_SIZE=$$(du -h backups/postgres/test/test_backup_$${TIMESTAMP}.sql.gz | cut -f1) && \
 	echo "✅ Test backup created: test_backup_$${TIMESTAMP}.sql.gz (Size: $${BACKUP_SIZE})" && \
 	echo "   Location: backups/postgres/test/"
@@ -106,7 +106,7 @@ backup-prod:
 	@mkdir -p backups/postgres/manual
 	@source .env.prod && \
 	TIMESTAMP=$$(date +%Y%m%d_%H%M%S) && \
-	docker exec postgres-backup-prod pg_dump -h postgres-prod -U $${DB_USER} $${DB_NAME} | gzip > backups/postgres/manual/backup_$${TIMESTAMP}.sql.gz && \
+	docker exec postgres-backup-prod PGPASSWORD=$${DB_PASSWORD} pg_dump -h postgres-prod -U $${DB_USER} -d $${DB_NAME} | gzip > backups/postgres/manual/backup_$${TIMESTAMP}.sql.gz && \
 	BACKUP_SIZE=$$(du -h backups/postgres/manual/backup_$${TIMESTAMP}.sql.gz | cut -f1) && \
 	echo "✅ Backup created: backup_$${TIMESTAMP}.sql.gz (Size: $${BACKUP_SIZE})" && \
 	echo "   Location: backups/postgres/manual/"
