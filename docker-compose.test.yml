@@ -20,6 +20,35 @@ services:
     networks:
       - curavani_backend_test
 
+  # PostgreSQL Backup Service for Test Environment
+  postgres-backup-test:
+    build:
+      context: .
+      dockerfile: docker/postgres-backup/Dockerfile
+    container_name: postgres-backup-test
+    environment:
+      # Backup Configuration
+      BACKUP_ENV: test
+      # Database Connection
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      DB_HOST: postgres-test
+      DB_PORT: ${DB_PORT}
+    volumes:
+      - ./backups:/backups
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - curavani_backend_test
+
   # PgBouncer Connection Pooler
   pgbouncer-test:
     image: bitnami/pgbouncer:latest

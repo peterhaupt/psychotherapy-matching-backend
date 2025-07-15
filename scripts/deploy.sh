@@ -9,7 +9,7 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
 cd "$PROJECT_ROOT"
 
-BACKUP_DIR="./backups/postgres"
+BACKUP_DIR="./backups/postgres/manual"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 COMPOSE_PROD="docker-compose -f docker-compose.prod.yml --env-file .env.prod"
 HEALTH_CHECK_RETRIES=30
@@ -25,8 +25,16 @@ mkdir -p "$BACKUP_DIR"
 if docker ps | grep -q postgres-prod; then
     # Get database credentials from .env.prod
     source .env.prod
-    docker exec postgres-prod pg_dump -U ${DB_USER} ${DB_NAME} | gzip > "$BACKUP_DIR/backup_$TIMESTAMP.sql.gz"
-    echo "✅ Backup saved to: $BACKUP_DIR/backup_$TIMESTAMP.sql.gz"
+    
+    # Check if backup container is available
+    if docker ps | grep -q postgres-backup-prod; then
+        docker exec postgres-backup-prod pg_dump -h postgres-prod -U ${DB_USER} ${DB_NAME} | gzip > "$BACKUP_DIR/backup_$TIMESTAMP.sql.gz"
+        echo "✅ Backup saved to: $BACKUP_DIR/backup_$TIMESTAMP.sql.gz"
+    else
+        echo "⚠️  Backup container not running, using postgres container for backup"
+        docker exec postgres-prod pg_dump -U ${DB_USER} ${DB_NAME} | gzip > "$BACKUP_DIR/backup_$TIMESTAMP.sql.gz"
+        echo "✅ Backup saved to: $BACKUP_DIR/backup_$TIMESTAMP.sql.gz"
+    fi
 else
     echo "⚠️  No production database running, skipping backup"
 fi
@@ -112,6 +120,18 @@ for SERVICE in "${SERVICES[@]}"; do
     fi
 done
 
+# Check backup container health (optional)
+echo -n "Checking backup service... "
+if docker ps | grep -q postgres-backup-prod; then
+    if curl -s -f "http://localhost:8080/health" > /dev/null 2>&1; then
+        echo "✅ Healthy"
+    else
+        echo "⚠️  Health check failed (container running but no response)"
+    fi
+else
+    echo "⚠️  Container not running"
+fi
+
 # 9. Run smoke tests if services are healthy
 if $ALL_HEALTHY; then
     echo ""
@@ -166,7 +186,7 @@ if $ALL_HEALTHY; then
     echo "  - Communication Service: http://localhost:8024/api"
     echo "  - Geocoding Service: http://localhost:8025/api"
     echo ""
-    echo "Automatic database backups are configured inside the postgres container."
+    echo "Automatic database backups are running in the postgres-backup-prod container."
 else
     echo "❌ BACKEND DEPLOYMENT COMPLETED WITH WARNINGS!"
     echo "Some services failed health checks or smoke tests failed."

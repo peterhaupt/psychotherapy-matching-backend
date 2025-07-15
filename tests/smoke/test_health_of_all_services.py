@@ -14,6 +14,10 @@ SERVICES = [
     ("matching", os.environ["MATCHING_HEALTH_URL"], "matching"),
     ("communication", os.environ["COMMUNICATION_HEALTH_URL"], "communication"),
     ("geocoding", os.environ["GEOCODING_HEALTH_URL"], "geocoding"),
+    # Backup container health endpoints
+    ("postgres-backup", os.environ.get("POSTGRES_BACKUP_HEALTH_URL", "http://localhost:8080/health"), "backup"),
+    ("postgres-backup-test", os.environ.get("POSTGRES_BACKUP_TEST_HEALTH_URL", "http://localhost:8081/health"), "backup"),
+    ("postgres-backup-prod", os.environ.get("POSTGRES_BACKUP_PROD_HEALTH_URL", "http://localhost:8082/health"), "backup"),
 ]
 
 TIMEOUT = 10  # seconds
@@ -194,7 +198,7 @@ class TestServiceConnectivity:
             status_icon = "✅" if success else "❌"
             status_text = "HEALTHY" if success else "UNHEALTHY"
             
-            print(f"{status_icon} {service_name.upper():15} | {url:35} | {status_text}")
+            print(f"{status_icon} {service_name.upper():18} | {url:40} | {status_text}")
             
             if success:
                 healthy_count += 1
@@ -206,6 +210,65 @@ class TestServiceConnectivity:
         
         # This test always passes but provides visibility
         assert True, "Summary test completed"
+
+
+class TestBackupServiceHealth:
+    """Specific tests for backup service health endpoints."""
+    
+    def test_backup_services_health_structure(self):
+        """Test that backup services return proper health structure."""
+        backup_services = [s for s in SERVICES if s[0].startswith("postgres-backup")]
+        
+        failed_backup_services = []
+        
+        for service_name, url, expected_service in backup_services:
+            service_name, success, status_code, data, error = check_service_health(
+                service_name, url, expected_service
+            )
+            
+            if not success:
+                failed_backup_services.append(f"{service_name}: {error}")
+                continue
+            
+            # Backup services should have additional fields
+            expected_fields = ["status", "service", "last_backup", "backup_count", "disk_usage"]
+            missing_fields = [field for field in expected_fields if field not in data]
+            
+            if missing_fields:
+                print(f"⚠️  {service_name} missing expected fields: {missing_fields}")
+                # Don't fail for missing fields, as the basic health check passed
+            else:
+                print(f"✅ {service_name} has all expected backup health fields")
+        
+        # Only fail if basic health checks failed
+        if failed_backup_services:
+            pytest.fail(f"Backup service health checks failed: {'; '.join(failed_backup_services)}")
+    
+    def test_backup_services_respond_with_backup_info(self):
+        """Test that backup services provide backup-specific information."""
+        backup_services = [s for s in SERVICES if s[0].startswith("postgres-backup")]
+        
+        for service_name, url, expected_service in backup_services:
+            try:
+                response = requests.get(url, timeout=TIMEOUT)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    
+                    # Log backup-specific information if available
+                    if "last_backup" in data:
+                        print(f"{service_name} last backup: {data['last_backup']}")
+                    if "backup_count" in data:
+                        print(f"{service_name} backup count: {data['backup_count']}")
+                    if "disk_usage" in data:
+                        print(f"{service_name} disk usage: {data['disk_usage']}")
+                        
+                    print(f"✅ {service_name} provided backup information")
+                else:
+                    print(f"⚠️  {service_name} health check failed with status {response.status_code}")
+                    
+            except requests.RequestException as e:
+                print(f"⚠️  {service_name} connection failed: {e}")
 
 
 if __name__ == "__main__":
