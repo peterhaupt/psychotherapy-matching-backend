@@ -189,14 +189,14 @@ restore-dev:
 		echo "Use 'make list-backups' to see available backups"; \
 		exit 1; \
 	fi; \
-	FROM_ENV=${FROM:-prod}; \
-	echo "🔄 Restoring development database from ${FROM_ENV} backup: $(BACKUP)"; \
+	FROM_ENV="$(if $(FROM),$(FROM),prod)"; \
+	echo "🔄 Restoring development database from $${FROM_ENV} backup: $(BACKUP)"; \
 	echo "================================================================"; \
-	if [ "${FROM_ENV}" = "prod" ]; then \
+	if [ "$${FROM_ENV}" = "prod" ]; then \
 		$(MAKE) backup-verify-prod BACKUP=$(BACKUP) || exit 1; \
-	elif [ "${FROM_ENV}" = "test" ]; then \
+	elif [ "$${FROM_ENV}" = "test" ]; then \
 		$(MAKE) backup-verify-test BACKUP=$(BACKUP) || exit 1; \
-	elif [ "${FROM_ENV}" = "dev" ]; then \
+	elif [ "$${FROM_ENV}" = "dev" ]; then \
 		$(MAKE) backup-verify-dev BACKUP=$(BACKUP) || exit 1; \
 	else \
 		echo "❌ Invalid FROM environment. Use: prod, test, or dev"; \
@@ -213,24 +213,24 @@ restore-dev:
 	echo ""; \
 	echo "🗄️  Dropping and recreating database..."; \
 	source .env.dev && \
-	docker exec postgres psql -U ${DB_USER} -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='${DB_NAME}' AND pid <> pg_backend_pid();" && \
-	docker exec postgres psql -U ${DB_USER} -d postgres -c "DROP DATABASE IF EXISTS ${DB_NAME};" && \
-	docker exec postgres psql -U ${DB_USER} -d postgres -c "CREATE DATABASE ${DB_NAME};"; \
+	docker exec postgres psql -U $${DB_USER} -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='$${DB_NAME}' AND pid <> pg_backend_pid();" && \
+	docker exec postgres psql -U $${DB_USER} -d postgres -c "DROP DATABASE IF EXISTS $${DB_NAME};" && \
+	docker exec postgres psql -U $${DB_USER} -d postgres -c "CREATE DATABASE $${DB_NAME};"; \
 	echo ""; \
-	echo "📥 Restoring from ${FROM_ENV} backup..."; \
+	echo "📥 Restoring from $${FROM_ENV} backup..."; \
 	source .env.dev && \
-	if [ "${FROM_ENV}" = "prod" ]; then \
+	if [ "$${FROM_ENV}" = "prod" ]; then \
 		if [ -f "backups/postgres/manual/backup_$(BACKUP).sql.gz" ]; then \
-			gunzip -c backups/postgres/manual/backup_$(BACKUP).sql.gz | docker exec -i postgres psql -U ${DB_USER} ${DB_NAME}; \
+			gunzip -c backups/postgres/manual/backup_$(BACKUP).sql.gz | docker exec -i postgres psql -U $${DB_USER} $${DB_NAME}; \
 		elif [ -f "backups/postgres/hourly/backup_$(BACKUP).sql.gz" ]; then \
-			gunzip -c backups/postgres/hourly/backup_$(BACKUP).sql.gz | docker exec -i postgres psql -U ${DB_USER} ${DB_NAME}; \
+			gunzip -c backups/postgres/hourly/backup_$(BACKUP).sql.gz | docker exec -i postgres psql -U $${DB_USER} $${DB_NAME}; \
 		elif [ -f "backups/postgres/weekly/weekly_backup_$(BACKUP).sql.gz" ]; then \
-			gunzip -c backups/postgres/weekly/weekly_backup_$(BACKUP).sql.gz | docker exec -i postgres psql -U ${DB_USER} ${DB_NAME}; \
+			gunzip -c backups/postgres/weekly/weekly_backup_$(BACKUP).sql.gz | docker exec -i postgres psql -U $${DB_USER} $${DB_NAME}; \
 		fi; \
-	elif [ "${FROM_ENV}" = "test" ]; then \
-		gunzip -c backups/postgres/test/test_backup_$(BACKUP).sql.gz | docker exec -i postgres psql -U ${DB_USER} ${DB_NAME}; \
-	elif [ "${FROM_ENV}" = "dev" ]; then \
-		gunzip -c backups/postgres/dev/dev_backup_$(BACKUP).sql.gz | docker exec -i postgres psql -U ${DB_USER} ${DB_NAME}; \
+	elif [ "$${FROM_ENV}" = "test" ]; then \
+		gunzip -c backups/postgres/test/test_backup_$(BACKUP).sql.gz | docker exec -i postgres psql -U $${DB_USER} $${DB_NAME}; \
+	elif [ "$${FROM_ENV}" = "dev" ]; then \
+		gunzip -c backups/postgres/dev/dev_backup_$(BACKUP).sql.gz | docker exec -i postgres psql -U $${DB_USER} $${DB_NAME}; \
 	fi; \
 	echo "✅ Database restored"; \
 	echo ""; \
@@ -253,7 +253,7 @@ restore-dev:
 	$(MAKE) health-check-dev || echo "⚠️  Some services may still be starting"; \
 	echo ""; \
 	echo "================================================================"; \
-	echo "✅ Development restored from ${FROM_ENV} backup: $(BACKUP)"; \
+	echo "✅ Development restored from $${FROM_ENV} backup: $(BACKUP)"; \
 	echo "================================================================"
 
 # Restore to test environment (from any backup type)
@@ -266,14 +266,14 @@ restore-test:
 		echo "Use 'make list-backups' to see available backups"; \
 		exit 1; \
 	fi; \
-	FROM_ENV=${FROM:-prod}; \
-	echo "🔄 Restoring test database from ${FROM_ENV} backup: $(BACKUP)"; \
+	FROM_ENV="$(if $(FROM),$(FROM),prod)"; \
+	echo "🔄 Restoring test database from $${FROM_ENV} backup: $(BACKUP)"; \
 	echo "==========================================================="; \
-	if [ "${FROM_ENV}" = "prod" ]; then \
+	if [ "$${FROM_ENV}" = "prod" ]; then \
 		$(MAKE) backup-verify-prod BACKUP=$(BACKUP) || exit 1; \
-	elif [ "${FROM_ENV}" = "test" ]; then \
+	elif [ "$${FROM_ENV}" = "test" ]; then \
 		$(MAKE) backup-verify-test BACKUP=$(BACKUP) || exit 1; \
-	elif [ "${FROM_ENV}" = "dev" ]; then \
+	elif [ "$${FROM_ENV}" = "dev" ]; then \
 		$(MAKE) backup-verify-dev BACKUP=$(BACKUP) || exit 1; \
 	else \
 		echo "❌ Invalid FROM environment. Use: prod, test, or dev"; \
@@ -290,24 +290,24 @@ restore-test:
 	echo ""; \
 	echo "🗄️  Dropping and recreating database..."; \
 	source .env.test && \
-	docker exec postgres-test psql -U ${DB_USER} -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='${DB_NAME}' AND pid <> pg_backend_pid();" && \
-	docker exec postgres-test psql -U ${DB_USER} -d postgres -c "DROP DATABASE IF EXISTS ${DB_NAME};" && \
-	docker exec postgres-test psql -U ${DB_USER} -d postgres -c "CREATE DATABASE ${DB_NAME};"; \
+	docker exec postgres-test psql -U $${DB_USER} -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='$${DB_NAME}' AND pid <> pg_backend_pid();" && \
+	docker exec postgres-test psql -U $${DB_USER} -d postgres -c "DROP DATABASE IF EXISTS $${DB_NAME};" && \
+	docker exec postgres-test psql -U $${DB_USER} -d postgres -c "CREATE DATABASE $${DB_NAME};"; \
 	echo ""; \
-	echo "📥 Restoring from ${FROM_ENV} backup..."; \
+	echo "📥 Restoring from $${FROM_ENV} backup..."; \
 	source .env.test && \
-	if [ "${FROM_ENV}" = "prod" ]; then \
+	if [ "$${FROM_ENV}" = "prod" ]; then \
 		if [ -f "backups/postgres/manual/backup_$(BACKUP).sql.gz" ]; then \
-			gunzip -c backups/postgres/manual/backup_$(BACKUP).sql.gz | docker exec -i postgres-test psql -U ${DB_USER} ${DB_NAME}; \
+			gunzip -c backups/postgres/manual/backup_$(BACKUP).sql.gz | docker exec -i postgres-test psql -U $${DB_USER} $${DB_NAME}; \
 		elif [ -f "backups/postgres/hourly/backup_$(BACKUP).sql.gz" ]; then \
-			gunzip -c backups/postgres/hourly/backup_$(BACKUP).sql.gz | docker exec -i postgres-test psql -U ${DB_USER} ${DB_NAME}; \
+			gunzip -c backups/postgres/hourly/backup_$(BACKUP).sql.gz | docker exec -i postgres-test psql -U $${DB_USER} $${DB_NAME}; \
 		elif [ -f "backups/postgres/weekly/weekly_backup_$(BACKUP).sql.gz" ]; then \
-			gunzip -c backups/postgres/weekly/weekly_backup_$(BACKUP).sql.gz | docker exec -i postgres-test psql -U ${DB_USER} ${DB_NAME}; \
+			gunzip -c backups/postgres/weekly/weekly_backup_$(BACKUP).sql.gz | docker exec -i postgres-test psql -U $${DB_USER} $${DB_NAME}; \
 		fi; \
-	elif [ "${FROM_ENV}" = "test" ]; then \
-		gunzip -c backups/postgres/test/test_backup_$(BACKUP).sql.gz | docker exec -i postgres-test psql -U ${DB_USER} ${DB_NAME}; \
-	elif [ "${FROM_ENV}" = "dev" ]; then \
-		gunzip -c backups/postgres/dev/dev_backup_$(BACKUP).sql.gz | docker exec -i postgres-test psql -U ${DB_USER} ${DB_NAME}; \
+	elif [ "$${FROM_ENV}" = "test" ]; then \
+		gunzip -c backups/postgres/test/test_backup_$(BACKUP).sql.gz | docker exec -i postgres-test psql -U $${DB_USER} $${DB_NAME}; \
+	elif [ "$${FROM_ENV}" = "dev" ]; then \
+		gunzip -c backups/postgres/dev/dev_backup_$(BACKUP).sql.gz | docker exec -i postgres-test psql -U $${DB_USER} $${DB_NAME}; \
 	fi; \
 	echo "✅ Database restored"; \
 	echo ""; \
@@ -330,7 +330,7 @@ restore-test:
 	$(MAKE) health-check-test || echo "⚠️  Some services may still be starting"; \
 	echo ""; \
 	echo "==========================================================="; \
-	echo "✅ Test environment restored from ${FROM_ENV} backup: $(BACKUP)"; \
+	echo "✅ Test environment restored from $${FROM_ENV} backup: $(BACKUP)"; \
 	echo "==========================================================="
 
 # Restore production
@@ -348,7 +348,7 @@ restore-prod:
 	echo "============================================================"; \
 	echo ""; \
 	echo -n "Are you sure you want to restore production? Type 'yes' to continue: "; \
-	read CONFIRM && [ "${CONFIRM}" = "yes" ] || (echo "Aborted." && exit 1); \
+	read CONFIRM && [ "$${CONFIRM}" = "yes" ] || (echo "Aborted." && exit 1); \
 	echo ""; \
 	$(MAKE) backup-verify-prod BACKUP=$(BACKUP) || exit 1; \
 	echo ""; \
@@ -365,18 +365,18 @@ restore-prod:
 	echo ""; \
 	echo "🗄️  Dropping and recreating database..."; \
 	source .env.prod && \
-	docker exec postgres-prod psql -U ${DB_USER} -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='${DB_NAME}' AND pid <> pg_backend_pid();" && \
-	docker exec postgres-prod psql -U ${DB_USER} -d postgres -c "DROP DATABASE IF EXISTS ${DB_NAME};" && \
-	docker exec postgres-prod psql -U ${DB_USER} -d postgres -c "CREATE DATABASE ${DB_NAME};"; \
+	docker exec postgres-prod psql -U $${DB_USER} -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='$${DB_NAME}' AND pid <> pg_backend_pid();" && \
+	docker exec postgres-prod psql -U $${DB_USER} -d postgres -c "DROP DATABASE IF EXISTS $${DB_NAME};" && \
+	docker exec postgres-prod psql -U $${DB_USER} -d postgres -c "CREATE DATABASE $${DB_NAME};"; \
 	echo ""; \
 	echo "📥 Restoring from backup..."; \
 	source .env.prod && \
 	if [ -f "backups/postgres/manual/backup_$(BACKUP).sql.gz" ]; then \
-		gunzip -c backups/postgres/manual/backup_$(BACKUP).sql.gz | docker exec -i postgres-prod psql -U ${DB_USER} ${DB_NAME}; \
+		gunzip -c backups/postgres/manual/backup_$(BACKUP).sql.gz | docker exec -i postgres-prod psql -U $${DB_USER} $${DB_NAME}; \
 	elif [ -f "backups/postgres/hourly/backup_$(BACKUP).sql.gz" ]; then \
-		gunzip -c backups/postgres/hourly/backup_$(BACKUP).sql.gz | docker exec -i postgres-prod psql -U ${DB_USER} ${DB_NAME}; \
+		gunzip -c backups/postgres/hourly/backup_$(BACKUP).sql.gz | docker exec -i postgres-prod psql -U $${DB_USER} $${DB_NAME}; \
 	elif [ -f "backups/postgres/weekly/weekly_backup_$(BACKUP).sql.gz" ]; then \
-		gunzip -c backups/postgres/weekly/weekly_backup_$(BACKUP).sql.gz | docker exec -i postgres-prod psql -U ${DB_USER} ${DB_NAME}; \
+		gunzip -c backups/postgres/weekly/weekly_backup_$(BACKUP).sql.gz | docker exec -i postgres-prod psql -U $${DB_USER} $${DB_NAME}; \
 	fi; \
 	echo "✅ Database restored"; \
 	echo ""; \
@@ -414,33 +414,33 @@ test-restore-test:
 	echo ""; \
 	echo "📝 Creating test data..."; \
 	source .env.test && \
-	TEST_ID=$(date +%s) && \
-	docker exec postgres-test psql -U ${DB_USER} ${DB_NAME} -c "INSERT INTO patients (email, first_name, last_name) VALUES ('test${TEST_ID}@example.com', 'Test', 'Restore${TEST_ID}');" && \
-	echo "   Created patient: test${TEST_ID}@example.com"; \
+	TEST_ID=$$(date +%s) && \
+	docker exec postgres-test psql -U $${DB_USER} $${DB_NAME} -c "INSERT INTO patients (email, first_name, last_name) VALUES ('test$${TEST_ID}@example.com', 'Test', 'Restore$${TEST_ID}');" && \
+	echo "   Created patient: test$${TEST_ID}@example.com"; \
 	echo ""; \
 	echo "💾 Creating temporary test backup..."; \
 	$(MAKE) backup-test > /dev/null 2>&1; \
-	BACKUP_TIMESTAMP=$(ls -t backups/postgres/test/test_backup_*.sql.gz | head -1 | sed 's/.*test_backup_\([0-9_]*\)\.sql\.gz/\1/') && \
-	echo "   Backup timestamp: ${BACKUP_TIMESTAMP}" > .test_restore.tmp; \
+	BACKUP_TIMESTAMP=$$(ls -t backups/postgres/test/test_backup_*.sql.gz | head -1 | sed 's/.*test_backup_\([0-9_]*\)\.sql\.gz/\1/') && \
+	echo "   Backup timestamp: $${BACKUP_TIMESTAMP}" > .test_restore.tmp; \
 	echo ""; \
 	echo "🗑️  Deleting test data to simulate data loss..."; \
 	source .env.test && \
-	docker exec postgres-test psql -U ${DB_USER} ${DB_NAME} -c "DELETE FROM patients WHERE email LIKE 'test%@example.com';"; \
+	docker exec postgres-test psql -U $${DB_USER} $${DB_NAME} -c "DELETE FROM patients WHERE email LIKE 'test%@example.com';"; \
 	echo ""; \
 	echo "🔍 Verifying data is deleted..."; \
 	source .env.test && \
-	COUNT=$(docker exec postgres-test psql -U ${DB_USER} ${DB_NAME} -tc "SELECT COUNT(*) FROM patients WHERE email LIKE 'test%@example.com';" | tr -d ' ') && \
-	echo "   Test patients count: ${COUNT}"; \
+	COUNT=$$(docker exec postgres-test psql -U $${DB_USER} $${DB_NAME} -tc "SELECT COUNT(*) FROM patients WHERE email LIKE 'test%@example.com';" | tr -d ' ') && \
+	echo "   Test patients count: $${COUNT}"; \
 	echo ""; \
 	echo "🔄 Testing restore process..."; \
-	BACKUP_TIMESTAMP=$(cat .test_restore.tmp | grep "Backup timestamp:" | cut -d: -f2 | tr -d ' ') && \
-	$(MAKE) restore-test BACKUP=${BACKUP_TIMESTAMP} FROM=test; \
+	BACKUP_TIMESTAMP=$$(cat .test_restore.tmp | grep "Backup timestamp:" | cut -d: -f2 | tr -d ' ') && \
+	$(MAKE) restore-test BACKUP=$${BACKUP_TIMESTAMP} FROM=test; \
 	echo ""; \
 	echo "✅ Verifying data is restored..."; \
 	source .env.test && \
-	COUNT=$(docker exec postgres-test psql -U ${DB_USER} ${DB_NAME} -tc "SELECT COUNT(*) FROM patients WHERE email LIKE 'test%@example.com';" | tr -d ' ') && \
-	echo "   Test patients count after restore: ${COUNT}" && \
-	if [ "${COUNT}" -gt "0" ]; then \
+	COUNT=$$(docker exec postgres-test psql -U $${DB_USER} $${DB_NAME} -tc "SELECT COUNT(*) FROM patients WHERE email LIKE 'test%@example.com';" | tr -d ' ') && \
+	echo "   Test patients count after restore: $${COUNT}" && \
+	if [ "$${COUNT}" -gt "0" ]; then \
 		echo "✅ Restore test PASSED - data successfully restored!"; \
 	else \
 		echo "❌ Restore test FAILED - data not restored!"; \
