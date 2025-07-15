@@ -168,6 +168,55 @@ docker logs postgres | grep "database.*does not exist"
 
 ---
 
+## macOS zcat Compatibility Issue
+
+### Error
+```
+zcat: can't stat: backups/postgres/dev/dev_backup_20250715_162501.sql.gz (backups/postgres/dev/dev_backup_20250715_162501.sql.gz.Z): No such file or directory
+```
+
+### Cause
+On macOS, `zcat` expects `.Z` files (old Unix compress format), not `.gz` files. This causes the command to fail when trying to read gzipped backup files.
+
+### Solution
+Use `gunzip -c` instead of `zcat` for cross-platform compatibility:
+
+```python
+# In test files - replace zcat with gunzip -c
+result = subprocess.run(
+    ["gunzip", "-c", os.path.abspath(backup_file)],
+    capture_output=True,
+    text=True,
+    timeout=60
+)
+```
+
+### Alternative Solutions
+1. **macOS-specific**: Use `gzcat` (works only on macOS)
+```python
+["gzcat", os.path.abspath(backup_file)]
+```
+
+2. **Python native**: Use gzip module (most portable)
+```python
+import gzip
+
+with gzip.open(backup_file, 'rt') as f:
+    content = f.read()
+```
+
+### Platform Differences
+- **Linux**: `zcat` handles `.gz` files
+- **macOS**: `zcat` expects `.Z` files, use `gzcat` or `gunzip -c` for `.gz`
+- **Both**: `gunzip -c` works on all platforms
+
+### Prevention
+- Always use `gunzip -c` in scripts that need to be cross-platform
+- Test on both macOS and Linux environments
+- Consider using Python's gzip module for maximum portability
+
+---
+
 ## Enum Value Mismatch in API Requests
 
 ### Error
