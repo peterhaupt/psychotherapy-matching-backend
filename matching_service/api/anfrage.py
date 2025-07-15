@@ -293,7 +293,8 @@ class PlatzsucheListResource(PaginatedListResource):
                         "updated_at": s.updated_at.isoformat() if s.updated_at else None,
                         "aktive_anfragen": s.get_active_anfrage_count(),
                         "gesamt_anfragen": s.get_total_anfrage_count(),
-                        "ausgeschlossene_therapeuten_anzahl": len(s.ausgeschlossene_therapeuten) if s.ausgeschlossene_therapeuten else 0
+                        "ausgeschlossene_therapeuten_anzahl": len(s.ausgeschlossene_therapeuten) if s.ausgeschlossene_therapeuten else 0,
+                        "offen_fuer_gruppentherapie": patients.get(s.patient_id, {}).get('offen_fuer_gruppentherapie', False)
                     } for s in searches],
                     "page": page,
                     "limit": limit,

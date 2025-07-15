@@ -987,7 +987,8 @@ curl "http://localhost:8003/api/platzsuchen?status=aktiv"
       "created_at": "2025-06-07",
       "aktive_anfragen": 3,
       "gesamt_anfragen": 8,
-      "ausgeschlossene_therapeuten_anzahl": 2
+      "ausgeschlossene_therapeuten_anzahl": 2,
+      "offen_fuer_gruppentherapie": false
     }
   ],
   "page": 1,
