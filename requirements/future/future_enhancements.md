@@ -1,6 +1,6 @@
 # Future Enhancements - Priority Items
 
-**Document Version:** 2.1  
+**Document Version:** 2.2  
 **Date:** January 2025  
 **Status:** Requirements Gathering
 
@@ -166,11 +166,80 @@ Implement comprehensive testing to verify that emails are actually being sent an
 
 ---
 
+## 8. Automatic Removal of Successful Platzsuchen from Other Therapeutenanfragen - **NEW**
+
+### Current Issue
+When a patient is successfully matched (angenommen) in one therapeutenanfrage, they remain in all other pending therapeutenanfragen. This creates confusion and potential duplicate acceptances.
+
+### Requirement
+Implement automatic cleanup: when a patient's platzsuche becomes "erfolgreich", remove them from all other therapeutenanfragen where they haven't been answered yet.
+
+### Implementation Details
+- **Trigger:** When a patient is marked as "angenommen" in any therapeutenanfrage
+- **Action:** 
+  - Mark the platzsuche as "erfolgreich"
+  - Find all other therapeutenanfragen containing this patient
+  - For those where the patient hasn't been answered yet:
+    - Update patient status to indicate they were matched elsewhere
+    - Update the therapeutenanfrage response counts
+    - Notify therapist if the anfrage was already sent
+
+### Technical Considerations
+- Add new patient outcome status: "matched_elsewhere" or similar
+- Create background job/event handler for cleanup
+- Consider race conditions if multiple therapists accept simultaneously
+- Add audit trail for transparency
+- Update frontend to show when patients were matched elsewhere
+
+### Backend Changes Needed
+- New endpoint or enhancement to existing response recording
+- Kafka event for successful match propagation
+- Database queries to find and update affected records
+- Email notifications for affected therapists
+
+---
+
+## 9. Track Successful Match Details in Platzsuche - **NEW**
+
+### Current Issue
+When viewing a successful (erfolgreich) platzsuche, there's no direct way to see which therapist accepted the patient or which therapeutenanfrage led to the successful match.
+
+### Requirement
+Enhance the platzsuche model to track successful match details for better visibility and reporting.
+
+### Implementation Details
+- **New Fields in Platzsuche:**
+  - `erfolgreicher_therapeut_id` - ID of the therapist who accepted the patient
+  - `erfolgreiche_anfrage_id` - ID of the therapeutenanfrage that led to success
+  - Additional metadata (acceptance date, trial session dates, etc.)
+
+- **Display Enhancements:**
+  - Show therapist name and contact info in successful platzsuche details
+  - Link to the successful therapeutenanfrage
+  - Show timeline of the successful match process
+
+### Technical Considerations
+- Database migration to add new fields
+- Update the acceptance workflow to populate these fields
+- Enhance API responses to include therapist details
+- Update frontend to display match information
+- Consider data privacy for therapist information
+
+### Benefits
+- Better tracking for reporting and analytics
+- Easier follow-up and communication
+- Clear audit trail of successful matches
+- Improved user experience for administrators
+
+---
+
 ## Implementation Priority
 
 | Priority | Enhancement | Complexity | Impact |
 |----------|-------------|------------|--------|
 | **CRITICAL** | PostgreSQL Database Stability | High | Critical |
+| **High** | Automatic Removal of Successful Platzsuchen (#8) | Medium | High |
+| **High** | Track Successful Match Details (#9) | Low-Medium | High |
 | **High** | Patient Import Email Notifications | Low | Medium |
 | **High** | Kafka/Zookeeper Stability | Medium-High | High |
 | **High** | Email Delivery Testing and Verification | Medium | High |
@@ -186,6 +255,7 @@ Implement comprehensive testing to verify that emails are actually being sent an
 2. **Technical Investigation:** Deep dive into Kafka/Zookeeper issues
 3. **Audit Current Systems:** Review therapist import reporting logic and email delivery
 4. **Implementation Planning:** Create detailed technical specifications
+5. **Quick Wins:** Prioritize items #8 and #9 as they directly improve user experience
 
 ---
 
