@@ -1,6 +1,6 @@
 # Future Enhancements - Priority Items
 
-**Document Version:** 2.2  
+**Document Version:** 2.3  
 **Date:** January 2025  
 **Status:** Requirements Gathering
 
@@ -233,10 +233,51 @@ Enhance the platzsuche model to track successful match details for better visibi
 
 ---
 
+## 10. Investigation: Unexpected Database ID Gaps in Local Production - **CRITICAL NEW**
+
+### Current Issue
+In the local production environment, therapeutenanfragen IDs show unexpected gaps (IDs 1-10, then jumping to 42+). This is concerning because:
+- This is a **production environment** where no testing should occur
+- No known deletions or rollbacks have been performed
+- The gaps suggest 30+ records were somehow created and removed
+
+### Investigation Required
+- **Audit Database Logs:** Check PostgreSQL logs for DELETE operations or rolled back transactions
+- **Review Application Logs:** Look for errors during anfrage creation around those missing IDs
+- **Check for Automated Processes:** Identify any background jobs that might create/delete records
+- **Verify Environment Isolation:** Ensure no test processes are accidentally running in production
+- **Database Sequence Analysis:** Check the auto-increment sequence for anomalies
+
+### Potential Causes to Investigate
+- **Unintended Test Scripts:** Development or test scripts accidentally running against production
+- **Failed Bulk Operations:** Batch imports or migrations that partially failed
+- **Database Corruption:** Sequence corruption or transaction log issues
+- **Unauthorized Access:** Someone manually deleting records
+- **Application Bug:** Code path that creates and immediately deletes records
+- **Kafka Event Issues:** Events triggering unwanted record creation/deletion
+
+### Immediate Actions Needed
+- **Enable Detailed Audit Logging:** Track all INSERT/DELETE operations on therapeutenanfragen
+- **Review Access Controls:** Verify who has delete permissions in production
+- **Check Cron Jobs:** Audit all scheduled tasks and background workers
+- **Implement Monitoring:** Alert on unusual deletion patterns
+- **Database Integrity Check:** Run PostgreSQL integrity checks
+- **Review Recent Deployments:** Check if any recent code changes could cause this
+
+### Data to Collect
+- Exact time range when IDs 11-41 would have been created
+- Any error logs from that time period
+- Database connection logs showing which services accessed the DB
+- Kafka event logs for matching-events topic
+- Any manual SQL queries run against production
+
+---
+
 ## Implementation Priority
 
 | Priority | Enhancement | Complexity | Impact |
 |----------|-------------|------------|--------|
+| **CRITICAL** | Database ID Gap Investigation (#10) | Medium | Critical |
 | **CRITICAL** | PostgreSQL Database Stability | High | Critical |
 | **High** | Automatic Removal of Successful Platzsuchen (#8) | Medium | High |
 | **High** | Track Successful Match Details (#9) | Low-Medium | High |
@@ -251,14 +292,15 @@ Enhance the platzsuche model to track successful match details for better visibi
 
 ## Next Steps
 
-1. **Requirements Clarification:** Schedule discussion sessions for items 2-5 and 7
-2. **Technical Investigation:** Deep dive into Kafka/Zookeeper issues
-3. **Audit Current Systems:** Review therapist import reporting logic and email delivery
-4. **Implementation Planning:** Create detailed technical specifications
-5. **Quick Wins:** Prioritize items #8 and #9 as they directly improve user experience
+1. **URGENT:** Investigate database ID gaps in production environment
+2. **Requirements Clarification:** Schedule discussion sessions for items 2-5 and 7
+3. **Technical Investigation:** Deep dive into Kafka/Zookeeper issues
+4. **Audit Current Systems:** Review therapist import reporting logic and email delivery
+5. **Implementation Planning:** Create detailed technical specifications
+6. **Quick Wins:** Prioritize items #8 and #9 as they directly improve user experience
 
 ---
 
 **Document Owner:** Development Team  
 **Last Updated:** January 2025  
-**Next Review:** After requirements clarification sessions
+**Next Review:** After database investigation and requirements clarification sessions
