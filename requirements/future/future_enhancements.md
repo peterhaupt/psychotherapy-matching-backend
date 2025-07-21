@@ -1,6 +1,6 @@
 # Future Enhancements - Priority Items
 
-**Document Version:** 2.4  
+**Document Version:** 2.6  
 **Date:** January 2025  
 **Status:** Requirements Gathering
 
@@ -503,6 +503,241 @@ Adjust the dashboard logic to exclude patients who have successfully been matche
 
 ---
 
+## 18. Handle Duplicate Patient Registrations During Import - **NEW**
+
+### Current Issue
+Patients can register multiple times on the website, creating duplicate records in the system. This leads to data integrity issues, inefficient resource usage, and confusion in patient management.
+
+### Requirement
+Implement robust duplicate detection and handling mechanism for patient imports and registrations.
+
+### Implementation Details
+- **Duplicate Detection Methods:**
+  - Create and maintain email hash index for quick duplicate checking
+  - Compare normalized email addresses (lowercase, trim whitespace)
+  - Consider additional matching criteria:
+    - Phone number matching
+    - Name + birthdate combination
+    - Address similarity scoring
+
+- **Email Hash Implementation:**
+  - Generate SHA-256 hash of normalized email addresses
+  - Store hashes in indexed database column or Redis cache
+  - Check against hash list before creating new patient records
+  - Update hash list in real-time as patients are added
+
+- **Duplicate Handling Strategies:**
+  - **Merge Strategy:** Combine data from duplicate registrations
+  - **Update Strategy:** Update existing record with new information
+  - **Reject Strategy:** Reject duplicate and notify user
+  - **Manual Review:** Flag for admin review
+
+### Technical Considerations
+- Create database index on email hash for performance
+- Implement batch duplicate checking for bulk imports
+- Add duplicate detection to both import process and web registration
+- Create audit trail for merged/updated records
+- Handle edge cases (email changes, typos, etc.)
+
+### User Experience
+- Clear messaging when duplicate registration attempted
+- Option to update existing information
+- Admin interface to review and resolve duplicates
+- Duplicate statistics and reporting
+
+### GDPR Compliance
+- Ensure email hashing is one-way and irreversible
+- Document duplicate handling in privacy policy
+- Provide transparency about data merging
+
+---
+
+## 19. Handle Duplicate Therapists with Same Email Address - **NEW**
+
+### Current Issue
+Multiple therapists working in the same practice often share the same email address, causing system conflicts and communication issues. The system needs to properly handle this common scenario.
+
+### Requirement
+Implement a solution that allows multiple therapists to share email addresses while maintaining individual therapist identities and proper communication routing.
+
+### Implementation Details
+- **Data Model Enhancement:**
+  - Separate therapist personal email from practice email
+  - Add fields:
+    - `practice_email` - Shared practice email
+    - `personal_email` - Individual therapist email (optional)
+    - `is_primary_contact` - Flag for main contact at practice
+    - `practice_id` - Link therapists to same practice
+
+- **Communication Routing:**
+  - For shared emails, send consolidated communications
+  - Include all relevant therapists' information in emails
+  - Implement email templates that handle multiple therapists
+  - Add "on behalf of" functionality for practice emails
+
+- **Duplicate Detection:**
+  - Allow multiple therapists with same practice_email
+  - Prevent exact duplicates (same name + same email)
+  - Warn during import/creation about potential duplicates
+  - Provide merge functionality for accidental duplicates
+
+### Technical Implementation
+- **Database Changes:**
+  - Remove unique constraint on therapist email
+  - Add composite unique constraint on (name + email)
+  - Create practice table to group therapists
+  - Add indexes for efficient duplicate checking
+
+- **Import Process Updates:**
+  - Enhanced duplicate detection logic
+  - Automatic practice grouping based on email domain
+  - Manual review interface for ambiguous cases
+  - Batch processing for practice associations
+
+- **API Changes:**
+  - Update therapist creation/update endpoints
+  - Add practice management endpoints
+  - Modify email sending logic for grouped communications
+
+### User Interface Enhancements
+- Practice management interface
+- Visual indicators for therapists in same practice
+- Bulk email options for practice communications
+- Clear duplicate warning messages
+
+### Benefits
+- Accurate representation of real-world practice structures
+- Improved communication efficiency
+- Reduced data entry errors
+- Better therapist relationship management
+
+---
+
+## 20. Fix Missing City Data for Therapists - **NEW**
+
+### Current Issue
+Multiple therapists have missing city information in the database, which is a frequently occurring problem affecting data completeness and communication accuracy. This impacts therapist location-based searches and correspondence.
+
+### Known Cases
+- Carl-Friedolin Becker - missing city: **Roetgen**
+- Evelyn Gati - missing city: **Roetgen**
+- Additional cases to be identified through data audit
+
+### Requirement
+Implement a comprehensive solution to identify and fix missing city data for therapists, and prevent future occurrences.
+
+### Implementation Details
+- **Immediate Data Fix:**
+  - Run database audit to identify all therapists with missing city data
+  - Update known cases immediately:
+    - Carl-Friedolin Becker → Roetgen
+    - Evelyn Gati → Roetgen
+  - Create list of all affected therapists for manual review
+
+- **Data Validation:**
+  - Add NOT NULL constraint on city field after cleanup
+  - Implement validation in therapist import process
+  - Add city as required field in therapist creation forms
+  - Validate against list of known German cities/postal codes
+
+- **Import Process Enhancement:**
+  - Add city validation during CSV/bulk imports
+  - Flag records with missing cities for review
+  - Implement postal code to city lookup
+  - Add data quality reports for imports
+
+### Technical Implementation
+- **Database Changes:**
+  ```sql
+  -- Immediate fix for known cases
+  UPDATE therapists SET city = 'Roetgen' 
+  WHERE name IN ('Carl-Friedolin Becker', 'Evelyn Gati');
+  
+  -- Find all therapists with missing cities
+  SELECT id, name, street, postal_code 
+  FROM therapists 
+  WHERE city IS NULL OR city = '';
+  ```
+
+- **Backend Validation:**
+  - Add city field validation in therapist model
+  - Implement address validation service
+  - Add data completeness checks
+
+- **Frontend Changes:**
+  - Make city field required in all forms
+  - Add autocomplete for German cities
+  - Show validation errors clearly
+
+### Prevention Strategy
+- Regular data quality audits
+- Automated alerts for incomplete therapist profiles
+- Import rejection for records missing required fields
+- Monthly data completeness reports
+
+---
+
+## 21. Automatic Reminders for Missing PTV11 Forms - **NEW**
+
+### Requirement
+Implement an automated email reminder system for patients who haven't submitted their PTV11 forms, reducing manual follow-up work and improving form submission rates.
+
+### Specification
+- **Target Patients:**
+  - Patients with status requiring PTV11
+  - No PTV11 form on file
+  - Haven't received a reminder in the last X days
+
+- **Reminder Schedule:**
+  - Initial reminder: 3 days after patient registration
+  - Second reminder: 7 days after registration
+  - Third reminder: 14 days after registration
+  - Final reminder: 21 days after registration
+  - Stop reminders after 4 attempts or form submission
+
+- **Email Content:**
+  - Personalized greeting
+  - Clear explanation of PTV11 requirement
+  - Step-by-step submission instructions
+  - Direct upload link or attachment options
+  - Contact information for help
+  - Deadline/urgency messaging
+
+### Implementation Details
+- **Automated Scheduling:**
+  - Cron job or scheduled task for daily reminder checks
+  - Queue system for email delivery
+  - Respect business hours and weekends
+  - Holiday blackout dates
+
+- **Tracking and Analytics:**
+  - Track reminder sent timestamps
+  - Monitor form submission rates post-reminder
+  - A/B test different email templates
+  - Dashboard for reminder effectiveness
+
+- **Configuration Options:**
+  - Adjustable reminder intervals
+  - Template customization
+  - Enable/disable per patient
+  - Bulk pause functionality
+
+### Technical Considerations
+- Integration with existing communication service
+- Database fields for tracking reminder history
+- Unsubscribe/opt-out mechanism
+- GDPR compliance for automated communications
+- Rate limiting to prevent spam
+- Email delivery monitoring
+
+### Success Metrics
+- Form submission rate improvement
+- Time to submission reduction
+- Manual follow-up reduction
+- Patient satisfaction scores
+
+---
+
 ## Implementation Priority
 
 | Priority | Enhancement | Complexity | Impact |
@@ -510,6 +745,10 @@ Adjust the dashboard logic to exclude patients who have successfully been matche
 | **CRITICAL** | Database ID Gap Investigation (#10) | Medium | Critical |
 | **CRITICAL** | Internal Server Error After Sending Emails (#12) | Medium-High | Critical |
 | **CRITICAL** | PostgreSQL Database Stability (#6) | High | Critical |
+| **CRITICAL** | Handle Duplicate Patient Registrations (#18) | Medium-High | Critical |
+| **High** | Fix Missing City Data for Therapists (#20) | Low-Medium | High |
+| **High** | Handle Duplicate Therapists with Same Email (#19) | Medium-High | High |
+| **High** | Automatic Reminders for Missing PTV11 Forms (#21) | Medium | High |
 | **High** | Fix Therapeutenanfrage Frontend Exit Issue (#13) | Low | High |
 | **High** | Improve Patient Eligibility Criteria (#14) | Medium | High |
 | **High** | Automatic Removal of Successful Platzsuchen (#8) | Medium | High |
@@ -531,12 +770,16 @@ Adjust the dashboard logic to exclude patients who have successfully been matche
 
 1. **URGENT:** Investigate database ID gaps in production environment
 2. **URGENT:** Resolve internal server errors affecting email functionality
-3. **Quick Wins:** Implement frontend fixes (#13, #17) and eligibility improvements (#14)
-4. **Requirements Clarification:** Schedule discussion sessions for items #2-5, #7, and #15
-5. **Technical Investigation:** Deep dive into Kafka/Zookeeper issues
-6. **Audit Current Systems:** Review therapist import reporting logic and email delivery
-7. **Implementation Planning:** Create detailed technical specifications for high-priority items
-8. **User Experience:** Prioritize items #8, #9, #13, #14, and #17 for immediate UX improvements
+3. **URGENT:** Implement duplicate handling for patients (#18) to ensure data integrity
+4. **URGENT:** Fix missing city data for known therapists (#20) and audit for additional cases
+5. **Quick Wins:** Implement frontend fixes (#13, #17) and eligibility improvements (#14)
+6. **Data Quality:** Design and implement therapist duplicate handling (#19) and city validation
+7. **Automation:** Implement automatic PTV11 form reminders (#21) to reduce manual work
+8. **Requirements Clarification:** Schedule discussion sessions for items #2-5, #7, and #15
+9. **Technical Investigation:** Deep dive into Kafka/Zookeeper issues
+10. **Audit Current Systems:** Review therapist import reporting logic and email delivery
+11. **Implementation Planning:** Create detailed technical specifications for high-priority items
+12. **User Experience:** Prioritize items #8, #9, #13, #14, and #17 for immediate UX improvements
 
 ---
 
