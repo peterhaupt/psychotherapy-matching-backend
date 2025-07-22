@@ -1,6 +1,6 @@
 # Future Enhancements - Priority Items
 
-**Document Version:** 2.6  
+**Document Version:** 2.7  
 **Date:** January 2025  
 **Status:** Requirements Gathering
 
@@ -738,6 +738,296 @@ Implement an automated email reminder system for patients who haven't submitted 
 
 ---
 
+## 22. Enhanced Support for Multi-Location Practices - **NEW**
+
+### Current Issue
+Practices with two or more locations are currently treated as independent duplicates in the system, causing confusion and inefficient management of therapist data.
+
+### Requirement
+Implement proper support for practices with multiple locations while maintaining distinct location information.
+
+### Implementation Details
+- **Data Model Enhancement:**
+  - Create `practice` entity to group related locations
+  - Add `location` entity linked to practices
+  - Allow therapists to be associated with multiple locations
+  - Track primary vs secondary locations for therapists
+
+- **Location Management:**
+  - Each location maintains separate:
+    - Address and contact information
+    - Operating hours
+    - Available services
+    - Capacity information
+  - Shared across locations:
+    - Practice name and branding
+    - Administrative contacts
+    - Billing information
+
+- **Search and Matching:**
+  - Include all practice locations in therapist searches
+  - Show distance to each location
+  - Allow patients to select preferred location
+  - Consider availability at each location separately
+
+### Technical Implementation
+- **Database Schema:**
+  ```sql
+  practices (id, name, primary_email, website)
+  practice_locations (id, practice_id, address, city, postal_code, phone)
+  therapist_locations (therapist_id, location_id, is_primary, days_available)
+  ```
+
+- **API Changes:**
+  - New endpoints for practice management
+  - Updated therapist endpoints to include location data
+  - Location-aware search functionality
+
+- **Import Process:**
+  - Detect practices based on shared attributes
+  - Group locations automatically where possible
+  - Manual review interface for ambiguous cases
+
+### Benefits
+- Accurate representation of practice structures
+- Better patient-therapist matching
+- Reduced duplicate data entry
+- Improved location-based searching
+
+---
+
+## 23. Grammar Correction for Singular Patient in Therapeutenanfrage - **NEW**
+
+### Current Issue
+When a therapeutenanfrage contains only 1 patient, the system uses plural grammar forms, creating unprofessional communications.
+
+### Requirement
+Implement dynamic text adjustment to use singular forms when exactly one patient is in a therapeutenanfrage.
+
+### Implementation Details
+- **Text Templates to Update:**
+  - Email subjects and bodies
+  - UI labels and messages
+  - PDF reports and documents
+  - Notification messages
+
+- **Conditional Logic:**
+  ```javascript
+  // Example implementation
+  const patientText = patientCount === 1 
+    ? "1 Patient" 
+    : `${patientCount} Patienten`;
+  
+  const verbForm = patientCount === 1 
+    ? "wurde" 
+    : "wurden";
+  ```
+
+- **Affected Areas:**
+  - Therapeutenanfrage creation confirmation
+  - Email templates to therapists
+  - Dashboard statistics
+  - Report generation
+  - Status messages
+
+### Technical Implementation
+- Create localization helper functions
+- Update all email templates
+- Modify frontend components
+- Add pluralization logic to backend
+- Test all edge cases (0, 1, many)
+
+### Languages to Support
+- German (primary)
+- Consider English translations
+
+---
+
+## 24. Phone Call Templates for Patient Communication - **NEW**
+
+### Current Issue
+Staff members lack standardized scripts for phone calls with patients, leading to inconsistent communication and missed important topics.
+
+### Requirement
+Create customizable phone call templates for various patient interaction scenarios.
+
+### Template Categories
+- **First Contact Call:**
+  - Introduction and verification
+  - Explanation of services
+  - Initial information gathering
+  - Next steps explanation
+
+- **Follow-up Calls:**
+  - Status updates
+  - Document reminders
+  - Appointment scheduling
+  - Problem resolution
+
+- **Special Situations:**
+  - Payment discussions
+  - Complaint handling
+  - Emergency protocols
+  - Therapist matching updates
+
+### Implementation Details
+- **Template Management System:**
+  - Create/edit/delete templates
+  - Version control for templates
+  - Categorization and tagging
+  - Search functionality
+
+- **Call Script Features:**
+  - Dynamic field insertion (patient name, dates, etc.)
+  - Branching logic for different scenarios
+  - Checkboxes for covered topics
+  - Notes section for call outcomes
+
+- **Integration Points:**
+  - Link templates to patient records
+  - Auto-populate patient information
+  - Save call notes to patient history
+  - Generate follow-up tasks
+
+### Technical Implementation
+- Database schema for templates
+- Template editor interface
+- Variable substitution engine
+- Call history tracking
+- Reporting on template usage
+
+### Training and Compliance
+- Mandatory templates for certain call types
+- Training mode for new staff
+- Quality assurance reviews
+- Performance metrics
+
+---
+
+## 25. Patient Payment Tracking System - **NEW**
+
+### Current Issue
+No systematic way to document whether patients have paid for services, causing billing confusion and follow-up difficulties.
+
+### Requirement
+Implement comprehensive payment tracking functionality integrated with patient records.
+
+### Payment Information to Track
+- **Payment Status:**
+  - Not yet billed
+  - Invoice sent
+  - Partially paid
+  - Fully paid
+  - Overdue
+  - Disputed
+
+- **Payment Details:**
+  - Invoice number and date
+  - Amount due and paid
+  - Payment method
+  - Payment date
+  - Outstanding balance
+
+- **Payment Types:**
+  - Registration fees
+  - Service charges
+  - Additional assessments
+  - Refunds/credits
+
+### Implementation Details
+- **Database Schema:**
+  ```sql
+  patient_payments (
+    id, patient_id, invoice_number,
+    amount_due, amount_paid, 
+    payment_date, payment_method,
+    status, notes
+  )
+  ```
+
+- **User Interface:**
+  - Payment status indicator on patient profile
+  - Payment history tab
+  - Quick payment entry form
+  - Bulk payment processing
+  - Payment reports and exports
+
+- **Automated Features:**
+  - Overdue payment alerts
+  - Payment reminder emails
+  - Receipt generation
+  - Monthly billing reports
+
+### Integration Points
+- Patient management system
+- Email communication service
+- Accounting software export
+- Dashboard statistics
+
+### Compliance Considerations
+- GDPR compliance for financial data
+- Audit trail for all payment changes
+- Access control for payment information
+- Data retention policies
+
+---
+
+## 26. Fix Non-Functional Automatic Reminders and Follow-up Calls - **CRITICAL NEW**
+
+### Current Issue
+Automatic reminders and follow-up call scheduling features appear to be broken or non-functional, requiring manual intervention for all patient communications.
+
+### Investigation Required
+- **System Analysis:**
+  - Identify which reminder types are affected
+  - Check cron job/scheduler status
+  - Review error logs for failed executions
+  - Verify database triggers and events
+
+- **Affected Features:**
+  - PTV11 form reminders
+  - Appointment reminders
+  - Follow-up call scheduling
+  - Status update notifications
+  - Payment reminders
+
+### Root Cause Analysis
+- **Potential Issues:**
+  - Scheduler service not running
+  - Database connection problems
+  - Email service integration failures
+  - Incorrect configuration after deployment
+  - Time zone handling issues
+  - Queue processing failures
+
+### Implementation Fix
+- **Immediate Actions:**
+  - Restart scheduler services
+  - Check and fix configuration
+  - Clear any blocked queues
+  - Implement health checks
+
+- **Long-term Solutions:**
+  - Add monitoring and alerting
+  - Implement fallback mechanisms
+  - Create manual trigger options
+  - Add detailed logging
+  - Set up automated testing
+
+### Testing Requirements
+- Unit tests for reminder logic
+- Integration tests for full workflow
+- Load testing for bulk reminders
+- Manual verification procedures
+
+### Success Metrics
+- Reminder delivery rate > 99%
+- On-time delivery accuracy
+- Reduced manual interventions
+- Staff time savings
+
+---
+
 ## Implementation Priority
 
 | Priority | Enhancement | Complexity | Impact |
@@ -746,6 +1036,7 @@ Implement an automated email reminder system for patients who haven't submitted 
 | **CRITICAL** | Internal Server Error After Sending Emails (#12) | Medium-High | Critical |
 | **CRITICAL** | PostgreSQL Database Stability (#6) | High | Critical |
 | **CRITICAL** | Handle Duplicate Patient Registrations (#18) | Medium-High | Critical |
+| **CRITICAL** | Fix Non-Functional Automatic Reminders (#26) | Medium | Critical |
 | **High** | Fix Missing City Data for Therapists (#20) | Low-Medium | High |
 | **High** | Handle Duplicate Therapists with Same Email (#19) | Medium-High | High |
 | **High** | Automatic Reminders for Missing PTV11 Forms (#21) | Medium | High |
@@ -754,9 +1045,13 @@ Implement an automated email reminder system for patients who haven't submitted 
 | **High** | Automatic Removal of Successful Platzsuchen (#8) | Medium | High |
 | **High** | Track Successful Match Details (#9) | Low-Medium | High |
 | **High** | Fix Dashboard "Ohne Aktive Platzsuche" (#17) | Low-Medium | High |
+| **High** | Patient Payment Tracking System (#25) | Medium-High | High |
 | **High** | Patient Import Email Notifications (#1) | Low | Medium |
 | **High** | Kafka/Zookeeper Stability (#3) | Medium-High | High |
 | **High** | Email Delivery Testing and Verification (#7) | Medium | High |
+| **Medium** | Enhanced Support for Multi-Location Practices (#22) | High | Medium |
+| **Medium** | Grammar Correction for Singular Patient (#23) | Low | Medium |
+| **Medium** | Phone Call Templates (#24) | Medium | Medium |
 | **Medium** | PTV11 Form Email Reminder (#11) | Low-Medium | Medium |
 | **Medium** | Track Incoming Emails (#15) | High | Medium |
 | **Medium** | Add Pagination for Therapist Selection (#16) | Medium | Medium |
@@ -770,16 +1065,19 @@ Implement an automated email reminder system for patients who haven't submitted 
 
 1. **URGENT:** Investigate database ID gaps in production environment
 2. **URGENT:** Resolve internal server errors affecting email functionality
-3. **URGENT:** Implement duplicate handling for patients (#18) to ensure data integrity
-4. **URGENT:** Fix missing city data for known therapists (#20) and audit for additional cases
-5. **Quick Wins:** Implement frontend fixes (#13, #17) and eligibility improvements (#14)
-6. **Data Quality:** Design and implement therapist duplicate handling (#19) and city validation
-7. **Automation:** Implement automatic PTV11 form reminders (#21) to reduce manual work
-8. **Requirements Clarification:** Schedule discussion sessions for items #2-5, #7, and #15
-9. **Technical Investigation:** Deep dive into Kafka/Zookeeper issues
-10. **Audit Current Systems:** Review therapist import reporting logic and email delivery
-11. **Implementation Planning:** Create detailed technical specifications for high-priority items
-12. **User Experience:** Prioritize items #8, #9, #13, #14, and #17 for immediate UX improvements
+3. **URGENT:** Fix non-functional automatic reminders and follow-up systems (#26)
+4. **URGENT:** Implement duplicate handling for patients (#18) to ensure data integrity
+5. **URGENT:** Fix missing city data for known therapists (#20) and audit for additional cases
+6. **Quick Wins:** Implement frontend fixes (#13, #17, #23) and eligibility improvements (#14)
+7. **Payment System:** Design and implement patient payment tracking (#25) for better financial management
+8. **Communication:** Implement phone call templates (#24) for standardized patient communication
+9. **Data Quality:** Design and implement therapist duplicate handling (#19) and multi-location support (#22)
+10. **Automation:** Implement automatic PTV11 form reminders (#21) to reduce manual work
+11. **Requirements Clarification:** Schedule discussion sessions for items #2-5, #7, and #15
+12. **Technical Investigation:** Deep dive into Kafka/Zookeeper issues
+13. **Audit Current Systems:** Review therapist import reporting logic and email delivery
+14. **Implementation Planning:** Create detailed technical specifications for high-priority items
+15. **User Experience:** Prioritize items #8, #9, #13, #14, #17, and #23 for immediate UX improvements
 
 ---
 
