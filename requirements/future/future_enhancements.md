@@ -1,6 +1,6 @@
 # Future Enhancements - Priority Items
 
-**Document Version:** 2.7  
+**Document Version:** 2.8  
 **Date:** January 2025  
 **Status:** Requirements Gathering
 
@@ -1028,6 +1028,78 @@ Automatic reminders and follow-up call scheduling features appear to be broken o
 
 ---
 
+## 27. Fix ICD10 Diagnostic Matching Logic - **HIGH PRIORITY NEW**
+
+### Current Issue
+The logic for matching patient ICD10 diagnoses with therapist preferences needs to be reviewed and fixed. Specifically, single/parent diagnoses from patients are not properly matching with therapist group preferences (subcategories).
+
+### Example Case
+- **Therapist:** Angela Fath-Volk
+- **Issue:** Patient with single diagnosis F40 or F41 not matching with therapist who has preferences for F40.0, F40.1, etc.
+- **Expected Behavior:** Parent diagnosis (F40) should match all child diagnoses (F40.0, F40.1, F40.2, etc.)
+
+### Requirements
+Implement proper hierarchical matching logic for ICD10 codes where:
+- Parent codes (e.g., F40, F41) match all their subcategories
+- Exact matches still take precedence
+- Bidirectional matching works correctly
+
+### Implementation Details
+- **Matching Logic Enhancement:**
+  - Patient diagnosis F40 should match therapist preferences: F40, F40.0, F40.1, F40.2, etc.
+  - Patient diagnosis F40.1 should match therapist preferences: F40, F40.1
+  - Consider ICD10 hierarchy depth (up to 5 levels)
+
+- **Database Queries:**
+  - Update matching queries to use LIKE operator for prefix matching
+  - Consider creating ICD10 hierarchy lookup table
+  - Optimize for performance with proper indexes
+
+- **Test Cases:**
+  ```
+  Patient: F40    → Therapist: F40.0  ✓ (should match)
+  Patient: F40    → Therapist: F41.0  ✗ (should not match)
+  Patient: F40.1  → Therapist: F40    ✓ (should match)
+  Patient: F40.1  → Therapist: F40.1  ✓ (should match)
+  Patient: F40.1  → Therapist: F40.2  ✗ (should not match)
+  ```
+
+### Technical Implementation
+- **Algorithm Update:**
+  ```sql
+  -- Example matching logic
+  SELECT * FROM therapists t
+  WHERE EXISTS (
+    SELECT 1 FROM therapist_icd10_preferences p
+    WHERE p.therapist_id = t.id
+    AND (
+      p.icd10_code = patient_diagnosis -- exact match
+      OR patient_diagnosis LIKE p.icd10_code || '%' -- patient has parent
+      OR p.icd10_code LIKE patient_diagnosis || '%' -- therapist has parent
+    )
+  )
+  ```
+
+- **Performance Optimization:**
+  - Create ICD10 hierarchy table with parent-child relationships
+  - Use materialized views for common matching patterns
+  - Add appropriate database indexes
+
+### Investigation Areas
+- Audit current matching algorithm
+- Review all edge cases in production
+- Check Angela Fath-Volk specific configuration
+- Identify other affected therapist-patient pairs
+- Performance impact of enhanced matching
+
+### Testing Requirements
+- Comprehensive unit tests for all matching scenarios
+- Integration tests with real ICD10 codes
+- Performance testing with large datasets
+- Manual verification of known problematic cases
+
+---
+
 ## Implementation Priority
 
 | Priority | Enhancement | Complexity | Impact |
@@ -1037,6 +1109,7 @@ Automatic reminders and follow-up call scheduling features appear to be broken o
 | **CRITICAL** | PostgreSQL Database Stability (#6) | High | Critical |
 | **CRITICAL** | Handle Duplicate Patient Registrations (#18) | Medium-High | Critical |
 | **CRITICAL** | Fix Non-Functional Automatic Reminders (#26) | Medium | Critical |
+| **High** | Fix ICD10 Diagnostic Matching Logic (#27) | Medium-High | High |
 | **High** | Fix Missing City Data for Therapists (#20) | Low-Medium | High |
 | **High** | Handle Duplicate Therapists with Same Email (#19) | Medium-High | High |
 | **High** | Automatic Reminders for Missing PTV11 Forms (#21) | Medium | High |
@@ -1067,17 +1140,18 @@ Automatic reminders and follow-up call scheduling features appear to be broken o
 2. **URGENT:** Resolve internal server errors affecting email functionality
 3. **URGENT:** Fix non-functional automatic reminders and follow-up systems (#26)
 4. **URGENT:** Implement duplicate handling for patients (#18) to ensure data integrity
-5. **URGENT:** Fix missing city data for known therapists (#20) and audit for additional cases
-6. **Quick Wins:** Implement frontend fixes (#13, #17, #23) and eligibility improvements (#14)
-7. **Payment System:** Design and implement patient payment tracking (#25) for better financial management
-8. **Communication:** Implement phone call templates (#24) for standardized patient communication
-9. **Data Quality:** Design and implement therapist duplicate handling (#19) and multi-location support (#22)
-10. **Automation:** Implement automatic PTV11 form reminders (#21) to reduce manual work
-11. **Requirements Clarification:** Schedule discussion sessions for items #2-5, #7, and #15
-12. **Technical Investigation:** Deep dive into Kafka/Zookeeper issues
-13. **Audit Current Systems:** Review therapist import reporting logic and email delivery
-14. **Implementation Planning:** Create detailed technical specifications for high-priority items
-15. **User Experience:** Prioritize items #8, #9, #13, #14, #17, and #23 for immediate UX improvements
+5. **URGENT:** Fix ICD10 diagnostic matching logic (#27) - review Angela Fath-Volk case
+6. **URGENT:** Fix missing city data for known therapists (#20) and audit for additional cases
+7. **Quick Wins:** Implement frontend fixes (#13, #17, #23) and eligibility improvements (#14)
+8. **Payment System:** Design and implement patient payment tracking (#25) for better financial management
+9. **Communication:** Implement phone call templates (#24) for standardized patient communication
+10. **Data Quality:** Design and implement therapist duplicate handling (#19) and multi-location support (#22)
+11. **Automation:** Implement automatic PTV11 form reminders (#21) to reduce manual work
+12. **Requirements Clarification:** Schedule discussion sessions for items #2-5, #7, and #15
+13. **Technical Investigation:** Deep dive into Kafka/Zookeeper issues
+14. **Audit Current Systems:** Review therapist import reporting logic and email delivery
+15. **Implementation Planning:** Create detailed technical specifications for high-priority items
+16. **User Experience:** Prioritize items #8, #9, #13, #14, #17, and #23 for immediate UX improvements
 
 ---
 
