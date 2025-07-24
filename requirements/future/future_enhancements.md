@@ -1,30 +1,149 @@
 # Future Enhancements - Priority Items
 
-**Document Version:** 2.8  
+**Document Version:** 3.0  
 **Date:** January 2025  
-**Status:** Requirements Gathering
+**Status:** Requirements Gathering (Updated)
 
 ---
 
-## 1. Email Notifications for Patient Imports from GCS
+## 1. Comprehensive Email Automation and Template System - **HIGH PRIORITY**
 
-### Requirement
-Send an email notification to `info@curavani.com` for each new patient successfully imported from GCS.
+### Overview
+Implement a comprehensive email automation system that handles all patient and therapist communications throughout the entire journey, with both automatic triggers and manual template options.
 
-### Specification
-- **Trigger:** One email per patient imported
-- **Recipient:** `info@curavani.com`
-- **Email Content:**
-  - Patient name
-  - Import timestamp
-  - File source (GCS bucket/path)
-  - Validation status
+### Automatic Email Categories
 
-### Implementation Notes
-- Email should be sent after successful import to patient-service
-- Use existing communication service for email delivery
-- Consider email template for consistent formatting
-- Add configuration option to enable/disable notifications
+#### A. Patient Onboarding & Registration
+- **Welcome Email After Registration**
+  - Trigger: Immediately after patient signs up
+  - Content: Welcome message, next steps, required documents
+  - Includes: PTV11 form requirements, timeline expectations
+
+- **Post-Contact Signing Next Steps**
+  - Trigger: After patient signs initial contact/agreement
+  - Content: Clear next steps, timeline, what to expect
+  - Includes: Document checklist, contact information
+
+- **Patient Import Notifications** (to staff)
+  - Trigger: Each successful GCS import
+  - Recipient: `info@curavani.com`
+  - Content: Patient name, import timestamp, file source, validation status
+
+#### B. Document & Form Reminders
+- **PTV11 Form Reminders**
+  - Schedule: 3, 7, 14, and 21 days after registration
+  - Stop after: Form submission or 4 attempts
+  - Content: Importance of form, submission instructions, deadline
+  - Manual option: One-click reminder button in admin
+
+#### C. Therapy Matching Communications
+- **Weekly Status Updates**
+  - Trigger: Weekly for patients with active platzsuchen
+  - Content: Search progress, therapists contacted, next steps
+  - Opt-out option available
+
+- **First Meeting Coordination (Without Fixed Time)**
+  - Trigger: When therapist shows interest but hasn't proposed time
+  - Content: Therapist contact info, suggested time ranges
+  - Action: Patient to contact therapist directly
+
+- **First Meeting Confirmation (With Proposed Time)**
+  - Trigger: When therapist suggests specific appointment time
+  - Content: Proposed time, location, confirmation request
+  - Actions: Accept/decline buttons, alternative time request
+
+- **Therapist Rejection Follow-up**
+  - Trigger: When therapist rejects patient (no availability, etc.)
+  - Content: Acknowledgment, alternative options, continued search
+  - Tone: Supportive and encouraging
+
+#### D. Ongoing Care & Follow-up
+- **Therapy Check-in Emails**
+  - Schedule: 4 weeks after therapy start, then quarterly
+  - Content: Satisfaction check, support offer, feedback request
+  - Purpose: Ensure therapy is progressing well
+
+### Manual Email Templates
+
+#### Categories of Templates
+1. **Initial Contact Templates**
+   - First outreach to patients
+   - Information requests
+   - Document reminders
+
+2. **Status Update Templates**
+   - Search progress updates
+   - Waiting list notifications
+   - General check-ins
+
+3. **Problem Resolution Templates**
+   - Payment issues
+   - Document problems
+   - Complaint responses
+
+4. **Appointment Coordination**
+   - Schedule changes
+   - Cancellations
+   - Rescheduling
+
+### Implementation Details
+
+#### Technical Architecture
+- **Email Service Enhancement**
+  - Centralized template management system
+  - Variable substitution engine
+  - Multi-language support (German primary)
+  - HTML and plain text versions
+
+- **Automation Engine**
+  - Event-driven triggers
+  - Scheduled job processor
+  - Rate limiting and throttling
+  - Retry logic for failures
+
+- **Template Management System**
+  - WYSIWYG editor for staff
+  - Version control for templates
+  - A/B testing capability
+  - Preview functionality
+
+#### Database Schema
+```sql
+email_templates (
+  id, name, category, subject, body_html, body_text,
+  variables, trigger_type, schedule, version, active
+)
+
+email_automation_rules (
+  id, template_id, trigger_event, conditions,
+  delay_minutes, max_sends, active
+)
+
+email_log (
+  id, patient_id, template_id, sent_at, status,
+  open_count, click_count, error_message
+)
+```
+
+#### Configuration Options
+- Enable/disable individual automation rules
+- Customizable sending schedules
+- Business hours enforcement
+- Holiday blackout dates
+- Per-patient opt-out preferences
+
+### Success Metrics
+- Email open rates by category
+- Response/action rates
+- Reduction in manual follow-ups
+- Patient satisfaction scores
+- Time saved by staff
+
+### GDPR Compliance
+- Clear consent mechanisms
+- Unsubscribe options in all emails
+- Data retention policies
+- Audit trail for all communications
 
 ---
 
@@ -66,28 +185,7 @@ Kafka and Zookeeper are unstable and crashing, affecting system reliability.
 
 ---
 
-## 4. Weekly Patient Status Emails
-
-### Requirement
-Implement weekly email updates to patients about their platzsuche status and progress.
-
-### Questions for Discussion
-- Should this go to **all patients** or only those with **active platzsuchen**?
-- What **status information** should be included (search progress, therapist contacts made, next steps)?
-- What **day of the week** should these go out?
-- Should patients be able to **opt out** of these emails?
-- How should **multiple active searches** for the same patient be handled?
-
-### Implementation Considerations
-- Email template design
-- Opt-out mechanism
-- Scheduling system
-- Patient communication preferences
-- GDPR compliance for automated emails
-
----
-
-## 5. Therapist Import Reporting Corrections
+## 4. Therapist Import Reporting Corrections
 
 ### Current Issue
 Reporting of therapist imports shows incorrect numbers for successful and failed imports.
@@ -107,7 +205,7 @@ Reporting of therapist imports shows incorrect numbers for successful and failed
 
 ---
 
-## 6. PostgreSQL Database Stability Investigation - **HIGH PRIORITY**
+## 5. PostgreSQL Database Stability Investigation - **HIGH PRIORITY**
 
 ### Current Issue
 PostgreSQL database in production is frequently crashing, causing system downtime and data availability issues.
@@ -138,7 +236,7 @@ PostgreSQL database in production is frequently crashing, causing system downtim
 
 ---
 
-## 7. Email Delivery Testing and Verification
+## 6. Email Delivery Testing and Verification
 
 ### Requirement
 Implement comprehensive testing to verify that emails are actually being sent and delivered successfully.
@@ -160,13 +258,12 @@ Implement comprehensive testing to verify that emails are actually being sent an
 - Add monitoring and alerting for email delivery failures
 
 ### Related Features
-- Affects Item #1 (Patient Import Notifications)
-- Affects Item #4 (Weekly Patient Status Emails)
+- Affects Comprehensive Email Automation System
 - Any future email-based features
 
 ---
 
-## 8. Automatic Removal of Successful Platzsuchen from Other Therapeutenanfragen - **NEW**
+## 7. Automatic Removal of Successful Platzsuchen from Other Therapeutenanfragen - **NEW**
 
 ### Current Issue
 When a patient is successfully matched (angenommen) in one therapeutenanfrage, they remain in all other pending therapeutenanfragen. This creates confusion and potential duplicate acceptances.
@@ -199,7 +296,7 @@ Implement automatic cleanup: when a patient's platzsuche becomes "erfolgreich", 
 
 ---
 
-## 9. Track Successful Match Details in Platzsuche - **NEW**
+## 8. Track Successful Match Details in Platzsuche - **NEW**
 
 ### Current Issue
 When viewing a successful (erfolgreich) platzsuche, there's no direct way to see which therapist accepted the patient or which therapeutenanfrage led to the successful match.
@@ -233,7 +330,7 @@ Enhance the platzsuche model to track successful match details for better visibi
 
 ---
 
-## 10. Investigation: Unexpected Database ID Gaps in Local Production - **CRITICAL NEW**
+## 9. Investigation: Unexpected Database ID Gaps in Local Production - **CRITICAL NEW**
 
 ### Current Issue
 In the local production environment, therapeutenanfragen IDs show unexpected gaps (IDs 1-10, then jumping to 42+). This is concerning because:
@@ -273,36 +370,7 @@ In the local production environment, therapeutenanfragen IDs show unexpected gap
 
 ---
 
-## 11. PTV11 Form Email Reminder - **NEW**
-
-### Requirement
-Implement one-click functionality to automatically remind patients to send their PTV11 form.
-
-### Specification
-- **Trigger:** Manual one-click action from admin interface
-- **Target:** Patients who haven't submitted their PTV11 form yet
-- **Email Content:**
-  - Reminder about required PTV11 form
-  - Instructions for submission
-  - Deadline or urgency information
-  - Contact information for questions
-
-### Implementation Details
-- Add "Send PTV11 Reminder" button in patient management interface
-- Create email template for PTV11 form reminders
-- Track reminder emails sent (avoid spam/duplicate reminders)
-- Consider batch operations for multiple patients
-- Add to email audit log system
-
-### Technical Considerations
-- Integrate with existing communication service
-- Add patient form status tracking
-- Consider rate limiting for reminder emails
-- Update patient record with reminder timestamp
-
----
-
-## 12. Internal Server Error After Sending Patient Emails - **CRITICAL NEW**
+## 10. Internal Server Error After Sending Patient Emails - **CRITICAL NEW**
 
 ### Current Issue
 Internal server errors are occurring intermittently after sending emails to patients, causing system instability.
@@ -327,7 +395,7 @@ Internal server errors are occurring intermittently after sending emails to pati
 
 ---
 
-## 13. Fix Therapeutenanfrage Frontend Exit Issue - **NEW**
+## 11. Fix Therapeutenanfrage Frontend Exit Issue - **NEW**
 
 ### Current Issue
 When a therapeutenanfrage is created but contains 0 patients, the frontend provides no proper way to exit or quit the process.
@@ -356,7 +424,7 @@ Implement proper navigation controls for empty therapeutenanfragen.
 
 ---
 
-## 14. Improve Patient Eligibility Criteria for Platzsuche Creation - **NEW**
+## 12. Improve Patient Eligibility Criteria for Platzsuche Creation - **NEW**
 
 ### Current Issue
 When creating a new platzsuche, the patient list shows patients who are not eligible (e.g., patients without PTV11 form), making the selection process inefficient and potentially creating invalid platzsuchen.
@@ -392,7 +460,7 @@ Implement stricter eligibility criteria to only show patients who are truly elig
 
 ---
 
-## 15. Track Incoming Emails - **NEW**
+## 13. Track Incoming Emails - **NEW**
 
 ### Requirement
 Implement comprehensive incoming email tracking system to monitor and integrate email communications with patient records.
@@ -432,7 +500,7 @@ Implement comprehensive incoming email tracking system to monitor and integrate 
 
 ---
 
-## 16. Add Pagination for Therapist Selection in Vermittlung - **NEW**
+## 14. Add Pagination for Therapist Selection in Vermittlung - **NEW**
 
 ### Requirement
 Implement pagination for therapist selection in the vermittlung process of therapeutenanfragen to improve performance and user experience.
@@ -468,7 +536,7 @@ Large therapist lists in the therapeutenanfrage form cause performance issues an
 
 ---
 
-## 17. Fix Dashboard "Ohne Aktive Platzsuche" Section - **NEW**
+## 15. Fix Dashboard "Ohne Aktive Platzsuche" Section - **NEW**
 
 ### Current Issue
 The dashboard section "ohne aktive Platzsuche" incorrectly includes patients with successful (erfolgreich) platzsuchen, who no longer need therapy placement.
@@ -503,7 +571,7 @@ Adjust the dashboard logic to exclude patients who have successfully been matche
 
 ---
 
-## 18. Handle Duplicate Patient Registrations During Import - **NEW**
+## 16. Handle Duplicate Patient Registrations During Import - **NEW**
 
 ### Current Issue
 Patients can register multiple times on the website, creating duplicate records in the system. This leads to data integrity issues, inefficient resource usage, and confusion in patient management.
@@ -552,7 +620,7 @@ Implement robust duplicate detection and handling mechanism for patient imports 
 
 ---
 
-## 19. Handle Duplicate Therapists with Same Email Address - **NEW**
+## 17. Handle Duplicate Therapists with Same Email Address - **NEW**
 
 ### Current Issue
 Multiple therapists working in the same practice often share the same email address, causing system conflicts and communication issues. The system needs to properly handle this common scenario.
@@ -613,7 +681,7 @@ Implement a solution that allows multiple therapists to share email addresses wh
 
 ---
 
-## 20. Fix Missing City Data for Therapists - **NEW**
+## 18. Fix Missing City Data for Therapists - **NEW**
 
 ### Current Issue
 Multiple therapists have missing city information in the database, which is a frequently occurring problem affecting data completeness and communication accuracy. This impacts therapist location-based searches and correspondence.
@@ -677,68 +745,7 @@ Implement a comprehensive solution to identify and fix missing city data for the
 
 ---
 
-## 21. Automatic Reminders for Missing PTV11 Forms - **NEW**
-
-### Requirement
-Implement an automated email reminder system for patients who haven't submitted their PTV11 forms, reducing manual follow-up work and improving form submission rates.
-
-### Specification
-- **Target Patients:**
-  - Patients with status requiring PTV11
-  - No PTV11 form on file
-  - Haven't received a reminder in the last X days
-
-- **Reminder Schedule:**
-  - Initial reminder: 3 days after patient registration
-  - Second reminder: 7 days after registration
-  - Third reminder: 14 days after registration
-  - Final reminder: 21 days after registration
-  - Stop reminders after 4 attempts or form submission
-
-- **Email Content:**
-  - Personalized greeting
-  - Clear explanation of PTV11 requirement
-  - Step-by-step submission instructions
-  - Direct upload link or attachment options
-  - Contact information for help
-  - Deadline/urgency messaging
-
-### Implementation Details
-- **Automated Scheduling:**
-  - Cron job or scheduled task for daily reminder checks
-  - Queue system for email delivery
-  - Respect business hours and weekends
-  - Holiday blackout dates
-
-- **Tracking and Analytics:**
-  - Track reminder sent timestamps
-  - Monitor form submission rates post-reminder
-  - A/B test different email templates
-  - Dashboard for reminder effectiveness
-
-- **Configuration Options:**
-  - Adjustable reminder intervals
-  - Template customization
-  - Enable/disable per patient
-  - Bulk pause functionality
-
-### Technical Considerations
-- Integration with existing communication service
-- Database fields for tracking reminder history
-- Unsubscribe/opt-out mechanism
-- GDPR compliance for automated communications
-- Rate limiting to prevent spam
-- Email delivery monitoring
-
-### Success Metrics
-- Form submission rate improvement
-- Time to submission reduction
-- Manual follow-up reduction
-- Patient satisfaction scores
-
----
-
-## 22. Enhanced Support for Multi-Location Practices - **NEW**
+## 19. Enhanced Support for Multi-Location Practices - **NEW**
 
 ### Current Issue
 Practices with two or more locations are currently treated as independent duplicates in the system, causing confusion and inefficient management of therapist data.
@@ -796,7 +803,7 @@ Implement proper support for practices with multiple locations while maintaining
 
 ---
 
-## 23. Grammar Correction for Singular Patient in Therapeutenanfrage - **NEW**
+## 20. Grammar Correction for Singular Patient in Therapeutenanfrage - **NEW**
 
 ### Current Issue
 When a therapeutenanfrage contains only 1 patient, the system uses plural grammar forms, creating unprofessional communications.
@@ -843,7 +850,7 @@ Implement dynamic text adjustment to use singular forms when exactly one patient
 
 ---
 
-## 24. Phone Call Templates for Patient Communication - **NEW**
+## 21. Phone Call Templates for Patient Communication - **NEW**
 
 ### Current Issue
 Staff members lack standardized scripts for phone calls with patients, leading to inconsistent communication and missed important topics.
@@ -904,7 +911,7 @@ Create customizable phone call templates for various patient interaction scenari
 
 ---
 
-## 25. Patient Payment Tracking System - **NEW**
+## 22. Patient Payment Tracking System - **NEW**
 
 ### Current Issue
 No systematic way to document whether patients have paid for services, causing billing confusion and follow-up difficulties.
@@ -972,7 +979,7 @@ Implement comprehensive payment tracking functionality integrated with patient r
 
 ---
 
-## 26. Fix Non-Functional Automatic Reminders and Follow-up Calls - **CRITICAL NEW**
+## 23. Fix Non-Functional Automatic Reminders and Follow-up Calls - **CRITICAL NEW**
 
 ### Current Issue
 Automatic reminders and follow-up call scheduling features appear to be broken or non-functional, requiring manual intervention for all patient communications.
@@ -1028,7 +1035,7 @@ Automatic reminders and follow-up call scheduling features appear to be broken o
 
 ---
 
-## 27. Fix ICD10 Diagnostic Matching Logic - **HIGH PRIORITY NEW**
+## 24. Fix ICD10 Diagnostic Matching Logic - **HIGH PRIORITY NEW**
 
 ### Current Issue
 The logic for matching patient ICD10 diagnoses with therapist preferences needs to be reviewed and fixed. Specifically, single/parent diagnoses from patients are not properly matching with therapist group preferences (subcategories).
@@ -1100,37 +1107,97 @@ Implement proper hierarchical matching logic for ICD10 codes where:
 
 ---
 
+## 25. Phone Number Display and Copy Functionality in Frontend - **NEW**
+
+### Current Issue
+Phone numbers are not easily visible or copyable in the frontend interface, making it difficult for staff to quickly contact patients and therapists.
+
+### Requirement
+Implement clear phone number display with one-click copy functionality throughout the application.
+
+### Implementation Details
+- **Display Locations:**
+  - Patient detail pages
+  - Therapist detail pages
+  - Search results
+  - Therapeutenanfrage views
+  - Dashboard widgets
+  - Communication history
+
+- **Features:**
+  - **Clear Formatting:** Display numbers in readable format (e.g., +49 123 456 7890)
+  - **Copy Button:** One-click copy icon next to each phone number
+  - **Copy Feedback:** Visual confirmation when number is copied
+  - **Click-to-Call:** Option to initiate calls directly (tel: links)
+  - **Mobile Detection:** Different behavior for mobile vs desktop
+
+### Technical Implementation
+- **Frontend Components:**
+  ```javascript
+  // Phone number component with copy functionality
+  <PhoneNumber 
+    number="+49 123 456 7890"
+    showCopyButton={true}
+    enableClickToCall={true}
+  />
+  ```
+
+- **Copy Functionality:**
+  - Use Clipboard API for modern browsers
+  - Fallback for older browsers
+  - Success/error notifications
+  - Analytics tracking for usage
+
+- **Styling:**
+  - Consistent phone icon
+  - Hover states for interactive elements
+  - Responsive design for mobile
+  - Accessibility compliance
+
+### User Experience
+- Reduce time to initiate contact
+- Prevent transcription errors
+- Consistent interaction pattern
+- Clear visual feedback
+- Mobile-friendly implementation
+
+### Additional Features
+- **Phone Number Validation:** Visual indicators for invalid numbers
+- **Country Code Handling:** Automatic formatting based on country
+- **History Tracking:** Log when numbers were copied/called
+- **Bulk Actions:** Copy multiple numbers at once
+
+---
+
 ## Implementation Priority
 
 | Priority | Enhancement | Complexity | Impact |
 |----------|-------------|------------|--------|
-| **CRITICAL** | Database ID Gap Investigation (#10) | Medium | Critical |
-| **CRITICAL** | Internal Server Error After Sending Emails (#12) | Medium-High | Critical |
-| **CRITICAL** | PostgreSQL Database Stability (#6) | High | Critical |
-| **CRITICAL** | Handle Duplicate Patient Registrations (#18) | Medium-High | Critical |
-| **CRITICAL** | Fix Non-Functional Automatic Reminders (#26) | Medium | Critical |
-| **High** | Fix ICD10 Diagnostic Matching Logic (#27) | Medium-High | High |
-| **High** | Fix Missing City Data for Therapists (#20) | Low-Medium | High |
-| **High** | Handle Duplicate Therapists with Same Email (#19) | Medium-High | High |
-| **High** | Automatic Reminders for Missing PTV11 Forms (#21) | Medium | High |
-| **High** | Fix Therapeutenanfrage Frontend Exit Issue (#13) | Low | High |
-| **High** | Improve Patient Eligibility Criteria (#14) | Medium | High |
-| **High** | Automatic Removal of Successful Platzsuchen (#8) | Medium | High |
-| **High** | Track Successful Match Details (#9) | Low-Medium | High |
-| **High** | Fix Dashboard "Ohne Aktive Platzsuche" (#17) | Low-Medium | High |
-| **High** | Patient Payment Tracking System (#25) | Medium-High | High |
-| **High** | Patient Import Email Notifications (#1) | Low | Medium |
+| **CRITICAL** | Database ID Gap Investigation (#9) | Medium | Critical |
+| **CRITICAL** | Internal Server Error After Sending Emails (#10) | Medium-High | Critical |
+| **CRITICAL** | PostgreSQL Database Stability (#5) | High | Critical |
+| **CRITICAL** | Handle Duplicate Patient Registrations (#16) | Medium-High | Critical |
+| **CRITICAL** | Fix Non-Functional Automatic Reminders (#23) | Medium | Critical |
+| **High** | Comprehensive Email Automation System (#1) | High | Very High |
+| **High** | Fix ICD10 Diagnostic Matching Logic (#24) | Medium-High | High |
+| **High** | Fix Missing City Data for Therapists (#18) | Low-Medium | High |
+| **High** | Handle Duplicate Therapists with Same Email (#17) | Medium-High | High |
+| **High** | Fix Therapeutenanfrage Frontend Exit Issue (#11) | Low | High |
+| **High** | Improve Patient Eligibility Criteria (#12) | Medium | High |
+| **High** | Automatic Removal of Successful Platzsuchen (#7) | Medium | High |
+| **High** | Track Successful Match Details (#8) | Low-Medium | High |
+| **High** | Fix Dashboard "Ohne Aktive Platzsuche" (#15) | Low-Medium | High |
+| **High** | Patient Payment Tracking System (#22) | Medium-High | High |
+| **High** | Phone Number Display and Copy Functionality (#25) | Low-Medium | High |
 | **High** | Kafka/Zookeeper Stability (#3) | Medium-High | High |
-| **High** | Email Delivery Testing and Verification (#7) | Medium | High |
-| **Medium** | Enhanced Support for Multi-Location Practices (#22) | High | Medium |
-| **Medium** | Grammar Correction for Singular Patient (#23) | Low | Medium |
-| **Medium** | Phone Call Templates (#24) | Medium | Medium |
-| **Medium** | PTV11 Form Email Reminder (#11) | Low-Medium | Medium |
-| **Medium** | Track Incoming Emails (#15) | High | Medium |
-| **Medium** | Add Pagination for Therapist Selection (#16) | Medium | Medium |
+| **High** | Email Delivery Testing and Verification (#6) | Medium | High |
+| **Medium** | Enhanced Support for Multi-Location Practices (#19) | High | Medium |
+| **Medium** | Grammar Correction for Singular Patient (#20) | Low | Medium |
+| **Medium** | Phone Call Templates (#21) | Medium | Medium |
+| **Medium** | Track Incoming Emails (#13) | High | Medium |
+| **Medium** | Add Pagination for Therapist Selection (#14) | Medium | Medium |
 | **Medium** | GCS Deletion Logic (#2) | Medium | Medium |
-| **Medium** | Therapist Import Reporting Fix (#5) | Low-Medium | Medium |
-| **Low** | Weekly Patient Status Emails (#4) | Medium | Low |
+| **Medium** | Therapist Import Reporting Fix (#4) | Low-Medium | Medium |
 
 ---
 
@@ -1138,20 +1205,20 @@ Implement proper hierarchical matching logic for ICD10 codes where:
 
 1. **URGENT:** Investigate database ID gaps in production environment
 2. **URGENT:** Resolve internal server errors affecting email functionality
-3. **URGENT:** Fix non-functional automatic reminders and follow-up systems (#26)
-4. **URGENT:** Implement duplicate handling for patients (#18) to ensure data integrity
-5. **URGENT:** Fix ICD10 diagnostic matching logic (#27) - review Angela Fath-Volk case
-6. **URGENT:** Fix missing city data for known therapists (#20) and audit for additional cases
-7. **Quick Wins:** Implement frontend fixes (#13, #17, #23) and eligibility improvements (#14)
-8. **Payment System:** Design and implement patient payment tracking (#25) for better financial management
-9. **Communication:** Implement phone call templates (#24) for standardized patient communication
-10. **Data Quality:** Design and implement therapist duplicate handling (#19) and multi-location support (#22)
-11. **Automation:** Implement automatic PTV11 form reminders (#21) to reduce manual work
-12. **Requirements Clarification:** Schedule discussion sessions for items #2-5, #7, and #15
+3. **URGENT:** Fix non-functional automatic reminders and follow-up systems (#23)
+4. **URGENT:** Implement duplicate handling for patients (#16) to ensure data integrity
+5. **URGENT:** Fix ICD10 diagnostic matching logic (#24) - review Angela Fath-Volk case
+6. **URGENT:** Fix missing city data for known therapists (#18) and audit for additional cases
+7. **Quick Wins:** Implement frontend fixes (#11, #15, #20, #25) and eligibility improvements (#12)
+8. **Email System:** Design and implement comprehensive email automation (#1) to consolidate all email features
+9. **Payment System:** Design and implement patient payment tracking (#22) for better financial management
+10. **Communication:** Implement phone call templates (#21) for standardized patient communication
+11. **Data Quality:** Design and implement therapist duplicate handling (#17) and multi-location support (#19)
+12. **Requirements Clarification:** Schedule discussion sessions for items #2-4, #6, and #13
 13. **Technical Investigation:** Deep dive into Kafka/Zookeeper issues
 14. **Audit Current Systems:** Review therapist import reporting logic and email delivery
 15. **Implementation Planning:** Create detailed technical specifications for high-priority items
-16. **User Experience:** Prioritize items #8, #9, #13, #14, #17, and #23 for immediate UX improvements
+16. **User Experience:** Prioritize items #7, #8, #11, #12, #15, #20, and #25 for immediate UX improvements
 
 ---
 
