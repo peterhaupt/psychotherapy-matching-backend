@@ -1,6 +1,6 @@
 # Future Enhancements - Priority Items
 
-**Document Version:** 3.0  
+**Document Version:** 3.1  
 **Date:** January 2025  
 **Status:** Requirements Gathering (Updated)
 
@@ -689,6 +689,7 @@ Multiple therapists have missing city information in the database, which is a fr
 ### Known Cases
 - Carl-Friedolin Becker - missing city: **Roetgen**
 - Evelyn Gati - missing city: **Roetgen**
+- Ludger Kassenberg - missing city: **Eschweiler** (psychiatrist, also check scraping functionality)
 - Additional cases to be identified through data audit
 
 ### Requirement
@@ -700,7 +701,9 @@ Implement a comprehensive solution to identify and fix missing city data for the
   - Update known cases immediately:
     - Carl-Friedolin Becker → Roetgen
     - Evelyn Gati → Roetgen
+    - Ludger Kassenberg → Eschweiler
   - Create list of all affected therapists for manual review
+  - Investigate why Ludger Kassenberg was missed in scraping
 
 - **Data Validation:**
   - Add NOT NULL constraint on city field after cleanup
@@ -713,6 +716,7 @@ Implement a comprehensive solution to identify and fix missing city data for the
   - Flag records with missing cities for review
   - Implement postal code to city lookup
   - Add data quality reports for imports
+  - Fix scraping functionality to ensure all therapist data is captured
 
 ### Technical Implementation
 - **Database Changes:**
@@ -720,6 +724,9 @@ Implement a comprehensive solution to identify and fix missing city data for the
   -- Immediate fix for known cases
   UPDATE therapists SET city = 'Roetgen' 
   WHERE name IN ('Carl-Friedolin Becker', 'Evelyn Gati');
+  
+  UPDATE therapists SET city = 'Eschweiler'
+  WHERE name = 'Ludger Kassenberg';
   
   -- Find all therapists with missing cities
   SELECT id, name, street, postal_code 
@@ -731,6 +738,7 @@ Implement a comprehensive solution to identify and fix missing city data for the
   - Add city field validation in therapist model
   - Implement address validation service
   - Add data completeness checks
+  - Debug scraping code for missing data cases
 
 - **Frontend Changes:**
   - Make city field required in all forms
@@ -742,6 +750,7 @@ Implement a comprehensive solution to identify and fix missing city data for the
 - Automated alerts for incomplete therapist profiles
 - Import rejection for records missing required fields
 - Monthly data completeness reports
+- Fix and test scraping functionality thoroughly
 
 ---
 
@@ -1169,6 +1178,184 @@ Implement clear phone number display with one-click copy functionality throughou
 
 ---
 
+## 26. Temporarily Pause Vermittlung/Platzsuche for Patient Holidays - **NEW**
+
+### Current Issue
+When patients go on holiday or are temporarily unavailable, there's no way to pause their vermittlung/platzsuche activities, leading to wasted efforts contacting therapists on their behalf.
+
+### Requirement
+Implement functionality to temporarily pause and resume platzsuche activities with clear date ranges and automatic reactivation.
+
+### Implementation Details
+- **Pause Features:**
+  - Set start and end dates for pause period
+  - Automatic reactivation after end date
+  - Manual reactivation option
+  - Pause reason documentation (holiday, medical, other)
+
+- **System Behavior During Pause:**
+  - Exclude patient from new therapeutenanfragen
+  - Pause automatic reminders and follow-ups
+  - Show pause status in patient overview
+  - Notify therapists if already in active anfragen
+
+- **UI Components:**
+  - Pause button on platzsuche details
+  - Date picker for pause period
+  - Status indicator showing pause state
+  - Countdown to automatic reactivation
+
+### Technical Implementation
+- **Database Changes:**
+  ```sql
+  platzsuche_pauses (
+    id, platzsuche_id, 
+    pause_start, pause_end,
+    pause_reason, 
+    created_by, created_at
+  )
+  ```
+
+- **Backend Logic:**
+  - Scheduled job to check for pause expirations
+  - Exclude paused patients from matching queries
+  - API endpoints for pause management
+  - Event notifications for pause state changes
+
+- **Frontend Updates:**
+  - Pause management interface
+  - Visual indicators in patient lists
+  - Dashboard statistics excluding paused patients
+  - Pause history in patient timeline
+
+### Business Rules
+- Maximum pause duration (e.g., 3 months)
+- Minimum pause duration (e.g., 1 week)
+- Notification before automatic reactivation
+- Audit trail for all pause actions
+
+---
+
+## 27. Validate Last Psychotherapy Date in Registration Process - **NEW**
+
+### Current Issue
+Invalid or implausible dates for last psychotherapy are being entered during patient registration, causing data quality issues and affecting eligibility assessments.
+
+### Requirement
+Implement comprehensive validation for the "date of last psychotherapy" field during the registration process.
+
+### Validation Rules
+- **Date Range Validation:**
+  - Cannot be in the future
+  - Cannot be before patient's birth date
+  - Reasonable historical limit (e.g., not more than 50 years ago)
+  - Warning for very recent dates (might indicate ongoing therapy)
+
+- **Business Logic Validation:**
+  - Check against patient age (therapy date when patient was adult/child)
+  - Flag suspicious patterns (e.g., exactly 1 year ago)
+  - Validate format consistency (DD.MM.YYYY)
+
+- **User Experience:**
+  - Real-time validation feedback
+  - Clear error messages explaining why date is invalid
+  - Suggestions for common mistakes (wrong year, day/month swap)
+  - Optional field with clear indication
+
+### Technical Implementation
+- **Frontend Validation:**
+  ```javascript
+  // Example validation logic
+  validateLastTherapyDate(date, birthDate) {
+    const today = new Date();
+    const therapyDate = new Date(date);
+    const birth = new Date(birthDate);
+    
+    if (therapyDate > today) {
+      return "Date cannot be in the future";
+    }
+    if (therapyDate < birth) {
+      return "Therapy date cannot be before birth date";
+    }
+    // Additional validations...
+  }
+  ```
+
+- **Backend Validation:**
+  - Double-check all frontend validations
+  - Store validation warnings for review
+  - Flag questionable entries for manual verification
+  - Generate data quality reports
+
+### Integration Points
+- Registration form validation
+- Import process validation
+- Data migration cleanup scripts
+- Admin interface for reviewing flagged entries
+
+---
+
+## 28. Set Phone Call Time to Current Time When Call is Finished - **NEW**
+
+### Current Issue
+When logging phone calls, the time of the call is not automatically set to the current time when the call is marked as finished, requiring manual time entry and potentially leading to inaccurate records.
+
+### Requirement
+Automatically capture and set the phone call timestamp to the current time when a call is marked as completed.
+
+### Implementation Details
+- **Automatic Time Capture:**
+  - When "Call Finished" is clicked, automatically set timestamp
+  - Option to manually adjust if needed
+  - Show call duration if start time was recorded
+  - Time zone handling for accurate timestamps
+
+- **UI Enhancements:**
+  - "Start Call" button to capture start time
+  - "End Call" button to capture end time
+  - Display call duration in real-time
+  - Quick actions for common call outcomes
+
+- **Call Tracking Features:**
+  - Automatic calculation of call duration
+  - Integration with phone call templates
+  - Call history with accurate timestamps
+  - Daily call reports for staff
+
+### Technical Implementation
+- **Database Schema:**
+  ```sql
+  phone_calls (
+    id, patient_id, staff_id,
+    call_start, call_end,
+    duration_seconds,
+    call_type, notes,
+    template_used
+  )
+  ```
+
+- **Frontend Logic:**
+  ```javascript
+  // Auto-set current time on call completion
+  const finishCall = () => {
+    const endTime = new Date();
+    const duration = endTime - startTime;
+    
+    updateCall({
+      call_end: endTime,
+      duration_seconds: Math.floor(duration / 1000)
+    });
+  };
+  ```
+
+### Additional Features
+- Integration with phone system APIs (if available)
+- Automatic call logging from phone system
+- Call recording references (if applicable)
+- Performance metrics for call handling
+
+---
+
 ## Implementation Priority
 
 | Priority | Enhancement | Complexity | Impact |
@@ -1191,6 +1378,8 @@ Implement clear phone number display with one-click copy functionality throughou
 | **High** | Phone Number Display and Copy Functionality (#25) | Low-Medium | High |
 | **High** | Kafka/Zookeeper Stability (#3) | Medium-High | High |
 | **High** | Email Delivery Testing and Verification (#6) | Medium | High |
+| **High** | Temporarily Pause Vermittlung/Platzsuche (#26) | Medium | High |
+| **High** | Validate Last Psychotherapy Date (#27) | Low-Medium | High |
 | **Medium** | Enhanced Support for Multi-Location Practices (#19) | High | Medium |
 | **Medium** | Grammar Correction for Singular Patient (#20) | Low | Medium |
 | **Medium** | Phone Call Templates (#21) | Medium | Medium |
@@ -1198,6 +1387,7 @@ Implement clear phone number display with one-click copy functionality throughou
 | **Medium** | Add Pagination for Therapist Selection (#14) | Medium | Medium |
 | **Medium** | GCS Deletion Logic (#2) | Medium | Medium |
 | **Medium** | Therapist Import Reporting Fix (#4) | Low-Medium | Medium |
+| **Medium** | Set Phone Call Time to Current Time (#28) | Low | Medium |
 
 ---
 
@@ -1208,17 +1398,17 @@ Implement clear phone number display with one-click copy functionality throughou
 3. **URGENT:** Fix non-functional automatic reminders and follow-up systems (#23)
 4. **URGENT:** Implement duplicate handling for patients (#16) to ensure data integrity
 5. **URGENT:** Fix ICD10 diagnostic matching logic (#24) - review Angela Fath-Volk case
-6. **URGENT:** Fix missing city data for known therapists (#18) and audit for additional cases
-7. **Quick Wins:** Implement frontend fixes (#11, #15, #20, #25) and eligibility improvements (#12)
-8. **Email System:** Design and implement comprehensive email automation (#1) to consolidate all email features
-9. **Payment System:** Design and implement patient payment tracking (#22) for better financial management
-10. **Communication:** Implement phone call templates (#21) for standardized patient communication
-11. **Data Quality:** Design and implement therapist duplicate handling (#17) and multi-location support (#19)
-12. **Requirements Clarification:** Schedule discussion sessions for items #2-4, #6, and #13
-13. **Technical Investigation:** Deep dive into Kafka/Zookeeper issues
-14. **Audit Current Systems:** Review therapist import reporting logic and email delivery
-15. **Implementation Planning:** Create detailed technical specifications for high-priority items
-16. **User Experience:** Prioritize items #7, #8, #11, #12, #15, #20, and #25 for immediate UX improvements
+6. **URGENT:** Fix missing city data for known therapists (#18) including Ludger Kassenberg and audit for additional cases
+7. **Quick Wins:** Implement frontend fixes (#11, #15, #20, #25, #28) and eligibility improvements (#12)
+8. **User Experience:** Implement pause functionality (#26) and validation improvements (#27)
+9. **Email System:** Design and implement comprehensive email automation (#1) to consolidate all email features
+10. **Payment System:** Design and implement patient payment tracking (#22) for better financial management
+11. **Communication:** Implement phone call templates (#21) for standardized patient communication
+12. **Data Quality:** Design and implement therapist duplicate handling (#17) and multi-location support (#19)
+13. **Requirements Clarification:** Schedule discussion sessions for items #2-4, #6, and #13
+14. **Technical Investigation:** Deep dive into Kafka/Zookeeper issues
+15. **Audit Current Systems:** Review therapist import reporting logic and email delivery
+16. **Implementation Planning:** Create detailed technical specifications for high-priority items
 
 ---
 
