@@ -1,6 +1,6 @@
 # Future Enhancements - Priority Items
 
-**Document Version:** 3.1  
+**Document Version:** 3.2  
 **Date:** January 2025  
 **Status:** Requirements Gathering (Updated)
 
@@ -1356,6 +1356,315 @@ Automatically capture and set the phone call timestamp to the current time when 
 
 ---
 
+## 29. Protection from Injection Attacks in Forms - **CRITICAL NEW**
+
+### Current Issue
+Forms throughout the application need protection against injection attacks (SQL injection, XSS, etc.) to ensure system security.
+
+### Areas Requiring Protection
+- **Email Validation Forms**
+  - Registration forms on website
+  - Email update forms
+  - Contact forms
+
+- **Data Import Processes**
+  - Patient import from CSV/Excel
+  - Therapist import mechanisms
+  - Bulk data uploads
+
+- **All User Input Forms**
+  - Patient registration
+  - Therapist profiles
+  - Search queries
+  - Free text fields
+
+### Implementation Requirements
+- **Input Validation:**
+  - Whitelist allowed characters for each field type
+  - Escape special characters
+  - Validate data types and formats
+  - Length restrictions on all inputs
+
+- **SQL Injection Prevention:**
+  - Use parameterized queries everywhere
+  - Never concatenate user input into SQL
+  - Implement stored procedures where appropriate
+  - Regular security audits of database queries
+
+- **XSS Prevention:**
+  - HTML encode all output
+  - Content Security Policy headers
+  - Sanitize rich text inputs
+  - Validate file uploads
+
+### Technical Implementation
+- **Backend Security:**
+  ```javascript
+  // Example parameterized query
+  const query = 'SELECT * FROM patients WHERE email = $1';
+  const values = [sanitizedEmail];
+  
+  // Input sanitization
+  const sanitizeInput = (input) => {
+    return input.replace(/[<>'"]/g, '');
+  };
+  ```
+
+- **Frontend Validation:**
+  - Client-side validation as first line of defense
+  - Server-side validation as authoritative check
+  - Use security libraries (e.g., DOMPurify)
+  - Regular expression validation
+
+### Security Measures
+- Implement Web Application Firewall (WAF)
+- Regular penetration testing
+- Security headers configuration
+- Input validation middleware
+- Audit logging for suspicious activities
+
+### Priority
+**CRITICAL** - Security vulnerabilities can compromise entire system
+
+---
+
+## 30. Replace Google Cloud Storage with European Solution - **NEW**
+
+### Current Issue
+Google Cloud Storage may not meet European data sovereignty requirements and could be unnecessarily complex for the application's needs.
+
+### Requirement
+Replace GCS with a simpler, GDPR-compliant European storage solution.
+
+### Evaluation Criteria
+- **Data Sovereignty:** Must store data within EU borders
+- **GDPR Compliance:** Full compliance with European privacy laws
+- **Simplicity:** Easier to manage than current GCS setup
+- **Cost Effectiveness:** Competitive or lower pricing
+- **Reliability:** High availability and durability
+
+### Potential Solutions
+- **European Providers:**
+  - OVHcloud Object Storage (France)
+  - Scaleway Object Storage (France)
+  - Hetzner Storage Boxes (Germany)
+  - IONOS Cloud Storage (Germany)
+  
+- **Self-Hosted Options:**
+  - MinIO on European servers
+  - NextCloud storage
+  - Simple NFS/SFTP servers
+
+### Migration Plan
+- **Phase 1: Evaluation**
+  - Compare providers on criteria
+  - Proof of concept with top candidates
+  - Cost analysis
+  
+- **Phase 2: Implementation**
+  - Set up new storage solution
+  - Implement storage abstraction layer
+  - Update all GCS references in code
+  
+- **Phase 3: Migration**
+  - Parallel running period
+  - Incremental data migration
+  - Verification and testing
+  - Cutover and GCS decommission
+
+### Technical Considerations
+- API compatibility requirements
+- Backup and disaster recovery
+- Access control and encryption
+- Integration with existing services
+- Performance requirements
+
+---
+
+## 31. Evaluate if Kafka is Still Needed - **NEW**
+
+### Current Issue
+Kafka adds complexity to the system architecture and may no longer be necessary for current requirements.
+
+### Investigation Required
+- **Current Kafka Usage:**
+  - List all topics and their purposes
+  - Message volume and frequency
+  - Consumer groups and processing patterns
+  - Critical vs non-critical use cases
+
+- **Architecture Analysis:**
+  - Can PostgreSQL LISTEN/NOTIFY replace Kafka?
+  - Would simple message queues suffice?
+  - Are we using Kafka's unique features?
+  - Cost of maintaining Kafka infrastructure
+
+### Alternative Solutions
+- **Lighter Alternatives:**
+  - PostgreSQL LISTEN/NOTIFY for real-time events
+  - Redis Pub/Sub for simple messaging
+  - RabbitMQ for reliable message queuing
+  - AWS SQS/Google Pub/Sub for managed solutions
+  
+- **Direct Integration:**
+  - Synchronous API calls where appropriate
+  - Database triggers for event handling
+  - Scheduled jobs for batch processing
+
+### Decision Criteria
+- Message volume requirements
+- Ordering guarantees needed
+- Durability requirements
+- Operational complexity
+- Cost considerations
+- Team expertise
+
+### Migration Strategy (if removing)
+- Identify critical message flows
+- Implement alternative solutions
+- Parallel running for verification
+- Gradual topic migration
+- Monitor for issues
+- Complete removal
+
+---
+
+## 32. Critical Bug - Therapist Sperren Status Reset - **CRITICAL NEW**
+
+### Current Issue
+The "sperren" (blocking/locking) status of therapists is being mysteriously reset after some time, affecting multiple therapists including:
+- Nora Balzer
+- Guido Flatten  
+- Heike Convent
+- Imke Hanold
+
+This is a critical data integrity issue that affects business operations.
+
+### Investigation Required
+- **Root Cause Analysis:**
+  - Check for scheduled jobs that might reset status
+  - Review all code paths that update therapist status
+  - Audit database triggers and procedures
+  - Check for race conditions in concurrent updates
+  - Review Kafka events that might trigger status changes
+
+- **Timeline Analysis:**
+  - When are these resets occurring?
+  - Is there a pattern (daily, weekly, after specific events)?
+  - Are all blocked therapists affected or only some?
+  - Correlation with deployments or system events
+
+### Potential Causes
+- **Code Issues:**
+  - Bulk update queries without WHERE clause
+  - Default values overwriting status
+  - Import processes resetting fields
+  - API endpoints with bugs
+
+- **Database Issues:**
+  - Triggers with unintended side effects
+  - Migration scripts running repeatedly
+  - Transaction rollbacks
+  - Default constraints
+
+- **Integration Issues:**
+  - External system sync overwriting data
+  - Import processes not preserving status
+  - Event handlers with bugs
+
+### Immediate Actions
+- **Add Audit Logging:**
+  ```sql
+  CREATE TABLE therapist_status_audit (
+    id SERIAL PRIMARY KEY,
+    therapist_id INTEGER,
+    old_status VARCHAR,
+    new_status VARCHAR,
+    changed_by VARCHAR,
+    changed_at TIMESTAMP,
+    source VARCHAR -- API, import, manual, etc.
+  );
+  ```
+
+- **Monitoring:**
+  - Alert when sperren status changes
+  - Daily report of all status changes
+  - Track which process made the change
+
+### Fix Implementation
+- Add status change tracking
+- Implement status protection logic
+- Create manual override with audit trail
+- Add integration tests for status persistence
+- Review and fix all status update paths
+
+### Priority
+**CRITICAL** - Affects business operations and data integrity
+
+---
+
+## 33. Production Container Log Management - **NEW**
+
+### Current Issue
+Production logs need better management - currently showing too many INFO level logs and missing proper monitoring for WARNING level events.
+
+### Requirements
+- **Log Level Management:**
+  - Remove INFO logs from production
+  - Keep INFO logs in development/test environments
+  - Ensure WARNING and ERROR logs are captured
+  - Implement proper log rotation
+
+- **Monitoring Setup:**
+  - Alert on WARNING level logs
+  - Aggregate ERROR logs for immediate attention
+  - Create dashboards for log analytics
+  - Set up log retention policies
+
+### Implementation Details
+- **Environment-Based Configuration:**
+  ```javascript
+  // Example log configuration
+  const logLevel = process.env.NODE_ENV === 'production' 
+    ? 'WARNING' 
+    : 'INFO';
+  
+  logger.configure({
+    level: logLevel,
+    format: productionFormat,
+    transports: [...]
+  });
+  ```
+
+- **Monitoring Tools:**
+  - Set up log aggregation (ELK, Grafana Loki, etc.)
+  - Configure alerting rules
+  - Create monitoring dashboards
+  - Implement log analysis tools
+
+- **Best Practices:**
+  - Structured logging (JSON format)
+  - Consistent log formats across services
+  - Meaningful log messages
+  - Proper error context
+  - No sensitive data in logs
+
+### Technical Implementation
+- Update logging configuration in all services
+- Implement centralized logging
+- Set up monitoring and alerting
+- Create runbooks for common warnings
+- Regular log review process
+
+### Benefits
+- Reduced log noise in production
+- Faster issue identification
+- Better system observability
+- Improved debugging capabilities
+- Compliance with logging best practices
+
+---
+
 ## Implementation Priority
 
 | Priority | Enhancement | Complexity | Impact |
@@ -1365,6 +1674,8 @@ Automatically capture and set the phone call timestamp to the current time when 
 | **CRITICAL** | PostgreSQL Database Stability (#5) | High | Critical |
 | **CRITICAL** | Handle Duplicate Patient Registrations (#16) | Medium-High | Critical |
 | **CRITICAL** | Fix Non-Functional Automatic Reminders (#23) | Medium | Critical |
+| **CRITICAL** | Protection from Injection Attacks (#29) | High | Critical |
+| **CRITICAL** | Therapist Sperren Status Reset Bug (#32) | High | Critical |
 | **High** | Comprehensive Email Automation System (#1) | High | Very High |
 | **High** | Fix ICD10 Diagnostic Matching Logic (#24) | Medium-High | High |
 | **High** | Fix Missing City Data for Therapists (#18) | Low-Medium | High |
@@ -1380,6 +1691,7 @@ Automatically capture and set the phone call timestamp to the current time when 
 | **High** | Email Delivery Testing and Verification (#6) | Medium | High |
 | **High** | Temporarily Pause Vermittlung/Platzsuche (#26) | Medium | High |
 | **High** | Validate Last Psychotherapy Date (#27) | Low-Medium | High |
+| **High** | Production Container Log Management (#33) | Medium | High |
 | **Medium** | Enhanced Support for Multi-Location Practices (#19) | High | Medium |
 | **Medium** | Grammar Correction for Singular Patient (#20) | Low | Medium |
 | **Medium** | Phone Call Templates (#21) | Medium | Medium |
@@ -1388,27 +1700,33 @@ Automatically capture and set the phone call timestamp to the current time when 
 | **Medium** | GCS Deletion Logic (#2) | Medium | Medium |
 | **Medium** | Therapist Import Reporting Fix (#4) | Low-Medium | Medium |
 | **Medium** | Set Phone Call Time to Current Time (#28) | Low | Medium |
+| **Medium** | Replace Google Cloud Storage (#30) | High | Medium |
+| **Medium** | Evaluate if Kafka is Still Needed (#31) | Medium-High | Medium |
 
 ---
 
 ## Next Steps
 
-1. **URGENT:** Investigate database ID gaps in production environment
-2. **URGENT:** Resolve internal server errors affecting email functionality
-3. **URGENT:** Fix non-functional automatic reminders and follow-up systems (#23)
-4. **URGENT:** Implement duplicate handling for patients (#16) to ensure data integrity
-5. **URGENT:** Fix ICD10 diagnostic matching logic (#24) - review Angela Fath-Volk case
-6. **URGENT:** Fix missing city data for known therapists (#18) including Ludger Kassenberg and audit for additional cases
-7. **Quick Wins:** Implement frontend fixes (#11, #15, #20, #25, #28) and eligibility improvements (#12)
-8. **User Experience:** Implement pause functionality (#26) and validation improvements (#27)
-9. **Email System:** Design and implement comprehensive email automation (#1) to consolidate all email features
-10. **Payment System:** Design and implement patient payment tracking (#22) for better financial management
-11. **Communication:** Implement phone call templates (#21) for standardized patient communication
-12. **Data Quality:** Design and implement therapist duplicate handling (#17) and multi-location support (#19)
-13. **Requirements Clarification:** Schedule discussion sessions for items #2-4, #6, and #13
-14. **Technical Investigation:** Deep dive into Kafka/Zookeeper issues
-15. **Audit Current Systems:** Review therapist import reporting logic and email delivery
-16. **Implementation Planning:** Create detailed technical specifications for high-priority items
+1. **URGENT - Security:** Implement injection attack protection (#29) across all forms
+2. **URGENT - Data Integrity:** Fix therapist sperren status reset bug (#32)
+3. **URGENT:** Investigate database ID gaps in production environment (#9)
+4. **URGENT:** Resolve internal server errors affecting email functionality (#10)
+5. **URGENT:** Fix non-functional automatic reminders and follow-up systems (#23)
+6. **URGENT:** Implement duplicate handling for patients (#16) to ensure data integrity
+7. **URGENT:** Fix ICD10 diagnostic matching logic (#24) - review Angela Fath-Volk case
+8. **URGENT:** Fix missing city data for known therapists (#18) including Ludger Kassenberg
+9. **Infrastructure:** Set up production log management (#33) and evaluate Kafka necessity (#31)
+10. **Quick Wins:** Implement frontend fixes (#11, #15, #20, #25, #28) and eligibility improvements (#12)
+11. **User Experience:** Implement pause functionality (#26) and validation improvements (#27)
+12. **Email System:** Design and implement comprehensive email automation (#1)
+13. **Payment System:** Design and implement patient payment tracking (#22)
+14. **Communication:** Implement phone call templates (#21)
+15. **Data Quality:** Design and implement therapist duplicate handling (#17) and multi-location support (#19)
+16. **European Compliance:** Plan migration from Google Cloud Storage to European solution (#30)
+17. **Requirements Clarification:** Schedule discussion sessions for items #2-4, #6, and #13
+18. **Technical Investigation:** Deep dive into Kafka/Zookeeper issues
+19. **Audit Current Systems:** Review therapist import reporting logic and email delivery
+20. **Implementation Planning:** Create detailed technical specifications for high-priority items
 
 ---
 
