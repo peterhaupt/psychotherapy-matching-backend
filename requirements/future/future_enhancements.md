@@ -1,6 +1,6 @@
 # Future Enhancements - Priority Items
 
-**Document Version:** 3.2  
+**Document Version:** 3.3  
 **Date:** January 2025  
 **Status:** Requirements Gathering (Updated)
 
@@ -681,80 +681,7 @@ Implement a solution that allows multiple therapists to share email addresses wh
 
 ---
 
-## 18. Fix Missing City Data for Therapists - **NEW**
-
-### Current Issue
-Multiple therapists have missing city information in the database, which is a frequently occurring problem affecting data completeness and communication accuracy. This impacts therapist location-based searches and correspondence.
-
-### Known Cases
-- Carl-Friedolin Becker - missing city: **Roetgen**
-- Evelyn Gati - missing city: **Roetgen**
-- Ludger Kassenberg - missing city: **Eschweiler** (psychiatrist, also check scraping functionality)
-- Additional cases to be identified through data audit
-
-### Requirement
-Implement a comprehensive solution to identify and fix missing city data for therapists, and prevent future occurrences.
-
-### Implementation Details
-- **Immediate Data Fix:**
-  - Run database audit to identify all therapists with missing city data
-  - Update known cases immediately:
-    - Carl-Friedolin Becker → Roetgen
-    - Evelyn Gati → Roetgen
-    - Ludger Kassenberg → Eschweiler
-  - Create list of all affected therapists for manual review
-  - Investigate why Ludger Kassenberg was missed in scraping
-
-- **Data Validation:**
-  - Add NOT NULL constraint on city field after cleanup
-  - Implement validation in therapist import process
-  - Add city as required field in therapist creation forms
-  - Validate against list of known German cities/postal codes
-
-- **Import Process Enhancement:**
-  - Add city validation during CSV/bulk imports
-  - Flag records with missing cities for review
-  - Implement postal code to city lookup
-  - Add data quality reports for imports
-  - Fix scraping functionality to ensure all therapist data is captured
-
-### Technical Implementation
-- **Database Changes:**
-  ```sql
-  -- Immediate fix for known cases
-  UPDATE therapists SET city = 'Roetgen' 
-  WHERE name IN ('Carl-Friedolin Becker', 'Evelyn Gati');
-  
-  UPDATE therapists SET city = 'Eschweiler'
-  WHERE name = 'Ludger Kassenberg';
-  
-  -- Find all therapists with missing cities
-  SELECT id, name, street, postal_code 
-  FROM therapists 
-  WHERE city IS NULL OR city = '';
-  ```
-
-- **Backend Validation:**
-  - Add city field validation in therapist model
-  - Implement address validation service
-  - Add data completeness checks
-  - Debug scraping code for missing data cases
-
-- **Frontend Changes:**
-  - Make city field required in all forms
-  - Add autocomplete for German cities
-  - Show validation errors clearly
-
-### Prevention Strategy
-- Regular data quality audits
-- Automated alerts for incomplete therapist profiles
-- Import rejection for records missing required fields
-- Monthly data completeness reports
-- Fix and test scraping functionality thoroughly
-
----
-
-## 19. Enhanced Support for Multi-Location Practices - **NEW**
+## 18. Enhanced Support for Multi-Location Practices - **NEW**
 
 ### Current Issue
 Practices with two or more locations are currently treated as independent duplicates in the system, causing confusion and inefficient management of therapist data.
@@ -812,7 +739,7 @@ Implement proper support for practices with multiple locations while maintaining
 
 ---
 
-## 20. Grammar Correction for Singular Patient in Therapeutenanfrage - **NEW**
+## 19. Grammar Correction for Singular Patient in Therapeutenanfrage - **NEW**
 
 ### Current Issue
 When a therapeutenanfrage contains only 1 patient, the system uses plural grammar forms, creating unprofessional communications.
@@ -859,7 +786,7 @@ Implement dynamic text adjustment to use singular forms when exactly one patient
 
 ---
 
-## 21. Phone Call Templates for Patient Communication - **NEW**
+## 20. Phone Call Templates for Patient Communication - **NEW**
 
 ### Current Issue
 Staff members lack standardized scripts for phone calls with patients, leading to inconsistent communication and missed important topics.
@@ -920,7 +847,7 @@ Create customizable phone call templates for various patient interaction scenari
 
 ---
 
-## 22. Patient Payment Tracking System - **NEW**
+## 21. Patient Payment Tracking System - **NEW**
 
 ### Current Issue
 No systematic way to document whether patients have paid for services, causing billing confusion and follow-up difficulties.
@@ -988,7 +915,7 @@ Implement comprehensive payment tracking functionality integrated with patient r
 
 ---
 
-## 23. Fix Non-Functional Automatic Reminders and Follow-up Calls - **CRITICAL NEW**
+## 22. Fix Non-Functional Automatic Reminders and Follow-up Calls - **CRITICAL NEW**
 
 ### Current Issue
 Automatic reminders and follow-up call scheduling features appear to be broken or non-functional, requiring manual intervention for all patient communications.
@@ -1044,7 +971,7 @@ Automatic reminders and follow-up call scheduling features appear to be broken o
 
 ---
 
-## 24. Fix ICD10 Diagnostic Matching Logic - **HIGH PRIORITY NEW**
+## 23. Fix ICD10 Diagnostic Matching Logic - **HIGH PRIORITY NEW**
 
 ### Current Issue
 The logic for matching patient ICD10 diagnoses with therapist preferences needs to be reviewed and fixed. Specifically, single/parent diagnoses from patients are not properly matching with therapist group preferences (subcategories).
@@ -1116,7 +1043,7 @@ Implement proper hierarchical matching logic for ICD10 codes where:
 
 ---
 
-## 25. Phone Number Display and Copy Functionality in Frontend - **NEW**
+## 24. Phone Number Display and Copy Functionality in Frontend - **NEW**
 
 ### Current Issue
 Phone numbers are not easily visible or copyable in the frontend interface, making it difficult for staff to quickly contact patients and therapists.
@@ -1178,7 +1105,7 @@ Implement clear phone number display with one-click copy functionality throughou
 
 ---
 
-## 26. Temporarily Pause Vermittlung/Platzsuche for Patient Holidays - **NEW**
+## 25. Temporarily Pause Vermittlung/Platzsuche for Patient Holidays - **NEW**
 
 ### Current Issue
 When patients go on holiday or are temporarily unavailable, there's no way to pause their vermittlung/platzsuche activities, leading to wasted efforts contacting therapists on their behalf.
@@ -1236,7 +1163,7 @@ Implement functionality to temporarily pause and resume platzsuche activities wi
 
 ---
 
-## 27. Validate Last Psychotherapy Date in Registration Process - **NEW**
+## 26. Validate Last Psychotherapy Date in Registration Process - **NEW**
 
 ### Current Issue
 Invalid or implausible dates for last psychotherapy are being entered during patient registration, causing data quality issues and affecting eligibility assessments.
@@ -1295,7 +1222,7 @@ Implement comprehensive validation for the "date of last psychotherapy" field du
 
 ---
 
-## 28. Set Phone Call Time to Current Time When Call is Finished - **NEW**
+## 27. Set Phone Call Time to Current Time When Call is Finished - **NEW**
 
 ### Current Issue
 When logging phone calls, the time of the call is not automatically set to the current time when the call is marked as finished, requiring manual time entry and potentially leading to inaccurate records.
@@ -1356,7 +1283,7 @@ Automatically capture and set the phone call timestamp to the current time when 
 
 ---
 
-## 29. Protection from Injection Attacks in Forms - **CRITICAL NEW**
+## 28. Protection from Injection Attacks in Forms - **CRITICAL NEW**
 
 ### Current Issue
 Forms throughout the application need protection against injection attacks (SQL injection, XSS, etc.) to ensure system security.
@@ -1428,7 +1355,7 @@ Forms throughout the application need protection against injection attacks (SQL 
 
 ---
 
-## 30. Replace Google Cloud Storage with European Solution - **NEW**
+## 29. Replace Google Cloud Storage with European Solution - **NEW**
 
 ### Current Issue
 Google Cloud Storage may not meet European data sovereignty requirements and could be unnecessarily complex for the application's needs.
@@ -1481,7 +1408,7 @@ Replace GCS with a simpler, GDPR-compliant European storage solution.
 
 ---
 
-## 31. Evaluate if Kafka is Still Needed - **NEW**
+## 30. Evaluate if Kafka is Still Needed - **NEW**
 
 ### Current Issue
 Kafka adds complexity to the system architecture and may no longer be necessary for current requirements.
@@ -1529,7 +1456,7 @@ Kafka adds complexity to the system architecture and may no longer be necessary 
 
 ---
 
-## 32. Critical Bug - Therapist Sperren Status Reset - **CRITICAL NEW**
+## 31. Critical Bug - Therapist Sperren Status Reset - **CRITICAL NEW**
 
 ### Current Issue
 The "sperren" (blocking/locking) status of therapists is being mysteriously reset after some time, affecting multiple therapists including:
@@ -1603,7 +1530,7 @@ This is a critical data integrity issue that affects business operations.
 
 ---
 
-## 33. Production Container Log Management - **NEW**
+## 32. Production Container Log Management - **NEW**
 
 ### Current Issue
 Production logs need better management - currently showing too many INFO level logs and missing proper monitoring for WARNING level events.
@@ -1673,60 +1600,58 @@ Production logs need better management - currently showing too many INFO level l
 | **CRITICAL** | Internal Server Error After Sending Emails (#10) | Medium-High | Critical |
 | **CRITICAL** | PostgreSQL Database Stability (#5) | High | Critical |
 | **CRITICAL** | Handle Duplicate Patient Registrations (#16) | Medium-High | Critical |
-| **CRITICAL** | Fix Non-Functional Automatic Reminders (#23) | Medium | Critical |
-| **CRITICAL** | Protection from Injection Attacks (#29) | High | Critical |
-| **CRITICAL** | Therapist Sperren Status Reset Bug (#32) | High | Critical |
+| **CRITICAL** | Fix Non-Functional Automatic Reminders (#22) | Medium | Critical |
+| **CRITICAL** | Protection from Injection Attacks (#28) | High | Critical |
+| **CRITICAL** | Therapist Sperren Status Reset Bug (#31) | High | Critical |
 | **High** | Comprehensive Email Automation System (#1) | High | Very High |
-| **High** | Fix ICD10 Diagnostic Matching Logic (#24) | Medium-High | High |
-| **High** | Fix Missing City Data for Therapists (#18) | Low-Medium | High |
+| **High** | Fix ICD10 Diagnostic Matching Logic (#23) | Medium-High | High |
 | **High** | Handle Duplicate Therapists with Same Email (#17) | Medium-High | High |
 | **High** | Fix Therapeutenanfrage Frontend Exit Issue (#11) | Low | High |
 | **High** | Improve Patient Eligibility Criteria (#12) | Medium | High |
 | **High** | Automatic Removal of Successful Platzsuchen (#7) | Medium | High |
 | **High** | Track Successful Match Details (#8) | Low-Medium | High |
 | **High** | Fix Dashboard "Ohne Aktive Platzsuche" (#15) | Low-Medium | High |
-| **High** | Patient Payment Tracking System (#22) | Medium-High | High |
-| **High** | Phone Number Display and Copy Functionality (#25) | Low-Medium | High |
+| **High** | Patient Payment Tracking System (#21) | Medium-High | High |
+| **High** | Phone Number Display and Copy Functionality (#24) | Low-Medium | High |
 | **High** | Kafka/Zookeeper Stability (#3) | Medium-High | High |
 | **High** | Email Delivery Testing and Verification (#6) | Medium | High |
-| **High** | Temporarily Pause Vermittlung/Platzsuche (#26) | Medium | High |
-| **High** | Validate Last Psychotherapy Date (#27) | Low-Medium | High |
-| **High** | Production Container Log Management (#33) | Medium | High |
-| **Medium** | Enhanced Support for Multi-Location Practices (#19) | High | Medium |
-| **Medium** | Grammar Correction for Singular Patient (#20) | Low | Medium |
-| **Medium** | Phone Call Templates (#21) | Medium | Medium |
+| **High** | Temporarily Pause Vermittlung/Platzsuche (#25) | Medium | High |
+| **High** | Validate Last Psychotherapy Date (#26) | Low-Medium | High |
+| **High** | Production Container Log Management (#32) | Medium | High |
+| **Medium** | Enhanced Support for Multi-Location Practices (#18) | High | Medium |
+| **Medium** | Grammar Correction for Singular Patient (#19) | Low | Medium |
+| **Medium** | Phone Call Templates (#20) | Medium | Medium |
 | **Medium** | Track Incoming Emails (#13) | High | Medium |
 | **Medium** | Add Pagination for Therapist Selection (#14) | Medium | Medium |
 | **Medium** | GCS Deletion Logic (#2) | Medium | Medium |
 | **Medium** | Therapist Import Reporting Fix (#4) | Low-Medium | Medium |
-| **Medium** | Set Phone Call Time to Current Time (#28) | Low | Medium |
-| **Medium** | Replace Google Cloud Storage (#30) | High | Medium |
-| **Medium** | Evaluate if Kafka is Still Needed (#31) | Medium-High | Medium |
+| **Medium** | Set Phone Call Time to Current Time (#27) | Low | Medium |
+| **Medium** | Replace Google Cloud Storage (#29) | High | Medium |
+| **Medium** | Evaluate if Kafka is Still Needed (#30) | Medium-High | Medium |
 
 ---
 
 ## Next Steps
 
-1. **URGENT - Security:** Implement injection attack protection (#29) across all forms
-2. **URGENT - Data Integrity:** Fix therapist sperren status reset bug (#32)
+1. **URGENT - Security:** Implement injection attack protection (#28) across all forms
+2. **URGENT - Data Integrity:** Fix therapist sperren status reset bug (#31)
 3. **URGENT:** Investigate database ID gaps in production environment (#9)
 4. **URGENT:** Resolve internal server errors affecting email functionality (#10)
-5. **URGENT:** Fix non-functional automatic reminders and follow-up systems (#23)
+5. **URGENT:** Fix non-functional automatic reminders and follow-up systems (#22)
 6. **URGENT:** Implement duplicate handling for patients (#16) to ensure data integrity
-7. **URGENT:** Fix ICD10 diagnostic matching logic (#24) - review Angela Fath-Volk case
-8. **URGENT:** Fix missing city data for known therapists (#18) including Ludger Kassenberg
-9. **Infrastructure:** Set up production log management (#33) and evaluate Kafka necessity (#31)
-10. **Quick Wins:** Implement frontend fixes (#11, #15, #20, #25, #28) and eligibility improvements (#12)
-11. **User Experience:** Implement pause functionality (#26) and validation improvements (#27)
-12. **Email System:** Design and implement comprehensive email automation (#1)
-13. **Payment System:** Design and implement patient payment tracking (#22)
-14. **Communication:** Implement phone call templates (#21)
-15. **Data Quality:** Design and implement therapist duplicate handling (#17) and multi-location support (#19)
-16. **European Compliance:** Plan migration from Google Cloud Storage to European solution (#30)
-17. **Requirements Clarification:** Schedule discussion sessions for items #2-4, #6, and #13
-18. **Technical Investigation:** Deep dive into Kafka/Zookeeper issues
-19. **Audit Current Systems:** Review therapist import reporting logic and email delivery
-20. **Implementation Planning:** Create detailed technical specifications for high-priority items
+7. **URGENT:** Fix ICD10 diagnostic matching logic (#23) - review Angela Fath-Volk case
+8. **Infrastructure:** Set up production log management (#32) and evaluate Kafka necessity (#30)
+9. **Quick Wins:** Implement frontend fixes (#11, #15, #19, #24, #27) and eligibility improvements (#12)
+10. **User Experience:** Implement pause functionality (#25) and validation improvements (#26)
+11. **Email System:** Design and implement comprehensive email automation (#1)
+12. **Payment System:** Design and implement patient payment tracking (#21)
+13. **Communication:** Implement phone call templates (#20)
+14. **Data Quality:** Design and implement therapist duplicate handling (#17) and multi-location support (#18)
+15. **European Compliance:** Plan migration from Google Cloud Storage to European solution (#29)
+16. **Requirements Clarification:** Schedule discussion sessions for items #2-4, #6, and #13
+17. **Technical Investigation:** Deep dive into Kafka/Zookeeper issues
+18. **Audit Current Systems:** Review therapist import reporting logic and email delivery
+19. **Implementation Planning:** Create detailed technical specifications for high-priority items
 
 ---
 
