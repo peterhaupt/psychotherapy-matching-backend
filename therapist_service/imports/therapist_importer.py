@@ -332,7 +332,33 @@ class TherapistImporter:
                     continue
                 
                 # Skip fields that shouldn't be updated
-                if key in ['id', 'created_at']:
+                # These are either system fields or manually managed operational fields
+                FIELDS_TO_PRESERVE = [
+                    'id', 
+                    'created_at',
+                    # Manual operational fields that should NOT be overwritten by import
+                    'status',  # aktiv/gesperrt/inaktiv - manually managed
+                    'sperrgrund',  # Reason for blocking
+                    'sperrdatum',  # Date of blocking
+                    'kassensitz',  # Manually verified/updated
+                    'potenziell_verfuegbar',  # Manually set by staff
+                    'potenziell_verfuegbar_notizen',  # Manual notes
+                    'ueber_curavani_informiert',  # Manually tracked
+                    # Inquiry system fields - manually managed
+                    'naechster_kontakt_moeglich',
+                    'bevorzugte_diagnosen',
+                    'alter_min',
+                    'alter_max', 
+                    'geschlechtspraeferenz',
+                    'arbeitszeiten',
+                    'bevorzugt_gruppentherapie',
+                    # Contact history - managed by communication service
+                    'letzter_kontakt_email',
+                    'letzter_kontakt_telefon',
+                    'letztes_persoenliches_gespraech'
+                ]
+
+                if key in FIELDS_TO_PRESERVE:
                     continue
                 
                 # Validate enum fields
