@@ -1,6 +1,6 @@
 # Future Enhancements - Priority Items
 
-**Document Version:** 3.4  
+**Document Version:** 3.5  
 **Date:** January 2025  
 **Status:** Requirements Gathering (Updated)
 
@@ -1591,10 +1591,180 @@ Production logs need better management - currently showing too many INFO level l
 
 ---
 
+## 33. Backup and Restore Testing & Monitoring - **CRITICAL NEW**
+
+### Current Issue
+There is no regular verification that database backups are working correctly and can be successfully restored, creating a critical risk of data loss in case of system failure.
+
+### Requirements
+Implement comprehensive backup testing procedures and monitoring to ensure data recoverability.
+
+### Implementation Details
+
+#### A. Automated Backup Monitoring
+- **Real-time Backup Status:**
+  - Monitor backup job completion status
+  - Alert on backup failures immediately
+  - Track backup file sizes and durations
+  - Verify backup integrity checksums
+  - Monitor storage space for backups
+
+- **Backup Metrics Dashboard:**
+  - Last successful backup timestamp
+  - Backup size trends over time
+  - Success/failure rates
+  - Recovery Point Objective (RPO) compliance
+  - Storage usage and predictions
+
+#### B. Regular Restore Testing
+- **Scheduled Restore Tests:**
+  - Weekly: Restore to test environment
+  - Monthly: Full restore drill with verification
+  - Quarterly: Disaster recovery simulation
+  - Document restoration time for each test
+
+- **Verification Procedures:**
+  - Data integrity checks post-restore
+  - Row count validations
+  - Application functionality testing
+  - Performance benchmarking after restore
+  - User acceptance testing on restored data
+
+#### C. Backup Strategy Enhancement
+- **Backup Types:**
+  - Full backups: Daily
+  - Incremental backups: Hourly
+  - Transaction logs: Continuous (for point-in-time recovery)
+  - Off-site replication: Real-time
+
+- **Retention Policies:**
+  - Daily backups: 30 days
+  - Weekly backups: 12 weeks
+  - Monthly backups: 12 months
+  - Yearly backups: 7 years (compliance)
+
+### Technical Implementation
+
+#### Monitoring Infrastructure
+```yaml
+backup_monitoring:
+  checks:
+    - backup_completion_check:
+        schedule: "*/15 * * * *"  # Every 15 minutes
+        alert_after_failures: 1
+    - backup_size_check:
+        min_size: 100MB
+        max_age: 25 hours
+    - backup_integrity_check:
+        checksum_verification: true
+        test_restore: weekly
+```
+
+#### Automated Testing Script
+```bash
+#!/bin/bash
+# Weekly backup restore test
+BACKUP_FILE=$(latest_backup)
+TEST_DB="restore_test_$(date +%Y%m%d)"
+
+# Restore backup to test database
+pg_restore -d $TEST_DB $BACKUP_FILE
+
+# Run verification queries
+psql -d $TEST_DB -c "SELECT COUNT(*) FROM patients;"
+psql -d $TEST_DB -c "SELECT COUNT(*) FROM therapists;"
+
+# Check data integrity
+run_integrity_checks $TEST_DB
+
+# Report results
+send_test_report $TEST_DB
+```
+
+#### Alerting Configuration
+- **Critical Alerts (Immediate):**
+  - Backup failure
+  - Restore test failure
+  - Backup storage < 20% free
+  - Backup corruption detected
+
+- **Warning Alerts (Within 1 hour):**
+  - Backup taking longer than expected
+  - Backup size anomaly detected
+  - Scheduled test overdue
+
+- **Information Alerts (Daily summary):**
+  - Successful backup completions
+  - Storage usage trends
+  - Restore test results
+
+### Recovery Procedures Documentation
+
+#### Recovery Time Objectives (RTO)
+- **Critical failure:** < 1 hour
+- **Major incident:** < 4 hours
+- **Standard recovery:** < 8 hours
+- **Full disaster recovery:** < 24 hours
+
+#### Recovery Point Objectives (RPO)
+- **Maximum data loss:** 1 hour
+- **Target data loss:** 15 minutes
+- **Best case (with transaction logs):** 0 minutes
+
+### Compliance and Audit
+- **Documentation Requirements:**
+  - Maintain backup/restore logs for 2 years
+  - Document all restore tests and results
+  - Track any backup failures and resolutions
+  - Annual audit of backup procedures
+
+- **GDPR Compliance:**
+  - Encrypted backups at rest and in transit
+  - Access control for backup files
+  - Right to erasure implementation in backups
+  - Data retention compliance
+
+### Success Metrics
+- **Backup Success Rate:** > 99.9%
+- **Restore Test Success Rate:** 100%
+- **Average Restore Time:** < 30 minutes
+- **RPO Achievement:** 100%
+- **RTO Achievement:** > 95%
+
+### Implementation Phases
+
+#### Phase 1: Immediate (Week 1)
+- Set up basic backup monitoring
+- Implement critical failure alerts
+- Document current backup procedures
+- Perform initial restore test
+
+#### Phase 2: Short-term (Weeks 2-4)
+- Automate restore testing
+- Create monitoring dashboard
+- Implement all alerting rules
+- Train team on procedures
+
+#### Phase 3: Long-term (Months 2-3)
+- Optimize backup strategies
+- Implement point-in-time recovery
+- Set up off-site replication
+- Complete disaster recovery plan
+
+### Risk Mitigation
+- **Multiple Backup Locations:** Local, cloud, and off-site
+- **Different Backup Methods:** Filesystem and logical backups
+- **Regular Updates:** Keep backup tools and scripts updated
+- **Access Control:** Limit who can modify/delete backups
+- **Encryption:** All backups encrypted with key rotation
+
+---
+
 ## Implementation Priority
 
 | Priority | Enhancement | Complexity | Impact |
 |----------|-------------|------------|--------|
+| **CRITICAL** | Backup and Restore Testing & Monitoring (#33) | Medium-High | Critical |
 | **CRITICAL** | Database ID Gap Investigation (#9) | Medium | Critical |
 | **CRITICAL** | Internal Server Error After Sending Emails (#10) | Medium-High | Critical |
 | **CRITICAL** | PostgreSQL Database Stability (#5) | High | Critical |
@@ -1632,25 +1802,26 @@ Production logs need better management - currently showing too many INFO level l
 
 ## Next Steps
 
-1. **URGENT - Security:** Implement injection attack protection (#28) across all forms
-2. **URGENT:** Investigate database ID gaps in production environment (#9)
-3. **URGENT:** Resolve internal server errors affecting email functionality (#10)
-4. **URGENT:** Fix non-functional automatic reminders and follow-up systems (#22)
-5. **URGENT:** Implement duplicate handling for patients (#16) to ensure data integrity
-6. **URGENT:** Fix ICD10 diagnostic matching logic (#23) - review Angela Fath-Volk case
-7. **Infrastructure:** Set up production log management (#32) and evaluate Kafka necessity (#30)
-8. **Quick Wins:** Implement frontend fixes (#11, #15, #19, #24, #27) and eligibility improvements (#12)
-9. **Dashboard Fix:** Correct platzsuche duration calculation (#31) for accurate reporting
-10. **User Experience:** Implement pause functionality (#25) and validation improvements (#26)
-11. **Email System:** Design and implement comprehensive email automation (#1)
-12. **Payment System:** Design and implement patient payment tracking (#21)
-13. **Communication:** Implement phone call templates (#20)
-14. **Data Quality:** Design and implement therapist duplicate handling (#17) and multi-location support (#18)
-15. **European Compliance:** Plan migration from Google Cloud Storage to European solution (#29)
-16. **Requirements Clarification:** Schedule discussion sessions for items #2-4, #6, and #13
-17. **Technical Investigation:** Deep dive into Kafka/Zookeeper issues
-18. **Audit Current Systems:** Review therapist import reporting logic and email delivery
-19. **Implementation Planning:** Create detailed technical specifications for high-priority items
+1. **IMMEDIATE - Data Protection:** Implement backup testing and monitoring (#33) to ensure data recoverability
+2. **URGENT - Security:** Implement injection attack protection (#28) across all forms
+3. **URGENT:** Investigate database ID gaps in production environment (#9)
+4. **URGENT:** Resolve internal server errors affecting email functionality (#10)
+5. **URGENT:** Fix non-functional automatic reminders and follow-up systems (#22)
+6. **URGENT:** Implement duplicate handling for patients (#16) to ensure data integrity
+7. **URGENT:** Fix ICD10 diagnostic matching logic (#23) - review Angela Fath-Volk case
+8. **Infrastructure:** Set up production log management (#32) and evaluate Kafka necessity (#30)
+9. **Quick Wins:** Implement frontend fixes (#11, #15, #19, #24, #27) and eligibility improvements (#12)
+10. **Dashboard Fix:** Correct platzsuche duration calculation (#31) for accurate reporting
+11. **User Experience:** Implement pause functionality (#25) and validation improvements (#26)
+12. **Email System:** Design and implement comprehensive email automation (#1)
+13. **Payment System:** Design and implement patient payment tracking (#21)
+14. **Communication:** Implement phone call templates (#20)
+15. **Data Quality:** Design and implement therapist duplicate handling (#17) and multi-location support (#18)
+16. **European Compliance:** Plan migration from Google Cloud Storage to European solution (#29)
+17. **Requirements Clarification:** Schedule discussion sessions for items #2-4, #6, and #13
+18. **Technical Investigation:** Deep dive into Kafka/Zookeeper issues
+19. **Audit Current Systems:** Review therapist import reporting logic and email delivery
+20. **Implementation Planning:** Create detailed technical specifications for high-priority items
 
 ---
 
