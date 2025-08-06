@@ -837,28 +837,60 @@ class TestErrorHandling:
         assert "exception" in message.lower() or "error" in message.lower()
     
     def test_validation_error_handling(self, mock_therapist_importer):
-        """Test handling of validation errors."""
+        """Test handling of validation errors during create and update."""
         # Setup database mock
         db_mock = MagicMock()
         MockSessionLocal.return_value = db_mock
         MockSessionLocal.side_effect = None  # Reset side effect
         
-        # Mock validation error
-        from therapist_service.imports import therapist_importer
-        with patch.object(therapist_importer, 'validate_and_get_anrede', side_effect=ValueError("Invalid anrede")):
-            
+        # Test 1: Validation error during CREATE - should fail
+        # Mock no existing therapist found (forces create path)
+        db_mock.query.return_value.filter.return_value.first.return_value = None
+        
+        with patch('api.therapists.validate_and_get_anrede', side_effect=ValueError("Invalid anrede")):
             import_data = {
-                "basic_info": {"first_name": "Test", "last_name": "Test", "salutation": "Invalid"},
+                "basic_info": {"first_name": "New", "last_name": "Therapist", "salutation": "Invalid"},
                 "location": {"postal_code": "52062"},
                 "contact": {},
                 "therapy_methods": []
             }
             
-            # Should handle validation error
+            # Should fail during creation
             success, message = mock_therapist_importer.import_therapist(import_data)
             
             assert success == False
-            assert "Invalid anrede" in message or "map" in message.lower()
+            assert "Invalid anrede" in message or "Creation failed" in message
+        
+        # Test 2: Validation error during UPDATE - should succeed but skip invalid field
+        # Create existing therapist for update scenario
+        existing_therapist = MagicMock()
+        existing_therapist.id = 999
+        existing_therapist.vorname = "Existing"
+        existing_therapist.nachname = "Therapist"
+        existing_therapist.plz = "52062"
+        existing_therapist.email = "existing@example.com"
+        existing_therapist.anrede = MockAnrede.Herr  # Current valid value
+        
+        # Mock finding existing therapist (forces update path)
+        db_mock.query.return_value.filter.return_value.first.return_value = existing_therapist
+        
+        with patch('api.therapists.validate_and_get_anrede', side_effect=ValueError("Invalid anrede")):
+            import_data = {
+                "basic_info": {"first_name": "Existing", "last_name": "Therapist", "salutation": "InvalidValue"},
+                "location": {"postal_code": "52062"},
+                "contact": {"phone": "+49 123 456789"},  # Valid field to update
+                "therapy_methods": []
+            }
+            
+            # Should succeed during update (skips invalid field, updates valid ones)
+            success, message = mock_therapist_importer.import_therapist(import_data)
+            
+            assert success == True
+            assert "updated" in message.lower() or "999" in message
+            # The anrede should remain unchanged (Herr) since validation failed
+            assert existing_therapist.anrede == MockAnrede.Herr
+            # But phone should be updated
+            # Note: In the actual code, the phone would be set via setattr
 
 
 if __name__ == "__main__":
