@@ -1,6 +1,6 @@
 # Future Enhancements - Priority Items
 
-**Document Version:** 3.3  
+**Document Version:** 3.4  
 **Date:** January 2025  
 **Status:** Requirements Gathering (Updated)
 
@@ -1456,77 +1456,76 @@ Kafka adds complexity to the system architecture and may no longer be necessary 
 
 ---
 
-## 31. Critical Bug - Therapist Sperren Status Reset - **CRITICAL NEW**
+## 31. Fix Dashboard Platzsuche Duration Calculation - **MEDIUM NEW**
 
 ### Current Issue
-The "sperren" (blocking/locking) status of therapists is being mysteriously reset after some time, affecting multiple therapists including:
-- Nora Balzer
-- Guido Flatten  
-- Heike Convent
-- Imke Hanold
-
-This is a critical data integrity issue that affects business operations.
+The dashboard incorrectly calculates how long a platzsuche has been active/searching, showing inaccurate duration information that affects patient management decisions.
 
 ### Investigation Required
-- **Root Cause Analysis:**
-  - Check for scheduled jobs that might reset status
-  - Review all code paths that update therapist status
-  - Audit database triggers and procedures
-  - Check for race conditions in concurrent updates
-  - Review Kafka events that might trigger status changes
+- **Current Calculation Logic:**
+  - Review how search duration is calculated
+  - Check if creation date vs start date is used correctly
+  - Verify timezone handling in duration calculations
+  - Identify if business days vs calendar days should be used
 
-- **Timeline Analysis:**
-  - When are these resets occurring?
-  - Is there a pattern (daily, weekly, after specific events)?
-  - Are all blocked therapists affected or only some?
-  - Correlation with deployments or system events
+- **Data Analysis:**
+  - Compare calculated durations with expected values
+  - Check for edge cases (weekends, holidays, pauses)
+  - Verify historical accuracy of existing records
+  - Identify patterns in incorrect calculations
 
-### Potential Causes
-- **Code Issues:**
-  - Bulk update queries without WHERE clause
-  - Default values overwriting status
-  - Import processes resetting fields
-  - API endpoints with bugs
+### Root Cause Analysis
+- **Potential Issues:**
+  - Wrong reference date being used (created vs started)
+  - Timezone conversion errors
+  - Including weekends/holidays when shouldn't
+  - Paused periods not excluded from calculation
+  - Database date field inconsistencies
+  - Frontend vs backend calculation mismatches
 
-- **Database Issues:**
-  - Triggers with unintended side effects
-  - Migration scripts running repeatedly
-  - Transaction rollbacks
-  - Default constraints
-
-- **Integration Issues:**
-  - External system sync overwriting data
-  - Import processes not preserving status
-  - Event handlers with bugs
-
-### Immediate Actions
-- **Add Audit Logging:**
-  ```sql
-  CREATE TABLE therapist_status_audit (
-    id SERIAL PRIMARY KEY,
-    therapist_id INTEGER,
-    old_status VARCHAR,
-    new_status VARCHAR,
-    changed_by VARCHAR,
-    changed_at TIMESTAMP,
-    source VARCHAR -- API, import, manual, etc.
-  );
+### Implementation Fix
+- **Calculation Logic:**
+  ```javascript
+  // Example corrected duration calculation
+  const calculateSearchDuration = (platzsuche) => {
+    const startDate = platzsuche.actual_start_date || platzsuche.created_date;
+    const endDate = platzsuche.ended_date || new Date();
+    
+    // Exclude paused periods
+    const pausedDays = calculatePausedDuration(platzsuche.pauses);
+    
+    // Calculate business days or calendar days
+    const totalDays = calculateDaysBetween(startDate, endDate);
+    return totalDays - pausedDays;
+  };
   ```
 
-- **Monitoring:**
-  - Alert when sperren status changes
-  - Daily report of all status changes
-  - Track which process made the change
+- **Technical Changes:**
+  - Update duration calculation functions
+  - Add unit tests for all edge cases
+  - Implement timezone-aware calculations
+  - Handle paused periods correctly
+  - Add validation for date consistency
 
-### Fix Implementation
-- Add status change tracking
-- Implement status protection logic
-- Create manual override with audit trail
-- Add integration tests for status persistence
-- Review and fix all status update paths
+### Dashboard Updates
+- Fix duration display in patient lists
+- Update search duration statistics
+- Add tooltips explaining calculation method
+- Include pause periods in detailed view
+- Show both calendar and business day durations
 
-### Priority
-**CRITICAL** - Affects business operations and data integrity
+### Testing Requirements
+- Unit tests for duration calculation logic
+- Integration tests with real platzsuche data
+- Edge case testing (timezones, pauses, holidays)
+- Manual verification of existing records
+- Performance testing for bulk calculations
+
+### Data Cleanup
+- Review existing platzsuche records for accuracy
+- Migrate historical data to correct calculation
+- Add data validation for future records
+- Create reports showing before/after comparison
 
 ---
 
@@ -1602,7 +1601,6 @@ Production logs need better management - currently showing too many INFO level l
 | **CRITICAL** | Handle Duplicate Patient Registrations (#16) | Medium-High | Critical |
 | **CRITICAL** | Fix Non-Functional Automatic Reminders (#22) | Medium | Critical |
 | **CRITICAL** | Protection from Injection Attacks (#28) | High | Critical |
-| **CRITICAL** | Therapist Sperren Status Reset Bug (#31) | High | Critical |
 | **High** | Comprehensive Email Automation System (#1) | High | Very High |
 | **High** | Fix ICD10 Diagnostic Matching Logic (#23) | Medium-High | High |
 | **High** | Handle Duplicate Therapists with Same Email (#17) | Medium-High | High |
@@ -1618,6 +1616,7 @@ Production logs need better management - currently showing too many INFO level l
 | **High** | Temporarily Pause Vermittlung/Platzsuche (#25) | Medium | High |
 | **High** | Validate Last Psychotherapy Date (#26) | Low-Medium | High |
 | **High** | Production Container Log Management (#32) | Medium | High |
+| **Medium** | Fix Dashboard Platzsuche Duration Calculation (#31) | Medium | Medium |
 | **Medium** | Enhanced Support for Multi-Location Practices (#18) | High | Medium |
 | **Medium** | Grammar Correction for Singular Patient (#19) | Low | Medium |
 | **Medium** | Phone Call Templates (#20) | Medium | Medium |
@@ -1634,14 +1633,14 @@ Production logs need better management - currently showing too many INFO level l
 ## Next Steps
 
 1. **URGENT - Security:** Implement injection attack protection (#28) across all forms
-2. **URGENT - Data Integrity:** Fix therapist sperren status reset bug (#31)
-3. **URGENT:** Investigate database ID gaps in production environment (#9)
-4. **URGENT:** Resolve internal server errors affecting email functionality (#10)
-5. **URGENT:** Fix non-functional automatic reminders and follow-up systems (#22)
-6. **URGENT:** Implement duplicate handling for patients (#16) to ensure data integrity
-7. **URGENT:** Fix ICD10 diagnostic matching logic (#23) - review Angela Fath-Volk case
-8. **Infrastructure:** Set up production log management (#32) and evaluate Kafka necessity (#30)
-9. **Quick Wins:** Implement frontend fixes (#11, #15, #19, #24, #27) and eligibility improvements (#12)
+2. **URGENT:** Investigate database ID gaps in production environment (#9)
+3. **URGENT:** Resolve internal server errors affecting email functionality (#10)
+4. **URGENT:** Fix non-functional automatic reminders and follow-up systems (#22)
+5. **URGENT:** Implement duplicate handling for patients (#16) to ensure data integrity
+6. **URGENT:** Fix ICD10 diagnostic matching logic (#23) - review Angela Fath-Volk case
+7. **Infrastructure:** Set up production log management (#32) and evaluate Kafka necessity (#30)
+8. **Quick Wins:** Implement frontend fixes (#11, #15, #19, #24, #27) and eligibility improvements (#12)
+9. **Dashboard Fix:** Correct platzsuche duration calculation (#31) for accurate reporting
 10. **User Experience:** Implement pause functionality (#25) and validation improvements (#26)
 11. **Email System:** Design and implement comprehensive email automation (#1)
 12. **Payment System:** Design and implement patient payment tracking (#21)

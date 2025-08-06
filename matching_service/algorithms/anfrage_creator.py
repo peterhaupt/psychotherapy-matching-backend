@@ -44,8 +44,8 @@ def get_therapists_for_selection(db: Session, plz_prefix: str) -> List[Dict[str,
     Returns:
         List of therapist data dictionaries sorted by criteria
     """
-    # Get all active therapists
-    therapists = TherapistService.get_all_therapists(status='aktiv')
+    # Get all active therapists with PLZ prefix filter
+    therapists = TherapistService.get_all_therapists(status='aktiv', plz_prefix=plz_prefix)
     
     # Get all therapist IDs with pending anfragen
     pending_therapist_ids = set()
@@ -77,14 +77,11 @@ def get_therapists_for_selection(db: Session, plz_prefix: str) -> List[Dict[str,
             logger.debug(f"Skipping therapist {therapist.get('id')} - has pending anfragen")
             continue
             
-        # Safe PLZ comparison with None handling
-        therapist_plz = therapist.get('plz') or ''
-        if therapist_plz.startswith(plz_prefix):
-            # Check if contactable today
-            next_contact = therapist.get('naechster_kontakt_moeglich')
-            # None means contactable
-            if next_contact is None or datetime.fromisoformat(next_contact).date() <= date.today():
-                filtered.append(therapist)
+        # Check if contactable today
+        next_contact = therapist.get('naechster_kontakt_moeglich')
+        # None means contactable
+        if next_contact is None or datetime.fromisoformat(next_contact).date() <= date.today():
+            filtered.append(therapist)
     
     # Sort according to business rules - EMAIL FIRST WITHIN EACH TIER
     def sort_key(t):

@@ -135,12 +135,13 @@ class TherapistService:
             return None
     
     @staticmethod
-    def get_all_therapists(status: Optional[str] = None, limit: int = 1000) -> List[Dict[str, Any]]:
+    def get_all_therapists(status: Optional[str] = None, limit: int = 1000, plz_prefix: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get all therapists from the Therapist Service.
         
         Args:
             status: Optional status filter (e.g., 'aktiv')
             limit: Maximum number of therapists to retrieve
+            plz_prefix: Optional PLZ prefix filter (e.g., '52')
             
         Returns:
             List of therapist data dictionaries
@@ -150,6 +151,8 @@ class TherapistService:
             params = {"limit": limit}
             if status:
                 params["status"] = status
+            if plz_prefix:
+                params["plz_prefix"] = plz_prefix
             
             response = requests.get(url, params=params, timeout=10)
             

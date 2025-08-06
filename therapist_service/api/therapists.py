@@ -424,6 +424,7 @@ class TherapistListResource(PaginatedListResource):
         # Parse query parameters for filtering
         status = request.args.get('status')
         search = request.args.get('search', '').strip()
+        plz_prefix = request.args.get('plz_prefix', '').strip()  # NEW: PLZ filter parameter
         
         # FIXED: Proper boolean parameter parsing
         potenziell_verfuegbar_str = request.args.get('potenziell_verfuegbar')
@@ -455,6 +456,10 @@ class TherapistListResource(PaginatedListResource):
             # Apply availability filter if provided
             if potenziell_verfuegbar is not None:
                 query = query.filter(Therapist.potenziell_verfuegbar == potenziell_verfuegbar)
+            
+            # Apply PLZ prefix filter if provided
+            if plz_prefix:
+                query = query.filter(Therapist.plz.startswith(plz_prefix))
             
             # Apply search filter if provided
             if search:
