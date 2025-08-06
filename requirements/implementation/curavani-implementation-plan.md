@@ -288,48 +288,83 @@ ADD COLUMN zahlung_eingegangen BOOLEAN DEFAULT FALSE;
 
 ---
 
-## 6. THERAPIST EMAIL DEDUPLICATION ❓ PENDING
+## 6. THERAPIST EMAIL DEDUPLICATION ✅
 
 ### Problem Statement
-- Multiple therapists can have the same email address
-- Practices often share one email
-- Need to avoid duplicate communications
+- Multiple therapists can have the same email address (typical for practices)
+- Practices often share one email for all therapists
+- Need to avoid duplicate communications to the same practice
 
-### Questions to Resolve
-1. **Practice Owner Concept:**
-   - Add field `praxis_inhaber_id` (references another therapist)?
-   - Or add boolean `ist_praxis_inhaber`?
-   - Different approach?
+### Implementation Decision: Matching-Service Logic
+The deduplication logic will be implemented entirely within the matching-service, keeping the therapist-service unchanged. This approach treats therapists with the same email as one logical unit for anfragen purposes.
 
-2. **Owner Identification:**
-   - First registered = owner?
-   - Manual designation?
-   - Other criteria?
+### Core Logic
+1. **Email Grouping (Dynamic)**
+   - Group therapists by email address
+   - Important: NULL/empty emails are NOT grouped (each is separate)
+   - Grouping happens on-demand during therapist selection
 
-3. **Contact Rules:**
-   - Only contact if `ist_praxis_inhaber = true` OR no practice link?
-   - Add `kontaktierbar` boolean?
+2. **Exclusion Rules**
+   - If ANY therapist in email group has cooling period → exclude entire group
+   - If ANY therapist in email group is gesperrt → exclude entire group
+   - If ANY therapist in email group has pending anfragen → exclude entire group
 
-4. **Data Migration:**
-   - Auto-mark first per email as owner?
-   - Manual review?
-   - Default all as contactable?
+3. **Practice Owner Identification**
+   Hierarchical rules to identify who to contact:
+   
+   **Rule 1: Last Name in Email (with umlaut variations)**
+   - Check if therapist's nachname appears in email
+   - Handle German umlauts: ä→ae/a, ö→oe/o, ü→ue/u, ß→ss
+   - Example: "Mueller" matches "dr.mueller@praxis.de" or "dr.muller@praxis.de"
+   
+   **Rule 2: Professional Title**
+   - Prefer therapist with "Dr." or "Prof." in titel field
+   - If multiple have titles, use the one created first
+   
+   **Rule 3: Created First**
+   - Fallback: Choose therapist with earliest created_at date
 
-5. **Import Behavior:**
-   - Auto-link to existing owner if email matches?
-   - Create separate but non-contactable?
+4. **Cooling Period Management**
+   - When anfrage is sent: Update ONLY the contacted therapist's `naechster_kontakt_moeglich`
+   - When checking eligibility: Consider cooling period of ANY therapist in email group
+   - This ensures practice-level cooling while maintaining accurate individual records
 
-### Proposed Solution (TO BE DISCUSSED)
-```sql
--- Option 1: Boolean flag
-ALTER TABLE therapist_service.therapeuten
-ADD COLUMN ist_praxis_inhaber BOOLEAN DEFAULT TRUE,
-ADD COLUMN kontaktierbar BOOLEAN DEFAULT TRUE;
-
--- Option 2: Reference to owner
-ALTER TABLE therapist_service.therapeuten
-ADD COLUMN praxis_inhaber_id INTEGER REFERENCES therapist_service.therapeuten(id);
+### Implementation Location
 ```
+matching_service/algorithms/anfrage_creator.py
+└── get_therapists_for_selection()
+    ├── Group therapists by email
+    ├── Apply email-group-wide exclusions
+    ├── Identify practice owner for each group
+    └── Return only practice owners (or individual therapists without email groups)
+```
+
+### Edge Cases Handled
+1. **Therapist Changes Practice**
+   - When email changes, therapist automatically becomes independent
+   - Old practice can be contacted again (remaining therapists have no cooling period)
+   - Natural ungrouping through email change
+
+2. **New Therapist Joins Practice**
+   - Automatically grouped when imported with same email
+   - Inherits group's exclusion status (if any member has cooling/blocking)
+
+3. **Missing Email**
+   - Therapists without email are treated individually
+   - Never grouped with others
+
+### No Database Changes Required
+- All logic contained in matching-service
+- Therapist-service remains unchanged
+- Dynamic grouping based on current email values
+- Historical accuracy maintained (only contacted therapist has cooling period)
+
+### Benefits of This Approach
+- **Flexibility:** Logic can be adjusted without affecting other services
+- **Context-appropriate:** "Who to contact" is a matching concern, not therapist data
+- **Import-friendly:** New therapists automatically handled correctly
+- **Clean architecture:** Each service maintains its domain boundaries
+- **Accurate history:** Individual cooling periods reflect actual contact
 
 ---
 
@@ -370,25 +405,30 @@ ADD COLUMN praxis_inhaber_id INTEGER REFERENCES therapist_service.therapeuten(id
 3. Update status transition logic
 4. Remove voucher validation
 
-### Phase 3: Therapist Deduplication
-- TO BE DEFINED
+### Phase 3: Matching Service - Email Deduplication
+1. Implement email grouping logic in `get_therapists_for_selection()`
+2. Add practice owner identification with umlaut handling
+3. Update exclusion checks for email groups
+4. Test with various email scenarios
+5. Add logging for transparency
 
 ### Phase 4: Testing & Deployment
 1. Test registration flow
 2. Test payment confirmation
 3. Test PDF delivery
 4. Test import processes
+5. Test email deduplication logic
+6. Test practice owner identification
 
 ---
 
 ## OPEN QUESTIONS FOR NEXT SESSION
 
-1. **Therapist email deduplication approach** - needs decision
-2. **Diagnosis field handling** - keep or remove?
-3. **Payment confirmation workflow** - manual or automated?
-4. **Staff notification preferences** - email, dashboard, both?
-5. **Import error handling details** - retry intervals, max attempts?
-6. **Backwards compatibility** - handling existing patients without new fields?
+1. **Diagnosis field handling** - keep in backend only or remove completely?
+2. **Payment confirmation workflow** - manual process or automated integration?
+3. **Staff notification preferences** - email, dashboard, or both?
+4. **Import error handling details** - retry intervals, max attempts?
+5. **Backwards compatibility** - handling existing patients without new fields?
 
 ---
 
@@ -412,8 +452,12 @@ ADD COLUMN praxis_inhaber_id INTEGER REFERENCES therapist_service.therapeuten(id
 - Add retry mechanism
 - Add staff notifications
 
+### Backend - Matching Service
+- `matching_service/algorithms/anfrage_creator.py` (add email deduplication)
+- No database changes required
+
 ### Backend - Therapist Service
-- TBD based on deduplication approach
+- No changes required (deduplication handled in matching-service)
 
 ---
 
@@ -422,3 +466,4 @@ ADD COLUMN praxis_inhaber_id INTEGER REFERENCES therapist_service.therapeuten(id
 - Focus on reliability over complexity
 - All changes should maintain backwards compatibility where possible
 - Consider gradual rollout strategy
+- Email deduplication keeps services decoupled and maintainable
