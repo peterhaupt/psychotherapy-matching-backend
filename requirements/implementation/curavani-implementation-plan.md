@@ -370,6 +370,7 @@ When staff sets `zahlung_eingegangen = true` in React frontend:
    - only enable to select any therapist gender or female - no male only
    - set group therapy as default and pop up message if changed to no
    - remove email sending because it goes to backend
+   - replace footer with footer from other html pages
 
 3. Remove files:
    - `generate_contract.php`
