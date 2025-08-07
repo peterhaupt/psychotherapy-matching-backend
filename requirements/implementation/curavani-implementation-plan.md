@@ -358,15 +358,18 @@ When staff sets `zahlung_eingegangen = true` in React frontend:
 ### PHP Frontend (`curavani_com/`)
 1. Update `registrierung.html`:
    - Replace CSS reference to `curavani-simple.css`
-   - Replace symptom text with checkbox selection
-   - Remove PTV11 section completely
-   - Remove voucher fields
 
 2. Update `verify_token.php`:
    - Remove PDF generation code
-   - Update success messages
+   - Update success messages - remove PTV11 sections
    - Keep payment instructions
    - Serve static PDF on download
+   - Replace symptom text with checkbox selection
+   - Remove PTV11 section completely
+   - Remove voucher fields
+   - only enable to select any therapist gender or female - no male only
+   - set group therapy as default and pop up message if changed to no
+   - remove email sending because it goes to backend
 
 3. Remove files:
    - `generate_contract.php`
