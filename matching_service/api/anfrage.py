@@ -44,7 +44,6 @@ def validate_patient_data_for_platzsuche(patient_data: dict) -> tuple:
     # Required string fields that must not be empty/whitespace
     required_string_fields = [
         'geschlecht',
-        'diagnose',
         'symptome',
         'krankenkasse',
         'geburtsdatum'

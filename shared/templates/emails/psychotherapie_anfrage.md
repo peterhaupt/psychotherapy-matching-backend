@@ -14,8 +14,7 @@ Hier die wichtigsten Infos zu den Patienten, aus Datenschutzgründen hier ohne N
 
 **Patienten-ID:** {{ patient.id }}  
 **Geschlecht:** {{ patient.geschlecht }}  
-**Diagnose:** {{ patient.diagnose|default("Nicht angegeben") }}  
-**Symptome:** {{ patient.symptome|default("Nicht angegeben") }}  
+**Symptome:** {{ patient.symptome|join(', ')|default("Nicht angegeben") }}  
 **Krankenversicherung:** {{ patient.krankenkasse|default("Nicht angegeben") }}  
 **Alter:** {{ patient.age }} Jahre  
 **Erfahrung mit Psychotherapie:** {% if patient.erfahrung_mit_psychotherapie %}Ja{% else %}Nein{% endif %}

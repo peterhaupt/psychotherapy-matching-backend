@@ -344,14 +344,6 @@ def check_therapist_preferences(
     Returns:
         True if all preferences satisfied or not specified
     """
-    # Diagnosis preference
-    preferred_diagnoses = therapist.get('bevorzugte_diagnosen') or []
-    if preferred_diagnoses:
-        patient_diagnosis = patient.get('diagnose')
-        if patient_diagnosis not in preferred_diagnoses:
-            logger.debug(f"Patient diagnosis {patient_diagnosis} not in preferred list")
-            return False
-    
     # Age preference (PATIENT age, not therapist age - this stays)
     min_age = therapist.get('alter_min')
     max_age = therapist.get('alter_max')
