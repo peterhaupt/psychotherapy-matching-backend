@@ -325,7 +325,7 @@ def check_and_apply_payment_status_transition(patient, old_payment_status, db):
             # Change status from offen to auf_der_suche
             if patient.status == Patientenstatus.offen:
                 old_status = patient.status
-                patient.status = Patientenstatus.auf_der_suche
+                patient.status = Patientenstatus.auf_der_Suche
                 logger.info(f"Changed status from {old_status.value} to {patient.status.value} for patient {patient.id}")
                 
                 # Publish status change event
