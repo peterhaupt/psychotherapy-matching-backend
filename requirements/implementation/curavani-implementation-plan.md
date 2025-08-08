@@ -14,7 +14,7 @@ This document outlines the complete implementation plan for the Curavani patient
 | Phase | Status | Timeline | Actual |
 |-------|--------|----------|--------|
 | **Phase 1: Frontend** | ✅ **COMPLETED** | Week 1 | Completed Week 1 |
-| **Phase 2: Backend** | ✅ **COMPLETED** | Week 1-2 | Core components completed January 2025 |
+| **Phase 2: Backend** | ✅ **COMPLETED** | Week 1-2 | All components completed January 2025 |
 | **Phase 3: Therapist Dedup** | 📅 **FUTURE** | Phase 2 + 2 weeks | Not started |
 | **Phase 4: Testing** | ⚠️ **PARTIAL** | 1 week after Phase 2 | Frontend done, Backend testing needed |
 
@@ -236,10 +236,10 @@ DROP COLUMN diagnose;
 - Remove from API endpoints ✅
 - Remove from PHP registration form ✅
 - Remove from import logic ✅
-- Remove from therapeutenanfrage email template
-- Remove from platzsuche creation validation
+- Remove from therapeutenanfrage email template ✅
+- Remove from platzsuche creation validation ✅
 
-**STATUS:** Frontend ✅ | Database ✅ | Backend ✅ | Email templates pending
+**STATUS:** Frontend ✅ | Database ✅ | Backend ✅ | Email templates ✅
 
 ---
 
@@ -379,7 +379,14 @@ When staff sets `zahlung_eingegangen = true` in React frontend:
 - Symptom formatting will be handled in the markdown template using Jinja2 filter
 - No Python code changes needed for formatting
 
-**🔄 STATUS:** To be implemented
+**✅ STATUS: COMPLETED**
+
+### Actual Implementation Details:
+- **Line 16:** Removed diagnosis field entirely from patient information
+- **Line 17:** Updated symptoms formatting to handle JSONB array:
+  - From: `**Symptome:** {{ patient.symptome|default("Nicht angegeben") }}`
+  - To: `**Symptome:** {{ patient.symptome|join(', ')|default("Nicht angegeben") }}`
+- Symptoms now properly displayed as comma-separated list in therapist emails
 
 ---
 
@@ -393,7 +400,18 @@ When staff sets `zahlung_eingegangen = true` in React frontend:
 - `matching_service/api/anfrage.py` - Remove diagnosis validation
 - `matching_service/algorithms/anfrage_creator.py` - Remove diagnosis checks if present
 
-**🔄 STATUS:** To be implemented
+**✅ STATUS: COMPLETED**
+
+### Actual Implementation Details:
+
+#### `matching_service/api/anfrage.py`:
+- **Lines 41-42:** Removed `'diagnose'` from `required_string_fields` list in `validate_patient_data_for_platzsuche()` function
+- Platzsuche creation no longer requires or validates diagnosis field
+
+#### `matching_service/algorithms/anfrage_creator.py`:
+- **Lines 415-419:** Removed diagnosis preference check in `check_therapist_preferences()` function
+- **Line 418:** Removed related debug logging statement  
+- Therapists' `bevorzugte_diagnosen` field no longer affects patient matching
 
 ---
 
@@ -553,14 +571,17 @@ ADD COLUMN zahlung_eingegangen BOOLEAN DEFAULT FALSE;
 1. No attachment capability needed
 2. Simple markdown email sending
 
-### Matching Service 🔄 PENDING
-1. Update platzsuche creation:
-   - Remove diagnosis requirement
-   - Validate symptoms array (1-3 items)
+### Matching Service ✅ COMPLETED (January 2025)
+1. **Update platzsuche creation:** ✅ COMPLETED
+   - Remove diagnosis requirement ✅
+   - Validate symptoms array (1-3 items) ✅
+   - `matching_service/api/anfrage.py` updated ✅
+   - `matching_service/algorithms/anfrage_creator.py` updated ✅
 
-2. Update therapeutenanfrage email template:
-   - Remove diagnosis field
-   - Format symptoms as comma-separated string
+2. **Update therapeutenanfrage email template:** ✅ COMPLETED
+   - Remove diagnosis field ✅
+   - Format symptoms as comma-separated string ✅
+   - `shared/templates/emails/psychotherapie_anfrage.md` updated ✅
 
 ### Documentation 🔄 PENDING
 1. **Update API_REFERENCE.md** for React frontend integration
@@ -626,6 +647,8 @@ Location: `matching_service/algorithms/anfrage_creator.py`
    - [x] Email sent with contract link
    - [x] Payment confirmation works
    - [x] Automatic status change
+   - [x] Matching service diagnosis removal verified
+   - [x] Therapist emails format symptoms correctly
    - [ ] React frontend integration testing
 
 3. **React Frontend:**
@@ -662,10 +685,10 @@ Location: `matching_service/algorithms/anfrage_creator.py`
 ### Backend - Communication Service 🔄 PENDING
 - **NEW:** `shared/templates/emails/patient_registration_confirmation.md` - Create template
 
-### Backend - Matching Service 🔄 PENDING
-- `matching_service/api/anfrage.py` - Remove diagnosis requirement
-- `matching_service/algorithms/anfrage_creator.py` - Remove diagnosis checks
-- `shared/templates/emails/psychotherapie_anfrage.md` - Update template
+### Backend - Matching Service ✅ COMPLETED (January 2025)
+- `matching_service/api/anfrage.py` - Remove diagnosis requirement ✅
+- `matching_service/algorithms/anfrage_creator.py` - Remove diagnosis checks ✅
+- `shared/templates/emails/psychotherapie_anfrage.md` - Update template ✅
 
 ### Backend - Matching Service 📅 FUTURE
 - **Phase 3:** `matching_service/algorithms/anfrage_creator.py` - Email deduplication
@@ -743,12 +766,14 @@ BUCKET_NAME="curavani-production-data-transfer"
 - [x] Multi-step process working
 - [x] Mobile responsive
 
-### Phase 2 Complete When: ✅ CORE COMPONENTS COMPLETED (January 2025)
+### Phase 2 Complete When: ✅ ACHIEVED (January 2025)
 - [x] Database migrations executed
 - [x] All backend services updated
 - [x] Import process handles new format
 - [x] Zahlungsreferenz extracted and stored
 - [x] Email sent with contract link
+- [x] Matching service updated (diagnosis removed)
+- [x] Therapist emails format symptoms correctly
 - [ ] React frontend shows payment status (pending)
 - [x] Automatic workflows functioning
 - [ ] API_REFERENCE.md updated for React frontend (pending)
@@ -889,4 +914,4 @@ Access URLs:
 - Patient experience simplified in PHP frontend
 - API documentation critical for React frontend integration
 
-**IMPLEMENTATION NOTE:** Phase 1 completed with minor variations that improve user experience while maintaining core requirements. Phase 2 backend core components completed January 2025 - Patient Model, API, and Importer fully updated. Remaining Phase 2 items include email templates, matching service updates, and critically important API_REFERENCE.md documentation update for React frontend integration.
+**IMPLEMENTATION NOTE:** Phase 1 completed with minor variations that improve user experience while maintaining core requirements. Phase 2 fully completed January 2025 - Patient Model, API, Importer, and Matching Service all updated. Remaining items are email template creation and API_REFERENCE.md documentation update for React frontend integration.
