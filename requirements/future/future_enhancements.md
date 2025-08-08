@@ -1,6 +1,6 @@
 # Future Enhancements - Priority Items
 
-**Document Version:** 3.5  
+**Document Version:** 3.6  
 **Date:** January 2025  
 **Status:** Requirements Gathering (Updated)
 
@@ -1760,6 +1760,143 @@ send_test_report $TEST_DB
 
 ---
 
+## 34. Handle "Null" Last Name in Therapist Imports and Scraper - **HIGH PRIORITY NEW**
+
+### Current Issue
+Therapists with the literal last name "Null" (e.g., Anne-Kathrin Null) are causing import failures and scraper issues. The system is interpreting the string "Null" as a null value, leading to data processing errors.
+
+### Example Case
+- **Therapist:** Anne-Kathrin Null (File: 10243.json)
+- **Error:** "Failed to map therapist data"
+- **Import Summary:** 8262 therapists processed, 1 failed (100% success rate affected)
+
+### Root Causes
+- **String-to-Null Conversion:** The string "Null" is being interpreted as a null/None value
+- **JSON Parsing Issues:** JSON deserializers may auto-convert "Null" strings
+- **Database Constraints:** NOT NULL constraints on last name field reject null values
+- **Scraper Issues:** Web scraper may skip or error on "Null" values
+
+### Implementation Requirements
+
+#### A. Input Validation & Sanitization
+- **String Preservation:**
+  - Treat "Null" as a valid string, not a null value
+  - Case-insensitive handling ("null", "NULL", "Null")
+  - Preserve original casing in database
+
+- **Validation Rules:**
+  ```python
+  def validate_last_name(value):
+      # Check if value is actually None vs string "Null"
+      if value is None:
+          raise ValueError("Last name cannot be empty")
+      
+      # Ensure string "Null" is preserved
+      if isinstance(value, str) and value.lower() == "null":
+          # Mark for special handling
+          return {"value": value, "is_literal_null": True}
+      
+      return {"value": value, "is_literal_null": False}
+  ```
+
+#### B. Import Process Updates
+- **JSON Parsing:**
+  ```python
+  # Custom JSON decoder to preserve "Null" strings
+  def custom_decoder(dct):
+      for key, value in dct.items():
+          if key in ['nachname', 'last_name'] and value == "Null":
+              # Explicitly preserve as string
+              dct[key] = str(value)
+      return dct
+  
+  # Use: json.loads(data, object_hook=custom_decoder)
+  ```
+
+- **Database Handling:**
+  - Add check constraint to differentiate empty string from "Null"
+  - Consider adding metadata flag for literal null names
+  - Update ORM mappings to handle special case
+
+#### C. Scraper Enhancements
+- **Web Scraping:**
+  - Add special handling for "Null" text in name fields
+  - Implement fallback logic if "Null" causes parsing errors
+  - Log occurrences for monitoring
+
+- **Data Extraction:**
+  ```javascript
+  // Scraper logic
+  const lastName = element.textContent.trim();
+  
+  // Preserve "Null" as string
+  if (lastName.toLowerCase() === 'null') {
+      return { lastName: 'Null', hasLiteralNullName: true };
+  }
+  
+  return { lastName: lastName || '' };
+  ```
+
+#### D. System-Wide Fixes
+- **API Responses:**
+  - Ensure APIs return "Null" as string, not null
+  - Add response headers indicating special handling
+
+- **Frontend Display:**
+  - Show "Null" correctly in UI components
+  - Add tooltip or indicator for literal null names
+
+- **Search Functionality:**
+  - Enable searching for therapists with "Null" last name
+  - Case-insensitive search should find "Null" entries
+
+### Testing Requirements
+- **Unit Tests:**
+  - Test import with "Null" last name
+  - Test JSON parsing preservation
+  - Test database insert/update/select
+  - Test API serialization
+
+- **Integration Tests:**
+  - Full import cycle with "Null" name
+  - Scraper handling of "Null" values
+  - End-to-end data flow
+
+- **Edge Cases:**
+  - Multiple "Null" variations (NULL, null, Null)
+  - Other problematic names (True, False, None, Undefined)
+  - International variants (Nul, Nullo)
+
+### Preventive Measures
+- **Reserved Word List:**
+  ```python
+  RESERVED_WORDS = [
+      'null', 'none', 'undefined', 'true', 'false',
+      'nil', 'void', 'empty', 'blank'
+  ]
+  
+  def requires_special_handling(value):
+      return value.lower() in RESERVED_WORDS
+  ```
+
+- **Documentation:**
+  - Document all reserved words requiring special handling
+  - Create guidelines for handling edge cases
+  - Add comments in code for future developers
+
+### Monitoring & Alerts
+- Set up alerts for import failures with "reserved word" names
+- Track occurrences of special-case handling
+- Regular audit of therapist names for data quality
+
+### Success Metrics
+- **Import Success Rate:** Return to 100% with "Null" names handled
+- **Zero Data Loss:** All therapist records preserved accurately
+- **Search Accuracy:** "Null" searchable and findable
+- **API Reliability:** Consistent handling across all endpoints
+
+---
+
 ## Implementation Priority
 
 | Priority | Enhancement | Complexity | Impact |
@@ -1771,6 +1908,7 @@ send_test_report $TEST_DB
 | **CRITICAL** | Handle Duplicate Patient Registrations (#16) | Medium-High | Critical |
 | **CRITICAL** | Fix Non-Functional Automatic Reminders (#22) | Medium | Critical |
 | **CRITICAL** | Protection from Injection Attacks (#28) | High | Critical |
+| **High** | Handle "Null" Last Name in Imports (#34) | Medium | High |
 | **High** | Comprehensive Email Automation System (#1) | High | Very High |
 | **High** | Fix ICD10 Diagnostic Matching Logic (#23) | Medium-High | High |
 | **High** | Handle Duplicate Therapists with Same Email (#17) | Medium-High | High |
@@ -1803,25 +1941,26 @@ send_test_report $TEST_DB
 ## Next Steps
 
 1. **IMMEDIATE - Data Protection:** Implement backup testing and monitoring (#33) to ensure data recoverability
-2. **URGENT - Security:** Implement injection attack protection (#28) across all forms
-3. **URGENT:** Investigate database ID gaps in production environment (#9)
-4. **URGENT:** Resolve internal server errors affecting email functionality (#10)
-5. **URGENT:** Fix non-functional automatic reminders and follow-up systems (#22)
-6. **URGENT:** Implement duplicate handling for patients (#16) to ensure data integrity
-7. **URGENT:** Fix ICD10 diagnostic matching logic (#23) - review Angela Fath-Volk case
-8. **Infrastructure:** Set up production log management (#32) and evaluate Kafka necessity (#30)
-9. **Quick Wins:** Implement frontend fixes (#11, #15, #19, #24, #27) and eligibility improvements (#12)
-10. **Dashboard Fix:** Correct platzsuche duration calculation (#31) for accurate reporting
-11. **User Experience:** Implement pause functionality (#25) and validation improvements (#26)
-12. **Email System:** Design and implement comprehensive email automation (#1)
-13. **Payment System:** Design and implement patient payment tracking (#21)
-14. **Communication:** Implement phone call templates (#20)
-15. **Data Quality:** Design and implement therapist duplicate handling (#17) and multi-location support (#18)
-16. **European Compliance:** Plan migration from Google Cloud Storage to European solution (#29)
-17. **Requirements Clarification:** Schedule discussion sessions for items #2-4, #6, and #13
-18. **Technical Investigation:** Deep dive into Kafka/Zookeeper issues
-19. **Audit Current Systems:** Review therapist import reporting logic and email delivery
-20. **Implementation Planning:** Create detailed technical specifications for high-priority items
+2. **URGENT - Import Fix:** Handle "Null" last name issue (#34) affecting therapist imports and scraper
+3. **URGENT - Security:** Implement injection attack protection (#28) across all forms
+4. **URGENT:** Investigate database ID gaps in production environment (#9)
+5. **URGENT:** Resolve internal server errors affecting email functionality (#10)
+6. **URGENT:** Fix non-functional automatic reminders and follow-up systems (#22)
+7. **URGENT:** Implement duplicate handling for patients (#16) to ensure data integrity
+8. **URGENT:** Fix ICD10 diagnostic matching logic (#23) - review Angela Fath-Volk case
+9. **Infrastructure:** Set up production log management (#32) and evaluate Kafka necessity (#30)
+10. **Quick Wins:** Implement frontend fixes (#11, #15, #19, #24, #27) and eligibility improvements (#12)
+11. **Dashboard Fix:** Correct platzsuche duration calculation (#31) for accurate reporting
+12. **User Experience:** Implement pause functionality (#25) and validation improvements (#26)
+13. **Email System:** Design and implement comprehensive email automation (#1)
+14. **Payment System:** Design and implement patient payment tracking (#21)
+15. **Communication:** Implement phone call templates (#20)
+16. **Data Quality:** Design and implement therapist duplicate handling (#17) and multi-location support (#18)
+17. **European Compliance:** Plan migration from Google Cloud Storage to European solution (#29)
+18. **Requirements Clarification:** Schedule discussion sessions for items #2-4, #6, and #13
+19. **Technical Investigation:** Deep dive into Kafka/Zookeeper issues
+20. **Audit Current Systems:** Review therapist import reporting logic and email delivery
+21. **Implementation Planning:** Create detailed technical specifications for high-priority items
 
 ---
 
