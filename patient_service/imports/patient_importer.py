@@ -1,7 +1,9 @@
 """Patient import logic with validation - Phase 2 updates."""
 import logging
+import os
 from typing import Dict, Any, Tuple
 from datetime import datetime
+from jinja2 import Environment, FileSystemLoader
 
 import requests
 from sqlalchemy.exc import SQLAlchemyError
@@ -241,7 +243,7 @@ class PatientImporter:
     def _send_patient_confirmation_email(self, patient_id: int, patient_data: Dict[str, Any]):
         """Send confirmation email to patient with contract link and payment info.
         
-        PHASE 2: New method to send email after successful import
+        PHASE 2: Uses template from shared/templates/emails/patient_registration_confirmation.md
         
         Args:
             patient_id: ID of the created patient
@@ -253,65 +255,57 @@ class PatientImporter:
                 logger.warning(f"No email address for patient {patient_id}, skipping confirmation email")
                 return
             
+            # Set up Jinja2 environment pointing to shared templates
+            # In Docker container, shared is mounted at /app/shared
+            if os.path.exists('/app/shared'):
+                shared_path = '/app/shared'
+            else:
+                # Local development - go up from patient_service to project root
+                shared_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'shared')
+            
+            template_dir = os.path.join(shared_path, 'templates', 'emails')
+            
+            if not os.path.exists(template_dir):
+                logger.error(f"Template directory not found: {template_dir}")
+                # Fall back to sending without template
+                self.send_error_notification(
+                    "Email template directory not found",
+                    f"Could not find templates at: {template_dir}\nPatient ID: {patient_id}"
+                )
+                return
+            
+            env = Environment(loader=FileSystemLoader(template_dir))
+            
+            # Prepare template context with patient data
+            context = {
+                'patient': patient_data
+            }
+            
+            # Render template
+            template = env.get_template('patient_registration_confirmation.md')
+            email_markdown = template.render(context)
+            
+            # Extract subject from first line if it starts with **Betreff:**
+            lines = email_markdown.split('\n')
+            subject = "Registrierung Suche Psychotherapieplatz erfolgreich"  # Default
+            
+            if lines and lines[0].startswith('**Betreff:**'):
+                subject = lines[0].replace('**Betreff:**', '').strip()
+                # Remove subject line from body
+                email_markdown = '\n'.join(lines[1:]).strip()
+            
             vorname = patient_data.get('vorname', '')
             nachname = patient_data.get('nachname', '')
-            zahlungsreferenz = patient_data.get('zahlungsreferenz', '')
-            
-            # Create email content with contract link and payment info
-            subject = "Ihre Registrierung bei Curavani - Vertragsunterlagen und Zahlungsinformationen"
-            
-            # Build markdown content
-            body_markdown = f"""Sehr geehrte/r {vorname} {nachname},
-
-vielen Dank für Ihre Registrierung bei Curavani. Wir freuen uns, Sie bei der Suche nach einem geeigneten Therapieplatz unterstützen zu können.
-
-## Ihre Vertragsunterlagen
-
-Ihre Vertragsunterlagen können Sie hier herunterladen:
-**[Vertragsunterlagen als PDF herunterladen](https://www.curavani.com/verify_token.php?download=contract)**
-
-Bitte bewahren Sie diese Unterlagen für Ihre Unterlagen auf.
-
-## Zahlungsinformationen
-
-Um mit der Therapieplatzsuche beginnen zu können, überweisen Sie bitte die Servicegebühr von **39 Euro** auf folgendes Konto:
-
-**Kontoinhaber:** Curavani GmbH  
-**IBAN:** DE12 3456 7890 1234 5678 90  
-**BIC:** DEUTDEFF  
-**Verwendungszweck:** {zahlungsreferenz}
-
-**WICHTIG:** Bitte geben Sie unbedingt Ihre persönliche **Zahlungsreferenz: {zahlungsreferenz}** als Verwendungszweck an, damit wir Ihre Zahlung zuordnen können.
-
-## Nächste Schritte
-
-1. Nach Eingang Ihrer Zahlung werden wir umgehend mit der Suche nach einem geeigneten Therapieplatz beginnen
-2. Wir kontaktieren Therapeuten in Ihrer Umgebung basierend auf Ihren angegebenen Präferenzen
-3. Sobald wir positive Rückmeldungen erhalten, informieren wir Sie umgehend per E-Mail
-
-## Bei dringenden Fällen
-
-Sollten Sie sich in einer akuten Krise befinden, wenden Sie sich bitte umgehend an:
-- **Kassenärztlicher Notdienst:** 116 117
-- **Telefonseelsorge:** 0800 111 0 111 oder 0800 111 0 222
-- **Notruf bei akuter Gefahr:** 112
-
-## Fragen?
-
-Bei Fragen zu Ihrer Registrierung oder zum weiteren Ablauf können Sie uns jederzeit unter info@curavani.de erreichen.
-
-Mit freundlichen Grüßen  
-Ihr Curavani-Team"""
             
             # Send email via communication service
             email_data = {
                 'patient_id': patient_id,
                 'betreff': subject,
-                'inhalt_markdown': body_markdown,
+                'inhalt_markdown': email_markdown,
                 'empfaenger_email': email,
                 'empfaenger_name': f"{vorname} {nachname}",
-                'absender_email': 'info@curavani.de',
-                'absender_name': 'Curavani Team',
+                'absender_email': 'info@curavani.com',  # Fixed to .com
+                'absender_name': 'Curavani',  # Changed from "Curavani Team"
                 'add_legal_footer': True,
                 'status': 'In_Warteschlange'  # Queue for sending
             }
