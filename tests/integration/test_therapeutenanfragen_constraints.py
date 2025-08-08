@@ -100,7 +100,14 @@ class TestTherapeutenanfragenConstraints:
         print("Cleanup completed.\n")
 
     def create_test_patient(self, **kwargs):
-        """Helper to create a test patient with ALL REQUIRED FIELDS for platzsuche validation."""
+        """Helper to create a test patient with ALL REQUIRED FIELDS for platzsuche validation.
+        
+        PHASE 2 UPDATES:
+        - Removed diagnose field (no longer exists)
+        - Changed symptome to JSONB array with valid symptoms from predefined list
+        - Added zahlungsreferenz field (optional for tests)
+        - Added zahlung_eingegangen field (optional for tests)
+        """
         default_data = {
             # Required enum fields
             "anrede": "Herr",
@@ -117,8 +124,15 @@ class TestTherapeutenanfragenConstraints:
             
             # REQUIRED STRING FIELDS for platzsuche validation
             "geburtsdatum": "1990-01-01",
-            "diagnose": "F32.1",
-            "symptome": "Niedergeschlagenheit, Schlafstörungen, Antriebslosigkeit",
+            # REMOVED in Phase 2: "diagnose" field no longer exists
+            
+            # CHANGED in Phase 2: symptome is now JSONB array with 1-3 valid symptoms
+            "symptome": [
+                "Depression / Niedergeschlagenheit",
+                "Schlafstörungen",
+                "Stress / Überforderung"
+            ],
+            
             "krankenkasse": "Test Krankenkasse",
             
             # REQUIRED BOOLEAN FIELDS for platzsuche validation  
@@ -134,7 +148,11 @@ class TestTherapeutenanfragenConstraints:
             # Optional but useful fields
             "raeumliche_verfuegbarkeit": {"max_km": 25},
             "bevorzugtes_therapeutengeschlecht": "Egal",
-            "bevorzugtes_therapieverfahren": "egal"
+            "bevorzugtes_therapieverfahren": "egal",
+            
+            # NEW in Phase 2: Payment fields (optional for tests)
+            # "zahlungsreferenz": "TEST1234",  # Optional - only if testing payment flow
+            # "zahlung_eingegangen": False,    # Optional - only if testing payment flow
         }
         data = {**default_data, **kwargs}
         
@@ -1127,16 +1145,20 @@ class TestTherapeutenanfragenConstraints:
             self.safe_delete_patient(patient['id'])
 
     def test_edge_case_therapist_no_therapy_procedure(self):
-        """Test handling when therapist has no therapy procedure specified."""
+        """Test handling when therapist has no therapy procedure specified.
+        
+        NOTE: This test uses minimum symptoms (1) to test edge case.
+        """
         # Create therapist without psychotherapieverfahren
         therapist = self.create_test_therapist(
             psychotherapieverfahren=None,
             email="no.procedure.therapist@example.com"
         )
         
-        # Create patient with specific therapy preference
+        # Create patient with specific therapy preference and only 1 symptom
         patient = self.create_test_patient(
             bevorzugtes_therapieverfahren="Verhaltenstherapie",
+            symptome=["Ängste / Panikattacken"],  # Testing with minimum (1 symptom)
             email="vt.patient@example.com"
         )
         
