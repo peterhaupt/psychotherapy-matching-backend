@@ -6,7 +6,6 @@ Tests cover payment tracking, zahlungsreferenz extraction, and automatic status 
 import pytest
 from unittest.mock import Mock, patch, MagicMock, call
 from datetime import date, datetime, timedelta
-from freezegun import freeze_time
 
 from sqlalchemy.orm import Session
 
@@ -70,7 +69,6 @@ class TestZahlungsreferenzExtraction:
 class TestPaymentConfirmation:
     """Test payment confirmation and automatic status changes."""
     
-    @freeze_time("2025-01-15")
     def test_payment_confirmation_triggers_status_change(self):
         """Test that confirming payment changes status from offen → auf_der_suche."""
         from patient_service.services import PaymentService  # Will be implemented
@@ -90,17 +88,18 @@ class TestPaymentConfirmation:
             
             mock_session.query().filter().first.return_value = patient
             
-            # Confirm payment
-            service = PaymentService()
-            result = service.confirm_payment(patient_id=1)
-            
-            # Verify changes
-            assert patient.zahlung_eingegangen is True
-            assert patient.status == Patientenstatus.auf_der_suche
-            assert patient.startdatum == date(2025, 1, 15)
-            assert result['status_changed'] is True
+            # Mock current date
+            with patch('datetime.date.today', return_value=date(2025, 1, 15)):
+                # Confirm payment
+                service = PaymentService()
+                result = service.confirm_payment(patient_id=1)
+                
+                # Verify changes
+                assert patient.zahlung_eingegangen is True
+                assert patient.status == Patientenstatus.auf_der_suche
+                assert patient.startdatum == date(2025, 1, 15)
+                assert result['status_changed'] is True
     
-    @freeze_time("2025-01-15")
     def test_payment_confirmation_sets_startdatum(self):
         """Test that payment confirmation sets startdatum to today when conditions met."""
         from patient_service.services import PaymentService
@@ -117,11 +116,13 @@ class TestPaymentConfirmation:
             
             mock_session.query().filter().first.return_value = patient
             
-            service = PaymentService()
-            service.confirm_payment(patient_id=1)
-            
-            # startdatum should be set to today
-            assert patient.startdatum == date(2025, 1, 15)
+            # Mock current date
+            with patch('datetime.date.today', return_value=date(2025, 1, 15)):
+                service = PaymentService()
+                service.confirm_payment(patient_id=1)
+                
+                # startdatum should be set to today
+                assert patient.startdatum == date(2025, 1, 15)
     
     def test_payment_without_contracts_no_status_change(self):
         """Test that payment without signed contracts doesn't change status."""
@@ -168,7 +169,8 @@ class TestPaymentConfirmation:
             
             service = PaymentService()
             
-            with freeze_time("2025-01-15"):
+            # Mock current date (different from startdatum)
+            with patch('datetime.date.today', return_value=date(2025, 1, 15)):
                 result = service.confirm_payment(patient_id=1)
             
             # Nothing should change
@@ -196,7 +198,8 @@ class TestPaymentConfirmation:
             
             service = PaymentService()
             
-            with freeze_time("2025-01-15"):
+            # Mock current date (different from startdatum)
+            with patch('datetime.date.today', return_value=date(2025, 1, 15)):
                 service.confirm_payment(patient_id=1)
             
             # startdatum should remain unchanged
