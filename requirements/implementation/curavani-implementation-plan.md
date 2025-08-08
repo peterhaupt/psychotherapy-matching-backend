@@ -433,6 +433,32 @@ When staff sets `zahlung_eingegangen = true` in React frontend:
 
 ---
 
+## 13. API REFERENCE UPDATE
+
+### Requirement
+- **Update API_REFERENCE.md** to reflect all Phase 2 backend changes for React frontend integration
+
+### Changes to Document:
+1. **Remove diagnosis field** from all patient endpoints
+2. **Remove psychotherapeutische_sprechstunde field** from patient model
+3. **Update symptome field** to JSONB array type with validation rules
+4. **Add zahlungsreferenz field** to patient model
+5. **Add zahlung_eingegangen field** to patient model
+6. **Document automatic status transitions** when payment confirmed
+7. **Update validation requirements** for symptom array (1-3 items from predefined list)
+8. **Document automatic field behavior:**
+   - `startdatum` automatically set when payment confirmed
+   - Status automatically changes from "offen" to "auf_der_suche"
+
+### Implementation Note
+- This documentation update is critical for React frontend developers
+- Must be completed before React frontend modifications begin
+- Should include example requests/responses with new field structure
+
+**🔄 STATUS:** To be implemented - Required for React frontend integration
+
+---
+
 ## IMPLEMENTATION PHASES
 
 ## Phase 1: Frontend Changes (Priority) ✅ COMPLETED
@@ -536,6 +562,12 @@ ADD COLUMN zahlung_eingegangen BOOLEAN DEFAULT FALSE;
    - Remove diagnosis field
    - Format symptoms as comma-separated string
 
+### Documentation 🔄 PENDING
+1. **Update API_REFERENCE.md** for React frontend integration
+   - Document all field changes
+   - Update example requests/responses
+   - Document automatic field behaviors
+
 ### Status Transition Logic ✅ COMPLETED (January 2025)
 ```python
 def confirm_payment(patient_id):
@@ -601,6 +633,7 @@ Location: `matching_service/algorithms/anfrage_creator.py`
    - [ ] Zahlungsreferenz displayed
    - [ ] Status displays correctly
    - [ ] Patient management works
+   - [ ] API_REFERENCE.md updated and verified
 
 4. **Error Handling:**
    - [ ] Import errors notify admins
@@ -636,6 +669,9 @@ Location: `matching_service/algorithms/anfrage_creator.py`
 
 ### Backend - Matching Service 📅 FUTURE
 - **Phase 3:** `matching_service/algorithms/anfrage_creator.py` - Email deduplication
+
+### Documentation 🔄 PENDING
+- **API_REFERENCE.md** - Update for React frontend with all Phase 2 changes
 
 ### Database Migrations ✅ COMPLETED
 - Migration 001_initial_setup - executed
@@ -715,6 +751,7 @@ BUCKET_NAME="curavani-production-data-transfer"
 - [x] Email sent with contract link
 - [ ] React frontend shows payment status (pending)
 - [x] Automatic workflows functioning
+- [ ] API_REFERENCE.md updated for React frontend (pending)
 
 ### Phase 3 Complete When: 📅 FUTURE
 - [ ] Therapist deduplication working
@@ -746,6 +783,11 @@ BUCKET_NAME="curavani-production-data-transfer"
 5. **Zahlungsreferenz Collisions**
    - Acceptable risk (4.3 billion combinations)
    - Monitor for duplicates in production
+
+6. **API Documentation Sync**
+   - Update API_REFERENCE.md immediately after backend changes
+   - Version control for API documentation
+   - Test React frontend against updated API specs
 
 ---
 
@@ -845,5 +887,6 @@ Access URLs:
 - Automation can be added incrementally
 - Focus on staff usability in React frontend
 - Patient experience simplified in PHP frontend
+- API documentation critical for React frontend integration
 
-**IMPLEMENTATION NOTE:** Phase 1 completed with minor variations that improve user experience while maintaining core requirements. Phase 2 backend core components completed January 2025 - Patient Model, API, and Importer fully updated. Remaining Phase 2 items include email templates and matching service updates.
+**IMPLEMENTATION NOTE:** Phase 1 completed with minor variations that improve user experience while maintaining core requirements. Phase 2 backend core components completed January 2025 - Patient Model, API, and Importer fully updated. Remaining Phase 2 items include email templates, matching service updates, and critically important API_REFERENCE.md documentation update for React frontend integration.
