@@ -6,7 +6,7 @@ their key columns.
 
 IMPORTANT: All field names use German terminology for consistency.
 
-Current State (after migration 005):
+Current State (after migration 003_phase2_patient_updates):
 - All database table names use German names (patienten, therapeuten, telefonanrufe)
 - All database fields use German names
 - All enum types use German names
@@ -22,6 +22,12 @@ Current State (after migration 005):
 - Patient therapist age preferences removed
 - PLZ centroids table added for fast distance calculation (migration 005)
 - travel_time_minutes removed from distance_cache table (migration 006)
+- Migration 003 changes (Phase 2 patient updates):
+  - diagnose field removed from patienten table
+  - psychotherapeutische_sprechstunde field removed from patienten table
+  - symptome changed from TEXT to JSONB
+  - zahlungsreferenz field added to patienten table
+  - zahlung_eingegangen field added to patienten table
 """
 import os
 import sys
@@ -86,7 +92,7 @@ def test_schemas_exist(db_engine):
 
 
 def test_patient_service_tables(db_inspector):
-    """Test that patient service tables exist with correct columns including Phase 2 additions."""
+    """Test that patient service tables exist with correct columns including Phase 2 additions and Migration 003 changes."""
     # Check patienten table exists (German name)
     tables = db_inspector.get_table_names(schema='patient_service')
     assert 'patienten' in tables, "Table 'patienten' not found in patient_service schema"
@@ -100,14 +106,16 @@ def test_patient_service_tables(db_inspector):
     required_columns = {
         'id', 'anrede', 'geschlecht', 'vorname', 'nachname', 'strasse', 'plz', 'ort',
         'email', 'telefon', 'hausarzt', 'krankenkasse', 
-        'krankenversicherungsnummer', 'geburtsdatum', 'diagnose',
-        # NEW Phase 2 fields
+        'krankenversicherungsnummer', 'geburtsdatum',
+        # REMOVED in Migration 003: 'diagnose', 'psychotherapeutische_sprechstunde'
+        # Phase 2 fields
         'symptome', 'erfahrung_mit_psychotherapie',
-        'letzte_sitzung_vorherige_psychotherapie',  # NEW field added
+        'letzte_sitzung_vorherige_psychotherapie',
         'bevorzugtes_therapieverfahren',
-        # REMOVED: bevorzugtes_therapeutenalter_min and bevorzugtes_therapeutenalter_max
-        # End NEW Phase 2 fields
-        'vertraege_unterschrieben', 'psychotherapeutische_sprechstunde',
+        # NEW in Migration 003
+        'zahlungsreferenz', 'zahlung_eingegangen',
+        # Process fields
+        'vertraege_unterschrieben',
         'startdatum', 'status', 'zeitliche_verfuegbarkeit',
         'raeumliche_verfuegbarkeit', 'verkehrsmittel',
         'offen_fuer_gruppentherapie', 'offen_fuer_diga',
@@ -142,7 +150,9 @@ def test_patient_service_tables(db_inspector):
         'anlass_fuer_die_therapiesuche', 'erwartungen_an_die_therapie',
         'therapieziele', 'fruehere_therapieerfahrungen',
         # Age preference fields
-        'bevorzugtes_therapeutenalter_min', 'bevorzugtes_therapeutenalter_max'
+        'bevorzugtes_therapeutenalter_min', 'bevorzugtes_therapeutenalter_max',
+        # Migration 003 removed fields
+        'diagnose', 'psychotherapeutische_sprechstunde'
     }
     unexpected_columns = removed_columns & columns
     assert not unexpected_columns, f"Removed columns still exist in patienten table: {unexpected_columns}"
@@ -245,7 +255,7 @@ def test_matching_service_tables(db_inspector):
 
 
 def test_communication_service_tables(db_inspector):
-    """Test that communication service tables exist with correct columns."""
+    """Test that communication service tables exist with correct columns including Migration 002 addition."""
     tables = db_inspector.get_table_names(schema='communication_service')
     
     # Check that batch tables have been REMOVED
@@ -292,7 +302,9 @@ def test_communication_service_tables(db_inspector):
         'dauer_minuten', 'tatsaechliches_datum', 'tatsaechliche_zeit', 'status',
         'ergebnis', 'notizen', 
         # REMOVED: 'wiederholen_nach' (Phase 1 change)
-        'created_at', 'updated_at'
+        'created_at', 'updated_at',
+        # Migration 002 addition
+        'therapeutenanfrage_id'
     }
     missing = pc_required - pc_columns
     assert not missing, f"Missing columns in telefonanrufe: {missing}"
@@ -441,10 +453,12 @@ def test_indexes_exist(db_inspector):
     assert 'idx_therapeutenanfrage_email_id' in ta_index_names, "Missing index on therapeutenanfrage.email_id"
     assert 'idx_therapeutenanfrage_phone_call_id' in ta_index_names, "Missing index on therapeutenanfrage.phone_call_id"
     
-    # Check telefonanrufe indexes (German table name)
+    # Check telefonanrufe indexes (German table name) including Migration 002 addition
     pc_indexes = db_inspector.get_indexes('telefonanrufe', schema='communication_service')
     pc_index_names = {idx['name'] for idx in pc_indexes}
     assert 'idx_phone_calls_status' in pc_index_names, "Missing index on telefonanrufe.status"
+    assert 'ix_communication_service_telefonanrufe_therapeutenanfrage_id' in pc_index_names, \
+        "Missing index on telefonanrufe.therapeutenanfrage_id (Migration 002)"
 
 
 def test_foreign_key_constraints(db_inspector):
@@ -694,6 +708,43 @@ def test_plz_centroids_data_types(db_inspector):
         elif col['name'] in ['latitude', 'longitude']:
             assert 'FLOAT' in str(col['type']).upper() or 'DOUBLE' in str(col['type']).upper(), \
                 f"{col['name']} should be FLOAT, got: {col['type']}"
+
+
+def test_migration_002_addition(db_inspector):
+    """Test that Migration 002 added therapeutenanfrage_id to telefonanrufe table."""
+    # Check that therapeutenanfrage_id column exists in telefonanrufe
+    pc_columns = {col['name'] for col in db_inspector.get_columns('telefonanrufe', schema='communication_service')}
+    assert 'therapeutenanfrage_id' in pc_columns, \
+        "Column 'therapeutenanfrage_id' not found in telefonanrufe table (Migration 002)"
+    
+    # Check that index exists for this column
+    pc_indexes = db_inspector.get_indexes('telefonanrufe', schema='communication_service')
+    pc_index_names = {idx['name'] for idx in pc_indexes}
+    assert 'ix_communication_service_telefonanrufe_therapeutenanfrage_id' in pc_index_names, \
+        "Missing index on telefonanrufe.therapeutenanfrage_id (Migration 002)"
+
+
+def test_migration_003_changes(db_inspector):
+    """Test that Migration 003 Phase 2 patient updates were applied correctly."""
+    columns = {col['name'] for col in db_inspector.get_columns('patienten', schema='patient_service')}
+    
+    # Check that removed columns don't exist
+    assert 'diagnose' not in columns, "Column 'diagnose' should have been removed (Migration 003)"
+    assert 'psychotherapeutische_sprechstunde' not in columns, \
+        "Column 'psychotherapeutische_sprechstunde' should have been removed (Migration 003)"
+    
+    # Check that new columns exist
+    assert 'zahlungsreferenz' in columns, "Column 'zahlungsreferenz' not found (Migration 003)"
+    assert 'zahlung_eingegangen' in columns, "Column 'zahlung_eingegangen' not found (Migration 003)"
+    
+    # Check symptome column type (should be JSONB now, not TEXT)
+    symptome_col = next(col for col in db_inspector.get_columns('patienten', schema='patient_service') 
+                       if col['name'] == 'symptome')
+    # SQLAlchemy represents JSONB as JSON when inspecting
+    assert 'JSON' in str(symptome_col['type']).upper(), \
+        f"symptome should be JSONB type, got: {symptome_col['type']}"
+    assert 'TEXT' not in str(symptome_col['type']).upper(), \
+        f"symptome should NOT be TEXT type anymore, got: {symptome_col['type']}"
 
 
 if __name__ == "__main__":
