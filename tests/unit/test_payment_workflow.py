@@ -2,6 +2,7 @@
 
 Tests cover payment tracking, zahlungsreferenz extraction, and automatic status transitions.
 Uses the same strategy as test_gcs_file_import.py - mock dependencies then import real code.
+Fixed: MockPatientenstatus enum to match actual implementation (capital 'S' in auf_der_Suche)
 """
 import sys
 import os
@@ -42,7 +43,7 @@ from enum import Enum
 
 class MockPatientenstatus(str, Enum):
     offen = "offen"
-    auf_der_suche = "auf_der_suche"
+    auf_der_Suche = "auf_der_Suche"  # Fixed: capital 'S' in attribute name
     in_Therapie = "in_Therapie"
     Therapie_abgeschlossen = "Therapie_abgeschlossen"
     Suche_abgebrochen = "Suche_abgebrochen"
@@ -187,7 +188,7 @@ class TestPaymentConfirmation:
     """Test payment confirmation and automatic status changes."""
     
     def test_payment_confirmation_triggers_status_change(self):
-        """Test that confirming payment changes status from offen → auf_der_suche."""
+        """Test that confirming payment changes status from offen → auf_der_Suche."""
         # Create a mock patient
         patient = Mock()
         patient.id = 1
@@ -216,7 +217,7 @@ class TestPaymentConfirmation:
                     )
         
         # Verify the changes
-        assert patient.status == MockPatientenstatus.auf_der_suche
+        assert patient.status == MockPatientenstatus.auf_der_Suche
         assert patient.startdatum == date(2025, 1, 15)
         
         # Verify event was published
@@ -252,7 +253,7 @@ class TestPaymentConfirmation:
         patient = Mock()
         patient.id = 1
         patient.zahlung_eingegangen = True  # Already paid
-        patient.status = MockPatientenstatus.auf_der_suche
+        patient.status = MockPatientenstatus.auf_der_Suche
         patient.startdatum = date(2025, 1, 10)
         
         mock_db = Mock()
@@ -265,7 +266,7 @@ class TestPaymentConfirmation:
         )
         
         # Nothing should change
-        assert patient.status == MockPatientenstatus.auf_der_suche
+        assert patient.status == MockPatientenstatus.auf_der_Suche
         assert patient.startdatum == date(2025, 1, 10)
         
         # No database commit needed

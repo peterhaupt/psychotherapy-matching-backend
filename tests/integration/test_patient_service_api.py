@@ -6,6 +6,7 @@ Changes made:
 2. Rewritten payment tests to use PUT endpoint with zahlung_eingegangen field
 3. Removed HTTP import tests (import is file-based via GCS)
 4. Updated automatic startdatum test for new payment-based logic
+5. Fixed case sensitivity for auf_der_Suche status (capital 'S')
 """
 import pytest
 import requests
@@ -497,7 +498,7 @@ class TestPatientServiceAPI:
         
         # Verify automatic changes triggered by payment confirmation
         assert updated_patient["zahlung_eingegangen"] is True
-        assert updated_patient["status"] == "auf_der_suche"  # Automatically changed
+        assert updated_patient["status"] == "auf_der_Suche"  # Fixed: capital 'S'
         assert updated_patient["startdatum"] == date.today().isoformat()  # Automatically set
         
         # Cleanup
@@ -564,7 +565,7 @@ class TestPatientServiceAPI:
         
         # Startdatum should not change
         assert second_update["startdatum"] == first_startdatum
-        assert second_update["status"] == "auf_der_suche"
+        assert second_update["status"] == "auf_der_Suche"  # Fixed: capital 'S'
         
         # Cleanup
         requests.delete(f"{BASE_URL}/patients/{patient['id']}")
@@ -775,7 +776,7 @@ class TestPatientServiceAPI:
         # startdatum should now be set to today
         assert updated_patient['startdatum'] == date.today().isoformat()
         # Status should also change
-        assert updated_patient['status'] == "auf_der_suche"
+        assert updated_patient['status'] == "auf_der_Suche"  # Fixed: capital 'S'
         
         # Cleanup
         requests.delete(f"{BASE_URL}/patients/{patient['id']}")
