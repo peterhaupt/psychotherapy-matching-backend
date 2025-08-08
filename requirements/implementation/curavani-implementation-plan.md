@@ -293,8 +293,13 @@ ADD COLUMN zahlung_eingegangen BOOLEAN DEFAULT FALSE;
 When staff sets `zahlung_eingegangen = true` in React frontend:
 1. **Backend automatically:**
    - Sets `startdatum = today` (if `vertraege_unterschrieben = true`)
-   - Changes `status` from "offen" → "auf_der_suche"
+   - Changes `status` from "offen" → "auf_der_Suche"
 2. **Triggers:** Matching service notifications
+
+**⚠️ IMPORTANT - German Enum Capitalization:**
+- The status enum value is `auf_der_Suche` with capital 'S' in 'Suche' (German noun capitalization)
+- This follows proper German grammar rules for compound nouns
+- All code references must use the correct capitalization
 
 ### React Frontend Requirements
 - Add payment confirmation checkbox
@@ -466,7 +471,8 @@ When staff sets `zahlung_eingegangen = true` in React frontend:
 7. **Update validation requirements** for symptom array (1-3 items from predefined list)
 8. **Document automatic field behavior:**
    - `startdatum` automatically set when payment confirmed
-   - Status automatically changes from "offen" to "auf_der_suche"
+   - Status automatically changes from "offen" to "auf_der_Suche" (with capital 'S')
+9. **Note German enum capitalization:** Document that status enums use proper German capitalization
 
 ### Implementation Note
 - This documentation update is critical for React frontend developers
@@ -564,12 +570,17 @@ ADD COLUMN zahlung_eingegangen BOOLEAN DEFAULT FALSE;
    - Remove diagnose handling from all endpoints ✅
    - Remove psychotherapeutische_sprechstunde handling ✅
 
-4. Create email template: ✅ COMPLETED (January 2025)
+4. **Create email template:** ✅ COMPLETED (January 2025)
    - New file: `shared/templates/emails/patient_registration_confirmation.md` ✅
    - Include contract link, payment info, next steps ✅
    - Patient Importer updated to use template with Jinja2 rendering ✅
    - Fixed email domain to info@curavani.com ✅
    - Fixed sender name to "Curavani" ✅
+
+5. **Bug Fixes:** ✅ COMPLETED (January 2025)
+   - Fixed enum capitalization for `Patientenstatus.auf_der_Suche` ✅
+   - Updated all references to use proper German noun capitalization ✅
+   - Fixed integration and unit tests to match correct enum values ✅
 
 ### Communication Service 🔄 PENDING
 1. No attachment capability needed
@@ -592,6 +603,7 @@ ADD COLUMN zahlung_eingegangen BOOLEAN DEFAULT FALSE;
    - Document all field changes
    - Update example requests/responses
    - Document automatic field behaviors
+   - Note German enum capitalization conventions
 
 ### Status Transition Logic ✅ COMPLETED (January 2025)
 ```python
@@ -601,7 +613,7 @@ def confirm_payment(patient_id):
     
     if patient.vertraege_unterschrieben:
         patient.startdatum = date.today()
-        patient.status = "auf_der_suche"
+        patient.status = "auf_der_Suche"  # Note: Capital 'S' in enum
         # Trigger matching service
         publish_search_started(patient_id)
     
@@ -684,7 +696,7 @@ Location: `matching_service/algorithms/anfrage_creator.py`
    - [x] Zahlungsreferenz extracted and stored
    - [x] Email sent with contract link using template
    - [x] Payment confirmation works
-   - [x] Automatic status change
+   - [x] Automatic status change (with correct enum capitalization)
    - [x] Matching service diagnosis removal verified
    - [x] Therapist emails format symptoms correctly
    - [ ] Email deduplication testing
@@ -693,7 +705,7 @@ Location: `matching_service/algorithms/anfrage_creator.py`
 3. **React Frontend:**
    - [ ] Payment marking interface
    - [ ] Zahlungsreferenz displayed
-   - [ ] Status displays correctly
+   - [ ] Status displays correctly (with proper German capitalization)
    - [ ] Patient management works
    - [ ] API_REFERENCE.md updated and verified
 
@@ -727,6 +739,7 @@ Location: `matching_service/algorithms/anfrage_creator.py`
 - `patient_service/models/patient.py` - Update model (remove diagnosis, add zahlungsreferenz) ✅
 - `patient_service/api/patients.py` - Update endpoints ✅
 - `patient_service/imports/patient_importer.py` - Add zahlungsreferenz extraction, send email with template ✅
+- **BUG FIX:** Enum capitalization corrected for `Patientenstatus.auf_der_Suche` ✅
 
 ### Backend - Communication Service ✅ COMPLETED (January 2025)
 - **NEW:** `shared/templates/emails/patient_registration_confirmation.md` - Create template ✅
@@ -742,8 +755,12 @@ Location: `matching_service/algorithms/anfrage_creator.py`
   - Added `_identify_practice_owner()` function
   - Updated `get_therapists_for_selection()` with email grouping and practice owner selection
 
+### Testing Files ✅ COMPLETED (January 2025)
+- Integration tests - Updated to use correct enum capitalization ✅
+- Unit tests - Updated mock enums to match actual capitalization ✅
+
 ### Documentation 🔄 PENDING
-- **API_REFERENCE.md** - Update for React frontend with all Phase 2 changes
+- **API_REFERENCE.md** - Update for React frontend with all Phase 2 changes including enum conventions
 
 ### Database Migrations ✅ COMPLETED
 - Migration 001_initial_setup - executed
@@ -762,7 +779,7 @@ PDF_SEND_DELAY_MINUTES=15
 
 # Payment Settings
 AUTO_STATUS_CHANGE_ON_PAYMENT=true
-DEFAULT_SEARCH_STATUS="auf_der_suche"
+DEFAULT_SEARCH_STATUS="auf_der_Suche"  # Note: Capital 'S' in German
 
 # Import Settings
 IMPORT_ERROR_EMAIL="admin@curavani.de"
@@ -791,7 +808,7 @@ BUCKET_NAME="curavani-production-data-transfer"
 
 ### Automated Processes
 1. **Email Sending:** After patient import (with contract link)
-2. **Status Changes:** On payment confirmation
+2. **Status Changes:** On payment confirmation (offen → auf_der_Suche with capital 'S')
 3. **Search Initiation:** When startdatum is set
 4. **Zahlungsreferenz:** Automatically extracted from registration token
 5. **Email Deduplication:** Automatically groups therapists by email and selects practice owners
@@ -801,6 +818,25 @@ BUCKET_NAME="curavani-production-data-transfer"
 - Import retry mechanism
 - Advanced staff notifications
 - Patient portal for status tracking
+
+---
+
+## TECHNICAL NOTES
+
+### German Enum Naming Conventions
+**Important:** All German enums in the system follow proper German grammar rules:
+- Nouns are capitalized (e.g., "Suche" in "auf_der_Suche")
+- This affects the `Patientenstatus` enum values
+- Code must use exact capitalization to match database enums
+- Integration and unit tests must use correct capitalization
+
+### Discovered Issues and Resolutions (January 2025)
+1. **Enum Capitalization Bug:**
+   - **Issue:** Initial code used `auf_der_suche` (lowercase 's')
+   - **Root Cause:** German nouns require capitalization
+   - **Resolution:** Updated all references to `auf_der_Suche`
+   - **Files Fixed:** `patient_service/api/patients.py`, integration tests, unit tests
+   - **Lesson Learned:** Always verify German enum values follow proper grammar
 
 ---
 
@@ -823,6 +859,7 @@ BUCKET_NAME="curavani-production-data-transfer"
 - [x] Email sent with contract link using template
 - [x] Matching service updated (diagnosis removed)
 - [x] Therapist emails format symptoms correctly
+- [x] Enum capitalization bug fixed
 - [ ] React frontend shows payment status (pending)
 - [x] Automatic workflows functioning
 - [ ] API_REFERENCE.md updated for React frontend (pending)
@@ -865,11 +902,17 @@ BUCKET_NAME="curavani-production-data-transfer"
    - Update API_REFERENCE.md immediately after backend changes
    - Version control for API documentation
    - Test React frontend against updated API specs
+   - Document German enum conventions
 
 7. **Email Deduplication Edge Cases**
    - Handle therapists without emails separately
    - Log practice owner selection for audit
    - Monitor for false positives in name matching
+
+8. **German Enum Capitalization** ✅ RESOLVED
+   - All enums verified to use proper German capitalization
+   - Tests updated to match production enum values
+   - Documentation updated to note this convention
 
 ---
 
@@ -971,5 +1014,6 @@ Access URLs:
 - Patient experience simplified in PHP frontend
 - API documentation critical for React frontend integration
 - Email deduplication prevents duplicate communications to practices
+- German enum capitalization must be followed throughout the system
 
-**IMPLEMENTATION NOTE:** Phase 1 completed with minor variations that improve user experience while maintaining core requirements. Phase 2 fully completed January 2025 - Patient Model, API, Importer, Matching Service, and Patient Registration Email Template all updated. Phase 3 Email Deduplication completed January 2025. Only remaining item is API_REFERENCE.md documentation update for React frontend integration.
+**IMPLEMENTATION NOTE:** Phase 1 completed with minor variations that improve user experience while maintaining core requirements. Phase 2 fully completed January 2025 - Patient Model, API, Importer, Matching Service, and Patient Registration Email Template all updated, including bug fix for enum capitalization. Phase 3 Email Deduplication completed January 2025. Only remaining item is API_REFERENCE.md documentation update for React frontend integration.
