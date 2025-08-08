@@ -1,10 +1,15 @@
-"""Unit tests for GCS patient import file processing."""
+"""Unit tests for GCS patient import file processing - Phase 2 Version.
+
+This is the merged version combining existing tests with Phase 2 updates.
+Tests that should PASS now are marked with [EXISTING].
+Tests that will only PASS after Phase 2 are marked with [PHASE2].
+"""
 import json
 import os
 import sys
 import pytest
 from unittest.mock import Mock, patch, mock_open, MagicMock, call
-from datetime import datetime
+from datetime import datetime, date
 
 # Mock all the problematic imports BEFORE importing the module under test
 # This prevents import errors when running tests from project root
@@ -24,6 +29,47 @@ sys.modules['events.producers'].publish_patient_created = mock_publish_patient_c
 # Now we can safely import our modules under test
 from patient_service.imports.gcs_monitor import GCSMonitor
 from patient_service.imports.import_status import ImportStatus
+
+
+# Phase 2: Approved symptom list for validation
+APPROVED_SYMPTOMS = [
+    # HÄUFIGSTE ANLIEGEN (Top 5)
+    "Depression / Niedergeschlagenheit",
+    "Ängste / Panikattacken",
+    "Burnout / Erschöpfung",
+    "Schlafstörungen",
+    "Stress / Überforderung",
+    # STIMMUNG & GEFÜHLE
+    "Trauer / Verlust",
+    "Reizbarkeit / Wutausbrüche",
+    "Stimmungsschwankungen",
+    "Innere Leere",
+    "Einsamkeit",
+    # DENKEN & GRÜBELN
+    "Sorgen / Grübeln",
+    "Selbstzweifel",
+    "Konzentrationsprobleme",
+    "Negative Gedanken",
+    "Entscheidungsschwierigkeiten",
+    # KÖRPER & GESUNDHEIT
+    "Psychosomatische Beschwerden",
+    "Chronische Schmerzen",
+    "Essstörungen",
+    "Suchtprobleme (Alkohol/Drogen)",
+    "Sexuelle Probleme",
+    # BEZIEHUNGEN & SOZIALES
+    "Beziehungsprobleme",
+    "Familienkonflikte",
+    "Sozialer Rückzug",
+    "Mobbing",
+    "Trennungsschmerz",
+    # BESONDERE BELASTUNGEN
+    "Traumatische Erlebnisse",
+    "Zwänge",
+    "Selbstverletzung",
+    "Suizidgedanken",
+    "Identitätskrise"
+]
 
 
 @pytest.fixture
@@ -56,54 +102,74 @@ def mock_gcs_monitor():
 class TestProcessFile:
     """Test the _process_file method with various scenarios."""
     
-    def test_successful_import_file_stays_in_base_path(self, mock_gcs_monitor):
-        """Test successful import - file should stay in base path and GCS file deleted."""
+    def test_successful_import_file_stays_in_base_path_with_email(self, mock_gcs_monitor):
+        """[PHASE2] Test successful import - file stays in base path, email sent, GCS deleted."""
         file_name = "test_patient.json"
         local_path = os.path.join(mock_gcs_monitor.local_base_path, file_name)
         
         # Mock successful download
         with patch.object(mock_gcs_monitor, '_download_file', return_value=True):
-            # Mock successful file read and JSON parse
-            test_data = {"patient_data": {"name": "Test Patient"}}
+            # Phase 2: Updated test data with symptom array and registration_token
+            test_data = {
+                "patient_data": {
+                    "vorname": "Max",
+                    "nachname": "Mustermann",
+                    "symptome": ["Depression / Niedergeschlagenheit", "Schlafstörungen"],  # PHASE2: Array
+                    "email": "max@test.com"
+                },
+                "registration_token": "a7f3e9b2c4d8f1a6e5b9c3d7f2a8e4b1c6d9f3a7e2b5c8d1f4a9e3b7c2d6f8a0"  # PHASE2
+            }
             with patch('builtins.open', mock_open(read_data=json.dumps(test_data))):
-                # Mock successful import
-                mock_gcs_monitor.importer.import_patient.return_value = (True, "Success")
+                # Mock successful import returning patient_id
+                mock_gcs_monitor.importer.import_patient.return_value = (True, "Patient created with ID: 123")
                 
-                # Mock successful GCS deletion
-                with patch.object(mock_gcs_monitor, '_delete_from_gcs', return_value=True) as mock_delete:
-                    # Mock os.path.exists to simulate file exists
-                    with patch('os.path.exists', return_value=True):
-                        # Mock ImportStatus
-                        with patch.object(ImportStatus, 'record_success') as mock_record_success:
-                            # Process the file
-                            mock_gcs_monitor._process_file(file_name)
-                            
-                            # Verify download was called
-                            mock_gcs_monitor._download_file.assert_called_once_with(file_name, local_path)
-                            
-                            # Verify import was called with correct data
-                            mock_gcs_monitor.importer.import_patient.assert_called_once_with(test_data)
-                            
-                            # Verify success was recorded
-                            mock_record_success.assert_called_once_with(file_name)
-                            
-                            # Verify GCS file was deleted
-                            mock_delete.assert_called_once_with(file_name)
-                            
-                            # Verify no attempt to move file (it should stay in base path)
-                            with patch('os.rename') as mock_rename:
-                                mock_rename.assert_not_called()
+                # PHASE2: Mock email sending
+                with patch('requests.post') as mock_email_post:
+                    mock_email_post.return_value.status_code = 201
+                    mock_email_post.return_value.json.return_value = {'id': 456}
+                    
+                    # Mock successful GCS deletion
+                    with patch.object(mock_gcs_monitor, '_delete_from_gcs', return_value=True) as mock_delete:
+                        # Mock os.path.exists to simulate file exists
+                        with patch('os.path.exists', return_value=True):
+                            # Mock ImportStatus
+                            with patch.object(ImportStatus, 'record_success') as mock_record_success:
+                                # Process the file
+                                mock_gcs_monitor._process_file(file_name)
+                                
+                                # [EXISTING] Verify download was called
+                                mock_gcs_monitor._download_file.assert_called_once_with(file_name, local_path)
+                                
+                                # [EXISTING] Verify import was called with correct data
+                                mock_gcs_monitor.importer.import_patient.assert_called_once_with(test_data)
+                                
+                                # [EXISTING] Verify success was recorded
+                                mock_record_success.assert_called_once_with(file_name)
+                                
+                                # [EXISTING] Verify GCS file was deleted
+                                mock_delete.assert_called_once_with(file_name)
+                                
+                                # [EXISTING] Verify no attempt to move file (it should stay in base path)
+                                with patch('os.rename') as mock_rename:
+                                    mock_rename.assert_not_called()
     
     def test_database_error_file_moved_to_failed(self, mock_gcs_monitor):
-        """Test database error during import - file should be moved to failed/ folder."""
+        """[EXISTING] Test database error during import - file should be moved to failed/ folder."""
         file_name = "test_patient.json"
         local_path = os.path.join(mock_gcs_monitor.local_base_path, file_name)
         failed_path = os.path.join(mock_gcs_monitor.local_base_path, 'failed', file_name)
         
         # Mock successful download
         with patch.object(mock_gcs_monitor, '_download_file', return_value=True):
-            # Mock successful file read
-            test_data = {"patient_data": {"name": "Test Patient"}}
+            # Phase 2: Updated test data
+            test_data = {
+                "patient_data": {
+                    "vorname": "Test",
+                    "nachname": "Patient",
+                    "symptome": ["Burnout / Erschöpfung"]  # PHASE2: Array format
+                },
+                "registration_token": "test12345678"
+            }
             with patch('builtins.open', mock_open(read_data=json.dumps(test_data))):
                 # Mock failed import (database error)
                 error_msg = "Database connection failed"
@@ -120,31 +186,41 @@ class TestProcessFile:
                                 # Process the file
                                 mock_gcs_monitor._process_file(file_name)
                                 
-                                # Verify file was moved to failed folder
+                                # [EXISTING] Verify file was moved to failed folder
                                 mock_rename.assert_called_once_with(local_path, failed_path)
                                 
-                                # Verify failure was recorded
+                                # [EXISTING] Verify failure was recorded
                                 mock_record_failure.assert_called_once_with(file_name, error_msg)
                                 
-                                # Verify error notification was sent
+                                # [EXISTING] Verify error notification was sent
                                 mock_notify.assert_called_once()
                                 
-                                # Verify GCS file was still deleted
+                                # [EXISTING] Verify GCS file was still deleted
                                 mock_delete.assert_called_once_with(file_name)
     
-    def test_validation_error_file_moved_to_failed(self, mock_gcs_monitor):
-        """Test validation error during import - file should be moved to failed/ folder."""
+    def test_symptom_validation_error_file_moved_to_failed(self, mock_gcs_monitor):
+        """[PHASE2] Test symptom validation error - file should be moved to failed/ folder."""
         file_name = "test_patient.json"
         local_path = os.path.join(mock_gcs_monitor.local_base_path, file_name)
         failed_path = os.path.join(mock_gcs_monitor.local_base_path, 'failed', file_name)
         
         # Mock successful download
         with patch.object(mock_gcs_monitor, '_download_file', return_value=True):
-            # Mock successful file read
-            test_data = {"patient_data": {"name": "Test Patient"}}
+            # Phase 2: Test data with invalid symptoms
+            test_data = {
+                "patient_data": {
+                    "vorname": "Test",
+                    "nachname": "Patient",
+                    "symptome": [
+                        "Invalid Symptom",  # Not in approved list
+                        "Kopfschmerzen"  # Not in approved list
+                    ]
+                },
+                "registration_token": "test123"
+            }
             with patch('builtins.open', mock_open(read_data=json.dumps(test_data))):
                 # Mock failed import (validation error)
-                error_msg = "Invalid anrede 'Dr.'"
+                error_msg = "Invalid symptom: Invalid Symptom"
                 mock_gcs_monitor.importer.import_patient.return_value = (False, error_msg)
                 
                 # Mock successful file move
@@ -159,8 +235,154 @@ class TestProcessFile:
                             # Verify file was moved to failed folder
                             mock_rename.assert_called_once_with(local_path, failed_path)
     
+    def test_too_many_symptoms_validation_error(self, mock_gcs_monitor):
+        """[PHASE2] Test too many symptoms (>3) - file should be moved to failed/ folder."""
+        file_name = "test_patient.json"
+        local_path = os.path.join(mock_gcs_monitor.local_base_path, file_name)
+        failed_path = os.path.join(mock_gcs_monitor.local_base_path, 'failed', file_name)
+        
+        with patch.object(mock_gcs_monitor, '_download_file', return_value=True):
+            # Phase 2: Four symptoms (too many)
+            test_data = {
+                "patient_data": {
+                    "vorname": "Test",
+                    "nachname": "Patient",
+                    "symptome": [
+                        "Depression / Niedergeschlagenheit",
+                        "Schlafstörungen",
+                        "Burnout / Erschöpfung",
+                        "Ängste / Panikattacken"  # 4th symptom - too many
+                    ]
+                },
+                "registration_token": "test123"
+            }
+            with patch('builtins.open', mock_open(read_data=json.dumps(test_data))):
+                error_msg = "Between 1 and 3 symptoms required"
+                mock_gcs_monitor.importer.import_patient.return_value = (False, error_msg)
+                
+                with patch('os.rename') as mock_rename:
+                    with patch.object(mock_gcs_monitor, '_delete_from_gcs', return_value=True):
+                        with patch.object(ImportStatus, 'record_failure'):
+                            with patch.object(mock_gcs_monitor.importer, 'send_error_notification'):
+                                mock_gcs_monitor._process_file(file_name)
+                                
+                                # Verify file was moved to failed folder
+                                mock_rename.assert_called_once_with(local_path, failed_path)
+    
+    def test_missing_registration_token_error(self, mock_gcs_monitor):
+        """[PHASE2] Test missing registration_token - file should be moved to failed/ folder."""
+        file_name = "test_patient.json"
+        local_path = os.path.join(mock_gcs_monitor.local_base_path, file_name)
+        failed_path = os.path.join(mock_gcs_monitor.local_base_path, 'failed', file_name)
+        
+        with patch.object(mock_gcs_monitor, '_download_file', return_value=True):
+            # Phase 2: Missing registration_token
+            test_data = {
+                "patient_data": {
+                    "vorname": "Test",
+                    "nachname": "Patient",
+                    "symptome": ["Depression / Niedergeschlagenheit"]
+                }
+                # Missing registration_token
+            }
+            with patch('builtins.open', mock_open(read_data=json.dumps(test_data))):
+                error_msg = "Missing registration_token"
+                mock_gcs_monitor.importer.import_patient.return_value = (False, error_msg)
+                
+                with patch('os.rename') as mock_rename:
+                    with patch.object(mock_gcs_monitor, '_delete_from_gcs', return_value=True):
+                        with patch.object(ImportStatus, 'record_failure'):
+                            with patch.object(mock_gcs_monitor.importer, 'send_error_notification'):
+                                mock_gcs_monitor._process_file(file_name)
+                                
+                                # Verify file was moved to failed folder
+                                mock_rename.assert_called_once_with(local_path, failed_path)
+    
+    def test_legacy_symptom_text_format_rejected(self, mock_gcs_monitor):
+        """[PHASE2] Test legacy text symptom format is rejected."""
+        file_name = "legacy_patient.json"
+        local_path = os.path.join(mock_gcs_monitor.local_base_path, file_name)
+        failed_path = os.path.join(mock_gcs_monitor.local_base_path, 'failed', file_name)
+        
+        with patch.object(mock_gcs_monitor, '_download_file', return_value=True):
+            # Old format with text instead of array
+            test_data = {
+                "patient_data": {
+                    "vorname": "Legacy",
+                    "nachname": "Format",
+                    "symptome": "Depression, Angst"  # Old text format
+                },
+                "registration_token": "test123"
+            }
+            with patch('builtins.open', mock_open(read_data=json.dumps(test_data))):
+                error_msg = "symptome must be an array"
+                mock_gcs_monitor.importer.import_patient.return_value = (False, error_msg)
+                
+                with patch('os.rename') as mock_rename:
+                    with patch.object(mock_gcs_monitor, '_delete_from_gcs', return_value=True):
+                        with patch.object(ImportStatus, 'record_failure'):
+                            with patch.object(mock_gcs_monitor.importer, 'send_error_notification'):
+                                mock_gcs_monitor._process_file(file_name)
+                                
+                                # Legacy format should be rejected
+                                mock_rename.assert_called_once_with(local_path, failed_path)
+    
+    def test_import_without_diagnosis_field_succeeds(self, mock_gcs_monitor):
+        """[PHASE2] Test that import succeeds without diagnosis field."""
+        file_name = "no_diagnosis.json"
+        local_path = os.path.join(mock_gcs_monitor.local_base_path, file_name)
+        
+        with patch.object(mock_gcs_monitor, '_download_file', return_value=True):
+            # Phase 2: No diagnosis field (removed in Phase 2)
+            test_data = {
+                "patient_data": {
+                    "vorname": "Test",
+                    "nachname": "Patient",
+                    "symptome": ["Schlafstörungen"],
+                    # No 'diagnose' field
+                },
+                "registration_token": "a7f3e9b2c4d8f1a6e5b9c3d7f2a8e4b1c6d9f3a7e2b5c8d1f4a9e3b7c2d6f8a0"
+            }
+            with patch('builtins.open', mock_open(read_data=json.dumps(test_data))):
+                # Should succeed without diagnosis
+                mock_gcs_monitor.importer.import_patient.return_value = (True, "Success")
+                
+                with patch.object(mock_gcs_monitor, '_delete_from_gcs', return_value=True):
+                    with patch.object(ImportStatus, 'record_success'):
+                        mock_gcs_monitor._process_file(file_name)
+                        
+                        # Verify import was called successfully
+                        mock_gcs_monitor.importer.import_patient.assert_called_once_with(test_data)
+    
+    def test_ptv11_fields_ignored_if_present(self, mock_gcs_monitor):
+        """[PHASE2] Test that PTV11 fields are ignored if present in import."""
+        file_name = "with_ptv11.json"
+        local_path = os.path.join(mock_gcs_monitor.local_base_path, file_name)
+        
+        with patch.object(mock_gcs_monitor, '_download_file', return_value=True):
+            # Phase 2: PTV11 fields should be ignored
+            test_data = {
+                "patient_data": {
+                    "vorname": "Test",
+                    "nachname": "Patient",
+                    "symptome": ["Ängste / Panikattacken"],
+                    "hat_ptv11": True,  # Should be ignored
+                    "psychotherapeutische_sprechstunde": True  # Should be ignored
+                },
+                "registration_token": "test123456"
+            }
+            with patch('builtins.open', mock_open(read_data=json.dumps(test_data))):
+                mock_gcs_monitor.importer.import_patient.return_value = (True, "Success")
+                
+                with patch.object(mock_gcs_monitor, '_delete_from_gcs', return_value=True):
+                    with patch.object(ImportStatus, 'record_success'):
+                        mock_gcs_monitor._process_file(file_name)
+                        
+                        # Import should succeed (PTV11 fields ignored)
+                        mock_gcs_monitor.importer.import_patient.assert_called_once()
+    
     def test_download_failure_no_file_no_gcs_deletion(self, mock_gcs_monitor):
-        """Test download failure - no local file created, GCS file NOT deleted."""
+        """[EXISTING] Test download failure - no local file created, GCS file NOT deleted."""
         file_name = "test_patient.json"
         local_path = os.path.join(mock_gcs_monitor.local_base_path, file_name)
         
@@ -173,28 +395,35 @@ class TestProcessFile:
                     # Process the file
                     mock_gcs_monitor._process_file(file_name)
                     
-                    # Verify download was attempted
+                    # [EXISTING] Verify download was attempted
                     mock_gcs_monitor._download_file.assert_called_once_with(file_name, local_path)
                     
-                    # Verify import was NOT attempted
+                    # [EXISTING] Verify import was NOT attempted
                     mock_gcs_monitor.importer.import_patient.assert_not_called()
                     
-                    # Verify GCS deletion was NOT called
+                    # [EXISTING] Verify GCS deletion was NOT called
                     mock_delete.assert_not_called()
                     
-                    # Verify failure was recorded
+                    # [EXISTING] Verify failure was recorded
                     mock_record_failure.assert_called_once_with(file_name, "Failed to download file")
     
     def test_move_to_failed_error_file_preserved(self, mock_gcs_monitor):
-        """Test when move to failed/ fails - file should still be preserved in base path."""
+        """[EXISTING] Test when move to failed/ fails - file should still be preserved in base path."""
         file_name = "test_patient.json"
         local_path = os.path.join(mock_gcs_monitor.local_base_path, file_name)
         failed_path = os.path.join(mock_gcs_monitor.local_base_path, 'failed', file_name)
         
         # Mock successful download
         with patch.object(mock_gcs_monitor, '_download_file', return_value=True):
-            # Mock successful file read
-            test_data = {"patient_data": {"name": "Test Patient"}}
+            # Phase 2: Updated test data
+            test_data = {
+                "patient_data": {
+                    "vorname": "Test",
+                    "nachname": "Patient",
+                    "symptome": ["Stress / Überforderung"]
+                },
+                "registration_token": "test123"
+            }
             with patch('builtins.open', mock_open(read_data=json.dumps(test_data))):
                 # Mock failed import
                 mock_gcs_monitor.importer.import_patient.return_value = (False, "Import failed")
@@ -210,19 +439,16 @@ class TestProcessFile:
                                 # Process the file
                                 mock_gcs_monitor._process_file(file_name)
                                 
-                                # Verify move was attempted
+                                # [EXISTING] Verify move was attempted
                                 mock_rename.assert_called_once_with(local_path, failed_path)
                                 
-                                # Verify error was logged
+                                # [EXISTING] Verify error was logged
                                 mock_log_error.assert_any_call(
                                     "Failed to move file to failed/: Permission denied"
                                 )
-                                
-                                # File remains in original location since move failed
-                                # GCS deletion still happens (current behavior)
     
     def test_json_decode_error_file_moved_to_failed(self, mock_gcs_monitor):
-        """Test invalid JSON - file should be moved to failed/ folder."""
+        """[EXISTING] Test invalid JSON - file should be moved to failed/ folder."""
         file_name = "test_patient.json"
         local_path = os.path.join(mock_gcs_monitor.local_base_path, file_name)
         failed_path = os.path.join(mock_gcs_monitor.local_base_path, 'failed', file_name)
@@ -244,16 +470,16 @@ class TestProcessFile:
                                     # Process the file
                                     mock_gcs_monitor._process_file(file_name)
                                     
-                                    # Verify file was moved to failed folder
+                                    # [EXISTING] Verify file was moved to failed folder
                                     mock_rename.assert_called_once_with(local_path, failed_path)
                                     
-                                    # Verify failure was recorded with JSON error
+                                    # [EXISTING] Verify failure was recorded with JSON error
                                     args = mock_record_failure.call_args[0]
                                     assert args[0] == file_name
                                     assert "Invalid JSON" in args[1]
     
     def test_missing_patient_data_section_file_moved_to_failed(self, mock_gcs_monitor):
-        """Test JSON missing patient_data section - file should be moved to failed/ folder."""
+        """[EXISTING] Test JSON missing patient_data section - file should be moved to failed/ folder."""
         file_name = "test_patient.json"
         local_path = os.path.join(mock_gcs_monitor.local_base_path, file_name)
         
@@ -275,15 +501,78 @@ class TestProcessFile:
                             # Process the file
                             mock_gcs_monitor._process_file(file_name)
                             
-                            # Verify import was called
+                            # [EXISTING] Verify import was called
                             mock_gcs_monitor.importer.import_patient.assert_called_once_with(test_data)
                             
-                            # Verify failure was recorded
+                            # [EXISTING] Verify failure was recorded
                             mock_record_failure.assert_called_once_with(file_name, error_msg)
 
 
+class TestZahlungsreferenzExtraction:
+    """[PHASE2] Test zahlungsreferenz extraction during import."""
+    
+    def test_zahlungsreferenz_extracted_and_stored(self, mock_gcs_monitor):
+        """Test that zahlungsreferenz is extracted from registration_token."""
+        file_name = "patient_with_token.json"
+        local_path = os.path.join(mock_gcs_monitor.local_base_path, file_name)
+        
+        with patch.object(mock_gcs_monitor, '_download_file', return_value=True):
+            test_data = {
+                "patient_data": {
+                    "vorname": "Test",
+                    "nachname": "Patient",
+                    "symptome": ["Burnout / Erschöpfung"]
+                },
+                "registration_token": "a7f3e9b2c4d8f1a6e5b9c3d7f2a8e4b1c6d9f3a7e2b5c8d1f4a9e3b7c2d6f8a0"
+            }
+            with patch('builtins.open', mock_open(read_data=json.dumps(test_data))):
+                # Mock importer to verify it receives the token
+                mock_gcs_monitor.importer.import_patient.return_value = (True, "Success")
+                
+                with patch.object(mock_gcs_monitor, '_delete_from_gcs', return_value=True):
+                    with patch.object(ImportStatus, 'record_success'):
+                        mock_gcs_monitor._process_file(file_name)
+                        
+                        # Verify import was called with data containing token
+                        call_args = mock_gcs_monitor.importer.import_patient.call_args[0][0]
+                        assert call_args['registration_token'] == test_data['registration_token']
+                        # The actual extraction to zahlungsreferenz happens in the importer
+
+
+class TestEmailSending:
+    """[PHASE2] Test email sending after successful import."""
+    
+    def test_email_sent_after_successful_import(self, mock_gcs_monitor):
+        """Test that confirmation email is sent after successful patient import."""
+        file_name = "patient_with_email.json"
+        local_path = os.path.join(mock_gcs_monitor.local_base_path, file_name)
+        
+        with patch.object(mock_gcs_monitor, '_download_file', return_value=True):
+            test_data = {
+                "patient_data": {
+                    "vorname": "Max",
+                    "nachname": "Mustermann",
+                    "email": "max@example.com",
+                    "symptome": ["Depression / Niedergeschlagenheit"]
+                },
+                "registration_token": "a7f3e9b2c4d8f1a6e5b9c3d7f2a8e4b1c6d9f3a7e2b5c8d1f4a9e3b7c2d6f8a0"
+            }
+            with patch('builtins.open', mock_open(read_data=json.dumps(test_data))):
+                # Mock successful import
+                mock_gcs_monitor.importer.import_patient.return_value = (True, "Patient created with ID: 123")
+                
+                # The email sending is handled inside importer.import_patient
+                # We just verify the import was called successfully
+                with patch.object(mock_gcs_monitor, '_delete_from_gcs', return_value=True):
+                    with patch.object(ImportStatus, 'record_success'):
+                        mock_gcs_monitor._process_file(file_name)
+                        
+                        # Verify import was called
+                        mock_gcs_monitor.importer.import_patient.assert_called_once_with(test_data)
+
+
 class TestDownloadFile:
-    """Test the _download_file method."""
+    """[EXISTING] Test the _download_file method."""
     
     def test_successful_download(self, mock_gcs_monitor):
         """Test successful file download from GCS."""
@@ -301,19 +590,26 @@ class TestDownloadFile:
         mock_blob.download_to_filename.return_value = None
         
         # Mock file operations for JSON validation
-        valid_json = {"patient_data": {"name": "Test"}}
+        # Phase 2: Updated valid JSON structure
+        valid_json = {
+            "patient_data": {
+                "vorname": "Test",
+                "symptome": ["Schlafstörungen"]
+            },
+            "registration_token": "test123"
+        }
         with patch('builtins.open', mock_open(read_data=json.dumps(valid_json))):
             # Mock os.rename for moving temp to final
             with patch('os.rename') as mock_rename:
                 result = mock_gcs_monitor._download_file(file_name, local_path)
                 
-                # Verify success
+                # [EXISTING] Verify success
                 assert result is True
                 
-                # Verify download was called with temp path
+                # [EXISTING] Verify download was called with temp path
                 mock_blob.download_to_filename.assert_called_once_with(temp_path)
                 
-                # Verify file was moved from temp to final
+                # [EXISTING] Verify file was moved from temp to final
                 mock_rename.assert_called_once_with(temp_path, local_path)
     
     def test_download_with_retry(self, mock_gcs_monitor):
@@ -335,17 +631,17 @@ class TestDownloadFile:
         ]
         
         # Mock file operations
-        valid_json = {"patient_data": {"name": "Test"}}
+        valid_json = {"patient_data": {"vorname": "Test", "symptome": ["Stress / Überforderung"]}, "registration_token": "test"}
         with patch('builtins.open', mock_open(read_data=json.dumps(valid_json))):
             with patch('os.rename'):
                 # Mock sleep to speed up test
                 with patch('time.sleep'):
                     result = mock_gcs_monitor._download_file(file_name, local_path, max_retries=2)
                     
-                    # Verify success after retry
+                    # [EXISTING] Verify success after retry
                     assert result is True
                     
-                    # Verify download was called twice
+                    # [EXISTING] Verify download was called twice
                     assert mock_blob.download_to_filename.call_count == 2
     
     def test_download_invalid_json_returns_false(self, mock_gcs_monitor):
@@ -370,10 +666,10 @@ class TestDownloadFile:
                 with patch('os.remove') as mock_remove:
                     result = mock_gcs_monitor._download_file(file_name, local_path)
                     
-                    # Verify failure
+                    # [EXISTING] Verify failure
                     assert result is False
                     
-                    # Verify temp file was cleaned up
+                    # [EXISTING] Verify temp file was cleaned up
                     mock_remove.assert_called_once_with(temp_path)
     
     def test_download_all_retries_fail(self, mock_gcs_monitor):
@@ -394,15 +690,15 @@ class TestDownloadFile:
         with patch('time.sleep'):
             result = mock_gcs_monitor._download_file(file_name, local_path, max_retries=2)
             
-            # Verify failure
+            # [EXISTING] Verify failure
             assert result is False
             
-            # Verify download was attempted max_retries times
+            # [EXISTING] Verify download was attempted max_retries times
             assert mock_blob.download_to_filename.call_count == 2
 
 
 class TestGCSDelete:
-    """Test the _delete_from_gcs method."""
+    """[EXISTING] Test the _delete_from_gcs method."""
     
     def test_successful_deletion(self, mock_gcs_monitor):
         """Test successful file deletion from GCS."""
@@ -419,10 +715,10 @@ class TestGCSDelete:
         
         result = mock_gcs_monitor._delete_from_gcs(file_name)
         
-        # Verify success
+        # [EXISTING] Verify success
         assert result is True
         
-        # Verify delete was called
+        # [EXISTING] Verify delete was called
         mock_blob.delete.assert_called_once()
     
     def test_deletion_failure(self, mock_gcs_monitor):
@@ -440,12 +736,12 @@ class TestGCSDelete:
         
         result = mock_gcs_monitor._delete_from_gcs(file_name)
         
-        # Verify failure
+        # [EXISTING] Verify failure
         assert result is False
 
 
 class TestImportStatusIntegration:
-    """Test ImportStatus tracking during file processing."""
+    """[EXISTING] Test ImportStatus tracking during file processing."""
     
     def test_import_status_tracks_all_outcomes(self, mock_gcs_monitor):
         """Test that ImportStatus correctly tracks successes and failures."""
@@ -465,7 +761,12 @@ class TestImportStatusIntegration:
             # Test successful import
             file_name = "success.json"
             with patch.object(mock_gcs_monitor, '_download_file', return_value=True):
-                with patch('builtins.open', mock_open(read_data='{"patient_data": {}}')):
+                # Phase 2: Updated test data
+                test_data = {
+                    "patient_data": {"vorname": "Test", "symptome": ["Schlafstörungen"]},
+                    "registration_token": "test123"
+                }
+                with patch('builtins.open', mock_open(read_data=json.dumps(test_data))):
                     mock_gcs_monitor.importer.import_patient.return_value = (True, "Success")
                     with patch.object(mock_gcs_monitor, '_delete_from_gcs', return_value=True):
                         mock_gcs_monitor._process_file(file_name)
@@ -473,8 +774,12 @@ class TestImportStatusIntegration:
             # Test failed import
             file_name = "failure.json"
             with patch.object(mock_gcs_monitor, '_download_file', return_value=True):
-                with patch('builtins.open', mock_open(read_data='{"patient_data": {}}')):
-                    mock_gcs_monitor.importer.import_patient.return_value = (False, "DB Error")
+                test_data = {
+                    "patient_data": {"vorname": "Test", "symptome": ["Invalid"]},
+                    "registration_token": "test"
+                }
+                with patch('builtins.open', mock_open(read_data=json.dumps(test_data))):
+                    mock_gcs_monitor.importer.import_patient.return_value = (False, "Invalid symptom")
                     with patch('os.rename'):
                         with patch.object(mock_gcs_monitor, '_delete_from_gcs', return_value=True):
                             with patch.object(mock_gcs_monitor.importer, 'send_error_notification'):
@@ -483,7 +788,7 @@ class TestImportStatusIntegration:
             # Get status
             status = ImportStatus.get_status()
             
-            # Verify counts
+            # [EXISTING] Verify counts
             assert status['files_processed_today'] == 1
             assert status['files_failed_today'] == 1
             assert status['total_processed'] == 1

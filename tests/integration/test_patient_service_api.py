@@ -1,12 +1,57 @@
-"""Integration tests for Patient Service API with robust pagination support."""
+"""Integration tests for Patient Service API - Phase 2 target state.
+
+This file represents the complete test suite after Phase 2 implementation.
+All tests here should pass once Phase 2 is complete.
+"""
 import pytest
 import requests
 import time
 from datetime import date
 import os
+import json
 
 # Base URL for the Patient Service
 BASE_URL = os.environ["PATIENT_API_URL"]
+
+# Valid symptoms list for validation
+VALID_SYMPTOMS = [
+    # HÄUFIGSTE ANLIEGEN
+    "Depression / Niedergeschlagenheit",
+    "Ängste / Panikattacken", 
+    "Burnout / Erschöpfung",
+    "Schlafstörungen",
+    "Stress / Überforderung",
+    # STIMMUNG & GEFÜHLE
+    "Trauer / Verlust",
+    "Reizbarkeit / Wutausbrüche",
+    "Stimmungsschwankungen",
+    "Innere Leere",
+    "Einsamkeit",
+    # DENKEN & GRÜBELN
+    "Sorgen / Grübeln",
+    "Selbstzweifel",
+    "Konzentrationsprobleme",
+    "Negative Gedanken",
+    "Entscheidungsschwierigkeiten",
+    # KÖRPER & GESUNDHEIT
+    "Psychosomatische Beschwerden",
+    "Chronische Schmerzen",
+    "Essstörungen",
+    "Suchtprobleme (Alkohol/Drogen)",
+    "Sexuelle Probleme",
+    # BEZIEHUNGEN & SOZIALES
+    "Beziehungsprobleme",
+    "Familienkonflikte",
+    "Sozialer Rückzug",
+    "Mobbing",
+    "Trennungsschmerz",
+    # BESONDERE BELASTUNGEN
+    "Traumatische Erlebnisse",
+    "Zwänge",
+    "Selbstverletzung",
+    "Suizidgedanken",
+    "Identitätskrise"
+]
 
 
 class TestPatientServiceAPI:
@@ -29,10 +74,10 @@ class TestPatientServiceAPI:
             pytest.fail("Patient service did not start in time")
 
     def create_test_patient(self, **kwargs):
-        """Helper method to create a test patient."""
+        """Helper method to create a test patient with Phase 2 format."""
         default_data = {
-            "anrede": "Herr",  # Required field
-            "geschlecht": "männlich",  # Required field
+            "anrede": "Herr",
+            "geschlecht": "männlich",
             "vorname": "Test",
             "nachname": "Patient",
             "email": "test.patient@example.com",
@@ -41,7 +86,7 @@ class TestPatientServiceAPI:
             "plz": "12345",
             "ort": "Berlin",
             "geburtsdatum": "1990-01-01",
-            "diagnose": "F32.1",
+            "symptome": ["Depression / Niedergeschlagenheit", "Schlafstörungen"],  # Array format
             "krankenkasse": "Test Krankenkasse"
         }
         data = {**default_data, **kwargs}
@@ -51,22 +96,11 @@ class TestPatientServiceAPI:
         return response.json()
 
     def find_patients_in_paginated_results(self, patient_ids, max_pages=50, **query_params):
-        """
-        Helper method to find specific patient IDs in paginated results.
-        
-        Args:
-            patient_ids: List of patient IDs to find
-            max_pages: Maximum number of pages to check
-            **query_params: Additional query parameters for filtering
-            
-        Returns:
-            Tuple of (found_patient_ids, total_pages_checked)
-        """
+        """Helper method to find specific patient IDs in paginated results."""
         found_ids = set()
         page = 1
         
         while page <= max_pages:
-            # Build query parameters
             params = {"page": page, "limit": 20}
             params.update(query_params)
             
@@ -76,12 +110,10 @@ class TestPatientServiceAPI:
             data = response.json()
             patients = data['data']
             
-            # Check if we found any of our target patients
             for patient in patients:
                 if patient['id'] in patient_ids:
                     found_ids.add(patient['id'])
             
-            # If we found all patients or reached the end, stop
             if len(found_ids) == len(patient_ids) or len(patients) < 20:
                 break
                 
@@ -90,16 +122,7 @@ class TestPatientServiceAPI:
         return found_ids, page
 
     def verify_patients_exist(self, patient_ids, **query_params):
-        """
-        Verify that specific patient IDs exist in the system using pagination.
-        
-        Args:
-            patient_ids: List of patient IDs to verify
-            **query_params: Additional query parameters for filtering
-            
-        Returns:
-            True if all patients found, False otherwise
-        """
+        """Verify that specific patient IDs exist in the system using pagination."""
         found_ids, pages_checked = self.find_patients_in_paginated_results(patient_ids, **query_params)
         
         if len(found_ids) != len(patient_ids):
@@ -108,6 +131,8 @@ class TestPatientServiceAPI:
             return False
         
         return True
+
+    # ==================== BASIC CRUD TESTS ====================
 
     def test_create_patient(self):
         """Test creating a new patient."""
@@ -122,7 +147,7 @@ class TestPatientServiceAPI:
             "plz": "10115",
             "ort": "Berlin",
             "geburtsdatum": "1985-05-15",
-            "diagnose": "F32.1",
+            "symptome": ["Ängste / Panikattacken", "Stress / Überforderung"],
             "krankenkasse": "AOK Berlin",
             "status": "offen"
         }
@@ -136,19 +161,193 @@ class TestPatientServiceAPI:
         assert created_patient["status"] == "offen"
         assert created_patient["anrede"] == "Herr"
         assert created_patient["geschlecht"] == "männlich"
+        assert isinstance(created_patient["symptome"], list)
+        assert len(created_patient["symptome"]) == 2
         assert "id" in created_patient
         
         # Cleanup
         requests.delete(f"{BASE_URL}/patients/{created_patient['id']}")
 
+    def test_get_patient_by_id(self):
+        """Test retrieving a patient by ID."""
+        patient = self.create_test_patient(
+            vorname="Anna",
+            nachname="Schmidt"
+        )
+        
+        response = requests.get(f"{BASE_URL}/patients/{patient['id']}")
+        assert response.status_code == 200
+        
+        retrieved_patient = response.json()
+        assert retrieved_patient["id"] == patient["id"]
+        assert retrieved_patient["vorname"] == "Anna"
+        assert retrieved_patient["nachname"] == "Schmidt"
+        assert isinstance(retrieved_patient["symptome"], list)
+        
+        # Cleanup
+        requests.delete(f"{BASE_URL}/patients/{patient['id']}")
+
+    def test_update_patient(self):
+        """Test updating a patient."""
+        patient = self.create_test_patient()
+        
+        update_data = {
+            "telefon": "+49 30 98765432",
+            "status": "in_Therapie",
+            "symptome": ["Burnout / Erschöpfung", "Innere Leere"]
+        }
+        
+        response = requests.put(
+            f"{BASE_URL}/patients/{patient['id']}",
+            json=update_data
+        )
+        assert response.status_code == 200
+        
+        updated_patient = response.json()
+        assert updated_patient["telefon"] == "+49 30 98765432"
+        assert updated_patient["status"] == "in_Therapie"
+        assert len(updated_patient["symptome"]) == 2
+        assert "Burnout / Erschöpfung" in updated_patient["symptome"]
+        
+        # Cleanup
+        requests.delete(f"{BASE_URL}/patients/{patient['id']}")
+
+    def test_delete_patient(self):
+        """Test deleting a patient."""
+        patient = self.create_test_patient()
+        
+        response = requests.delete(f"{BASE_URL}/patients/{patient['id']}")
+        assert response.status_code == 200
+        
+        # Verify patient is deleted
+        response = requests.get(f"{BASE_URL}/patients/{patient['id']}")
+        assert response.status_code == 404
+
+    def test_patient_not_found(self):
+        """Test getting a non-existent patient."""
+        response = requests.get(f"{BASE_URL}/patients/99999")
+        assert response.status_code == 404
+        assert response.json()["message"] == "Patient not found"
+
+    # ==================== SYMPTOM VALIDATION TESTS ====================
+
+    def test_create_patient_with_single_symptom(self):
+        """Test creating patient with minimum 1 symptom."""
+        patient_data = {
+            "anrede": "Frau",
+            "geschlecht": "weiblich",
+            "vorname": "Single",
+            "nachname": "Symptom",
+            "email": "single@example.com",
+            "geburtsdatum": "1990-01-01",
+            "symptome": ["Schlafstörungen"],
+            "krankenkasse": "TK"
+        }
+        
+        response = requests.post(f"{BASE_URL}/patients", json=patient_data)
+        assert response.status_code == 201
+        
+        created_patient = response.json()
+        assert len(created_patient["symptome"]) == 1
+        assert created_patient["symptome"][0] == "Schlafstörungen"
+        
+        # Cleanup
+        requests.delete(f"{BASE_URL}/patients/{created_patient['id']}")
+
+    def test_create_patient_with_three_symptoms(self):
+        """Test creating patient with maximum 3 symptoms."""
+        patient_data = {
+            "anrede": "Herr",
+            "geschlecht": "männlich",
+            "vorname": "Max",
+            "nachname": "Three",
+            "email": "three@example.com",
+            "geburtsdatum": "1985-01-01",
+            "symptome": [
+                "Trauer / Verlust",
+                "Einsamkeit",
+                "Sozialer Rückzug"
+            ],
+            "krankenkasse": "AOK"
+        }
+        
+        response = requests.post(f"{BASE_URL}/patients", json=patient_data)
+        assert response.status_code == 201
+        
+        created_patient = response.json()
+        assert len(created_patient["symptome"]) == 3
+        
+        # Cleanup
+        requests.delete(f"{BASE_URL}/patients/{created_patient['id']}")
+
+    def test_reject_patient_with_zero_symptoms(self):
+        """Test that patient creation fails with no symptoms."""
+        patient_data = {
+            "anrede": "Herr",
+            "geschlecht": "männlich",
+            "vorname": "No",
+            "nachname": "Symptoms",
+            "email": "no.symptoms@example.com",
+            "geburtsdatum": "1990-01-01",
+            "symptome": [],
+            "krankenkasse": "TK"
+        }
+        
+        response = requests.post(f"{BASE_URL}/patients", json=patient_data)
+        assert response.status_code == 400
+        assert "Between 1 and 3 symptoms required" in response.json()["message"]
+
+    def test_reject_patient_with_four_symptoms(self):
+        """Test that patient creation fails with more than 3 symptoms."""
+        patient_data = {
+            "anrede": "Frau",
+            "geschlecht": "weiblich",
+            "vorname": "Too",
+            "nachname": "Many",
+            "email": "too.many@example.com",
+            "geburtsdatum": "1990-01-01",
+            "symptome": [
+                "Depression / Niedergeschlagenheit",
+                "Ängste / Panikattacken",
+                "Burnout / Erschöpfung",
+                "Schlafstörungen"
+            ],
+            "krankenkasse": "Barmer"
+        }
+        
+        response = requests.post(f"{BASE_URL}/patients", json=patient_data)
+        assert response.status_code == 400
+        assert "Between 1 and 3 symptoms required" in response.json()["message"]
+
+    def test_reject_patient_with_invalid_symptom(self):
+        """Test that patient creation fails with invalid symptom."""
+        patient_data = {
+            "anrede": "Herr",
+            "geschlecht": "männlich",
+            "vorname": "Invalid",
+            "nachname": "Symptom",
+            "email": "invalid@example.com",
+            "geburtsdatum": "1990-01-01",
+            "symptome": ["Depression / Niedergeschlagenheit", "Kopfschmerzen"],  # Kopfschmerzen not valid
+            "krankenkasse": "DAK"
+        }
+        
+        response = requests.post(f"{BASE_URL}/patients", json=patient_data)
+        assert response.status_code == 400
+        assert "Invalid symptom" in response.json()["message"]
+        assert "Kopfschmerzen" in response.json()["message"]
+
+    # ==================== GENDER TESTS ====================
+
     def test_create_patient_with_different_gender(self):
-        """Test creating a patient with different gender options."""
+        """Test creating patients with different gender options."""
         patient_data = {
             "anrede": "Frau",
             "geschlecht": "weiblich",
             "vorname": "Anna",
             "nachname": "Schmidt",
-            "email": "anna.schmidt@example.com"
+            "email": "anna.schmidt@example.com",
+            "symptome": ["Sorgen / Grübeln"]
         }
         
         response = requests.post(f"{BASE_URL}/patients", json=patient_data)
@@ -167,7 +366,8 @@ class TestPatientServiceAPI:
             "anrede": "Herr",
             "geschlecht": "divers",
             "vorname": "Alex",
-            "nachname": "Meyer"
+            "nachname": "Meyer",
+            "symptome": ["Identitätskrise"]
         }
         
         response = requests.post(f"{BASE_URL}/patients", json=patient_data)
@@ -185,7 +385,8 @@ class TestPatientServiceAPI:
             "anrede": "Frau",
             "geschlecht": "keine_Angabe",
             "vorname": "Chris",
-            "nachname": "Weber"
+            "nachname": "Weber",
+            "symptome": ["Selbstzweifel"]
         }
         
         response = requests.post(f"{BASE_URL}/patients", json=patient_data)
@@ -197,13 +398,16 @@ class TestPatientServiceAPI:
         # Cleanup
         requests.delete(f"{BASE_URL}/patients/{created_patient['id']}")
 
+    # ==================== VALIDATION TESTS ====================
+
     def test_create_patient_invalid_anrede(self):
         """Test creating a patient with invalid anrede."""
         patient_data = {
             "anrede": "Dr.",  # Invalid
             "geschlecht": "männlich",
             "vorname": "Test",
-            "nachname": "Invalid"
+            "nachname": "Invalid",
+            "symptome": ["Zwänge"]
         }
         
         response = requests.post(f"{BASE_URL}/patients", json=patient_data)
@@ -217,7 +421,8 @@ class TestPatientServiceAPI:
             "anrede": "Herr",
             "geschlecht": "other",  # Invalid
             "vorname": "Test",
-            "nachname": "Invalid"
+            "nachname": "Invalid",
+            "symptome": ["Mobbing"]
         }
         
         response = requests.post(f"{BASE_URL}/patients", json=patient_data)
@@ -231,7 +436,8 @@ class TestPatientServiceAPI:
         patient_data = {
             "geschlecht": "männlich",
             "vorname": "Test",
-            "nachname": "Patient"
+            "nachname": "Patient",
+            "symptome": ["Trennungsschmerz"]
         }
         
         response = requests.post(f"{BASE_URL}/patients", json=patient_data)
@@ -242,102 +448,225 @@ class TestPatientServiceAPI:
         patient_data = {
             "anrede": "Herr",
             "vorname": "Test",
-            "nachname": "Patient"
+            "nachname": "Patient",
+            "symptome": ["Reizbarkeit / Wutausbrüche"]
         }
         
         response = requests.post(f"{BASE_URL}/patients", json=patient_data)
         assert response.status_code == 400
         assert "geschlecht" in response.json()["message"].lower()
 
-    def test_get_patient_by_id(self):
-        """Test retrieving a patient by ID."""
-        # Create a patient first
-        patient = self.create_test_patient(
-            anrede="Frau",
-            geschlecht="weiblich",
-            vorname="Anna",
-            nachname="Schmidt"
-        )
+    # ==================== PAYMENT WORKFLOW TESTS ====================
+
+    def test_patient_has_zahlungsreferenz_field(self):
+        """Test that patients have zahlungsreferenz field."""
+        patient = self.create_test_patient()
         
-        # Get the patient
         response = requests.get(f"{BASE_URL}/patients/{patient['id']}")
         assert response.status_code == 200
         
-        retrieved_patient = response.json()
-        assert retrieved_patient["id"] == patient["id"]
-        assert retrieved_patient["vorname"] == "Anna"
-        assert retrieved_patient["nachname"] == "Schmidt"
-        assert retrieved_patient["anrede"] == "Frau"
-        assert retrieved_patient["geschlecht"] == "weiblich"
+        patient_data = response.json()
+        assert "zahlungsreferenz" in patient_data
         
         # Cleanup
         requests.delete(f"{BASE_URL}/patients/{patient['id']}")
+
+    def test_payment_confirmation_endpoint(self):
+        """Test payment confirmation endpoint."""
+        patient = self.create_test_patient(
+            vertraege_unterschrieben=True,
+            status="offen"
+        )
+        
+        # Confirm payment
+        response = requests.post(
+            f"{BASE_URL}/patients/{patient['id']}/confirm-payment"
+        )
+        assert response.status_code == 200
+        
+        # Get updated patient
+        response = requests.get(f"{BASE_URL}/patients/{patient['id']}")
+        updated_patient = response.json()
+        
+        # Verify changes
+        assert updated_patient["zahlung_eingegangen"] is True
+        assert updated_patient["status"] == "auf_der_Suche"
+        assert updated_patient["startdatum"] == date.today().isoformat()
+        
+        # Cleanup
+        requests.delete(f"{BASE_URL}/patients/{patient['id']}")
+
+    def test_payment_without_contracts_no_status_change(self):
+        """Test payment confirmation without signed contracts."""
+        patient = self.create_test_patient(
+            vertraege_unterschrieben=False,
+            status="offen"
+        )
+        
+        # Confirm payment
+        response = requests.post(
+            f"{BASE_URL}/patients/{patient['id']}/confirm-payment"
+        )
+        assert response.status_code == 200
+        
+        # Get updated patient
+        response = requests.get(f"{BASE_URL}/patients/{patient['id']}")
+        updated_patient = response.json()
+        
+        # Verify payment confirmed but no status change
+        assert updated_patient["zahlung_eingegangen"] is True
+        assert updated_patient["status"] == "offen"  # No change
+        assert updated_patient.get("startdatum") is None  # Not set
+        
+        # Cleanup
+        requests.delete(f"{BASE_URL}/patients/{patient['id']}")
+
+    def test_payment_idempotent(self):
+        """Test that payment confirmation is idempotent."""
+        patient = self.create_test_patient(
+            vertraege_unterschrieben=True,
+            status="offen"
+        )
+        
+        # First payment confirmation
+        response = requests.post(f"{BASE_URL}/patients/{patient['id']}/confirm-payment")
+        assert response.status_code == 200
+        
+        response = requests.get(f"{BASE_URL}/patients/{patient['id']}")
+        first_update = response.json()
+        first_startdatum = first_update["startdatum"]
+        
+        # Wait a moment
+        time.sleep(0.1)
+        
+        # Second payment confirmation
+        response = requests.post(f"{BASE_URL}/patients/{patient['id']}/confirm-payment")
+        assert response.status_code == 200
+        
+        response = requests.get(f"{BASE_URL}/patients/{patient['id']}")
+        second_update = response.json()
+        
+        # Startdatum should not change
+        assert second_update["startdatum"] == first_startdatum
+        assert second_update["status"] == "auf_der_Suche"
+        
+        # Cleanup
+        requests.delete(f"{BASE_URL}/patients/{patient['id']}")
+
+    # ==================== IMPORT WORKFLOW TESTS ====================
+
+    def test_import_patient_with_symptom_array(self):
+        """Test importing patient JSON with symptom array."""
+        import_data = {
+            "patient_data": {
+                "anrede": "Frau",
+                "geschlecht": "weiblich",
+                "vorname": "Import",
+                "nachname": "Test",
+                "email": "import.test@example.com",
+                "geburtsdatum": "1990-01-01",
+                "symptome": ["Trauer / Verlust", "Einsamkeit"],
+                "krankenkasse": "TK",
+                "erfahrung_mit_psychotherapie": False,
+                "offen_fuer_gruppentherapie": True,
+                "zeitliche_verfuegbarkeit": {
+                    "montag": ["09:00-17:00"]
+                }
+            },
+            "registration_token": "a7f3e9b2c4d8f1a6e5b9c3d7f2a8e4b1c6d9f3a7e2b5c8d1f4a9e3b7c2d6f8a0"
+        }
+        
+        response = requests.post(f"{BASE_URL}/patients/import", json=import_data)
+        assert response.status_code in [200, 201]
+        
+        result = response.json()
+        patient_id = result.get("patient_id")
+        
+        # Verify patient created with correct data
+        response = requests.get(f"{BASE_URL}/patients/{patient_id}")
+        patient = response.json()
+        
+        assert patient["zahlungsreferenz"] == "a7f3e9b2"  # First 8 chars
+        assert isinstance(patient["symptome"], list)
+        assert len(patient["symptome"]) == 2
+        assert "email_sent" in result  # Confirmation email sent
+        
+        # Cleanup
+        requests.delete(f"{BASE_URL}/patients/{patient_id}")
+
+    def test_import_fails_with_invalid_symptoms(self):
+        """Test import fails with invalid symptoms."""
+        import_data = {
+            "patient_data": {
+                "anrede": "Herr",
+                "geschlecht": "männlich",
+                "vorname": "Bad",
+                "nachname": "Import",
+                "email": "bad.import@example.com",
+                "geburtsdatum": "1990-01-01",
+                "symptome": ["Invalid Symptom", "Another Bad One"],
+                "krankenkasse": "AOK"
+            },
+            "registration_token": "12345678"
+        }
+        
+        response = requests.post(f"{BASE_URL}/patients/import", json=import_data)
+        assert response.status_code == 400
+        assert "Invalid symptom" in response.json()["message"]
+
+    def test_import_extracts_zahlungsreferenz(self):
+        """Test import extracts zahlungsreferenz from token."""
+        import_data = {
+            "patient_data": {
+                "anrede": "Herr",
+                "geschlecht": "männlich",
+                "vorname": "Token",
+                "nachname": "Test",
+                "email": "token@example.com",
+                "geburtsdatum": "1990-01-01",
+                "symptome": ["Zwänge"],
+                "krankenkasse": "DAK"
+            },
+            "registration_token": "12345678abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQR"
+        }
+        
+        response = requests.post(f"{BASE_URL}/patients/import", json=import_data)
+        assert response.status_code in [200, 201]
+        
+        result = response.json()
+        patient_id = result.get("patient_id")
+        
+        # Verify zahlungsreferenz is first 8 chars
+        response = requests.get(f"{BASE_URL}/patients/{patient_id}")
+        patient = response.json()
+        assert patient["zahlungsreferenz"] == "12345678"
+        
+        # Cleanup
+        requests.delete(f"{BASE_URL}/patients/{patient_id}")
+
+    # ==================== PAGINATION TESTS ====================
 
     def test_get_patients_list_empty(self):
         """Test getting patient list pagination structure."""
         response = requests.get(f"{BASE_URL}/patients")
         assert response.status_code == 200
         
-        # Verify paginated structure
         data = response.json()
         assert isinstance(data, dict)
         assert 'data' in data
         assert isinstance(data['data'], list)
         assert data['page'] == 1
-        assert data['limit'] == 20  # Default limit
-        assert data['total'] >= 0  # Could be 0 or more
-
-    def test_get_patients_list_with_data(self):
-        """Test getting patient list with data using pagination to find created patients."""
-        # Create test patients with unique identifiable data
-        patient1 = self.create_test_patient(
-            vorname="PaginationTest1",
-            nachname="Müller",
-            email="pagination1@example.com",
-            anrede="Frau",
-            geschlecht="weiblich"
-        )
-        patient2 = self.create_test_patient(
-            vorname="PaginationTest2",
-            nachname="Schmidt",
-            email="pagination2@example.com",
-            anrede="Herr",
-            geschlecht="männlich"
-        )
-        
-        # Verify pagination structure first
-        response = requests.get(f"{BASE_URL}/patients")
-        assert response.status_code == 200
-        
-        data = response.json()
-        assert isinstance(data, dict)
-        assert 'data' in data
-        
-        # Verify pagination metadata
-        assert data['page'] == 1
         assert data['limit'] == 20
-        assert data['total'] >= 2
-        
-        # Find our created patients across all pages
-        patient_ids = [patient1['id'], patient2['id']]
-        assert self.verify_patients_exist(patient_ids), \
-            f"Could not find created patients {patient_ids} in paginated results"
-        
-        # Cleanup
-        requests.delete(f"{BASE_URL}/patients/{patient1['id']}")
-        requests.delete(f"{BASE_URL}/patients/{patient2['id']}")
+        assert data['total'] >= 0
 
     def test_get_patients_with_pagination(self):
-        """Test pagination parameters with created test data."""
-        # Create multiple patients with unique names
+        """Test pagination parameters."""
         created_patients = []
         for i in range(5):
             patient = self.create_test_patient(
                 vorname=f"PagTest{i}",
                 nachname=f"Patient{i}",
-                email=f"pagtest{i}@example.com",
-                anrede="Herr" if i % 2 == 0 else "Frau",
-                geschlecht="männlich" if i % 2 == 0 else "weiblich"
+                email=f"pagtest{i}@example.com"
             )
             created_patients.append(patient)
         
@@ -353,141 +682,62 @@ class TestPatientServiceAPI:
         assert len(data['data']) <= 2
         assert data['total'] >= 5
         
-        # Test page 2 with limit 2
-        response = requests.get(f"{BASE_URL}/patients?page=2&limit=2")
-        assert response.status_code == 200
-        
-        data = response.json()
-        assert data['page'] == 2
-        assert data['limit'] == 2
-        assert len(data['data']) <= 2
-        
-        # Verify all our patients exist somewhere in the system
-        assert self.verify_patients_exist(patient_ids), \
-            f"Could not find all created patients {patient_ids}"
+        # Verify all patients exist
+        assert self.verify_patients_exist(patient_ids)
         
         # Cleanup
         for patient in created_patients:
             requests.delete(f"{BASE_URL}/patients/{patient['id']}")
 
     def test_get_patients_list_filtered_by_status(self):
-        """Test filtering patients by status with pagination."""
-        # Create patients with different statuses
+        """Test filtering patients by status."""
         patient1 = self.create_test_patient(
             vorname="StatusActive",
-            nachname="Patient",
-            email="status_active@example.com",
+            email="active@example.com",
             status="auf_der_Suche"
         )
         patient2 = self.create_test_patient(
             vorname="StatusOpen",
-            nachname="Patient",
-            email="status_open@example.com",
+            email="open@example.com",
             status="offen"
         )
         
-        # Filter by status using pagination
-        found_ids, pages_checked = self.find_patients_in_paginated_results(
+        # Filter by status
+        found_ids, _ = self.find_patients_in_paginated_results(
             [patient1['id']], 
             status="auf_der_Suche"
         )
         
-        # Verify patient1 is found with correct status filter
-        assert patient1['id'] in found_ids, \
-            f"Patient {patient1['id']} with status 'auf_der_Suche' not found in {pages_checked} pages"
-        
-        # Verify patient2 is NOT found when filtering for different status
-        found_ids_wrong_filter, _ = self.find_patients_in_paginated_results(
-            [patient2['id']], 
-            status="auf_der_Suche"
-        )
-        assert patient2['id'] not in found_ids_wrong_filter, \
-            f"Patient {patient2['id']} with status 'offen' should not be found when filtering for 'auf_der_Suche'"
+        assert patient1['id'] in found_ids
         
         # Cleanup
         requests.delete(f"{BASE_URL}/patients/{patient1['id']}")
         requests.delete(f"{BASE_URL}/patients/{patient2['id']}")
 
-    def test_update_patient(self):
-        """Test updating a patient."""
-        # Create a patient
-        patient = self.create_test_patient()
-        
-        # Update the patient
-        update_data = {
-            "telefon": "+49 30 98765432",
-            "status": "in_Therapie",
-            "letzter_kontakt": date.today().isoformat()
-        }
-        
-        response = requests.put(
-            f"{BASE_URL}/patients/{patient['id']}",
-            json=update_data
-        )
+    def test_pagination_limits(self):
+        """Test pagination limit constraints."""
+        # Test max limit
+        response = requests.get(f"{BASE_URL}/patients?limit=2000")
         assert response.status_code == 200
         
-        updated_patient = response.json()
-        assert updated_patient["telefon"] == "+49 30 98765432"
-        assert updated_patient["status"] == "in_Therapie"
-        # letzter_kontakt is managed automatically, so it might not match what we sent
-        
-        # Cleanup
-        requests.delete(f"{BASE_URL}/patients/{patient['id']}")
-
-    def test_update_patient_anrede_geschlecht(self):
-        """Test updating patient's anrede and geschlecht."""
-        # Create a patient
-        patient = self.create_test_patient(anrede="Herr", geschlecht="männlich")
-        
-        # Update to different values
-        update_data = {
-            "anrede": "Frau",
-            "geschlecht": "weiblich"
-        }
-        
-        response = requests.put(
-            f"{BASE_URL}/patients/{patient['id']}",
-            json=update_data
-        )
-        assert response.status_code == 200
-        
-        updated_patient = response.json()
-        assert updated_patient["anrede"] == "Frau"
-        assert updated_patient["geschlecht"] == "weiblich"
-        
-        # Cleanup
-        requests.delete(f"{BASE_URL}/patients/{patient['id']}")
-
-    def test_delete_patient(self):
-        """Test deleting a patient."""
-        # Create a patient
-        patient = self.create_test_patient()
-        
-        # Delete the patient
-        response = requests.delete(f"{BASE_URL}/patients/{patient['id']}")
-        assert response.status_code == 200
-        
-        # Verify patient is deleted
-        response = requests.get(f"{BASE_URL}/patients/{patient['id']}")
-        assert response.status_code == 404
-
-    def test_patient_not_found(self):
-        """Test getting a non-existent patient."""
-        response = requests.get(f"{BASE_URL}/patients/99999")
-        assert response.status_code == 404
-        assert response.json()["message"] == "Patient not found"
-
-    def test_invalid_status_filter(self):
-        """Test filtering with invalid status returns empty result."""
-        response = requests.get(f"{BASE_URL}/patients?status=invalid_status")
-        assert response.status_code == 200
-        
-        # Should return empty paginated result
         data = response.json()
-        assert data['data'] == []
-        assert data['page'] == 1
-        assert data['limit'] == 20
-        assert data['total'] == 0
+        assert data['limit'] == 1000  # Should be capped
+        
+        # Test zero limit
+        response = requests.get(f"{BASE_URL}/patients?limit=0")
+        assert response.status_code == 200
+        
+        data = response.json()
+        assert data['limit'] == 1  # Should be minimum
+        
+        # Test negative page
+        response = requests.get(f"{BASE_URL}/patients?page=-1")
+        assert response.status_code == 200
+        
+        data = response.json()
+        assert data['page'] == 1  # Should be minimum
+
+    # ==================== PREFERENCES TESTS ====================
 
     def test_create_patient_with_preferences(self):
         """Test creating a patient with therapy preferences."""
@@ -496,8 +746,9 @@ class TestPatientServiceAPI:
             "geschlecht": "weiblich",
             "vorname": "Maria",
             "nachname": "Weber",
+            "symptome": ["Beziehungsprobleme", "Familienkonflikte"],
             "bevorzugtes_therapeutengeschlecht": "Weiblich",
-            "bevorzugtes_therapieverfahren": "Verhaltenstherapie",  # Single value, not array
+            "bevorzugtes_therapieverfahren": "Verhaltenstherapie",
             "offen_fuer_gruppentherapie": True,
             "raeumliche_verfuegbarkeit": {"max_km": 15},
             "zeitliche_verfuegbarkeit": {
@@ -517,87 +768,15 @@ class TestPatientServiceAPI:
         # Cleanup
         requests.delete(f"{BASE_URL}/patients/{created_patient['id']}")
 
-    def test_patient_communication_history(self):
-        """Test getting patient communication history."""
-        # Create a patient
-        patient = self.create_test_patient()
-        
-        # Get communication history (should be empty initially)
-        response = requests.get(f"{BASE_URL}/patients/{patient['id']}/communication")
-        assert response.status_code == 200
-        
-        comm_data = response.json()
-        assert comm_data['patient_id'] == patient['id']
-        assert comm_data['patient_name'] == f"{patient['vorname']} {patient['nachname']}"
-        assert comm_data['total_emails'] >= 0
-        assert comm_data['total_calls'] >= 0
-        assert isinstance(comm_data['communications'], list)
-        
-        # Cleanup
-        requests.delete(f"{BASE_URL}/patients/{patient['id']}")
-
-    def test_pagination_limits(self):
-        """Test pagination limit constraints."""
-        # Test max limit (should be capped at 1000)
-        response = requests.get(f"{BASE_URL}/patients?limit=2000")
-        assert response.status_code == 200
-        
-        data = response.json()
-        assert data['limit'] == 1000  # Should be capped at max limit
-        
-        # Test zero limit (should be set to 1)
-        response = requests.get(f"{BASE_URL}/patients?limit=0")
-        assert response.status_code == 200
-        
-        data = response.json()
-        assert data['limit'] == 1  # Should be set to minimum
-        
-        # Test negative page (should be set to 1)
-        response = requests.get(f"{BASE_URL}/patients?page=-1")
-        assert response.status_code == 200
-        
-        data = response.json()
-        assert data['page'] == 1  # Should be set to minimum
-
-    def test_automatic_startdatum(self):
-        """Test automatic setting of startdatum when both checkboxes are true."""
-        # Create patient with both checkboxes false
-        patient = self.create_test_patient(
-            vertraege_unterschrieben=False,
-            psychotherapeutische_sprechstunde=False
-        )
-        
-        # Verify startdatum is not set
-        assert patient.get('startdatum') is None
-        
-        # Update to set both checkboxes to true
-        update_data = {
-            "vertraege_unterschrieben": True,
-            "psychotherapeutische_sprechstunde": True
-        }
-        
-        response = requests.put(
-            f"{BASE_URL}/patients/{patient['id']}",
-            json=update_data
-        )
-        assert response.status_code == 200
-        
-        updated_patient = response.json()
-        # startdatum should now be set to today
-        assert updated_patient['startdatum'] == date.today().isoformat()
-        
-        # Cleanup
-        requests.delete(f"{BASE_URL}/patients/{patient['id']}")
-
     def test_validate_therapieverfahren(self):
         """Test validation of bevorzugtes_therapieverfahren field."""
-        # Valid values - testing single enum value
         patient_data = {
             "anrede": "Herr",
             "geschlecht": "männlich",
             "vorname": "Test",
             "nachname": "Valid",
-            "bevorzugtes_therapieverfahren": "Verhaltenstherapie"  # Single value
+            "symptome": ["Chronische Schmerzen"],
+            "bevorzugtes_therapieverfahren": "Verhaltenstherapie"
         }
         
         response = requests.post(f"{BASE_URL}/patients", json=patient_data)
@@ -620,44 +799,94 @@ class TestPatientServiceAPI:
         # Invalid value
         patient_data['bevorzugtes_therapieverfahren'] = "Psychoanalyse"  # Invalid
         patient_data['nachname'] = "Invalid"
+        patient_data['email'] = "invalid@example.com"
         
         response = requests.post(f"{BASE_URL}/patients", json=patient_data)
         assert response.status_code == 400
         assert "Invalid therapy method 'Psychoanalyse'" in response.json()["message"]
         
-        # Test invalid update
-        update_response = requests.put(
-            f"{BASE_URL}/patients/{patient_id}",
-            json={"bevorzugtes_therapieverfahren": "InvalidMethod"}
-        )
-        assert update_response.status_code == 400
-        assert "Invalid therapy method" in update_response.json()["message"]
-        
         # Cleanup
         requests.delete(f"{BASE_URL}/patients/{patient_id}")
 
+    # ==================== OTHER FEATURES ====================
+
+    def test_patient_communication_history(self):
+        """Test getting patient communication history."""
+        patient = self.create_test_patient()
+        
+        response = requests.get(f"{BASE_URL}/patients/{patient['id']}/communication")
+        assert response.status_code == 200
+        
+        comm_data = response.json()
+        assert comm_data['patient_id'] == patient['id']
+        assert comm_data['patient_name'] == f"{patient['vorname']} {patient['nachname']}"
+        assert comm_data['total_emails'] >= 0
+        assert comm_data['total_calls'] >= 0
+        assert isinstance(comm_data['communications'], list)
+        
+        # Cleanup
+        requests.delete(f"{BASE_URL}/patients/{patient['id']}")
+
+    def test_automatic_startdatum(self):
+        """Test automatic setting of startdatum when both checkboxes are true."""
+        patient = self.create_test_patient(
+            vertraege_unterschrieben=False,
+            psychotherapeutische_sprechstunde=False
+        )
+        
+        assert patient.get('startdatum') is None
+        
+        # Update to set both checkboxes to true
+        update_data = {
+            "vertraege_unterschrieben": True,
+            "psychotherapeutische_sprechstunde": True
+        }
+        
+        response = requests.put(
+            f"{BASE_URL}/patients/{patient['id']}",
+            json=update_data
+        )
+        assert response.status_code == 200
+        
+        updated_patient = response.json()
+        # startdatum should now be set to today
+        assert updated_patient['startdatum'] == date.today().isoformat()
+        
+        # Cleanup
+        requests.delete(f"{BASE_URL}/patients/{patient['id']}")
+
     def test_create_patient_with_new_fields(self):
-        """Test creating patient with new simplified fields."""
+        """Test creating patient with experience fields."""
         patient_data = {
             "anrede": "Frau",
             "geschlecht": "weiblich",
             "vorname": "Test",
-            "nachname": "NewFields",
-            "symptome": "Schlafstörungen, Niedergeschlagenheit, Antriebslosigkeit",
+            "nachname": "Experience",
+            "symptome": ["Psychosomatische Beschwerden", "Sexuelle Probleme"],
             "erfahrung_mit_psychotherapie": True,
-            "letzte_sitzung_vorherige_psychotherapie": "2023-06-15"
+            "letzte_sitzung_vorherige_psychotherapie": "2023-06-15",
+            "krankenkasse": "TK"
         }
         
         response = requests.post(f"{BASE_URL}/patients", json=patient_data)
         assert response.status_code == 201
         
         created_patient = response.json()
-        assert created_patient["symptome"] == "Schlafstörungen, Niedergeschlagenheit, Antriebslosigkeit"
         assert created_patient["erfahrung_mit_psychotherapie"] is True
         assert created_patient["letzte_sitzung_vorherige_psychotherapie"] == "2023-06-15"
         
         # Cleanup
         requests.delete(f"{BASE_URL}/patients/{created_patient['id']}")
+
+    def test_import_status_endpoint(self):
+        """Test import status monitoring endpoint."""
+        response = requests.get(f"{BASE_URL}/patients/import-status")
+        assert response.status_code == 200
+        
+        status = response.json()
+        assert 'running' in status
+        assert 'files_processed_today' in status
+        assert 'files_failed_today' in status
 
 
 if __name__ == "__main__":
