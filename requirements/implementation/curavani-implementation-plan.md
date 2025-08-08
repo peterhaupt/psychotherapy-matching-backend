@@ -555,6 +555,7 @@ ADD COLUMN zahlung_eingegangen BOOLEAN DEFAULT FALSE;
    - Remove diagnosis handling ✅
    - Extract and store zahlungsreferenz from registration_token ✅
    - Send confirmation email with contract link ✅
+   - Updated patient_importer.py to use email template ✅
 
 3. **Update API:** ✅ COMPLETED (January 2025)
    - Add payment confirmation endpoint ✅
@@ -563,9 +564,12 @@ ADD COLUMN zahlung_eingegangen BOOLEAN DEFAULT FALSE;
    - Remove diagnose handling from all endpoints ✅
    - Remove psychotherapeutische_sprechstunde handling ✅
 
-4. Create email template: 🔄 PENDING
-   - New file: `shared/templates/emails/patient_registration_confirmation.md`
-   - Include contract link, payment info, next steps
+4. Create email template: ✅ COMPLETED (January 2025)
+   - New file: `shared/templates/emails/patient_registration_confirmation.md` ✅
+   - Include contract link, payment info, next steps ✅
+   - Patient Importer updated to use template with Jinja2 rendering ✅
+   - Fixed email domain to info@curavani.com ✅
+   - Fixed sender name to "Curavani" ✅
 
 ### Communication Service 🔄 PENDING
 1. No attachment capability needed
@@ -644,7 +648,7 @@ Location: `matching_service/algorithms/anfrage_creator.py`
 2. **Backend Processing:**
    - [x] Patient import successful
    - [x] Zahlungsreferenz extracted and stored
-   - [x] Email sent with contract link
+   - [x] Email sent with contract link using template
    - [x] Payment confirmation works
    - [x] Automatic status change
    - [x] Matching service diagnosis removal verified
@@ -680,10 +684,10 @@ Location: `matching_service/algorithms/anfrage_creator.py`
 ### Backend - Patient Service ✅ COMPLETED (January 2025)
 - `patient_service/models/patient.py` - Update model (remove diagnosis, add zahlungsreferenz) ✅
 - `patient_service/api/patients.py` - Update endpoints ✅
-- `patient_service/imports/patient_importer.py` - Add zahlungsreferenz extraction, send email ✅
+- `patient_service/imports/patient_importer.py` - Add zahlungsreferenz extraction, send email with template ✅
 
-### Backend - Communication Service 🔄 PENDING
-- **NEW:** `shared/templates/emails/patient_registration_confirmation.md` - Create template
+### Backend - Communication Service ✅ COMPLETED (January 2025)
+- **NEW:** `shared/templates/emails/patient_registration_confirmation.md` - Create template ✅
 
 ### Backend - Matching Service ✅ COMPLETED (January 2025)
 - `matching_service/api/anfrage.py` - Remove diagnosis requirement ✅
@@ -771,7 +775,7 @@ BUCKET_NAME="curavani-production-data-transfer"
 - [x] All backend services updated
 - [x] Import process handles new format
 - [x] Zahlungsreferenz extracted and stored
-- [x] Email sent with contract link
+- [x] Email sent with contract link using template
 - [x] Matching service updated (diagnosis removed)
 - [x] Therapist emails format symptoms correctly
 - [ ] React frontend shows payment status (pending)
@@ -914,4 +918,4 @@ Access URLs:
 - Patient experience simplified in PHP frontend
 - API documentation critical for React frontend integration
 
-**IMPLEMENTATION NOTE:** Phase 1 completed with minor variations that improve user experience while maintaining core requirements. Phase 2 fully completed January 2025 - Patient Model, API, Importer, and Matching Service all updated. Remaining items are email template creation and API_REFERENCE.md documentation update for React frontend integration.
+**IMPLEMENTATION NOTE:** Phase 1 completed with minor variations that improve user experience while maintaining core requirements. Phase 2 fully completed January 2025 - Patient Model, API, Importer, Matching Service, and Patient Registration Email Template all updated. Only remaining item is API_REFERENCE.md documentation update for React frontend integration.
