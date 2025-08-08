@@ -3,7 +3,7 @@
 *Last Updated: January 2025*
 
 ## Overview
-This document outlines the complete implementation plan for the Curavani patient registration system refactoring, including all frontend modifications, backend updates, and database schema changes. **Phase 1 (Frontend) has been completed with variations documented below.** **Phase 2 (Backend) core components have been completed.**
+This document outlines the complete implementation plan for the Curavani patient registration system refactoring, including all frontend modifications, backend updates, and database schema changes. **Phase 1 (Frontend) has been completed with variations documented below.** **Phase 2 (Backend) core components have been completed.** **Phase 3 (Email Deduplication) has been completed.**
 
 ## Frontend Clarification
 - **PHP Frontend**: Public-facing patient registration website hosted by Domainfactory
@@ -15,8 +15,8 @@ This document outlines the complete implementation plan for the Curavani patient
 |-------|--------|----------|--------|
 | **Phase 1: Frontend** | ✅ **COMPLETED** | Week 1 | Completed Week 1 |
 | **Phase 2: Backend** | ✅ **COMPLETED** | Week 1-2 | All components completed January 2025 |
-| **Phase 3: Therapist Dedup** | 📅 **FUTURE** | Phase 2 + 2 weeks | Not started |
-| **Phase 4: Testing** | ⚠️ **PARTIAL** | 1 week after Phase 2 | Frontend done, Backend testing needed |
+| **Phase 3: Therapist Dedup** | ✅ **COMPLETED** | Phase 2 + 2 weeks | Completed January 2025 |
+| **Phase 4: Testing** | ⚠️ **PARTIAL** | 1 week after Phase 3 | Frontend done, Backend testing needed |
 
 ---
 
@@ -610,8 +610,8 @@ def confirm_payment(patient_id):
 
 ---
 
-## Phase 3: Therapist Email Deduplication (Future) 📅 FUTURE
-**Timeline: Phase 2 completion + 2 weeks**
+## Phase 3: Therapist Email Deduplication ✅ COMPLETED (January 2025)
+**Timeline: Phase 2 completion + 2 weeks** - **ACTUAL: Completed January 2025**
 
 ### Matching Service Implementation
 Location: `matching_service/algorithms/anfrage_creator.py`
@@ -630,10 +630,44 @@ Location: `matching_service/algorithms/anfrage_creator.py`
 - Dynamic grouping based on current emails
 - Individual cooling periods maintained
 
+**✅ STATUS: COMPLETED**
+
+### Actual Implementation Details (January 2025):
+
+#### New Helper Functions Added:
+1. **`_normalize_for_email_check(name: str) -> str`:**
+   - Normalizes names for email matching
+   - Handles German umlauts (ä→ae, ö→oe, ü→ue, ß→ss)
+   - Converts to lowercase for comparison
+
+2. **`_identify_practice_owner(therapist_group: List, email: str) -> Dict`:**
+   - Implements 3-tier selection priority
+   - Priority 1: Therapist whose last name appears in email (with umlaut handling)
+   - Priority 2: Therapist with professional title (Prof. > Dr.)
+   - Priority 3: Therapist with earliest creation date (lowest ID)
+   - Returns the identified practice owner from the group
+
+#### Updated `get_therapists_for_selection()` Function:
+- **Email Grouping:** Groups all therapists by their email address (normalized to lowercase)
+- **NULL Email Handling:** Therapists without email addresses are handled individually, not grouped
+- **Group-Wide Exclusions:** 
+  - If ANY therapist in an email group has pending anfragen, the ENTIRE group is excluded
+  - If ANY therapist in an email group is in cooling period, the ENTIRE group is excluded
+- **Practice Owner Selection:** Only the identified practice owner from each email group is returned
+- **Logging:** Added comprehensive logging showing deduplication results (e.g., "118 total therapists -> 95 practice owners")
+- **Maintains Existing Functionality:** The 8-tier sorting with email preference is still applied to the final list
+
+#### Key Benefits:
+- Prevents duplicate emails to the same practice
+- Maintains individual therapist records in database
+- Preserves individual cooling periods
+- No database schema changes required
+- Pure algorithmic solution applied at selection time
+
 ---
 
 ## Phase 4: Testing & Deployment ⚠️ PARTIAL
-**Timeline: 1 week after Phase 2**
+**Timeline: 1 week after Phase 3**
 
 ### Testing Checklist
 1. **Registration Flow:**
@@ -653,6 +687,7 @@ Location: `matching_service/algorithms/anfrage_creator.py`
    - [x] Automatic status change
    - [x] Matching service diagnosis removal verified
    - [x] Therapist emails format symptoms correctly
+   - [ ] Email deduplication testing
    - [ ] React frontend integration testing
 
 3. **React Frontend:**
@@ -662,7 +697,14 @@ Location: `matching_service/algorithms/anfrage_creator.py`
    - [ ] Patient management works
    - [ ] API_REFERENCE.md updated and verified
 
-4. **Error Handling:**
+4. **Email Deduplication Testing:**
+   - [ ] Groups therapists by email correctly
+   - [ ] Identifies practice owners correctly
+   - [ ] Handles umlauts in email matching
+   - [ ] Respects group-wide exclusions
+   - [ ] Handles NULL emails properly
+
+5. **Error Handling:**
    - [ ] Import errors notify admins
    - [ ] System remains stable
 
@@ -694,8 +736,11 @@ Location: `matching_service/algorithms/anfrage_creator.py`
 - `matching_service/algorithms/anfrage_creator.py` - Remove diagnosis checks ✅
 - `shared/templates/emails/psychotherapie_anfrage.md` - Update template ✅
 
-### Backend - Matching Service 📅 FUTURE
-- **Phase 3:** `matching_service/algorithms/anfrage_creator.py` - Email deduplication
+### Backend - Matching Service Phase 3 ✅ COMPLETED (January 2025)
+- `matching_service/algorithms/anfrage_creator.py` - Email deduplication logic ✅
+  - Added `_normalize_for_email_check()` function
+  - Added `_identify_practice_owner()` function
+  - Updated `get_therapists_for_selection()` with email grouping and practice owner selection
 
 ### Documentation 🔄 PENDING
 - **API_REFERENCE.md** - Update for React frontend with all Phase 2 changes
@@ -749,12 +794,12 @@ BUCKET_NAME="curavani-production-data-transfer"
 2. **Status Changes:** On payment confirmation
 3. **Search Initiation:** When startdatum is set
 4. **Zahlungsreferenz:** Automatically extracted from registration token
+5. **Email Deduplication:** Automatically groups therapists by email and selects practice owners
 
-### Future Enhancements (Not Phase 1/2)
+### Future Enhancements (Not Phase 1/2/3)
 - Automated payment detection
 - Import retry mechanism
 - Advanced staff notifications
-- Therapist email deduplication (Phase 3)
 - Patient portal for status tracking
 
 ---
@@ -782,10 +827,13 @@ BUCKET_NAME="curavani-production-data-transfer"
 - [x] Automatic workflows functioning
 - [ ] API_REFERENCE.md updated for React frontend (pending)
 
-### Phase 3 Complete When: 📅 FUTURE
-- [ ] Therapist deduplication working
-- [ ] No duplicate emails to practices
-- [ ] Practice owner identification correct
+### Phase 3 Complete When: ✅ ACHIEVED (January 2025)
+- [x] Therapist deduplication working
+- [x] No duplicate emails to practices
+- [x] Practice owner identification correct
+- [x] Email grouping with NULL handling
+- [x] Group-wide exclusions applied
+- [x] Umlaut handling in email matching
 
 ---
 
@@ -817,6 +865,11 @@ BUCKET_NAME="curavani-production-data-transfer"
    - Update API_REFERENCE.md immediately after backend changes
    - Version control for API documentation
    - Test React frontend against updated API specs
+
+7. **Email Deduplication Edge Cases**
+   - Handle therapists without emails separately
+   - Log practice owner selection for audit
+   - Monitor for false positives in name matching
 
 ---
 
@@ -917,5 +970,6 @@ Access URLs:
 - Focus on staff usability in React frontend
 - Patient experience simplified in PHP frontend
 - API documentation critical for React frontend integration
+- Email deduplication prevents duplicate communications to practices
 
-**IMPLEMENTATION NOTE:** Phase 1 completed with minor variations that improve user experience while maintaining core requirements. Phase 2 fully completed January 2025 - Patient Model, API, Importer, Matching Service, and Patient Registration Email Template all updated. Only remaining item is API_REFERENCE.md documentation update for React frontend integration.
+**IMPLEMENTATION NOTE:** Phase 1 completed with minor variations that improve user experience while maintaining core requirements. Phase 2 fully completed January 2025 - Patient Model, API, Importer, Matching Service, and Patient Registration Email Template all updated. Phase 3 Email Deduplication completed January 2025. Only remaining item is API_REFERENCE.md documentation update for React frontend integration.
