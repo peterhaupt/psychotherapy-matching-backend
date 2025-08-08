@@ -425,6 +425,8 @@ class EmailListResource(PaginatedListResource):
         parser.add_argument('absender_name', type=str)
         # Options
         parser.add_argument('add_legal_footer', type=bool, default=True)
+        # NEW: Accept status parameter for initial status
+        parser.add_argument('status', type=str)
         
         try:
             args = parser.parse_args()
@@ -463,6 +465,15 @@ class EmailListResource(PaginatedListResource):
             if args.get('add_legal_footer', True):
                 html_content, text_content = add_legal_footer(html_content, text_content)
             
+            # Determine initial status
+            initial_status = EmailStatus.Entwurf  # default
+            if args.get('status'):
+                try:
+                    initial_status = validate_and_get_email_status(args['status'])
+                    logger.info(f"Setting initial email status to: {initial_status.value}")
+                except ValueError as e:
+                    return {'message': str(e)}, 400
+            
             # Create new email
             email_data = {
                 'therapist_id': args.get('therapist_id'),
@@ -474,16 +485,22 @@ class EmailListResource(PaginatedListResource):
                 'empfaenger_name': args['empfaenger_name'],
                 'absender_email': args.get('absender_email') or config.EMAIL_SENDER,
                 'absender_name': args.get('absender_name') or config.EMAIL_SENDER_NAME,
-                'status': EmailStatus.Entwurf,
+                'status': initial_status,  # Use the provided or default status
                 'antwort_erhalten': False,
                 'wiederholungsanzahl': 0
             }
+            
+            # If status is In_Warteschlange, set the queued timestamp
+            if initial_status == EmailStatus.In_Warteschlange:
+                email_data['in_warteschlange_am'] = datetime.utcnow()
             
             email = Email(**email_data)
             
             db.add(email)
             db.commit()
             db.refresh(email)
+            
+            logger.info(f"Created email {email.id} with status {email.status.value}")
             
             return marshal(email, email_fields), 201
         except SQLAlchemyError as e:
