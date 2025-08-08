@@ -1,4 +1,4 @@
-"""Patient import logic with validation - simplified without duplicate detection."""
+"""Patient import logic with validation - Phase 2 updates."""
 import logging
 from typing import Dict, Any, Tuple
 from datetime import datetime
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class PatientImporter:
-    """Handle patient data import with validation."""
+    """Handle patient data import with validation - Phase 2 updates."""
     
     def __init__(self):
         """Initialize the patient importer."""
@@ -24,6 +24,12 @@ class PatientImporter:
     
     def import_patient(self, data: Dict[str, Any]) -> Tuple[bool, str]:
         """Import a patient from JSON data.
+        
+        PHASE 2 Updates:
+        - Handle symptome as JSONB array
+        - Remove diagnosis handling
+        - Extract and store zahlungsreferenz
+        - Send confirmation email with contract link
         
         Args:
             data: Patient data from JSON file
@@ -38,6 +44,14 @@ class PatientImporter:
             
             patient_data = data['patient_data']
             
+            # PHASE 2: Extract zahlungsreferenz from registration_token
+            registration_token = data.get('registration_token')
+            if registration_token:
+                # Take first 8 characters as zahlungsreferenz
+                patient_data['zahlungsreferenz'] = registration_token[:8]
+            else:
+                logger.warning("No registration_token found in import data")
+            
             # Map fields from JSON to API format
             api_data = self._map_patient_data(patient_data)
             
@@ -46,6 +60,10 @@ class PatientImporter:
             
             if success:
                 logger.info(f"Successfully imported patient ID: {patient_id}")
+                
+                # PHASE 2: Send confirmation email with contract link
+                self._send_patient_confirmation_email(patient_id, api_data)
+                
                 return True, f"Patient created with ID: {patient_id}"
             else:
                 return False, error_msg
@@ -56,6 +74,12 @@ class PatientImporter:
     
     def _map_patient_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Map patient data from JSON format to API format.
+        
+        PHASE 2 Updates:
+        - Remove diagnosis field mapping
+        - Ensure symptome is handled as array
+        - Remove PTV11/psychotherapeutische_sprechstunde mapping
+        - Include zahlungsreferenz if present
         
         Args:
             data: Patient data from JSON
@@ -77,14 +101,22 @@ class PatientImporter:
             'hausarzt': data.get('hausarzt'),
             'krankenkasse': data.get('krankenkasse'),
             'geburtsdatum': data.get('geburtsdatum'),
-            'symptome': data.get('symptome'),
+            # PHASE 2: symptome should be an array
+            'symptome': data.get('symptome') if isinstance(data.get('symptome'), list) else None,
             'erfahrung_mit_psychotherapie': data.get('erfahrung_mit_psychotherapie'),
             'letzte_sitzung_vorherige_psychotherapie': data.get('letzte_sitzung_vorherige_psychotherapie'),
             'empfehler_der_unterstuetzung': data.get('empfehler_der_unterstuetzung'),
             'verkehrsmittel': data.get('verkehrsmittel'),
             'offen_fuer_gruppentherapie': data.get('offen_fuer_gruppentherapie', False),
             'vertraege_unterschrieben': True,  # Always true for imported patients
+            # PHASE 2: Include zahlungsreferenz
+            'zahlungsreferenz': data.get('zahlungsreferenz'),
+            # PHASE 2: Payment not yet received for new imports
+            'zahlung_eingegangen': False,
         }
+        
+        # REMOVED: diagnosis field mapping
+        # REMOVED: hat_ptv11/psychotherapeutische_sprechstunde mapping
         
         # Handle complex fields
         if 'zeitliche_verfuegbarkeit' in data:
@@ -98,10 +130,6 @@ class PatientImporter:
         
         if 'bevorzugtes_therapieverfahren' in data:
             api_data['bevorzugtes_therapieverfahren'] = data['bevorzugtes_therapieverfahren']
-        
-        # Handle boolean fields from JSON
-        if 'hat_ptv11' in data:
-            api_data['psychotherapeutische_sprechstunde'] = data['hat_ptv11']
         
         # Remove None values
         api_data = {k: v for k, v in api_data.items() if v is not None}
@@ -125,6 +153,7 @@ class PatientImporter:
             validate_and_get_gender_preference,
             validate_and_get_therapieverfahren,
             parse_date_field,
+            validate_symptoms,
             patient_fields,
             marshal
         )
@@ -151,7 +180,14 @@ class PatientImporter:
                     continue  # Already processed
                 
                 if value is not None:
-                    if key == 'status' and value:
+                    if key == 'symptome':
+                        # PHASE 2: Validate symptom array
+                        try:
+                            validate_symptoms(value)
+                            processed_data['symptome'] = value
+                        except ValueError as e:
+                            return False, None, str(e)
+                    elif key == 'status' and value:
                         try:
                             processed_data['status'] = validate_and_get_patient_status(value)
                         except ValueError as e:
@@ -178,10 +214,8 @@ class PatientImporter:
             # Create patient
             patient = Patient(**processed_data)
             
-            # Check if we should set startdatum automatically
-            if patient.vertraege_unterschrieben and patient.psychotherapeutische_sprechstunde and patient.startdatum is None:
-                from datetime import date
-                patient.startdatum = date.today()
+            # Note: We don't set startdatum here because zahlung_eingegangen is False
+            # The status will remain 'offen' until payment is confirmed
             
             db.add(patient)
             db.commit()
@@ -203,6 +237,107 @@ class PatientImporter:
             return False, None, f"Unexpected error: {str(e)}"
         finally:
             db.close()
+    
+    def _send_patient_confirmation_email(self, patient_id: int, patient_data: Dict[str, Any]):
+        """Send confirmation email to patient with contract link and payment info.
+        
+        PHASE 2: New method to send email after successful import
+        
+        Args:
+            patient_id: ID of the created patient
+            patient_data: Patient data including email and zahlungsreferenz
+        """
+        try:
+            email = patient_data.get('email')
+            if not email:
+                logger.warning(f"No email address for patient {patient_id}, skipping confirmation email")
+                return
+            
+            vorname = patient_data.get('vorname', '')
+            nachname = patient_data.get('nachname', '')
+            zahlungsreferenz = patient_data.get('zahlungsreferenz', '')
+            
+            # Create email content with contract link and payment info
+            subject = "Ihre Registrierung bei Curavani - Vertragsunterlagen und Zahlungsinformationen"
+            
+            # Build markdown content
+            body_markdown = f"""Sehr geehrte/r {vorname} {nachname},
+
+vielen Dank für Ihre Registrierung bei Curavani. Wir freuen uns, Sie bei der Suche nach einem geeigneten Therapieplatz unterstützen zu können.
+
+## Ihre Vertragsunterlagen
+
+Ihre Vertragsunterlagen können Sie hier herunterladen:
+**[Vertragsunterlagen als PDF herunterladen](https://www.curavani.com/verify_token.php?download=contract)**
+
+Bitte bewahren Sie diese Unterlagen für Ihre Unterlagen auf.
+
+## Zahlungsinformationen
+
+Um mit der Therapieplatzsuche beginnen zu können, überweisen Sie bitte die Servicegebühr von **39 Euro** auf folgendes Konto:
+
+**Kontoinhaber:** Curavani GmbH  
+**IBAN:** DE12 3456 7890 1234 5678 90  
+**BIC:** DEUTDEFF  
+**Verwendungszweck:** {zahlungsreferenz}
+
+**WICHTIG:** Bitte geben Sie unbedingt Ihre persönliche **Zahlungsreferenz: {zahlungsreferenz}** als Verwendungszweck an, damit wir Ihre Zahlung zuordnen können.
+
+## Nächste Schritte
+
+1. Nach Eingang Ihrer Zahlung werden wir umgehend mit der Suche nach einem geeigneten Therapieplatz beginnen
+2. Wir kontaktieren Therapeuten in Ihrer Umgebung basierend auf Ihren angegebenen Präferenzen
+3. Sobald wir positive Rückmeldungen erhalten, informieren wir Sie umgehend per E-Mail
+
+## Bei dringenden Fällen
+
+Sollten Sie sich in einer akuten Krise befinden, wenden Sie sich bitte umgehend an:
+- **Kassenärztlicher Notdienst:** 116 117
+- **Telefonseelsorge:** 0800 111 0 111 oder 0800 111 0 222
+- **Notruf bei akuter Gefahr:** 112
+
+## Fragen?
+
+Bei Fragen zu Ihrer Registrierung oder zum weiteren Ablauf können Sie uns jederzeit unter info@curavani.de erreichen.
+
+Mit freundlichen Grüßen  
+Ihr Curavani-Team"""
+            
+            # Send email via communication service
+            email_data = {
+                'patient_id': patient_id,
+                'betreff': subject,
+                'inhalt_markdown': body_markdown,
+                'empfaenger_email': email,
+                'empfaenger_name': f"{vorname} {nachname}",
+                'absender_email': 'info@curavani.de',
+                'absender_name': 'Curavani Team',
+                'add_legal_footer': True,
+                'status': 'In_Warteschlange'  # Queue for sending
+            }
+            
+            response = requests.post(
+                f"{self.comm_service_url}/api/emails",
+                json=email_data
+            )
+            
+            if response.ok:
+                logger.info(f"Confirmation email queued for patient {patient_id}")
+            else:
+                logger.error(f"Failed to send confirmation email for patient {patient_id}: {response.status_code} - {response.text}")
+                # Don't fail the import if email fails - log error and continue
+                self.send_error_notification(
+                    "Failed to send patient confirmation email",
+                    f"Patient ID: {patient_id}\nEmail: {email}\nError: {response.text}"
+                )
+                
+        except Exception as e:
+            logger.error(f"Error sending confirmation email for patient {patient_id}: {str(e)}")
+            # Don't fail the import if email fails
+            self.send_error_notification(
+                "Exception sending patient confirmation email",
+                f"Patient ID: {patient_id}\nException: {str(e)}"
+            )
     
     def send_error_notification(self, subject: str, body: str):
         """Send error notification email.

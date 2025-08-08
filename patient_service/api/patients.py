@@ -1,4 +1,4 @@
-"""Patient API endpoints implementation with correct enum validation and JSONB field handling."""
+"""Patient API endpoints implementation with Phase 2 updates - symptom validation and payment fields."""
 from flask import request, jsonify
 from flask_restful import Resource, fields, marshal_with, reqparse, marshal
 from sqlalchemy.exc import SQLAlchemyError
@@ -23,6 +23,46 @@ from imports import ImportStatus
 
 # Get configuration
 config = get_config()
+
+# PHASE 2: Valid symptoms list for validation
+VALID_SYMPTOMS = [
+    # HÄUFIGSTE ANLIEGEN (Top 5)
+    "Depression / Niedergeschlagenheit",
+    "Ängste / Panikattacken",
+    "Burnout / Erschöpfung",
+    "Schlafstörungen",
+    "Stress / Überforderung",
+    # STIMMUNG & GEFÜHLE
+    "Trauer / Verlust",
+    "Reizbarkeit / Wutausbrüche",
+    "Stimmungsschwankungen",
+    "Innere Leere",
+    "Einsamkeit",
+    # DENKEN & GRÜBELN
+    "Sorgen / Grübeln",
+    "Selbstzweifel",
+    "Konzentrationsprobleme",
+    "Negative Gedanken",
+    "Entscheidungsschwierigkeiten",
+    # KÖRPER & GESUNDHEIT
+    "Psychosomatische Beschwerden",
+    "Chronische Schmerzen",
+    "Essstörungen",
+    "Suchtprobleme (Alkohol/Drogen)",
+    "Sexuelle Probleme",
+    # BEZIEHUNGEN & SOZIALES
+    "Beziehungsprobleme",
+    "Familienkonflikte",
+    "Sozialer Rückzug",
+    "Mobbing",
+    "Trennungsschmerz",
+    # BESONDERE BELASTUNGEN
+    "Traumatische Erlebnisse",
+    "Zwänge",
+    "Selbstverletzung",
+    "Suizidgedanken",
+    "Identitätskrise"
+]
 
 
 # Custom field for enum serialization
@@ -50,7 +90,7 @@ class DateField(fields.Raw):
         return value.strftime('%Y-%m-%d')
 
 
-# Complete output fields definition for patient responses
+# Complete output fields definition for patient responses - PHASE 2 UPDATED
 patient_fields = {
     'id': fields.Integer,
     # Personal Information
@@ -63,23 +103,26 @@ patient_fields = {
     'ort': fields.String,
     'email': fields.String,
     'telefon': fields.String,
-    # Medical Information
+    # Medical Information - PHASE 2: removed diagnose, symptome is now array
     'hausarzt': fields.String,
     'krankenkasse': fields.String,
     'krankenversicherungsnummer': fields.String,
     'geburtsdatum': DateField,
-    'diagnose': fields.String,
-    'symptome': fields.String,
+    # REMOVED: 'diagnose': fields.String,
+    'symptome': fields.Raw,  # JSONB array of symptoms
     'erfahrung_mit_psychotherapie': fields.Boolean,
     'letzte_sitzung_vorherige_psychotherapie': DateField,
-    # Process Status
+    # Process Status - PHASE 2: removed psychotherapeutische_sprechstunde
     'vertraege_unterschrieben': fields.Boolean,
-    'psychotherapeutische_sprechstunde': fields.Boolean,
+    # REMOVED: 'psychotherapeutische_sprechstunde': fields.Boolean,
     'startdatum': DateField,
     'erster_therapieplatz_am': DateField,
     'funktionierender_therapieplatz_am': DateField,
     'status': EnumField,
     'empfehler_der_unterstuetzung': fields.String,
+    # Payment Information - PHASE 2: NEW FIELDS
+    'zahlungsreferenz': fields.String,
+    'zahlung_eingegangen': fields.Boolean,
     # Availability
     'zeitliche_verfuegbarkeit': fields.Raw,
     'raeumliche_verfuegbarkeit': fields.Raw,
@@ -96,6 +139,29 @@ patient_fields = {
     'created_at': DateField,
     'updated_at': DateField,
 }
+
+
+def validate_symptoms(symptoms):
+    """Validate symptom array according to Phase 2 requirements.
+    
+    Args:
+        symptoms: List of symptom strings
+        
+    Raises:
+        ValueError: If validation fails
+    """
+    if not symptoms:
+        raise ValueError("At least one symptom is required")
+    
+    if not isinstance(symptoms, list):
+        raise ValueError("Symptoms must be provided as an array")
+    
+    if len(symptoms) < 1 or len(symptoms) > 3:
+        raise ValueError("Between 1 and 3 symptoms must be selected")
+    
+    for symptom in symptoms:
+        if symptom not in VALID_SYMPTOMS:
+            raise ValueError(f"Invalid symptom: '{symptom}'. Must be from the predefined list")
 
 
 def validate_and_get_patient_status(status_value: str) -> Patientenstatus:
@@ -231,6 +297,49 @@ def parse_date_field(date_string: str, field_name: str):
         raise ValueError(f"Invalid date format for {field_name}. Use YYYY-MM-DD")
 
 
+def check_and_apply_payment_status_transition(patient, old_payment_status, db):
+    """Check if payment confirmation should trigger automatic status changes.
+    
+    PHASE 2: Automatic status transition logic
+    When zahlung_eingegangen changes from False to True:
+    - Set startdatum to today (if vertraege_unterschrieben is true)
+    - Change status from "offen" to "auf_der_suche"
+    
+    Args:
+        patient: The patient object
+        old_payment_status: Previous value of zahlung_eingegangen
+        db: Database session
+    """
+    # Check if payment was just confirmed (False -> True)
+    if not old_payment_status and patient.zahlung_eingegangen:
+        logger = logging.getLogger(__name__)
+        logger.info(f"Payment confirmed for patient {patient.id}")
+        
+        # Check if contracts are signed
+        if patient.vertraege_unterschrieben:
+            # Set start date if not already set
+            if not patient.startdatum:
+                patient.startdatum = date.today()
+                logger.info(f"Set startdatum to {patient.startdatum} for patient {patient.id}")
+            
+            # Change status from offen to auf_der_suche
+            if patient.status == Patientenstatus.offen:
+                old_status = patient.status
+                patient.status = Patientenstatus.auf_der_suche
+                logger.info(f"Changed status from {old_status.value} to {patient.status.value} for patient {patient.id}")
+                
+                # Publish status change event
+                db.commit()
+                db.refresh(patient)
+                patient_data = marshal(patient, patient_fields)
+                publish_patient_status_changed(
+                    patient.id,
+                    old_status.value,
+                    patient.status.value,
+                    patient_data
+                )
+
+
 class PatientResource(Resource):
     """REST resource for individual patient operations."""
 
@@ -261,23 +370,26 @@ class PatientResource(Resource):
         parser.add_argument('ort', type=str)
         parser.add_argument('email', type=str)
         parser.add_argument('telefon', type=str)
-        # Medical Information
+        # Medical Information - PHASE 2: removed diagnose, symptome is array
         parser.add_argument('hausarzt', type=str)
         parser.add_argument('krankenkasse', type=str)
         parser.add_argument('krankenversicherungsnummer', type=str)
         parser.add_argument('geburtsdatum', type=str)
-        parser.add_argument('diagnose', type=str)
-        parser.add_argument('symptome', type=str)
+        # REMOVED: parser.add_argument('diagnose', type=str)
+        parser.add_argument('symptome', type=list, location='json')  # PHASE 2: Array of symptoms
         parser.add_argument('erfahrung_mit_psychotherapie', type=bool)
         parser.add_argument('letzte_sitzung_vorherige_psychotherapie', type=str)
-        # Process Status
+        # Process Status - PHASE 2: removed psychotherapeutische_sprechstunde
         parser.add_argument('vertraege_unterschrieben', type=bool)
-        parser.add_argument('psychotherapeutische_sprechstunde', type=bool)
+        # REMOVED: parser.add_argument('psychotherapeutische_sprechstunde', type=bool)
         # Note: startdatum is automatic - will be handled separately
         parser.add_argument('erster_therapieplatz_am', type=str)
         parser.add_argument('funktionierender_therapieplatz_am', type=str)
         parser.add_argument('status', type=str)
         parser.add_argument('empfehler_der_unterstuetzung', type=str)
+        # Payment Information - PHASE 2: NEW FIELDS
+        parser.add_argument('zahlungsreferenz', type=str)
+        parser.add_argument('zahlung_eingegangen', type=bool)
         # Availability
         parser.add_argument('zeitliche_verfuegbarkeit', type=dict, location='json')
         parser.add_argument('raeumliche_verfuegbarkeit', type=dict, location='json')
@@ -300,6 +412,7 @@ class PatientResource(Resource):
                 return {'message': 'Patient not found'}, 404
             
             old_status = patient.status
+            old_payment_status = patient.zahlung_eingegangen
             
             # Update fields from request
             for key, value in args.items():
@@ -316,6 +429,13 @@ class PatientResource(Resource):
                     elif key == 'geschlecht':
                         try:
                             patient.geschlecht = validate_and_get_geschlecht(value)
+                        except ValueError as e:
+                            return {'message': str(e)}, 400
+                    elif key == 'symptome':
+                        # PHASE 2: Validate symptom array
+                        try:
+                            validate_symptoms(value)
+                            patient.symptome = value
                         except ValueError as e:
                             return {'message': str(e)}, 400
                     elif key == 'status':
@@ -342,9 +462,8 @@ class PatientResource(Resource):
                     else:
                         setattr(patient, key, value)
             
-            # Check if we should set startdatum automatically
-            if patient.vertraege_unterschrieben and patient.psychotherapeutische_sprechstunde and patient.startdatum is None:
-                patient.startdatum = date.today()
+            # PHASE 2: Check for payment confirmation and apply automatic transitions
+            check_and_apply_payment_status_transition(patient, old_payment_status, db)
             
             db.commit()
             db.refresh(patient)
@@ -463,16 +582,20 @@ class PatientListResource(PaginatedListResource):
         parser.add_argument('krankenkasse', type=str)
         parser.add_argument('krankenversicherungsnummer', type=str)
         parser.add_argument('geburtsdatum', type=str)
-        parser.add_argument('diagnose', type=str)
-        parser.add_argument('symptome', type=str)
+        # REMOVED: parser.add_argument('diagnose', type=str)
+        parser.add_argument('symptome', type=list, location='json')  # PHASE 2: Array of symptoms
         parser.add_argument('erfahrung_mit_psychotherapie', type=bool)
         parser.add_argument('letzte_sitzung_vorherige_psychotherapie', type=str)
         parser.add_argument('vertraege_unterschrieben', type=bool)
-        parser.add_argument('psychotherapeutische_sprechstunde', type=bool)
+        # REMOVED: parser.add_argument('psychotherapeutische_sprechstunde', type=bool)
         parser.add_argument('erster_therapieplatz_am', type=str)
         parser.add_argument('funktionierender_therapieplatz_am', type=str)
         parser.add_argument('status', type=str)
         parser.add_argument('empfehler_der_unterstuetzung', type=str)
+        # Payment Information - PHASE 2: NEW FIELDS
+        parser.add_argument('zahlungsreferenz', type=str)
+        parser.add_argument('zahlung_eingegangen', type=bool)
+        # Availability
         parser.add_argument('zeitliche_verfuegbarkeit', type=dict, location='json')
         parser.add_argument('raeumliche_verfuegbarkeit', type=dict, location='json')
         parser.add_argument('verkehrsmittel', type=str)
@@ -516,6 +639,13 @@ class PatientListResource(PaginatedListResource):
                             patient_data['geschlecht'] = validate_and_get_geschlecht(value)
                         except ValueError as e:
                             return {'message': str(e)}, 400
+                    elif key == 'symptome':
+                        # PHASE 2: Validate symptom array
+                        try:
+                            validate_symptoms(value)
+                            patient_data['symptome'] = value
+                        except ValueError as e:
+                            return {'message': str(e)}, 400
                     elif key == 'status':
                         try:
                             patient_data['status'] = validate_and_get_patient_status(value)
@@ -542,9 +672,13 @@ class PatientListResource(PaginatedListResource):
             
             patient = Patient(**patient_data)
             
-            # Check if we should set startdatum automatically
-            if patient.vertraege_unterschrieben and patient.psychotherapeutische_sprechstunde and patient.startdatum is None:
-                patient.startdatum = date.today()
+            # PHASE 2: Check if we should set startdatum automatically based on payment
+            if patient.vertraege_unterschrieben and patient.zahlung_eingegangen:
+                if not patient.startdatum:
+                    patient.startdatum = date.today()
+                # Also set status if it's still offen
+                if patient.status == Patientenstatus.offen:
+                    patient.status = Patientenstatus.auf_der_suche
             
             db.add(patient)
             db.commit()

@@ -1,4 +1,4 @@
-"""Patient database models with full German consistency."""
+"""Patient database models with full German consistency - Phase 2 Updates."""
 from datetime import date
 from enum import Enum
 
@@ -63,6 +63,13 @@ class Patient(Base):
     
     All field names and enum values use German terminology for consistency
     with the database schema and overall architecture.
+    
+    Phase 2 Updates:
+    - Removed: diagnose field
+    - Removed: psychotherapeutische_sprechstunde field (PTV11)
+    - Changed: symptome from TEXT to JSONB array
+    - Added: zahlungsreferenz field for payment tracking
+    - Added: zahlung_eingegangen field for payment status
     """
 
     __tablename__ = "patienten"
@@ -92,14 +99,15 @@ class Patient(Base):
     krankenkasse = Column(String(100))
     krankenversicherungsnummer = Column(String(50))
     geburtsdatum = Column(Date)
-    diagnose = Column(String(50))  # ICD-10 Diagnose
-    symptome = Column(Text)  # Symptoms description
-    erfahrung_mit_psychotherapie = Column(Boolean)  # Experience with psychotherapy (changed from Text)
-    letzte_sitzung_vorherige_psychotherapie = Column(Date)  # NEW: Last session of previous psychotherapy
+    # REMOVED in Phase 2: diagnose field (was String(50))
+    # CHANGED in Phase 2: symptome from Text to JSONB array
+    symptome = Column(JSONB)  # Array of symptom strings
+    erfahrung_mit_psychotherapie = Column(Boolean)  # Experience with psychotherapy
+    letzte_sitzung_vorherige_psychotherapie = Column(Date)  # Last session of previous psychotherapy
 
     # Process Status (German field names)
     vertraege_unterschrieben = Column(Boolean, default=False)
-    psychotherapeutische_sprechstunde = Column(Boolean, default=False)
+    # REMOVED in Phase 2: psychotherapeutische_sprechstunde field (PTV11 related)
     startdatum = Column(Date)  # Beginn der Platzsuche
     erster_therapieplatz_am = Column(Date)
     funktionierender_therapieplatz_am = Column(Date)
@@ -108,6 +116,10 @@ class Patient(Base):
         default=Patientenstatus.offen
     )
     empfehler_der_unterstuetzung = Column(Text)
+
+    # Payment Information (NEW in Phase 2)
+    zahlungsreferenz = Column(String(8))  # First 8 chars of registration token
+    zahlung_eingegangen = Column(Boolean, default=False)  # Payment received status
 
     # Availability (German field names)
     zeitliche_verfuegbarkeit = Column(JSONB)  # Wochentage und Uhrzeiten
@@ -128,7 +140,7 @@ class Patient(Base):
     bevorzugtes_therapieverfahren = Column(
         SQLAlchemyEnum(Therapieverfahren, name='therapieverfahren', native_enum=True),
         default=Therapieverfahren.egal
-    )  # Changed from ARRAY to single ENUM
+    )
 
     # Timestamps (technical fields remain in English)
     created_at = Column(Date, default=date.today)
