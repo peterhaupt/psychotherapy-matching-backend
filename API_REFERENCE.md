@@ -1,8 +1,8 @@
-# API Reference - Psychotherapy Matching Platform (BACKEND-ALIGNED VERSION)
+# API Reference - Psychotherapy Matching Platform (PHASE 2 UPDATED)
 
 **Single Source of Truth for All API Integration**
 
-Last Updated: July 2025
+Last Updated: January 2025
 
 ## Overview
 
@@ -16,6 +16,13 @@ This document contains the complete API specification for all microservices. All
 - Geocoding Service: `http://localhost:8005/api`
 
 **Authentication:** None (internal administrative interface)
+
+## Important Notes on German Enums
+
+**All German enums in the system follow proper German grammar rules:**
+- Nouns are capitalized (e.g., "Suche" in "auf_der_Suche")
+- The system enforces exact capitalization - API calls must match exactly
+- This affects `Patientenstatus`, `Therapeutgeschlechtspraeferenz`, and other enum values
 
 ## Dynamic Configuration
 
@@ -72,8 +79,9 @@ The following fields are managed automatically by the backend and **cannot be se
 ### Patient Service
 - **`startdatum`**: Automatically set to today's date when BOTH conditions are met:
   - `vertraege_unterschrieben` = true
-  - `psychotherapeutische_sprechstunde` = true
-  - Once set, it never changes (even if checkboxes are later unchecked)
+  - `zahlung_eingegangen` = true (PHASE 2)
+  - Once set, it never changes
+  - Also triggers automatic status change from "offen" to "auf_der_Suche"
   
 - **`letzter_kontakt`**: Automatically updated to today's date when:
   - An email is sent to the patient (status = "Gesendet")
@@ -81,6 +89,52 @@ The following fields are managed automatically by the backend and **cannot be se
   - A phone call with the patient is completed (status = "abgeschlossen")
 
 **Note:** Any attempt to set these fields via POST or PUT requests will be silently ignored.
+
+## Valid Symptoms List (PHASE 2)
+
+The `symptome` field must contain between 1 and 3 symptoms from this predefined list:
+
+### HÄUFIGSTE ANLIEGEN (Top 5)
+- "Depression / Niedergeschlagenheit"
+- "Ängste / Panikattacken"
+- "Burnout / Erschöpfung"
+- "Schlafstörungen"
+- "Stress / Überforderung"
+
+### STIMMUNG & GEFÜHLE
+- "Trauer / Verlust"
+- "Reizbarkeit / Wutausbrüche"
+- "Stimmungsschwankungen"
+- "Innere Leere"
+- "Einsamkeit"
+
+### DENKEN & GRÜBELN
+- "Sorgen / Grübeln"
+- "Selbstzweifel"
+- "Konzentrationsprobleme"
+- "Negative Gedanken"
+- "Entscheidungsschwierigkeiten"
+
+### KÖRPER & GESUNDHEIT
+- "Psychosomatische Beschwerden"
+- "Chronische Schmerzen"
+- "Essstörungen"
+- "Suchtprobleme (Alkohol/Drogen)"
+- "Sexuelle Probleme"
+
+### BEZIEHUNGEN & SOZIALES
+- "Beziehungsprobleme"
+- "Familienkonflikte"
+- "Sozialer Rückzug"
+- "Mobbing"
+- "Trennungsschmerz"
+
+### BESONDERE BELASTUNGEN
+- "Traumatische Erlebnisse"
+- "Zwänge"
+- "Selbstverletzung"
+- "Suizidgedanken"
+- "Identitätskrise"
 
 ## Complex Field Formats
 
@@ -176,21 +230,19 @@ The following fields are managed automatically by the backend and **cannot be se
 }
 ```
 
-### Preferred Diagnoses (bevorzugte_diagnosen)
+### Symptoms (symptome) - PHASE 2 CHANGED
 
-**Format:** Always returns array, never null
+**Format:** JSONB array containing 1-3 symptom strings
 ```json
 {
-  "bevorzugte_diagnosen": ["F32", "F41", "F43"]
+  "symptome": ["Depression / Niedergeschlagenheit", "Schlafstörungen"]
 }
 ```
 
-**Empty case:**
-```json
-{
-  "bevorzugte_diagnosen": []
-}
-```
+**Validation:** 
+- Must contain between 1 and 3 symptoms
+- Each symptom must be from the predefined list (see Valid Symptoms List section)
+- Cannot be null or empty
 
 ## Enum Values
 
@@ -209,9 +261,10 @@ The following fields are managed automatically by the backend and **cannot be se
 ```
 
 ### Patient Status (patientenstatus)
+**Note the capital 'S' in 'Suche':**
 ```
 "offen"
-"auf_der_Suche"
+"auf_der_Suche"  # Capital 'S' - German noun capitalization
 "in_Therapie"
 "Therapie_abgeschlossen"
 "Suche_abgebrochen"
@@ -265,7 +318,7 @@ The following fields are managed automatically by the backend and **cannot be se
 ```
 **Note:** This enum is used for BOTH:
 - Patients: `bevorzugtes_therapieverfahren` field
-- Therapists: `psychotherapieverfahren` field
+- Therapists: `psychotherapieverfahren` field (PHASE 2: Changed from array to single value)
 - Both fields are single enum values, not arrays
 - Default for both is "egal"
 
@@ -308,6 +361,30 @@ curl "http://localhost:8001/health"
 }
 ```
 
+## Import Health Check (Patient & Therapist Services)
+
+**Description:** Check import system health status.
+
+**Example Request:**
+```bash
+curl "http://localhost:8001/health/import"
+```
+
+**Example Response:**
+```json
+{
+  "status": "healthy",
+  "service": "patient-import-monitor",
+  "details": {
+    "monitor_running": true,
+    "last_check": "2025-01-15T10:30:00",
+    "files_processed_today": 5,
+    "files_failed_today": 0,
+    "issues": []
+  }
+}
+```
+
 ---
 
 # Patient Service API
@@ -329,7 +406,7 @@ curl "http://localhost:8001/health"
 
 **Example Request:**
 ```bash
-# Filter by status
+# Filter by status (note capital S in auf_der_Suche)
 curl "http://localhost:8001/api/patients?status=auf_der_Suche&page=1&limit=20"
 
 # Search for patients
@@ -339,7 +416,7 @@ curl "http://localhost:8001/api/patients?search=mueller"
 curl "http://localhost:8001/api/patients?search=anna&status=auf_der_Suche"
 ```
 
-**Example Response (COMPLETE - ALL FIELDS):**
+**Example Response (COMPLETE - ALL FIELDS - PHASE 2 UPDATED):**
 ```json
 {
   "data": [
@@ -358,17 +435,17 @@ curl "http://localhost:8001/api/patients?search=anna&status=auf_der_Suche"
       "krankenkasse": "AOK",
       "krankenversicherungsnummer": "A123456789",
       "geburtsdatum": "1985-03-15",
-      "diagnose": "F32.1",
-      "symptome": "Niedergeschlagenheit, Schlafstörungen, Antriebslosigkeit",
+      "symptome": ["Depression / Niedergeschlagenheit", "Schlafstörungen"],
       "erfahrung_mit_psychotherapie": false,
       "letzte_sitzung_vorherige_psychotherapie": null,
       "vertraege_unterschrieben": true,
-      "psychotherapeutische_sprechstunde": true,
       "startdatum": "2025-01-15",
       "erster_therapieplatz_am": null,
       "funktionierender_therapieplatz_am": null,
       "status": "auf_der_Suche",
       "empfehler_der_unterstuetzung": "Hausarzt",
+      "zahlungsreferenz": "5d54d4db",
+      "zahlung_eingegangen": true,
       "zeitliche_verfuegbarkeit": {
         "montag": ["09:00-17:00"],
         "dienstag": ["09:00-17:00"],
@@ -457,6 +534,42 @@ curl "http://localhost:8001/api/patients/30/communication"
 }
 ```
 
+## GET /patients/import-status
+
+**Description:** Get the current status of the patient import system.
+
+**Example Request:**
+```bash
+curl "http://localhost:8001/api/patients/import-status"
+```
+
+**Example Response:**
+```json
+{
+  "running": true,
+  "last_check": "2025-01-15T10:30:00",
+  "files_processed_today": 12,
+  "files_failed_today": 1,
+  "last_error": "patient_123.json: Invalid symptom: 'Unknown'",
+  "last_error_time": "2025-01-15T09:45:00",
+  "total_processed": 1234,
+  "total_failed": 23,
+  "recent_imports": [
+    {
+      "file": "patient_456.json",
+      "status": "success",
+      "time": "2025-01-15T10:25:00"
+    },
+    {
+      "file": "patient_123.json",
+      "status": "failed",
+      "error": "Invalid symptom: 'Unknown'",
+      "time": "2025-01-15T09:45:00"
+    }
+  ]
+}
+```
+
 ## POST /patients
 
 **Description:** Create a new patient.
@@ -467,7 +580,7 @@ curl "http://localhost:8001/api/patients/30/communication"
 - `vorname` (string)
 - `nachname` (string)
 
-**All Optional Fields (COMPLETE LIST):**
+**All Optional Fields (COMPLETE LIST - PHASE 2 UPDATED):**
 
 **Personal Information:**
 - `strasse` (string) 
@@ -481,19 +594,21 @@ curl "http://localhost:8001/api/patients/30/communication"
 - `krankenkasse` (string)
 - `krankenversicherungsnummer` (string)
 - `geburtsdatum` (string, YYYY-MM-DD)
-- `diagnose` (string)
-- `symptome` (string)
+- `symptome` (array of strings) - **PHASE 2: Must contain 1-3 symptoms from predefined list**
 - `erfahrung_mit_psychotherapie` (boolean)
 - `letzte_sitzung_vorherige_psychotherapie` (string, YYYY-MM-DD)
 
 **Process Status:**
 - `vertraege_unterschrieben` (boolean)
-- `psychotherapeutische_sprechstunde` (boolean)
-- ~~`startdatum`~~ **AUTOMATIC** - Set automatically when both checkboxes above are true
-- `status` (string, see enum values)
+- ~~`startdatum`~~ **AUTOMATIC** - Set when both vertraege_unterschrieben and zahlung_eingegangen are true
+- `status` (string, see enum values) - **AUTOMATIC** changes to "auf_der_Suche" when payment confirmed
 - `empfehler_der_unterstuetzung` (string)
 - `erster_therapieplatz_am` (string, YYYY-MM-DD)
 - `funktionierender_therapieplatz_am` (string, YYYY-MM-DD)
+
+**Payment Information - PHASE 2 NEW:**
+- `zahlungsreferenz` (string, max 8 chars) - Payment reference
+- `zahlung_eingegangen` (boolean) - Payment received flag
 
 **Availability:**
 - `zeitliche_verfuegbarkeit` (object, see format above)
@@ -510,7 +625,7 @@ curl "http://localhost:8001/api/patients/30/communication"
 - `bevorzugtes_therapeutengeschlecht` (string, see enum)
 - `bevorzugtes_therapieverfahren` (string, **SINGLE VALUE** - see enum)
 
-**Example Request (Complete):**
+**Example Request (Complete - PHASE 2):**
 ```bash
 curl -X POST "http://localhost:8001/api/patients" \
   -H "Content-Type: application/json" \
@@ -527,12 +642,12 @@ curl -X POST "http://localhost:8001/api/patients" \
     "hausarzt": "Dr. Weber",
     "krankenkasse": "TK",
     "geburtsdatum": "1978-11-22",
-    "diagnose": "F41.1",
-    "symptome": "Angstgefühle, Panikattacken, Herzrasen",
+    "symptome": ["Ängste / Panikattacken", "Herzrasen"],
     "erfahrung_mit_psychotherapie": true,
     "letzte_sitzung_vorherige_psychotherapie": "2021-08-15",
     "vertraege_unterschrieben": false,
-    "psychotherapeutische_sprechstunde": false,
+    "zahlungsreferenz": "ab3c45ef",
+    "zahlung_eingegangen": false,
     "zeitliche_verfuegbarkeit": {
       "montag": ["18:00-20:00"],
       "mittwoch": ["18:00-20:00"],
@@ -565,10 +680,12 @@ curl -X POST "http://localhost:8001/api/patients" \
   "email": "thomas.schmidt@email.com",
   "telefon": "+49 89 87654321",
   "status": "offen",
-  "symptome": "Angstgefühle, Panikattacken, Herzrasen",
+  "symptome": ["Ängste / Panikattacken", "Herzrasen"],
   "erfahrung_mit_psychotherapie": true,
   "letzte_sitzung_vorherige_psychotherapie": "2021-08-15",
   "bevorzugtes_therapieverfahren": "Verhaltenstherapie",
+  "zahlungsreferenz": "ab3c45ef",
+  "zahlung_eingegangen": false,
   "startdatum": null,
   "letzter_kontakt": null,
   "created_at": "2025-06-10",
@@ -579,19 +696,19 @@ curl -X POST "http://localhost:8001/api/patients" \
 **Validation Error Examples:**
 ```json
 {
+  "message": "Between 1 and 3 symptoms must be selected"
+}
+```
+
+```json
+{
+  "message": "Invalid symptom: 'Unknown symptom'. Must be from the predefined list"
+}
+```
+
+```json
+{
   "message": "Invalid therapy method 'Psychoanalyse'. Valid values: egal, Verhaltenstherapie, tiefenpsychologisch_fundierte_Psychotherapie"
-}
-```
-
-```json
-{
-  "message": "Invalid anrede 'Dr.'. Valid values: Herr, Frau"
-}
-```
-
-```json
-{
-  "message": "Invalid geschlecht 'Männlich'. Valid values: männlich, weiblich, divers, keine_Angabe"
 }
 ```
 
@@ -603,18 +720,24 @@ curl -X POST "http://localhost:8001/api/patients" \
 - `startdatum` - Automatically managed
 - `letzter_kontakt` - Automatically managed
 
+**Automatic Status Change (PHASE 2):**
+When `zahlung_eingegangen` is changed from false to true:
+- If `vertraege_unterschrieben` is also true:
+  - `startdatum` is automatically set to today
+  - `status` automatically changes from "offen" to "auf_der_Suche"
+  - Matching service is notified to begin search
+
 **Example Request:**
 ```bash
 curl -X PUT "http://localhost:8001/api/patients/1" \
   -H "Content-Type: application/json" \
   -d '{
-    "status": "in_Therapie",
-    "funktionierender_therapieplatz_am": "2025-06-15",
-    "bevorzugtes_therapieverfahren": "tiefenpsychologisch_fundierte_Psychotherapie"
+    "zahlung_eingegangen": true,
+    "symptome": ["Burnout / Erschöpfung", "Stress / Überforderung", "Schlafstörungen"]
   }'
 ```
 
-**Example Response:**
+**Example Response (after payment confirmation):**
 ```json
 {
   "id": 1,
@@ -622,11 +745,12 @@ curl -X PUT "http://localhost:8001/api/patients/1" \
   "geschlecht": "weiblich",
   "vorname": "Anna",
   "nachname": "Müller",
-  "status": "in_Therapie",
-  "funktionierender_therapieplatz_am": "2025-06-15",
-  "letzter_kontakt": "2025-06-18",
-  "bevorzugtes_therapieverfahren": "tiefenpsychologisch_fundierte_Psychotherapie",
-  "updated_at": "2025-06-18"
+  "status": "auf_der_Suche",
+  "zahlung_eingegangen": true,
+  "startdatum": "2025-01-15",
+  "symptome": ["Burnout / Erschöpfung", "Stress / Überforderung", "Schlafstörungen"],
+  "letzter_kontakt": "2025-01-15",
+  "updated_at": "2025-01-15"
 }
 ```
 
@@ -658,6 +782,7 @@ curl -X DELETE "http://localhost:8001/api/patients/1"
 - `status` (optional): Filter by therapist status ("aktiv", "gesperrt", "inaktiv")
 - `potenziell_verfuegbar` (optional): Filter by availability (boolean)
 - `search` (optional): Search across vorname, nachname, and psychotherapieverfahren fields
+- `plz_prefix` (optional): Filter by PLZ prefix (e.g., "52" for all PLZ starting with 52)
 - `page` (optional): Page number (default: 1)
 - `limit` (optional): Items per page (default: 20, max: 100)
 
@@ -671,6 +796,9 @@ curl -X DELETE "http://localhost:8001/api/patients/1"
 # Filter by status and availability
 curl "http://localhost:8002/api/therapists?status=aktiv&potenziell_verfuegbar=true"
 
+# Filter by PLZ prefix
+curl "http://localhost:8002/api/therapists?plz_prefix=52"
+
 # Search for therapists
 curl "http://localhost:8002/api/therapists?search=weber"
 
@@ -678,10 +806,10 @@ curl "http://localhost:8002/api/therapists?search=weber"
 curl "http://localhost:8002/api/therapists?search=verhaltens"
 
 # Combine search and filters
-curl "http://localhost:8002/api/therapists?search=schmidt&status=aktiv"
+curl "http://localhost:8002/api/therapists?search=schmidt&status=aktiv&plz_prefix=10"
 ```
 
-**Example Response (COMPLETE - ALL FIELDS):**
+**Example Response (COMPLETE - ALL FIELDS - PHASE 2 UPDATED):**
 ```json
 {
   "data": [
@@ -748,6 +876,7 @@ curl "http://localhost:8002/api/therapists?search=schmidt&status=aktiv"
   "telefonische_erreichbarkeit": {},
   "fremdsprachen": [],
   "psychotherapieverfahren": "egal",
+  "ueber_curavani_informiert": false,
   "bevorzugte_diagnosen": [],
   "arbeitszeiten": {}
 }
@@ -819,6 +948,17 @@ curl "http://localhost:8002/api/therapists/123/communication"
 }
 ```
 
+## GET /therapists/import-status
+
+**Description:** Get the current status of the therapist import system.
+
+**Example Request:**
+```bash
+curl "http://localhost:8002/api/therapists/import-status"
+```
+
+**Example Response:** Same format as patient import status.
+
 ## POST /therapists
 
 **Description:** Create a new therapist.
@@ -829,7 +969,7 @@ curl "http://localhost:8002/api/therapists/123/communication"
 - `vorname` (string)
 - `nachname` (string)
 
-**All Optional Fields (COMPLETE LIST):**
+**All Optional Fields (COMPLETE LIST - PHASE 2 UPDATED):**
 
 **Personal Information:**
 - `titel` (string)
@@ -845,7 +985,7 @@ curl "http://localhost:8002/api/therapists/123/communication"
 - `kassensitz` (boolean)
 - `telefonische_erreichbarkeit` (object, see format above)
 - `fremdsprachen` (array of strings)
-- `psychotherapieverfahren` (string, **SINGLE VALUE** - see enum, default: "egal")
+- `psychotherapieverfahren` (string, **PHASE 2: SINGLE VALUE** - see enum, default: "egal")
 - `zusatzqualifikationen` (string)
 - `besondere_leistungsangebote` (string)
 
@@ -857,7 +997,7 @@ curl "http://localhost:8002/api/therapists/123/communication"
 **Availability:**
 - `potenziell_verfuegbar` (boolean)
 - `potenziell_verfuegbar_notizen` (string)
-- `ueber_curavani_informiert` (boolean)
+- `ueber_curavani_informiert` (boolean) - **PHASE 2 NEW**
 
 **Inquiry System Fields:**
 - `naechster_kontakt_moeglich` (string, YYYY-MM-DD)
@@ -900,35 +1040,6 @@ curl -X POST "http://localhost:8002/api/therapists" \
   }'
 ```
 
-**Example Response:**
-```json
-{
-  "id": 5,
-  "anrede": "Herr",
-  "geschlecht": "männlich",
-  "vorname": "Michael",
-  "nachname": "Becker",
-  "email": "m.becker@therapie.de",
-  "psychotherapieverfahren": "tiefenpsychologisch_fundierte_Psychotherapie",
-  "bevorzugte_diagnosen": ["F32", "F33"],
-  "fremdsprachen": [],
-  "telefonische_erreichbarkeit": {},
-  "arbeitszeiten": {},
-  "status": "aktiv",
-  "potenziell_verfuegbar": true,
-  "ueber_curavani_informiert": false,
-  "created_at": "2025-06-10",
-  "updated_at": "2025-06-10"
-}
-```
-
-**Validation Error Examples:**
-```json
-{
-  "message": "Invalid therapy method 'Systemische Therapie'. Valid values: egal, Verhaltenstherapie, tiefenpsychologisch_fundierte_Psychotherapie"
-}
-```
-
 ## PUT /therapists/{id}
 
 **Description:** Update an existing therapist.
@@ -941,7 +1052,8 @@ curl -X PUT "http://localhost:8002/api/therapists/1" \
     "potenziell_verfuegbar": false,
     "potenziell_verfuegbar_notizen": "Aktuell keine Kapazitäten",
     "naechster_kontakt_moeglich": "2025-09-01",
-    "psychotherapieverfahren": "Verhaltenstherapie"
+    "psychotherapieverfahren": "Verhaltenstherapie",
+    "ueber_curavani_informiert": true
   }'
 ```
 
@@ -985,6 +1097,7 @@ curl "http://localhost:8003/api/platzsuchen?status=aktiv"
       "patienten_name": "Anna Müller",
       "status": "aktiv",
       "created_at": "2025-06-07",
+      "updated_at": "2025-06-08",
       "aktive_anfragen": 3,
       "gesamt_anfragen": 8,
       "ausgeschlossene_therapeuten_anzahl": 2,
@@ -1014,7 +1127,7 @@ curl "http://localhost:8003/api/platzsuchen/1"
   "patient": {
     "vorname": "Anna",
     "nachname": "Müller",
-    "diagnose": "F32.1",
+    "symptome": ["Depression / Niedergeschlagenheit", "Schlafstörungen"],
     "krankenkasse": "AOK"
   },
   "status": "aktiv",
@@ -1050,13 +1163,12 @@ curl "http://localhost:8003/api/platzsuchen/1"
 **Optional Fields:**
 - `notizen` (string) - Optional notes about the search
 
-**Patient Data Validation:**
+**Patient Data Validation (PHASE 2 UPDATED):**
 Before creating a platzsuche, the patient must have the following required data:
 
 **Required String Fields (non-empty):**
 - `geschlecht`
-- `diagnose`
-- `symptome`
+- `symptome` - **PHASE 2: Must be JSONB array with 1-3 valid symptoms**
 - `krankenkasse`
 - `geburtsdatum`
 
@@ -1091,19 +1203,11 @@ curl -X POST "http://localhost:8003/api/platzsuchen" \
 }
 ```
 
-**Validation Error Response:**
+**Validation Error Response (PHASE 2):**
 ```json
 {
-  "message": "Cannot create platzsuche: Patient field 'diagnose' is required and cannot be empty",
+  "message": "Cannot create platzsuche: Patient field 'symptome' is required and cannot be empty",
   "patient_id": 123
-}
-```
-
-**Duplicate Error Response:**
-```json
-{
-  "message": "Patient already has an active search",
-  "search_id": 5
 }
 ```
 
@@ -1122,7 +1226,7 @@ curl -X POST "http://localhost:8003/api/platzsuchen" \
 - `erfolgreich` → (no transitions allowed - terminal state)
 - `abgebrochen` → (no transitions allowed - terminal state)
 
-**Example Request (Update Status):**
+**Example Request:**
 ```bash
 curl -X PUT "http://localhost:8003/api/platzsuchen/1" \
   -H "Content-Type: application/json" \
@@ -1130,37 +1234,6 @@ curl -X PUT "http://localhost:8003/api/platzsuchen/1" \
     "status": "pausiert",
     "notizen": "Patient temporarily unavailable"
   }'
-```
-
-**Example Request (Add Excluded Therapists):**
-```bash
-curl -X PUT "http://localhost:8003/api/platzsuchen/1" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "ausgeschlossene_therapeuten": [123, 456, 789]
-  }'
-```
-
-**Success Response:**
-```json
-{
-  "message": "Patient search updated successfully",
-  "id": 1
-}
-```
-
-**Invalid Status Transition Response:**
-```json
-{
-  "message": "Invalid status transition from erfolgreich to aktiv"
-}
-```
-
-**Invalid Status Value Response:**
-```json
-{
-  "message": "Invalid status 'completed'. Valid values: ['aktiv', 'erfolgreich', 'pausiert', 'abgebrochen']"
-}
 ```
 
 ## DELETE /platzsuchen/{id}
@@ -1172,13 +1245,6 @@ curl -X PUT "http://localhost:8003/api/platzsuchen/1" \
 curl -X DELETE "http://localhost:8003/api/platzsuchen/1"
 ```
 
-**Example Response:**
-```json
-{
-  "message": "Patient search deleted successfully"
-}
-```
-
 ## GET /therapeuten-zur-auswahl
 
 **Description:** Get therapists available for manual selection, filtered by PLZ prefix.
@@ -1186,52 +1252,22 @@ curl -X DELETE "http://localhost:8003/api/platzsuchen/1"
 **Query Parameters:**
 - `plz_prefix` (required): PLZ prefix with configurable digits (default: 2 digits, e.g., "52")
 
-**Sorting Order (Email Priority):**
-1. Available AND informed about Curavani WITH email
-2. Available AND NOT informed about Curavani WITH email  
-3. Not available AND informed about Curavani WITH email
-4. Others WITH email (alphabetically by name)
-5. Available AND informed about Curavani WITHOUT email
-6. Available AND NOT informed about Curavani WITHOUT email
-7. Not available AND informed about Curavani WITHOUT email
-8. Others WITHOUT email (alphabetically by name)
+**Sorting Order (Email Priority with Deduplication):**
+1. Practice owners only (one representative per email address)
+2. Available AND informed about Curavani WITH email
+3. Available AND NOT informed about Curavani WITH email  
+4. Not available AND informed about Curavani WITH email
+5. Others WITH email (alphabetically by name)
+6. Available AND informed about Curavani WITHOUT email
+7. Available AND NOT informed about Curavani WITHOUT email
+8. Not available AND informed about Curavani WITHOUT email
+9. Others WITHOUT email (alphabetically by name)
 
-**Note:** Therapists with email addresses are always prioritized over those without email addresses within each availability/information tier.
+**Note:** Therapists with email addresses are always prioritized. Multiple therapists sharing the same email are deduplicated - only the practice owner is returned.
 
 **Example Request:**
 ```bash
 curl "http://localhost:8003/api/therapeuten-zur-auswahl?plz_prefix=52"
-```
-
-**Example Response:**
-```json
-{
-  "plz_prefix": "52",
-  "total": 15,
-  "data": [
-    {
-      "id": 123,
-      "anrede": "Frau",
-      "geschlecht": "weiblich",
-      "titel": "Dr. med.",
-      "vorname": "Maria",
-      "nachname": "Weber",
-      "strasse": "Praxis Str. 12",
-      "plz": "52062",
-      "ort": "Aachen",
-      "telefon": "+49 241 98765432",
-      "email": "dr.weber@praxis.de",
-      "potenziell_verfuegbar": true,
-      "ueber_curavani_informiert": true,
-      "naechster_kontakt_moeglich": null,
-      "bevorzugte_diagnosen": ["F32", "F41"],
-      "psychotherapieverfahren": "Verhaltenstherapie",
-      "fremdsprachen": [],
-      "telefonische_erreichbarkeit": {},
-      "arbeitszeiten": {}
-    }
-  ]
-}
 ```
 
 ## GET /therapeutenanfragen
@@ -1253,39 +1289,6 @@ curl "http://localhost:8003/api/therapeuten-zur-auswahl?plz_prefix=52"
 curl "http://localhost:8003/api/therapeutenanfragen?versand_status=gesendet&antwort_status=ausstehend"
 ```
 
-**Example Response:**
-```json
-{
-  "data": [
-    {
-      "id": 101,
-      "therapist_id": 123,
-      "therapeuten_name": "Dr. Max Mustermann",
-      "erstellt_datum": "2025-06-07",
-      "gesendet_datum": "2025-06-07",
-      "antwort_datum": null,
-      "tage_seit_versand": 2,
-      "antworttyp": null,
-      "anfragegroesse": 4,
-      "angenommen_anzahl": 0,
-      "abgelehnt_anzahl": 0,
-      "keine_antwort_anzahl": 0,
-      "nachverfolgung_erforderlich": false,
-      "antwort_vollstaendig": false
-    }
-  ],
-  "page": 1,
-  "limit": 20,
-  "total": 150,
-  "summary": {
-    "total_anfragen": 150,
-    "unsent_anfragen": 15,
-    "pending_responses": 38,
-    "needing_follow_up": 12
-  }
-}
-```
-
 ## GET /therapeutenanfragen/{id}
 
 **Description:** Get inquiry details with patient list.
@@ -1295,7 +1298,7 @@ curl "http://localhost:8003/api/therapeutenanfragen?versand_status=gesendet&antw
 curl "http://localhost:8003/api/therapeutenanfragen/101"
 ```
 
-**Example Response:**
+**Example Response (PHASE 2 - symptome as array):**
 ```json
 {
   "id": 101,
@@ -1327,7 +1330,7 @@ curl "http://localhost:8003/api/therapeutenanfragen/101"
       "patient": {
         "vorname": "Anna",
         "nachname": "Schmidt",
-        "diagnose": "F32.1"
+        "symptome": ["Depression / Niedergeschlagenheit", "Schlafstörungen"]
       },
       "platzsuche_id": 10,
       "search_created_at": "2025-05-01",
@@ -1373,25 +1376,6 @@ curl -X POST "http://localhost:8003/api/therapeutenanfragen/erstellen-fuer-thera
   }'
 ```
 
-**Example Response:**
-```json
-{
-  "message": "Created anfrage with 4 patients",
-  "anfrage_id": 101,
-  "therapist_id": 123,
-  "anfragegroesse": 4,
-  "patient_ids": [1, 5, 8, 12],
-  "gesendet": true
-}
-```
-
-**Error Response (Invalid PLZ):**
-```json
-{
-  "message": "Invalid PLZ prefix. Must be exactly {PLZ_MATCH_DIGITS} digits."
-}
-```
-
 ## POST /therapeutenanfragen/{id}/senden
 
 **Description:** Send an unsent anfrage via email or phone call.
@@ -1427,32 +1411,6 @@ curl -X POST "http://localhost:8003/api/therapeutenanfragen/101/senden"
 }
 ```
 
-**Behavior:**
-- If therapist has an email address: Creates and sends email (existing behavior)
-- If therapist has no email address: Creates phone call with `therapeutenanfrage_id` link for follow-up
-- Phone calls are automatically scheduled using therapist's `telefonische_erreichbarkeit` or default time
-
-**Response Fields:**
-- `communication_type` (string): Either "email" or "phone_call" indicating how the anfrage was sent
-- `email_id` (integer|null): ID of created email if sent via email, null if sent via phone call
-- `phone_call_id` (integer|null): ID of created phone call if sent via phone call, null if sent via email
-- `sent_date` (string): ISO datetime when the communication was initiated
-
-**Error Response (Already Sent):**
-```json
-{
-  "message": "Anfrage already sent",
-  "sent_date": "2025-06-14T10:00:00"
-}
-```
-
-**Error Response (Not Found):**
-```json
-{
-  "message": "Anfrage 999 not found"
-}
-```
-
 ## PUT /therapeutenanfragen/{id}/antwort
 
 **Description:** Record therapist response.
@@ -1472,24 +1430,6 @@ curl -X PUT "http://localhost:8003/api/therapeutenanfragen/101/antwort" \
   }'
 ```
 
-**Example Response:**
-```json
-{
-  "message": "Anfrage response recorded successfully",
-  "anfrage_id": 101,
-  "response_type": "teilweise_Annahme",
-  "angenommene_patienten": [
-    {"patient_id": 1, "platzsuche_id": 10},
-    {"patient_id": 8, "platzsuche_id": 23}
-  ],
-  "antwort_zusammenfassung": {
-    "accepted": 2,
-    "rejected": 2,
-    "no_response": 0
-  }
-}
-```
-
 ## DELETE /therapeutenanfragen/{id}
 
 **Description:** Delete a therapeutenanfrage and all related records.
@@ -1497,13 +1437,6 @@ curl -X PUT "http://localhost:8003/api/therapeutenanfragen/101/antwort" \
 **Example Request:**
 ```bash
 curl -X DELETE "http://localhost:8003/api/therapeutenanfragen/101"
-```
-
-**Example Response:**
-```json
-{
-  "message": "Therapeutenanfrage deleted successfully"
-}
 ```
 
 ---
@@ -1516,7 +1449,7 @@ curl -X DELETE "http://localhost:8003/api/therapeutenanfragen/101"
 
 **Query Parameters:**
 - `therapist_id` (optional): Filter by therapist
-- `patient_id` (optional): Filter by patient
+- `patient_id` (optional): Filter by patient - **PHASE 2: Now supports patients**
 - `recipient_type` (optional): Filter by recipient type ("therapist" or "patient")
 - `status` (optional): Filter by email status
 - `antwort_erhalten` (optional): Filter by response received (boolean)
@@ -1600,9 +1533,7 @@ curl "http://localhost:8004/api/emails/1"
 2. **Markdown Processing**: URLs in markdown content are automatically detected and converted to clickable links
 3. **Legal Footer**: Added by default unless explicitly disabled
 
-**Example Requests:**
-
-### Create Email Draft
+**Example Request (Patient Email):**
 ```bash
 curl -X POST "http://localhost:8004/api/emails" \
   -H "Content-Type: application/json" \
@@ -1613,21 +1544,6 @@ curl -X POST "http://localhost:8004/api/emails" \
     "empfaenger_email": "patient@example.com",
     "empfaenger_name": "Max Mustermann"
   }'
-```
-
-**Example Response:**
-```json
-{
-  "id": 3,
-  "patient_id": 30,
-  "therapist_id": null,
-  "betreff": "Update zu Ihrer Therapieplatzsuche",
-  "empfaenger_email": "patient@example.com",
-  "empfaenger_name": "Max Mustermann",
-  "status": "Entwurf",
-  "created_at": "2025-06-10",
-  "updated_at": "2025-06-10"
-}
 ```
 
 ## PUT /emails/{id}
@@ -1660,8 +1576,8 @@ curl -X DELETE "http://localhost:8004/api/emails/1"
 
 **Query Parameters:**
 - `therapist_id` (optional): Filter by therapist
-- `patient_id` (optional): Filter by patient
-- `therapeutenanfrage_id` (optional): Filter by therapeutenanfrage (NEW)
+- `patient_id` (optional): Filter by patient - **PHASE 2: Now supports patients**
+- `therapeutenanfrage_id` (optional): Filter by therapeutenanfrage - **PHASE 2 NEW**
 - `recipient_type` (optional): Filter by recipient type ("therapist" or "patient")
 - `status` (optional): Filter by call status
 - `geplantes_datum` (optional): Filter by scheduled date
@@ -1680,9 +1596,9 @@ curl -X DELETE "http://localhost:8004/api/emails/1"
       "geplantes_datum": "2025-06-10",
       "geplante_zeit": "14:30",
       "dauer_minuten": 5,
-      "status": "geplant",
       "tatsaechliches_datum": null,
       "tatsaechliche_zeit": null,
+      "status": "geplant",
       "ergebnis": null,
       "notizen": "Follow-up für Anfrage #456",
       "created_at": "2025-06-09",
@@ -1703,7 +1619,7 @@ curl -X DELETE "http://localhost:8004/api/emails/1"
 - Either `therapist_id` (integer) OR `patient_id` (integer) - exactly one must be provided
 
 **Optional Fields:**
-- `therapeutenanfrage_id` (integer) - Link to therapeutenanfrage (NEW)
+- `therapeutenanfrage_id` (integer) - Link to therapeutenanfrage - **PHASE 2 NEW**
 - `geplantes_datum` (string, YYYY-MM-DD) - defaults to tomorrow
 - `geplante_zeit` (string, HH:MM) - for therapists: simple slot at 10:00 or 14:00; for patients: defaults to 10:00
 - `dauer_minuten` (integer) - defaults to 5 for therapists, 10 for patients
@@ -1734,7 +1650,7 @@ curl -X DELETE "http://localhost:8004/api/emails/1"
 **Description:** Update phone call status and outcome.
 
 **Optional Fields:**
-- `therapeutenanfrage_id` (integer) - Link to therapeutenanfrage (NEW)
+- `therapeutenanfrage_id` (integer) - Link to therapeutenanfrage - **PHASE 2 NEW**
 - `geplantes_datum` (string, YYYY-MM-DD)
 - `geplante_zeit` (string, HH:MM)
 - `dauer_minuten` (integer)
@@ -1750,7 +1666,7 @@ curl -X DELETE "http://localhost:8004/api/emails/1"
 
 ## POST /system-messages
 
-**Description:** Send a system notification email directly without database storage.
+**Description:** Send a system notification email directly without database storage. **PHASE 2 NEW**
 
 **Required Fields:**
 - `subject` (string): Email subject
@@ -1765,7 +1681,7 @@ curl -X POST "http://localhost:8004/api/system-messages" \
   -H "Content-Type: application/json" \
   -d '{
     "subject": "Import Error",
-    "message": "Failed to import patient data: Invalid date format in row 15",
+    "message": "Failed to import patient data: Invalid symptom in row 15",
     "sender_name": "Patient Import System"
   }'
 ```
@@ -1810,14 +1726,6 @@ curl "http://localhost:8005/api/geocode?address=Berlin%2C%20Germany"
 }
 ```
 
-**Error Response:**
-```json
-{
-  "status": "error",
-  "error": "Geocoding failed"
-}
-```
-
 ## GET /reverse-geocode
 
 **Description:** Convert coordinates to an address using reverse geocoding.
@@ -1829,30 +1737,6 @@ curl "http://localhost:8005/api/geocode?address=Berlin%2C%20Germany"
 **Example Request:**
 ```bash
 curl "http://localhost:8005/api/reverse-geocode?lat=52.5200&lon=13.4050"
-```
-
-**Example Response:**
-```json
-{
-  "display_name": "Berlin, Deutschland",
-  "address_components": {
-    "city": "Berlin",
-    "country": "Deutschland",
-    "postcode": "10117"
-  },
-  "latitude": 52.5200,
-  "longitude": 13.4050,
-  "source": "nominatim",
-  "status": "success"
-}
-```
-
-**Error Response:**
-```json
-{
-  "status": "error",
-  "error": "Reverse geocoding failed"
-}
 ```
 
 ## GET /calculate-distance
@@ -1874,11 +1758,6 @@ curl "http://localhost:8005/api/reverse-geocode?lat=52.5200&lon=13.4050"
 - `no_cache` (boolean): Bypass cache for fresh calculation (default: false)
 - `use_plz_fallback` (boolean): Use PLZ-based fallback for addresses (default: true)
 
-**Calculation Hierarchy:**
-1. **OSRM Routing**: Attempts to get precise route with travel time
-2. **Haversine Distance**: Falls back to straight-line distance if routing fails
-3. **PLZ Centroids**: Uses postal code centroids for German addresses if coordinates unavailable
-
 **Example Requests:**
 ```bash
 # Using addresses
@@ -1886,52 +1765,6 @@ curl "http://localhost:8005/api/calculate-distance?origin=Berlin&destination=Mun
 
 # Using coordinates
 curl "http://localhost:8005/api/calculate-distance?origin_lat=52.5200&origin_lon=13.4050&destination_lat=48.1351&destination_lon=11.5820"
-
-# With cache bypass
-curl "http://localhost:8005/api/calculate-distance?origin=Berlin&destination=Munich&no_cache=true"
-```
-
-**Example Response (OSRM Success):**
-```json
-{
-  "distance_km": 585.2,
-  "status": "success",
-  "source": "osrm",
-  "travel_mode": "car",
-  "route_available": true
-}
-```
-
-**Example Response (Haversine Fallback):**
-```json
-{
-  "distance_km": 504.3,
-  "status": "partial",
-  "source": "haversine",
-  "travel_mode": "car",
-  "route_available": false
-}
-```
-
-**Example Response (PLZ Fallback):**
-```json
-{
-  "distance_km": 510.1,
-  "status": "success",
-  "source": "plz_centroids",
-  "travel_mode": "car",
-  "route_available": false,
-  "note": "Approximate distance based on postal code areas"
-}
-```
-
-**Error Response:**
-```json
-{
-  "distance_km": 0,
-  "status": "error",
-  "error": "Could not resolve coordinates"
-}
 ```
 
 ## GET /calculate-plz-distance
@@ -1946,43 +1779,6 @@ curl "http://localhost:8005/api/calculate-distance?origin=Berlin&destination=Mun
 ```bash
 curl "http://localhost:8005/api/calculate-plz-distance?origin_plz=52062&destination_plz=10115"
 ```
-
-**Example Response:**
-```json
-{
-  "distance_km": 475.8,
-  "status": "success",
-  "source": "plz_centroids",
-  "origin_centroid": {
-    "latitude": 50.7753,
-    "longitude": 6.0839
-  },
-  "destination_centroid": {
-    "latitude": 52.5200,
-    "longitude": 13.4050
-  }
-}
-```
-
-**Error Responses:**
-```json
-{
-  "status": "error",
-  "error": "Invalid origin PLZ format: ABC12"
-}
-```
-
-```json
-{
-  "status": "error",
-  "error": "One or both PLZ codes not found"
-}
-```
-
-**PLZ Validation:**
-- Must be exactly 5 digits
-- Must be within valid German PLZ range (01001-99998)
-- Both PLZ codes must exist in the centroids database
 
 ---
 
@@ -2020,170 +1816,93 @@ All endpoints follow consistent error response patterns:
 
 ---
 
-# Key Changes from Previous Version
+# Key Changes in Phase 2 (January 2025)
 
-## 🆕 **Latest Updates (December 2025)**
+## 🔄 Patient Service Changes
 
-### ✅ **PUT /platzsuchen/{id} Endpoint:**
-- Update patient search including status changes
-- Supports status transitions with validation
-- Can update notes and excluded therapists list
-- Publishes status change events via Kafka
+### Removed Fields:
+- **`diagnose`** - Completely removed from database and all endpoints
+- **`psychotherapeutische_sprechstunde`** - PTV11 related field removed
 
-### Status Transition Rules:
-- `aktiv` → `pausiert`, `erfolgreich`, `abgebrochen`
-- `pausiert` → `aktiv`, `abgebrochen`
-- `erfolgreich` → no transitions (terminal state)
-- `abgebrochen` → no transitions (terminal state)
+### Changed Fields:
+- **`symptome`** - Changed from TEXT to JSONB array
+  - Must contain 1-3 symptoms from predefined list
+  - Validation enforced at API level
+  - Cannot be null or empty
 
-## 🆕 **Previous Updates (July 2025)**
+### New Fields:
+- **`zahlungsreferenz`** (String, max 8 chars) - Payment reference
+- **`zahlung_eingegangen`** (Boolean) - Payment received flag
 
-### ✅ **DELETE Endpoints Added:**
-- `DELETE /api/therapeutenanfragen/{id}` - Delete therapeutenanfrage and related records
-- `DELETE /api/platzsuchen/{id}` - Actually delete record (not just cancel)
+### Automatic Behaviors:
+- When `zahlung_eingegangen` changes from false to true:
+  - If `vertraege_unterschrieben` is also true:
+    - `startdatum` automatically set to today
+    - `status` automatically changes from "offen" to "auf_der_Suche"
+    - Matching service notified to begin search
 
-### 📞 **Phone Call Enhancements:**
-- Added `therapeutenanfrage_id` field to phone calls
-- Links phone calls to specific anfragen for follow-up tracking
-- Updated all phone call endpoints to support anfrage linking
+### New Endpoints:
+- **`GET /api/patients/import-status`** - Monitor import system health
 
-### ✅ **Patient Validation for Platzsuche:**
-Enhanced validation when creating patient searches:
-- Required string fields must be non-empty
-- Required boolean fields must be explicitly set  
-- Conditional validation for therapy experience
-- Time availability must have at least one valid slot
+## 🔄 Therapist Service Changes
 
-### 📧 **Send Anfrage Endpoint:**
-- New `POST /api/therapeutenanfragen/{id}/senden` endpoint
-- Sends unsent anfragen via email
-- Automatic email queuing and sending
+### Changed Fields:
+- **`psychotherapieverfahren`** - Changed from JSONB array to single ENUM value
+  - Now same as patient's `bevorzugtes_therapieverfahren`
+  - Values: "egal", "Verhaltenstherapie", "tiefenpsychologisch_fundierte_Psychotherapie"
 
-### ⚙️ **Follow-up Configuration:**
-- New environment variables for follow-up scheduling
-- `FOLLOW_UP_THRESHOLD_DAYS` (default: 7)
-- `DEFAULT_PHONE_CALL_TIME` (default: "12:00")
-- Automatic daily scheduling at 09:00
+### New Fields:
+- **`ueber_curavani_informiert`** (Boolean) - Whether therapist has been informed about Curavani
 
-## 🔍 **Search Functionality (Previous Update):**
+### New Query Parameters:
+- **`plz_prefix`** - Filter therapists by PLZ prefix (e.g., "52")
 
-### Patient Service:
-- Added `search` query parameter to `GET /patients`
-- Searches across `vorname`, `nachname`, and `email` fields
-- Case-insensitive partial matching
-- Can be combined with existing `status` filter
+### New Endpoints:
+- **`GET /api/therapists/import-status`** - Monitor import system health
 
-### Therapist Service:
-- Added `search` query parameter to `GET /therapists`
-- Searches across `vorname`, `nachname`, and `psychotherapieverfahren` fields
-- Case-insensitive partial matching for text fields
-- Special handling for enum field `psychotherapieverfahren`
-- Can be combined with existing `status` and `potenziell_verfuegbar` filters
+## 🔄 Matching Service Changes
 
-## 🆕 **Health Check Endpoints:**
-- All services now expose `/health` endpoint
-- Returns service name and health status
+### Platzsuche Creation:
+- No longer requires `diagnose` field
+- Requires `symptome` as JSONB array with 1-3 valid symptoms
 
-## 📧 **System Messages Endpoint:**
-- New endpoint `POST /api/system-messages` in Communication Service
-- Sends system notifications directly without database storage
-- Used for error notifications and system alerts
+### Therapeutenanfrage:
+- Email templates updated to format symptoms as comma-separated list
+- Removed diagnosis field from emails
 
-## ⚠️ **Email Status Clarification:**
-- **IMPORTANT:** The `status` field CANNOT be set when creating emails via API
-- All emails are created with status "Entwurf" (draft)
-- Previous documentation incorrectly suggested status could be set to queue emails
+### Therapist Selection:
+- Email deduplication implemented
+- Multiple therapists sharing same email are grouped
+- Only practice owner is returned for selection
 
-## 📞 **Phone Call Scheduling Clarification:**
-- Automatic scheduling is simplified - just returns 10:00 or 14:00 slots
-- Not the sophisticated availability-based scheduling suggested in old docs
+## 🔄 Communication Service Changes
 
-## 🔧 **Model Updates (Previous):**
+### Phone Calls:
+- New field **`therapeutenanfrage_id`** - Links calls to specific anfragen
+- Can now be created for patients (not just therapists)
 
-### 🆕 **Therapist psychotherapieverfahren Change:**
-- Changed from JSONB array to single ENUM field
-- Now uses same enum as patients: "egal", "Verhaltenstherapie", "tiefenpsychologisch_fundierte_Psychotherapie"
-- Default value: "egal"
-- Both patients and therapists now have single therapy method preference/offering
+### Emails:
+- Can now be created for patients (not just therapists)
+- Both `therapist_id` and `patient_id` supported
 
-### ✂️ **Removed Fields (16 total):**
+### New Endpoint:
+- **`POST /api/system-messages`** - Send system notifications without database storage
 
-**Medical History fields removed:**
-- psychotherapieerfahrung
-- stationaere_behandlung
-- berufliche_situation
-- familienstand
-- aktuelle_psychische_beschwerden
-- beschwerden_seit
-- bisherige_behandlungen
-- relevante_koerperliche_erkrankungen
-- aktuelle_medikation
-- aktuelle_belastungsfaktoren
-- unterstuetzungssysteme
+## 🔄 German Enum Capitalization
 
-**Therapy Goals fields removed:**
-- anlass_fuer_die_therapiesuche
-- erwartungen_an_die_therapie
-- therapieziele
-- fruehere_therapieerfahrungen
+All German enums follow proper grammar rules with noun capitalization:
+- `auf_der_Suche` (not `auf_der_suche`)
+- `in_Therapie` (not `in_therapie`)
+- API calls must use exact capitalization
 
-### 🔄 **Modified Fields:**
+---
 
-1. **`erfahrung_mit_psychotherapie`**: Changed from Text to Boolean (nullable, no default)
-2. **`bevorzugtes_therapieverfahren`**: Changed from ARRAY to single ENUM field (default: "egal")
+# Implementation Notes
 
-### ➕ **New Field:**
-
-- **`letzte_sitzung_vorherige_psychotherapie`**: Date field for last session of previous psychotherapy
-
-## 🆕 **Previous New Enums Added:**
-
-1. **Anrede (Salutation)** - Required field with two values:
-   - `"Herr"`
-   - `"Frau"`
-
-2. **Geschlecht (Gender)** - Required field with four values:
-   - `"männlich"`
-   - `"weiblich"`
-   - `"divers"`
-   - `"keine_Angabe"`
-
-## ✅ **Previous Fixed Issues:**
-
-1. **Patient Array Fields**: `bevorzugtes_therapieverfahren` now always returns array, never null (Migration 003)
-2. **Therapist JSONB Fields**: All JSONB fields now return proper defaults instead of null (Migration 004 + API fixes):
-   - Array fields (`fremdsprachen`, `bevorzugte_diagnosen`) → `[]`
-   - Object fields (`telefonische_erreichbarkeit`, `arbeitszeiten`) → `{}`
-3. **Date Format**: Using simple date format "2025-06-22" instead of ISO timestamps
-4. **Time Format**: Using German day names with string arrays `["09:00-12:00"]`
-5. **Field Names**: All German field names maintained consistently
-6. **Response Structure**: Matches actual backend implementation
-
-## 🚀 **Automatic Field Management:**
-
-### Phase 1: Automatic startdatum
-- `startdatum` is now automatically set when both `vertraege_unterschrieben` and `psychotherapeutische_sprechstunde` are true
-- Cannot be manually set via API - any attempts are silently ignored
-- Once set, it never changes
-
-### Phase 2: Automatic letzter_kontakt  
-- `letzter_kontakt` is automatically updated via Kafka events when communication occurs
-- Updated when emails are sent, responses received, or phone calls completed
-- Cannot be manually set via API - any attempts are silently ignored
-
-### Phase 3: bevorzugtes_therapieverfahren Validation
-- Now a single enum field (not array)
-- Only accepts values: "egal", "Verhaltenstherapie", "tiefenpsychologisch_fundierte_Psychotherapie" 
-- Returns 400 error with clear message for invalid values
-
-### Phase 4: Anrede and Geschlecht Enums
-- Both fields are now required for both patients and therapists
-- Strict validation against allowed enum values
-- Clear error messages in English when validation fails
-
-### Phase 5: Follow-up Automation
-- Daily automatic scheduling of follow-up phone calls at 09:00
-- Configurable threshold days for follow-up requirement
-- Automatic linking of phone calls to therapeutenanfragen
-
-**Note:** This API reference now accurately reflects the backend implementation after all database migrations, automatic field management, and latest feature additions including DELETE endpoints, enhanced phone call tracking, patient validation, and the previously undocumented PUT /platzsuchen/{id} endpoint.
+- All date fields use simple format: "YYYY-MM-DD"
+- All time fields use 24-hour format: "HH:MM"
+- German day names in lowercase: montag, dienstag, etc.
+- JSONB fields return empty arrays/objects instead of null
+- Pagination available on all list endpoints
+- Search functionality uses case-insensitive partial matching
+- Automatic field management cannot be overridden via API
