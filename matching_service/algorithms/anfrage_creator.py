@@ -5,10 +5,12 @@ with hard constraints only (no scoring or progressive filtering).
 
 Updated with 8-tier email priority sorting for Phase 2 implementation.
 FIXED: Hard constraints for therapy procedure, gender preference, and group therapy matching.
+PHASE 3: Email deduplication to prevent multiple emails to same practice.
 """
 import logging
 from datetime import datetime, date
 from typing import Dict, List, Optional, Any, Tuple
+import re
 
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
@@ -34,15 +36,104 @@ PLZ_MATCH_DIGITS = anfrage_config['plz_match_digits']  # 2
 DEFAULT_MAX_DISTANCE_KM = anfrage_config['default_max_distance_km']  # 25
 
 
+def _normalize_for_email_check(name: str) -> str:
+    """Normalize a name for email matching (handle umlauts).
+    
+    Args:
+        name: Name to normalize
+        
+    Returns:
+        Normalized name with umlauts replaced
+    """
+    if not name:
+        return ""
+    
+    # Convert to lowercase
+    normalized = name.lower()
+    
+    # Replace German umlauts
+    umlaut_replacements = {
+        'ä': 'ae',
+        'ö': 'oe',
+        'ü': 'ue',
+        'ß': 'ss'
+    }
+    
+    for umlaut, replacement in umlaut_replacements.items():
+        normalized = normalized.replace(umlaut, replacement)
+    
+    return normalized
+
+
+def _identify_practice_owner(therapist_group: List[Dict[str, Any]], email: str) -> Dict[str, Any]:
+    """Identify the practice owner from a group of therapists sharing the same email.
+    
+    Selection priority:
+    1. Therapist whose last name appears in the email (with umlaut handling)
+    2. Therapist with professional title (Dr., Prof.)
+    3. Therapist with earliest creation date (lowest ID)
+    
+    Args:
+        therapist_group: List of therapists with the same email
+        email: The shared email address
+        
+    Returns:
+        The identified practice owner
+    """
+    if len(therapist_group) == 1:
+        return therapist_group[0]
+    
+    # Normalize email for comparison
+    email_lower = email.lower() if email else ""
+    
+    # Priority 1: Check if last name appears in email
+    for therapist in therapist_group:
+        last_name = therapist.get('nachname', '')
+        if last_name:
+            normalized_name = _normalize_for_email_check(last_name)
+            if normalized_name and normalized_name in email_lower:
+                logger.debug(f"Selected therapist {therapist.get('id')} as practice owner - last name '{last_name}' found in email")
+                return therapist
+    
+    # Priority 2: Check for professional titles
+    title_priority = {'Prof.': 1, 'Prof': 1, 'Dr.': 2, 'Dr': 2}
+    therapists_with_titles = []
+    
+    for therapist in therapist_group:
+        title = therapist.get('titel', '')
+        if title:
+            # Check for any recognized title
+            for title_key, priority in title_priority.items():
+                if title_key in title:
+                    therapists_with_titles.append((priority, therapist))
+                    break
+    
+    if therapists_with_titles:
+        # Sort by priority (lower number = higher priority)
+        therapists_with_titles.sort(key=lambda x: x[0])
+        selected = therapists_with_titles[0][1]
+        logger.debug(f"Selected therapist {selected.get('id')} as practice owner - has title '{selected.get('titel')}'")
+        return selected
+    
+    # Priority 3: Fallback to earliest created (lowest ID)
+    therapist_group.sort(key=lambda t: t.get('id', float('inf')))
+    selected = therapist_group[0]
+    logger.debug(f"Selected therapist {selected.get('id')} as practice owner - earliest created")
+    return selected
+
+
 def get_therapists_for_selection(db: Session, plz_prefix: str) -> List[Dict[str, Any]]:
-    """Get therapists for manual selection filtered by PLZ prefix and pending anfragen.
+    """Get therapists for manual selection filtered by PLZ prefix with email deduplication.
+    
+    Phase 3 Implementation: Email deduplication to prevent multiple emails to same practice.
+    Groups therapists by email and returns only practice owners.
     
     Args:
         db: Database session
         plz_prefix: Two-digit PLZ prefix (e.g., "52")
         
     Returns:
-        List of therapist data dictionaries sorted by criteria
+        List of practice owner therapists sorted by criteria
     """
     # Get all active therapists with PLZ prefix filter
     therapists = TherapistService.get_all_therapists(status='aktiv', plz_prefix=plz_prefix)
@@ -69,14 +160,60 @@ def get_therapists_for_selection(db: Session, plz_prefix: str) -> List[Dict[str,
     for row in unanswered_anfragen:
         pending_therapist_ids.add(row[0])
     
-    # Filter therapists
-    filtered = []
+    # PHASE 3: Group therapists by email address
+    email_groups = {}  # email -> list of therapists
+    no_email_therapists = []  # therapists without email
+    
     for therapist in therapists:
+        email = therapist.get('email')
+        if email:
+            email = email.strip().lower()  # Normalize email for grouping
+            if email not in email_groups:
+                email_groups[email] = []
+            email_groups[email].append(therapist)
+        else:
+            no_email_therapists.append(therapist)
+    
+    # Apply group-wide exclusions and identify practice owners
+    filtered = []
+    
+    # Process email groups
+    for email, group in email_groups.items():
+        # Check if ANY therapist in the group has pending anfragen
+        group_has_pending = any(t.get('id') in pending_therapist_ids for t in group)
+        
+        if group_has_pending:
+            logger.debug(f"Skipping email group {email} - at least one therapist has pending anfragen")
+            continue
+        
+        # Check if ANY therapist in the group is in cooling period
+        group_in_cooling = False
+        today = date.today()
+        
+        for therapist in group:
+            next_contact = therapist.get('naechster_kontakt_moeglich')
+            if next_contact and datetime.fromisoformat(next_contact).date() > today:
+                group_in_cooling = True
+                break
+        
+        if group_in_cooling:
+            logger.debug(f"Skipping email group {email} - at least one therapist is in cooling period")
+            continue
+        
+        # Identify and add the practice owner
+        practice_owner = _identify_practice_owner(group, email)
+        filtered.append(practice_owner)
+        
+        if len(group) > 1:
+            logger.info(f"Selected therapist {practice_owner.get('id')} as practice owner for email {email} (group of {len(group)})")
+    
+    # Process therapists without email (not grouped)
+    for therapist in no_email_therapists:
         # Skip if therapist has pending anfragen
         if therapist.get('id') in pending_therapist_ids:
             logger.debug(f"Skipping therapist {therapist.get('id')} - has pending anfragen")
             continue
-            
+        
         # Check if contactable today
         next_contact = therapist.get('naechster_kontakt_moeglich')
         # None means contactable
@@ -87,7 +224,7 @@ def get_therapists_for_selection(db: Session, plz_prefix: str) -> List[Dict[str,
     def sort_key(t):
         is_available = t.get('potenziell_verfuegbar', False)
         is_informed = t.get('ueber_curavani_informiert', False)
-        has_email = bool(t.get('email'))  # NEW: Check if therapist has email
+        has_email = bool(t.get('email'))  # Check if therapist has email
         
         # Priority order with email preference:
         # 1. Available AND informed WITH email (return 0)
@@ -116,6 +253,9 @@ def get_therapists_for_selection(db: Session, plz_prefix: str) -> List[Dict[str,
         return (base_priority, t.get('nachname', ''), t.get('vorname', ''))
     
     filtered.sort(key=sort_key)
+    
+    logger.info(f"Email deduplication: {len(therapists)} total therapists -> {len(filtered)} practice owners")
+    
     return filtered
 
 
