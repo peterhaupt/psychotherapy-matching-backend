@@ -14,7 +14,7 @@ This document outlines the complete implementation plan for the Curavani patient
 | Phase | Status | Timeline | Actual |
 |-------|--------|----------|--------|
 | **Phase 1: Frontend** | ✅ **COMPLETED** | Week 1 | Completed Week 1 |
-| **Phase 2: Backend** | 🔄 **PENDING** | Week 1-2 | Not started |
+| **Phase 2: Backend** | 🔄 **IN PROGRESS** | Week 1-2 | Database migrations completed |
 | **Phase 3: Therapist Dedup** | 📅 **FUTURE** | Phase 2 + 2 weeks | Not started |
 | **Phase 4: Testing** | ⚠️ **PARTIAL** | 1 week after Phase 2 | Frontend done |
 
@@ -94,7 +94,7 @@ BESONDERE BELASTUNGEN
 - **Remove:** `psychotherapeutische_sprechstunde` field (completely)
 - **Remove:** All PTV11-related logic and triggers
 
-**🔄 STATUS:** Database changes pending (Phase 2)
+**✅ STATUS:** Database changes completed (migrations executed)
 
 ### Validation Implementation
 ```python
@@ -222,7 +222,7 @@ The patient confirmation email should contain:
 - **No migration for existing data**
 
 **✅ FRONTEND COMPLETE:** No diagnosis field in registration form  
-**🔄 DATABASE PENDING:** Migration still needed
+**✅ DATABASE COMPLETE:** Migration executed, field removed
 
 ### Database Changes
 ```sql
@@ -238,7 +238,7 @@ DROP COLUMN diagnose;
 - Remove from therapeutenanfrage email template
 - Remove from platzsuche creation validation
 
-**STATUS:** Frontend ✅ | Backend pending
+**STATUS:** Frontend ✅ | Database ✅ | Backend pending
 
 ---
 
@@ -266,7 +266,7 @@ The patient importer must extract and store:
 ```
 As `zahlungsreferenz` field in the patient record.
 
-**🔄 STATUS:** Database and import changes pending (Phase 2)
+**✅ STATUS:** Database field added | Import changes pending
 
 ---
 
@@ -286,7 +286,7 @@ ALTER TABLE patient_service.patienten
 ADD COLUMN zahlung_eingegangen BOOLEAN DEFAULT FALSE;
 ```
 
-**🔄 STATUS:** Database change pending
+**✅ STATUS:** Database field added
 
 ### Automated Status Transitions
 When staff sets `zahlung_eingegangen = true` in React frontend:
@@ -302,7 +302,7 @@ When staff sets `zahlung_eingegangen = true` in React frontend:
 - Allow staff to mark payment received
 - Show automatic status changes
 
-**🔄 STATUS:** All pending Phase 2
+**🔄 STATUS:** Backend logic pending
 
 ---
 
@@ -428,7 +428,7 @@ When staff sets `zahlung_eingegangen = true` in React frontend:
 4. Staff manually updates symptoms through React admin interface
 5. Verify all patients have valid symptom arrays
 
-**🔄 STATUS:** To be done after Phase 2 deployment
+**✅ STATUS:** Migration executed - symptome fields cleared, diagnosis removed. Manual updates needed.
 
 ---
 
@@ -468,7 +468,7 @@ When staff sets `zahlung_eingegangen = true` in React frontend:
 - Added development mock token feature
 - Created Docker development environment
 
-### Database Migrations 🔄 PENDING
+### Database Migrations ✅ COMPLETED
 ```sql
 -- Remove diagnosis field
 ALTER TABLE patient_service.patienten DROP COLUMN diagnose;
@@ -490,9 +490,11 @@ ALTER TABLE patient_service.patienten
 ADD COLUMN zahlung_eingegangen BOOLEAN DEFAULT FALSE;
 ```
 
+**✅ STATUS:** All database migrations executed successfully
+
 ---
 
-## Phase 2: Backend Updates 🔄 PENDING
+## Phase 2: Backend Updates 🔄 IN PROGRESS
 **Timeline: Week 1-2**
 
 ### Patient Service
@@ -630,8 +632,10 @@ Location: `matching_service/algorithms/anfrage_creator.py`
 ### Backend - Matching Service 📅 FUTURE
 - **Phase 3:** `matching_service/algorithms/anfrage_creator.py` - Email deduplication
 
-### Database Migrations 🔄 PENDING
-- New migration scripts for schema changes
+### Database Migrations ✅ COMPLETED
+- Migration 001_initial_setup - executed
+- Migration 002_therapeutenanfrage_id - executed  
+- Migration 003_phase2_patient_updates - executed
 
 ---
 
@@ -698,7 +702,8 @@ BUCKET_NAME="curavani-production-data-transfer"
 - [x] Multi-step process working
 - [x] Mobile responsive
 
-### Phase 2 Complete When: 🔄 PENDING
+### Phase 2 Complete When: 🔄 IN PROGRESS
+- [x] Database migrations executed
 - [ ] All backend services updated
 - [ ] Import process handles new format
 - [ ] Zahlungsreferenz extracted and stored
@@ -836,4 +841,4 @@ Access URLs:
 - Focus on staff usability in React frontend
 - Patient experience simplified in PHP frontend
 
-**IMPLEMENTATION NOTE:** Phase 1 completed with minor variations that improve user experience while maintaining core requirements.
+**IMPLEMENTATION NOTE:** Phase 1 completed with minor variations that improve user experience while maintaining core requirements. Database migrations now completed.
