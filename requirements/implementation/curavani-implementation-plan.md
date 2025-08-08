@@ -5,6 +5,10 @@
 ## Overview
 This document outlines the complete implementation plan for the Curavani patient registration system refactoring, including all frontend modifications, backend updates, and database schema changes. **Phase 1 (Frontend) has been completed with variations documented below.**
 
+## Frontend Clarification
+- **PHP Frontend**: Public-facing patient registration website hosted by Domainfactory
+- **React Frontend**: Internal staff administration tool for backend access
+
 ## Implementation Status Summary
 
 | Phase | Status | Timeline | Actual |
@@ -120,9 +124,9 @@ def validate_symptoms(symptoms):
 
 ### Implementation Details
 - **Type:** Static PDF file (pre-created, not generated)
-- **Storage:** `/private` directory
-- **Filename:** `[PDF_FILENAME]` (placeholder - to be provided)
-- **Delivery:** Via backend email after patient import
+- **Storage:** Domainfactory server
+- **Access URL:** `https://www.curavani.com/verify_token.php?download=contract`
+- **Delivery:** Via direct link in email after patient import
 - **Frontend:** Remove PDF generation logic entirely
 
 **✅ ACTUAL IMPLEMENTATION:**
@@ -130,7 +134,7 @@ def validate_symptoms(symptoms):
 - Download functionality implemented in `verify_token.php?download=contract`
 - PDF generation logic removed as planned
 - Success page shows download button for PDF
-- Backend email delivery still pending (Phase 2)
+- Backend email with direct link pending (Phase 2)
 
 ### Files to Remove
 - `generate_contract.php`
@@ -146,28 +150,29 @@ def validate_symptoms(symptoms):
 
 ---
 
-## 3. BACKEND PDF SENDING
+## 3. BACKEND EMAIL SENDING
 
 ### Workflow
 1. Patient completes registration (PHP frontend)
 2. Patient data imported to backend
-3. **Backend immediately sends PDF via email** (not tied to payment)
+3. **Backend sends simple email with direct link to PDF**
 4. Success page shows: "PDF will be sent within 15 minutes"
 
 **✅ FRONTEND READY:** Message implemented: "Sie erhalten in den nächsten 15 Minuten eine E-Mail mit den Vertragsunterlagen."  
 **🔄 BACKEND PENDING:** Email sending logic to be implemented in Phase 2
 
+### Email Template Requirements
+The patient confirmation email should contain:
+- **Direct link to contract:** `https://www.curavani.com/verify_token.php?download=contract`
+- **Payment information:** IBAN and Zahlungsreferenz (8-character token)
+- **Next steps explanation**
+- **Information for urgent cases**
+
 ### Implementation
 - **Location:** Patient import process
 - **Timing:** Immediately after successful import
-- **Method:** Simple email with PDF attachment
-- **Retry logic:** Not needed for Phase 1
-- **Staff notifications:** Not needed for Phase 1
-
-### Communication Service Changes
-- Add PDF attachment capability to email sending
-- No retry mechanism needed initially
-- No staff notification system needed initially
+- **Method:** Simple markdown email template (no PDF attachment)
+- **Template location:** Create new `shared/templates/emails/patient_registration_confirmation.md`
 
 **🔄 STATUS:** Pending Phase 2 implementation
 
@@ -212,6 +217,8 @@ def validate_symptoms(symptoms):
 ### Decision
 - **Remove completely from database**
 - **Remove from all frontends**
+- **Remove from therapeutenanfrage emails**
+- **Remove from platzsuche creation requirements**
 - **No migration for existing data**
 
 **✅ FRONTEND COMPLETE:** No diagnosis field in registration form  
@@ -228,12 +235,42 @@ DROP COLUMN diagnose;
 - Remove from API endpoints
 - Remove from PHP registration form ✅
 - Remove from import logic
+- Remove from therapeutenanfrage email template
+- Remove from platzsuche creation validation
 
 **STATUS:** Frontend ✅ | Backend pending
 
 ---
 
-## 6. PAYMENT & STATUS LOGIC
+## 6. ZAHLUNGSREFERENZ FIELD
+
+### Implementation
+- **New field name:** `zahlungsreferenz`
+- **Type:** String(8)
+- **Source:** First 8 characters of 64-character registration token
+- **Usage:** Payment reference for IBAN transfers
+- **Required:** Yes
+
+### Database Changes
+```sql
+ALTER TABLE patient_service.patienten 
+ADD COLUMN zahlungsreferenz VARCHAR(8) NOT NULL;
+```
+
+### Import Changes
+The patient importer must extract and store:
+```json
+{
+  "registration_token": "5d54d4db"  // First 8 chars of full token
+}
+```
+As `zahlungsreferenz` field in the patient record.
+
+**🔄 STATUS:** Database and import changes pending (Phase 2)
+
+---
+
+## 7. PAYMENT & STATUS LOGIC
 
 ### Remove Completely
 - All voucher/gutschein logic
@@ -261,6 +298,7 @@ When staff sets `zahlung_eingegangen = true` in React frontend:
 ### React Frontend Requirements
 - Add payment confirmation checkbox
 - Display payment status
+- Display Zahlungsreferenz for payment tracking
 - Allow staff to mark payment received
 - Show automatic status changes
 
@@ -268,7 +306,7 @@ When staff sets `zahlung_eingegangen = true` in React frontend:
 
 ---
 
-## 7. PHP FRONTEND CHANGES
+## 8. PHP FRONTEND CHANGES
 
 ### Remove Sections
 1. **PTV11 Section (complete removal):**
@@ -289,7 +327,7 @@ When staff sets `zahlung_eingegangen = true` in React frontend:
 
 ### Success Page (`verify_token.php`)
 **Keep:**
-- Payment instructions (IBAN, reference number) ✅
+- Payment instructions (IBAN, Zahlungsreferenz) ✅
 - Contract download button (serves static PDF) ✅
 - Success message ✅
 
@@ -324,7 +362,41 @@ When staff sets `zahlung_eingegangen = true` in React frontend:
 
 ---
 
-## 8. IMPORT ERROR HANDLING
+## 9. THERAPEUTENANFRAGE EMAIL CHANGES
+
+### Template Updates
+**Location:** `shared/templates/emails/psychotherapie_anfrage.md`
+
+### Required Changes:
+1. **Remove diagnosis field** completely from the template
+2. **Format symptoms** as comma-separated string in the template:
+```markdown
+**Symptome:** {{ patient.symptome|join(', ') }}
+```
+
+### Implementation Note
+- Symptom formatting will be handled in the markdown template using Jinja2 filter
+- No Python code changes needed for formatting
+
+**🔄 STATUS:** To be implemented in Phase 2
+
+---
+
+## 10. PLATZSUCHE CREATION CHANGES
+
+### Validation Updates
+- **Remove:** Diagnosis field requirement
+- **Keep:** Symptoms field requirement (1-3 symptoms from JSONB array)
+
+### Files to Update:
+- `matching_service/api/anfrage.py` - Remove diagnosis validation
+- `matching_service/algorithms/anfrage_creator.py` - Remove diagnosis checks if present
+
+**🔄 STATUS:** To be implemented in Phase 2
+
+---
+
+## 11. IMPORT ERROR HANDLING
 
 ### Current Implementation (Sufficient for Phase 1)
 - **Patient Import Errors:** Send to system notifications
@@ -341,18 +413,20 @@ When staff sets `zahlung_eingegangen = true` in React frontend:
 
 ---
 
-## 9. EXISTING PATIENT MIGRATION
+## 12. EXISTING PATIENT MIGRATION
 
 ### Approach
-- **Manual updates** for small patient count
+- **Set existing symptom fields to NULL/empty** during migration
+- **Remove diagnosis field completely**
+- **Manual updates** for symptom re-entry through React frontend
 - No automated migration script needed
-- Staff updates symptoms through React frontend
 
 ### Process
-1. Export current patient list
-2. Map text symptoms to new symptom list
-3. Update via React admin interface
-4. Verify all patients have valid symptom arrays
+1. Backup existing data
+2. Set all symptome fields to NULL
+3. Remove diagnosis column
+4. Staff manually updates symptoms through React admin interface
+5. Verify all patients have valid symptom arrays
 
 **🔄 STATUS:** To be done after Phase 2 deployment
 
@@ -407,6 +481,10 @@ ALTER TABLE patient_service.patienten DROP COLUMN psychotherapeutische_sprechstu
 ALTER TABLE patient_service.patienten 
 ALTER COLUMN symptome TYPE JSONB USING symptome::JSONB;
 
+-- Add zahlungsreferenz field
+ALTER TABLE patient_service.patienten 
+ADD COLUMN zahlungsreferenz VARCHAR(8) NOT NULL;
+
 -- Add payment field
 ALTER TABLE patient_service.patienten 
 ADD COLUMN zahlung_eingegangen BOOLEAN DEFAULT FALSE;
@@ -422,21 +500,35 @@ ADD COLUMN zahlung_eingegangen BOOLEAN DEFAULT FALSE;
    - Remove diagnosis field
    - Remove PTV11 fields
    - Change symptome to JSONB
+   - Add zahlungsreferenz field
    - Add zahlung_eingegangen field
 
 2. Update import logic:
-   - Handle new symptom format
+   - Handle new symptom format (array)
    - Remove diagnosis handling
-   - Add PDF sending after import
+   - Extract and store zahlungsreferenz from registration_token
+   - Send confirmation email with contract link
 
 3. Update API:
    - Add payment confirmation endpoint
    - Automatic status transition logic
 
+4. Create email template:
+   - New file: `shared/templates/emails/patient_registration_confirmation.md`
+   - Include contract link, payment info, next steps
+
 ### Communication Service
-1. Add PDF attachment capability
-2. Static PDF serving
-3. Simple email sending (no retry logic needed)
+1. No attachment capability needed
+2. Simple markdown email sending
+
+### Matching Service
+1. Update platzsuche creation:
+   - Remove diagnosis requirement
+   - Validate symptoms array (1-3 items)
+
+2. Update therapeutenanfrage email template:
+   - Remove diagnosis field
+   - Format symptoms as comma-separated string
 
 ### Status Transition Logic
 ```python
@@ -492,12 +584,14 @@ Location: `matching_service/algorithms/anfrage_creator.py`
 
 2. **Backend Processing:**
    - [ ] Patient import successful
-   - [ ] PDF sent via email
+   - [ ] Zahlungsreferenz extracted and stored
+   - [ ] Email sent with contract link
    - [ ] Payment confirmation works
    - [ ] Automatic status change
 
 3. **React Frontend:**
    - [ ] Payment marking interface
+   - [ ] Zahlungsreferenz displayed
    - [ ] Status displays correctly
    - [ ] Patient management works
 
@@ -521,13 +615,17 @@ Location: `matching_service/algorithms/anfrage_creator.py`
 - **ADDED:** Contract markdown files in `/contracts/` ✅
 
 ### Backend - Patient Service 🔄 PENDING
-- `patient_service/models/patient.py` - Update model
+- `patient_service/models/patient.py` - Update model (remove diagnosis, add zahlungsreferenz)
 - `patient_service/api/patients.py` - Update endpoints
-- `patient_service/imports/patient_importer.py` - Add PDF sending
+- `patient_service/imports/patient_importer.py` - Add zahlungsreferenz extraction, send email
 
 ### Backend - Communication Service 🔄 PENDING
-- `communication_service/api/emails.py` - Add PDF attachment
-- `communication_service/services/email_service.py` - PDF handling
+- **NEW:** `shared/templates/emails/patient_registration_confirmation.md` - Create template
+
+### Backend - Matching Service 🔄 PENDING
+- `matching_service/api/anfrage.py` - Remove diagnosis requirement
+- `matching_service/algorithms/anfrage_creator.py` - Remove diagnosis checks
+- `shared/templates/emails/psychotherapie_anfrage.md` - Update template
 
 ### Backend - Matching Service 📅 FUTURE
 - **Phase 3:** `matching_service/algorithms/anfrage_creator.py` - Email deduplication
@@ -542,7 +640,7 @@ Location: `matching_service/algorithms/anfrage_creator.py`
 ### Environment Variables
 ```bash
 # PDF Configuration
-PDF_STATIC_FILE="/private/[PDF_FILENAME]"
+PDF_STATIC_URL="https://www.curavani.com/verify_token.php?download=contract"
 PDF_SEND_DELAY_MINUTES=15
 
 # Payment Settings
@@ -570,16 +668,17 @@ BUCKET_NAME="curavani-production-data-transfer"
 ## OPERATIONAL NOTES
 
 ### Manual Processes
-1. **Payment Confirmation:** Staff marks in React frontend
+1. **Payment Confirmation:** Staff marks in React frontend with Zahlungsreferenz verification
 2. **Import Errors:** Staff reviews email notifications
 3. **Existing Patients:** Manual symptom updates
 
 ### Automated Processes
-1. **PDF Sending:** After patient import
+1. **Email Sending:** After patient import (with contract link)
 2. **Status Changes:** On payment confirmation
 3. **Search Initiation:** When startdatum is set
+4. **Zahlungsreferenz:** Automatically extracted from registration token
 
-### Future Enhancements (Not Phase 1)
+### Future Enhancements (Not Phase 1/2)
 - Automated payment detection
 - Import retry mechanism
 - Advanced staff notifications
@@ -602,6 +701,8 @@ BUCKET_NAME="curavani-production-data-transfer"
 ### Phase 2 Complete When: 🔄 PENDING
 - [ ] All backend services updated
 - [ ] Import process handles new format
+- [ ] Zahlungsreferenz extracted and stored
+- [ ] Email sent with contract link
 - [ ] React frontend shows payment status
 - [ ] Automatic workflows functioning
 
@@ -615,7 +716,7 @@ BUCKET_NAME="curavani-production-data-transfer"
 ## RISK MITIGATION
 
 ### Potential Issues & Solutions
-1. **PDF Delivery Failures**
+1. **Email Delivery Failures**
    - Monitor email logs
    - Manual resend option in React
 
@@ -624,13 +725,17 @@ BUCKET_NAME="curavani-production-data-transfer"
    - Clear error messages
 
 3. **Payment Status Confusion**
-   - Clear UI in React frontend
+   - Clear UI in React frontend with Zahlungsreferenz
    - Audit log for changes
 
 4. **Symptom Data Quality**
    - Frontend validation ✅
    - Backend validation 🔄
    - Regular data audits
+
+5. **Zahlungsreferenz Collisions**
+   - Acceptable risk (4.3 billion combinations)
+   - Monitor for duplicates in production
 
 ---
 
