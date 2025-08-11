@@ -8,34 +8,23 @@ to demonstrate the current bug in the import logic.
 """
 import json
 import os
-import sys
 import pytest
 from unittest.mock import Mock, patch, mock_open, MagicMock, call
 from datetime import datetime, date, timedelta
-
-# Mock all the problematic imports BEFORE importing the module under test
-sys.modules['models'] = MagicMock()
-sys.modules['models.therapist'] = MagicMock()
-sys.modules['events'] = MagicMock()
-sys.modules['events.producers'] = MagicMock()
-sys.modules['shared'] = MagicMock()
-sys.modules['shared.utils'] = MagicMock()
-sys.modules['shared.utils.database'] = MagicMock()
-sys.modules['shared.config'] = MagicMock()
-sys.modules['api'] = MagicMock()
-sys.modules['api.therapists'] = MagicMock()
-
-# Create mock classes and enums
 from enum import Enum
 
+
+# Create mock classes and enums for testing
 class MockTherapistStatus(str, Enum):
     aktiv = "aktiv"
     gesperrt = "gesperrt"
     inaktiv = "inaktiv"
 
+
 class MockAnrede(str, Enum):
     Herr = "Herr"
     Frau = "Frau"
+
 
 class MockGeschlecht(str, Enum):
     männlich = "männlich"
@@ -43,54 +32,22 @@ class MockGeschlecht(str, Enum):
     divers = "divers"
     keine_Angabe = "keine_Angabe"
 
+
 class MockTherapieverfahren(str, Enum):
     egal = "egal"
     Verhaltenstherapie = "Verhaltenstherapie"
     tiefenpsychologisch_fundierte_Psychotherapie = "tiefenpsychologisch_fundierte_Psychotherapie"
 
-# Mock Therapist model
-MockTherapist = MagicMock()
-MockTherapist.id = 1
-MockTherapist.status = MockTherapistStatus.aktiv
-sys.modules['models.therapist'].Therapist = MockTherapist
-sys.modules['models.therapist'].TherapistStatus = MockTherapistStatus
-sys.modules['models.therapist'].Anrede = MockAnrede
-sys.modules['models.therapist'].Geschlecht = MockGeschlecht
-sys.modules['models.therapist'].Therapieverfahren = MockTherapieverfahren
-
-# Mock database session
-MockSessionLocal = MagicMock()
-sys.modules['shared.utils.database'].SessionLocal = MockSessionLocal
-
-# Mock config
-mock_config = MagicMock()
-mock_config.get_service_url = MagicMock(return_value="http://test-comm-service")
-sys.modules['shared.config'].get_config = MagicMock(return_value=mock_config)
-
-# Mock event producers
-mock_publish_therapist_created = MagicMock()
-mock_publish_therapist_updated = MagicMock()
-sys.modules['events.producers'].publish_therapist_created = mock_publish_therapist_created
-sys.modules['events.producers'].publish_therapist_updated = mock_publish_therapist_updated
-
-# Mock API validation functions
-sys.modules['api.therapists'].validate_and_get_anrede = MagicMock(side_effect=lambda x: MockAnrede[x])
-sys.modules['api.therapists'].validate_and_get_geschlecht = MagicMock(side_effect=lambda x: MockGeschlecht[x])
-sys.modules['api.therapists'].validate_and_get_therapist_status = MagicMock(side_effect=lambda x: MockTherapistStatus[x])
-sys.modules['api.therapists'].validate_and_get_therapieverfahren = MagicMock(side_effect=lambda x: MockTherapieverfahren[x] if x else None)
-sys.modules['api.therapists'].parse_date_field = MagicMock(side_effect=lambda x, _: datetime.strptime(x, '%Y-%m-%d').date() if x else None)
-sys.modules['api.therapists'].therapist_fields = {}
-sys.modules['api.therapists'].marshal = MagicMock(return_value={})
-
-# Now import the modules under test
-from therapist_service.imports.therapist_importer import TherapistImporter
-from therapist_service.imports.file_monitor import LocalFileMonitor
-from therapist_service.imports.import_status import ImportStatus
-
 
 @pytest.fixture
-def mock_therapist_importer():
+def mock_therapist_importer(mock_all_modules):
     """Create a TherapistImporter instance with mocked dependencies."""
+    from therapist_service.imports.therapist_importer import TherapistImporter
+    from shared.config import get_config
+    
+    mock_config = MagicMock()
+    mock_config.get_service_url = MagicMock(return_value="http://test-comm-service")
+    
     with patch('therapist_service.imports.therapist_importer.get_config') as mock_get_config:
         mock_get_config.return_value = mock_config
         importer = TherapistImporter()
@@ -98,8 +55,11 @@ def mock_therapist_importer():
 
 
 @pytest.fixture
-def mock_file_monitor():
+def mock_file_monitor(mock_all_modules):
     """Create a LocalFileMonitor instance with mocked dependencies."""
+    from therapist_service.imports.file_monitor import LocalFileMonitor
+    from therapist_service.imports.therapist_importer import TherapistImporter
+    
     with patch.dict(os.environ, {
         'THERAPIST_IMPORT_FOLDER_PATH': '/test/import/path',
         'THERAPIST_IMPORT_CHECK_INTERVAL_SECONDS': '86400'  # 24 hours
@@ -149,14 +109,17 @@ class TestStatusPreservation:
     ⚠️ THESE TESTS WILL FAIL - demonstrating the current bug!
     """
     
-    def test_update_preserves_gesperrt_status(self, mock_therapist_importer):
+    def test_update_preserves_gesperrt_status(self, mock_therapist_importer, mock_all_modules):
         """Test that a therapist marked as 'gesperrt' is NOT reset to 'aktiv'.
         
         THIS TEST WILL FAIL - demonstrating the bug!
         """
+        from shared.utils.database import SessionLocal
+        from models.therapist import TherapistStatus
+        
         # Setup database mock
         db_mock = MagicMock()
-        MockSessionLocal.return_value = db_mock
+        SessionLocal.return_value = db_mock
         
         # Create existing therapist with gesperrt status
         existing_therapist = MagicMock()
@@ -201,14 +164,16 @@ class TestStatusPreservation:
         assert existing_therapist.sperrdatum == date.today() - timedelta(days=30), \
             "Sperrdatum should be preserved"
     
-    def test_update_preserves_potenziell_verfuegbar_true(self, mock_therapist_importer):
+    def test_update_preserves_potenziell_verfuegbar_true(self, mock_therapist_importer, mock_all_modules):
         """Test that potenziell_verfuegbar=True is NOT reset to False.
         
         THIS TEST WILL FAIL - demonstrating the bug!
         """
+        from shared.utils.database import SessionLocal
+        
         # Setup database mock
         db_mock = MagicMock()
-        MockSessionLocal.return_value = db_mock
+        SessionLocal.return_value = db_mock
         
         # Create existing therapist marked as potentially available
         existing_therapist = MagicMock()
@@ -246,14 +211,16 @@ class TestStatusPreservation:
         assert existing_therapist.potenziell_verfuegbar_notizen == "Hat Kapazität ab März", \
             "Notes about availability should be preserved"
     
-    def test_update_preserves_ueber_curavani_informiert_true(self, mock_therapist_importer):
+    def test_update_preserves_ueber_curavani_informiert_true(self, mock_therapist_importer, mock_all_modules):
         """Test that ueber_curavani_informiert=True is NOT reset to False.
         
         THIS TEST WILL FAIL - demonstrating the bug!
         """
+        from shared.utils.database import SessionLocal
+        
         # Setup database mock
         db_mock = MagicMock()
-        MockSessionLocal.return_value = db_mock
+        SessionLocal.return_value = db_mock
         
         # Create existing therapist who has been informed about Curavani
         existing_therapist = MagicMock()
@@ -289,14 +256,16 @@ class TestStatusPreservation:
         assert existing_therapist.ueber_curavani_informiert == True, \
             "ueber_curavani_informiert should remain True but was reset to False"
     
-    def test_update_preserves_kassensitz_false(self, mock_therapist_importer):
+    def test_update_preserves_kassensitz_false(self, mock_therapist_importer, mock_all_modules):
         """Test that kassensitz=False is NOT reset to True.
         
         THIS TEST WILL FAIL - demonstrating the bug!
         """
+        from shared.utils.database import SessionLocal
+        
         # Setup database mock
         db_mock = MagicMock()
-        MockSessionLocal.return_value = db_mock
+        SessionLocal.return_value = db_mock
         
         # Create existing therapist without Kassensitz
         existing_therapist = MagicMock()
@@ -331,14 +300,16 @@ class TestStatusPreservation:
         assert existing_therapist.kassensitz == False, \
             "kassensitz should remain False but was reset to True"
     
-    def test_update_preserves_all_manual_fields_together(self, mock_therapist_importer):
+    def test_update_preserves_all_manual_fields_together(self, mock_therapist_importer, mock_all_modules):
         """Test that ALL manual fields are preserved together during update.
         
         THIS TEST WILL FAIL - demonstrating the bug comprehensively!
         """
+        from shared.utils.database import SessionLocal
+        
         # Setup database mock
         db_mock = MagicMock()
-        MockSessionLocal.return_value = db_mock
+        SessionLocal.return_value = db_mock
         
         # Create existing therapist with all manual fields set
         existing_therapist = MagicMock()
@@ -406,11 +377,13 @@ class TestStatusPreservation:
 class TestTherapistImporter:
     """Test the core TherapistImporter functionality."""
     
-    def test_successful_new_therapist_import(self, mock_therapist_importer):
+    def test_successful_new_therapist_import(self, mock_therapist_importer, mock_all_modules):
         """Test successful import of a new therapist."""
+        from shared.utils.database import SessionLocal
+        
         # Setup database mock
         db_mock = MagicMock()
-        MockSessionLocal.return_value = db_mock
+        SessionLocal.return_value = db_mock
         
         # Mock no existing therapist found
         db_mock.query.return_value.filter.return_value.first.return_value = None
@@ -450,11 +423,13 @@ class TestTherapistImporter:
         db_mock.add.assert_called_once()
         db_mock.commit.assert_called_once()
     
-    def test_email_preservation_rule(self, mock_therapist_importer):
+    def test_email_preservation_rule(self, mock_therapist_importer, mock_all_modules):
         """Test that existing email is never overwritten with empty value."""
+        from shared.utils.database import SessionLocal
+        
         # Setup database mock
         db_mock = MagicMock()
-        MockSessionLocal.return_value = db_mock
+        SessionLocal.return_value = db_mock
         
         # Create existing therapist with email
         existing_therapist = MagicMock()
@@ -491,11 +466,13 @@ class TestTherapistImporter:
         assert existing_therapist.email == "important.email@example.com", \
             "Existing email should not be overwritten with empty value"
     
-    def test_deduplication_by_name_and_plz(self, mock_therapist_importer):
+    def test_deduplication_by_name_and_plz(self, mock_therapist_importer, mock_all_modules):
         """Test therapist deduplication by name and PLZ."""
+        from shared.utils.database import SessionLocal
+        
         # Setup database mock
         db_mock = MagicMock()
-        MockSessionLocal.return_value = db_mock
+        SessionLocal.return_value = db_mock
         
         # Create existing therapist
         existing_therapist = MagicMock()
@@ -750,8 +727,10 @@ class TestLocalFileMonitor:
 class TestImportStatusTracking:
     """Test ImportStatus tracking during import operations."""
     
-    def test_import_status_tracks_success(self, mock_therapist_importer):
+    def test_import_status_tracks_success(self, mock_therapist_importer, mock_all_modules):
         """Test that ImportStatus correctly tracks successful imports."""
+        from therapist_service.imports.import_status import ImportStatus
+        
         # Reset ImportStatus
         with patch.object(ImportStatus, '_status', {
             'running': True,
@@ -781,8 +760,10 @@ class TestImportStatusTracking:
             assert status['total_therapists_failed'] == 2
             assert len(status['recent_imports']) == 1
     
-    def test_import_status_daily_reset(self):
+    def test_import_status_daily_reset(self, mock_all_modules):
         """Test that ImportStatus resets daily counters on date change."""
+        from therapist_service.imports.import_status import ImportStatus
+        
         # Set up status with yesterday's date
         yesterday = date.today() - timedelta(days=1)
         
@@ -818,10 +799,12 @@ class TestImportStatusTracking:
 class TestErrorHandling:
     """Test error handling in import process."""
     
-    def test_database_connection_error(self, mock_therapist_importer):
+    def test_database_connection_error(self, mock_therapist_importer, mock_all_modules):
         """Test handling of database connection errors."""
+        from shared.utils.database import SessionLocal
+        
         # Mock database connection failure
-        MockSessionLocal.side_effect = Exception("Database connection failed")
+        SessionLocal.side_effect = Exception("Database connection failed")
         
         import_data = {
             "basic_info": {"first_name": "Test", "last_name": "Test", "salutation": "Herr"},
@@ -836,12 +819,15 @@ class TestErrorHandling:
         assert success == False
         assert "exception" in message.lower() or "error" in message.lower()
     
-    def test_validation_error_handling(self, mock_therapist_importer):
+    def test_validation_error_handling(self, mock_therapist_importer, mock_all_modules):
         """Test handling of validation errors during create and update."""
+        from shared.utils.database import SessionLocal
+        from api.therapists import validate_and_get_anrede
+        
         # Setup database mock
         db_mock = MagicMock()
-        MockSessionLocal.return_value = db_mock
-        MockSessionLocal.side_effect = None  # Reset side effect
+        SessionLocal.return_value = db_mock
+        SessionLocal.side_effect = None  # Reset side effect
         
         # Test 1: Validation error during CREATE - should fail
         # Mock no existing therapist found (forces create path)

@@ -3,64 +3,19 @@
 Tests the PATCH /patients/{id}/last-contact endpoint that will be called by Communication service.
 Following the same mock strategy as test_payment_workflow.py.
 """
-import sys
-import os
 import pytest
-from unittest.mock import Mock, patch, MagicMock, call
+from unittest.mock import Mock, patch, call
 from datetime import date, datetime
-import json
-
-# Add project root to path so we can import patient_service as a package
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-
-# Mock all the dependencies BEFORE importing
-sys.modules['models'] = MagicMock()
-sys.modules['models.patient'] = MagicMock()
-sys.modules['shared'] = MagicMock()
-sys.modules['shared.utils'] = MagicMock()
-sys.modules['shared.utils.database'] = MagicMock()
-sys.modules['shared.config'] = MagicMock()
-sys.modules['shared.api'] = MagicMock()
-sys.modules['shared.api.base_resource'] = MagicMock()
-sys.modules['shared.api.retry_client'] = MagicMock()
-sys.modules['flask'] = MagicMock()
-sys.modules['flask_restful'] = MagicMock()
-sys.modules['sqlalchemy'] = MagicMock()
-sys.modules['sqlalchemy.exc'] = MagicMock()
-sys.modules['sqlalchemy.orm'] = MagicMock()
-sys.modules['requests'] = MagicMock()
-
-# Create mock enums
 from enum import Enum
 
+
+# Create mock enums
 class MockPatientenstatus(str, Enum):
     offen = "offen"
     auf_der_Suche = "auf_der_Suche"
     in_Therapie = "in_Therapie"
     Therapie_abgeschlossen = "Therapie_abgeschlossen"
 
-# Mock the Patient model
-MockPatient = MagicMock()
-sys.modules['models.patient'].Patient = MockPatient
-sys.modules['models.patient'].Patientenstatus = MockPatientenstatus
-
-# Mock database components
-MockSessionLocal = MagicMock()
-sys.modules['shared.utils.database'].SessionLocal = MockSessionLocal
-
-# Mock Flask components
-mock_request = MagicMock()
-mock_reqparse = MagicMock()
-mock_parser = MagicMock()
-mock_reqparse.RequestParser = MagicMock(return_value=mock_parser)
-sys.modules['flask'].request = mock_request
-sys.modules['flask'].jsonify = MagicMock()
-sys.modules['flask_restful'].Resource = MagicMock()
-sys.modules['flask_restful'].reqparse = mock_reqparse
-
-# Mock config
-mock_config = MagicMock()
-sys.modules['shared.config'].get_config = MagicMock(return_value=mock_config)
 
 # Now import the REAL implementation (assuming it exists after Phase 2)
 # For now, we'll define the expected implementation
@@ -94,8 +49,11 @@ class PatientLastContactResource:
 class TestPatientLastContactAPI:
     """Test the new PATCH endpoint for updating patient last contact."""
     
-    def test_update_last_contact_success(self):
+    def test_update_last_contact_success(self, mock_all_modules):
         """Test successful update of patient last contact."""
+        from flask_restful import reqparse
+        from shared.utils.database import SessionLocal
+        
         resource = PatientLastContactResource()
         
         # Mock patient
@@ -111,10 +69,12 @@ class TestPatientLastContactAPI:
         mock_query.filter.return_value = mock_filter
         mock_db.query.return_value = mock_query
         
-        MockSessionLocal.return_value = mock_db
+        SessionLocal.return_value = mock_db
         
         # Mock request parser
+        mock_parser = Mock()
         mock_parser.parse_args.return_value = {'date': '2025-01-15'}
+        reqparse.RequestParser.return_value = mock_parser
         
         # Execute
         result, status_code = resource.patch(123)
@@ -127,8 +87,11 @@ class TestPatientLastContactAPI:
         mock_db.commit.assert_called_once()
         mock_db.close.assert_called_once()
     
-    def test_update_last_contact_patient_not_found(self):
+    def test_update_last_contact_patient_not_found(self, mock_all_modules):
         """Test update when patient doesn't exist."""
+        from flask_restful import reqparse
+        from shared.utils.database import SessionLocal
+        
         resource = PatientLastContactResource()
         
         # Mock database session - no patient found
@@ -139,7 +102,12 @@ class TestPatientLastContactAPI:
         mock_query.filter.return_value = mock_filter
         mock_db.query.return_value = mock_query
         
-        MockSessionLocal.return_value = mock_db
+        SessionLocal.return_value = mock_db
+        
+        # Mock request parser
+        mock_parser = Mock()
+        mock_parser.parse_args.return_value = {'date': None}
+        reqparse.RequestParser.return_value = mock_parser
         
         # Execute
         result, status_code = resource.patch(999)
@@ -150,8 +118,11 @@ class TestPatientLastContactAPI:
         mock_db.commit.assert_not_called()
         mock_db.close.assert_called_once()
     
-    def test_update_last_contact_uses_today_if_no_date(self):
+    def test_update_last_contact_uses_today_if_no_date(self, mock_all_modules):
         """Test that endpoint uses today's date if no date provided."""
+        from flask_restful import reqparse
+        from shared.utils.database import SessionLocal
+        
         resource = PatientLastContactResource()
         
         # Mock patient
@@ -166,10 +137,12 @@ class TestPatientLastContactAPI:
         mock_query.filter.return_value = mock_filter
         mock_db.query.return_value = mock_query
         
-        MockSessionLocal.return_value = mock_db
+        SessionLocal.return_value = mock_db
         
         # Mock request parser - no date provided
+        mock_parser = Mock()
         mock_parser.parse_args.return_value = {'date': None}
+        reqparse.RequestParser.return_value = mock_parser
         
         # Mock date.today()
         with patch('__main__.date') as mock_date:
@@ -183,8 +156,11 @@ class TestPatientLastContactAPI:
         assert status_code == 200
         assert mock_patient.letzter_kontakt == '2025-01-20'
     
-    def test_update_last_contact_idempotent(self):
+    def test_update_last_contact_idempotent(self, mock_all_modules):
         """Test that updating with same date is idempotent."""
+        from flask_restful import reqparse
+        from shared.utils.database import SessionLocal
+        
         resource = PatientLastContactResource()
         
         # Mock patient with existing date
@@ -200,10 +176,12 @@ class TestPatientLastContactAPI:
         mock_query.filter.return_value = mock_filter
         mock_db.query.return_value = mock_query
         
-        MockSessionLocal.return_value = mock_db
+        SessionLocal.return_value = mock_db
         
         # Mock request parser - same date
+        mock_parser = Mock()
         mock_parser.parse_args.return_value = {'date': '2025-01-15'}
+        reqparse.RequestParser.return_value = mock_parser
         
         # Execute twice
         result1, status1 = resource.patch(123)

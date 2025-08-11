@@ -3,58 +3,20 @@
 Tests the new cascade endpoints that handle patient deletion and therapist blocking.
 Following the same mock strategy as test_payment_workflow.py.
 """
-import sys
-import os
 import pytest
 from unittest.mock import Mock, patch, MagicMock, call
 from datetime import date
 import json
-
-# Add project root to path so we can import matching_service as a package
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-
-# Mock all the dependencies BEFORE importing
-sys.modules['models'] = MagicMock()
-sys.modules['models.platzsuche'] = MagicMock()
-sys.modules['models.therapeutenanfrage'] = MagicMock()
-sys.modules['shared'] = MagicMock()
-sys.modules['shared.utils'] = MagicMock()
-sys.modules['shared.utils.database'] = MagicMock()
-sys.modules['shared.config'] = MagicMock()
-sys.modules['shared.api'] = MagicMock()
-sys.modules['shared.api.base_resource'] = MagicMock()
-sys.modules['flask'] = MagicMock()
-sys.modules['flask_restful'] = MagicMock()
-sys.modules['sqlalchemy'] = MagicMock()
-sys.modules['sqlalchemy.exc'] = MagicMock()
-sys.modules['sqlalchemy.orm'] = MagicMock()
-
-# Create mock enums
 from enum import Enum
 
+
+# Create mock enum for testing
 class MockSuchStatus(str, Enum):
     aktiv = "aktiv"
     pausiert = "pausiert"
     abgebrochen = "abgebrochen"
     erfolgreich = "erfolgreich"
 
-# Mock the models
-MockPlatzsuche = MagicMock()
-MockTherapeutenanfrage = MagicMock()
-sys.modules['models.platzsuche'].Platzsuche = MockPlatzsuche
-sys.modules['models.platzsuche'].SuchStatus = MockSuchStatus
-sys.modules['models.therapeutenanfrage'].Therapeutenanfrage = MockTherapeutenanfrage
-
-# Mock database components
-MockSessionLocal = MagicMock()
-sys.modules['shared.utils.database'].SessionLocal = MockSessionLocal
-
-# Mock Flask components
-mock_reqparse = MagicMock()
-mock_parser = MagicMock()
-mock_reqparse.RequestParser = MagicMock(return_value=mock_parser)
-sys.modules['flask_restful'].Resource = MagicMock()
-sys.modules['flask_restful'].reqparse = mock_reqparse
 
 # Expected implementations after Phase 2
 class PatientDeletedCascadeResource:
@@ -63,7 +25,8 @@ class PatientDeletedCascadeResource:
     def post(self):
         from flask_restful import reqparse
         from shared.utils.database import SessionLocal
-        from models.platzsuche import Platzsuche, SuchStatus
+        from models.platzsuche import Platzsuche
+        from models.platzsuche import SuchStatus
         
         parser = reqparse.RequestParser()
         parser.add_argument('patient_id', type=int, required=True)
@@ -155,6 +118,7 @@ class TestMatchingCascadeEndpoints:
         resource = PatientDeletedCascadeResource()
         
         # Mock request parser
+        mock_parser = Mock()
         mock_parser.parse_args.return_value = {'patient_id': 123}
         
         # Mock active searches
@@ -176,10 +140,13 @@ class TestMatchingCascadeEndpoints:
         mock_query.filter.return_value = mock_filter
         mock_db.query.return_value = mock_query
         
-        MockSessionLocal.return_value = mock_db
-        
-        # Execute
-        result, status_code = resource.post()
+        with patch('flask_restful.reqparse.RequestParser') as mock_reqparse_class:
+            mock_reqparse_class.return_value = mock_parser
+            with patch('shared.utils.database.SessionLocal') as mock_session_local:
+                mock_session_local.return_value = mock_db
+                with patch('models.platzsuche.SuchStatus', MockSuchStatus):
+                    # Execute
+                    result, status_code = resource.post()
         
         # Verify searches were cancelled
         assert mock_search1.status == MockSuchStatus.abgebrochen
@@ -199,6 +166,7 @@ class TestMatchingCascadeEndpoints:
         resource = PatientDeletedCascadeResource()
         
         # Mock request parser
+        mock_parser = Mock()
         mock_parser.parse_args.return_value = {'patient_id': 123}
         
         # Mock no active searches
@@ -209,10 +177,13 @@ class TestMatchingCascadeEndpoints:
         mock_query.filter.return_value = mock_filter
         mock_db.query.return_value = mock_query
         
-        MockSessionLocal.return_value = mock_db
-        
-        # Execute
-        result, status_code = resource.post()
+        with patch('flask_restful.reqparse.RequestParser') as mock_reqparse_class:
+            mock_reqparse_class.return_value = mock_parser
+            with patch('shared.utils.database.SessionLocal') as mock_session_local:
+                mock_session_local.return_value = mock_db
+                with patch('models.platzsuche.SuchStatus', MockSuchStatus):
+                    # Execute
+                    result, status_code = resource.post()
         
         # Verify response
         assert status_code == 200
@@ -224,6 +195,7 @@ class TestMatchingCascadeEndpoints:
         resource = TherapistBlockedCascadeResource()
         
         # Mock request parser
+        mock_parser = Mock()
         mock_parser.parse_args.return_value = {
             'therapist_id': 456,
             'reason': 'License suspended'
@@ -248,10 +220,12 @@ class TestMatchingCascadeEndpoints:
         mock_query.filter.return_value = mock_filter
         mock_db.query.return_value = mock_query
         
-        MockSessionLocal.return_value = mock_db
-        
-        # Execute
-        result, status_code = resource.post()
+        with patch('flask_restful.reqparse.RequestParser') as mock_reqparse_class:
+            mock_reqparse_class.return_value = mock_parser
+            with patch('shared.utils.database.SessionLocal') as mock_session_local:
+                mock_session_local.return_value = mock_db
+                # Execute
+                result, status_code = resource.post()
         
         # Verify anfragen were updated
         assert "Cancelled: License suspended" in mock_anfrage1.notizen
@@ -269,10 +243,13 @@ class TestMatchingCascadeEndpoints:
         resource = TherapistUnblockedCascadeResource()
         
         # Mock request parser
+        mock_parser = Mock()
         mock_parser.parse_args.return_value = {'therapist_id': 456}
         
-        # Execute
-        result, status_code = resource.post()
+        with patch('flask_restful.reqparse.RequestParser') as mock_reqparse_class:
+            mock_reqparse_class.return_value = mock_parser
+            # Execute
+            result, status_code = resource.post()
         
         # Verify response
         assert status_code == 200
@@ -283,6 +260,7 @@ class TestMatchingCascadeEndpoints:
         resource = PatientDeletedCascadeResource()
         
         # Mock request parser
+        mock_parser = Mock()
         mock_parser.parse_args.return_value = {'patient_id': 123}
         
         # Mock database session that throws error on commit
@@ -294,10 +272,13 @@ class TestMatchingCascadeEndpoints:
         mock_db.query.return_value = mock_query
         mock_db.commit.side_effect = Exception("Database error")
         
-        MockSessionLocal.return_value = mock_db
-        
-        # Execute
-        result, status_code = resource.post()
+        with patch('flask_restful.reqparse.RequestParser') as mock_reqparse_class:
+            mock_reqparse_class.return_value = mock_parser
+            with patch('shared.utils.database.SessionLocal') as mock_session_local:
+                mock_session_local.return_value = mock_db
+                with patch('models.platzsuche.SuchStatus', MockSuchStatus):
+                    # Execute
+                    result, status_code = resource.post()
         
         # Verify rollback was called
         mock_db.rollback.assert_called_once()
@@ -311,6 +292,7 @@ class TestMatchingCascadeEndpoints:
         resource = PatientDeletedCascadeResource()
         
         # Mock request parser
+        mock_parser = Mock()
         mock_parser.parse_args.return_value = {'patient_id': 123}
         
         # Mock database session
@@ -321,10 +303,13 @@ class TestMatchingCascadeEndpoints:
         mock_query.filter.return_value = mock_filter
         mock_db.query.return_value = mock_query
         
-        MockSessionLocal.return_value = mock_db
-        
-        # Execute
-        resource.post()
+        with patch('flask_restful.reqparse.RequestParser') as mock_reqparse_class:
+            mock_reqparse_class.return_value = mock_parser
+            with patch('shared.utils.database.SessionLocal') as mock_session_local:
+                mock_session_local.return_value = mock_db
+                with patch('models.platzsuche.SuchStatus', MockSuchStatus):
+                    # Execute
+                    resource.post()
         
         # Verify database was closed
         mock_db.close.assert_called_once()
@@ -334,16 +319,19 @@ class TestMatchingCascadeEndpoints:
         resource = TherapistBlockedCascadeResource()
         
         # Mock request parser
+        mock_parser = Mock()
         mock_parser.parse_args.return_value = {'therapist_id': 456}
         
         # Mock database session that throws error
         mock_db = Mock()
         mock_db.query.side_effect = Exception("Query error")
         
-        MockSessionLocal.return_value = mock_db
-        
-        # Execute
-        resource.post()
+        with patch('flask_restful.reqparse.RequestParser') as mock_reqparse_class:
+            mock_reqparse_class.return_value = mock_parser
+            with patch('shared.utils.database.SessionLocal') as mock_session_local:
+                mock_session_local.return_value = mock_db
+                # Execute
+                resource.post()
         
         # Verify database was closed even on error
         mock_db.close.assert_called_once()

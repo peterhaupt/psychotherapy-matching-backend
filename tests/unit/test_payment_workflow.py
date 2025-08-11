@@ -1,122 +1,13 @@
 """Unit tests for payment confirmation workflow in Phase 2.
 
 Tests cover payment tracking, zahlungsreferenz extraction, and automatic status transitions.
-Uses the same strategy as test_gcs_file_import.py - mock dependencies then import real code.
-Fixed: MockPatientenstatus enum to match actual implementation (capital 'S' in auf_der_Suche)
 """
-import sys
-import os
 import pytest
 from unittest.mock import Mock, patch, MagicMock, call
 from datetime import date, datetime
 import json
 
-# Add project root to path so we can import patient_service as a package
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-
-# Mock all the dependencies BEFORE importing - same strategy as test_gcs_file_import.py
-# The key is these modules import as "from models.patient" not "from patient_service.models.patient"
-sys.modules['models'] = MagicMock()
-sys.modules['models.patient'] = MagicMock()
-sys.modules['events'] = MagicMock()
-sys.modules['events.producers'] = MagicMock()
-sys.modules['events.consumers'] = MagicMock()
-sys.modules['shared'] = MagicMock()
-sys.modules['shared.utils'] = MagicMock()
-sys.modules['shared.utils.database'] = MagicMock()
-sys.modules['shared.config'] = MagicMock()
-sys.modules['shared.api'] = MagicMock()
-sys.modules['shared.api.base_resource'] = MagicMock()
-sys.modules['shared.kafka'] = MagicMock()
-sys.modules['shared.kafka.robust_producer'] = MagicMock()
-sys.modules['imports'] = MagicMock()
-sys.modules['flask'] = MagicMock()
-sys.modules['flask_restful'] = MagicMock()
-sys.modules['sqlalchemy'] = MagicMock()
-sys.modules['sqlalchemy.exc'] = MagicMock()
-sys.modules['sqlalchemy.orm'] = MagicMock()
-sys.modules['requests'] = MagicMock()
-sys.modules['jinja2'] = MagicMock()
-
-# Create mock enums - must match the real ones
-from enum import Enum
-
-class MockPatientenstatus(str, Enum):
-    offen = "offen"
-    auf_der_Suche = "auf_der_Suche"  # Fixed: capital 'S' in attribute name
-    in_Therapie = "in_Therapie"
-    Therapie_abgeschlossen = "Therapie_abgeschlossen"
-    Suche_abgebrochen = "Suche_abgebrochen"
-    Therapie_abgebrochen = "Therapie_abgebrochen"
-
-class MockAnrede(str, Enum):
-    Herr = "Herr"
-    Frau = "Frau"
-
-class MockGeschlecht(str, Enum):
-    männlich = "männlich"
-    weiblich = "weiblich"
-    divers = "divers"
-    keine_Angabe = "keine_Angabe"
-
-# Mock the Patient model and enums
-MockPatient = MagicMock()
-sys.modules['models.patient'].Patient = MockPatient
-sys.modules['models.patient'].Patientenstatus = MockPatientenstatus
-sys.modules['models.patient'].Anrede = MockAnrede
-sys.modules['models.patient'].Geschlecht = MockGeschlecht
-sys.modules['models.patient'].Therapeutgeschlechtspraeferenz = MagicMock()
-sys.modules['models.patient'].Therapieverfahren = MagicMock()
-
-# Mock database components
-MockSessionLocal = MagicMock()
-sys.modules['shared.utils.database'].SessionLocal = MockSessionLocal
-sys.modules['shared.utils.database'].Base = MagicMock()
-
-# Mock Flask components
-mock_request = MagicMock()
-sys.modules['flask'].request = mock_request
-sys.modules['flask'].jsonify = MagicMock()
-sys.modules['flask_restful'].Resource = MagicMock()
-sys.modules['flask_restful'].reqparse = MagicMock()
-sys.modules['flask_restful'].fields = MagicMock()
-sys.modules['flask_restful'].marshal = MagicMock(side_effect=lambda obj, fields: {})
-sys.modules['flask_restful'].marshal_with = MagicMock(side_effect=lambda fields: lambda f: f)
-
-# Mock PaginatedListResource base class
-sys.modules['shared.api.base_resource'].PaginatedListResource = MagicMock()
-
-# Mock config
-mock_config = MagicMock()
-mock_config.get_service_url = MagicMock(return_value="http://test-service")
-sys.modules['shared.config'].get_config = MagicMock(return_value=mock_config)
-
-# Mock ImportStatus
-sys.modules['imports'].ImportStatus = MagicMock()
-
-# Mock event producers
-mock_publish_patient_created = MagicMock()
-mock_publish_patient_updated = MagicMock()
-mock_publish_patient_status_changed = MagicMock()
-sys.modules['events.producers'].publish_patient_created = mock_publish_patient_created
-sys.modules['events.producers'].publish_patient_updated = mock_publish_patient_updated
-sys.modules['events.producers'].publish_patient_status_changed = mock_publish_patient_status_changed
-sys.modules['events.producers'].publish_patient_deleted = MagicMock()
-sys.modules['events.producers'].publish_patient_excluded_therapist = MagicMock()
-
-# Mock Jinja2
-mock_env = MagicMock()
-mock_template = MagicMock()
-mock_template.render = MagicMock(return_value="Email content")
-mock_env.get_template = MagicMock(return_value=mock_template)
-sys.modules['jinja2'].Environment = MagicMock(return_value=mock_env)
-sys.modules['jinja2'].FileSystemLoader = MagicMock()
-
-# Now import the REAL implementation - just like test_gcs_file_import.py does
-from patient_service.api.patients import check_and_apply_payment_status_transition, validate_symptoms, patient_fields
-from patient_service.imports.patient_importer import PatientImporter
-
-# The approved symptom list from implementation
+# The approved symptom list from implementation - kept as test data
 VALID_SYMPTOMS = [
     "Depression / Niedergeschlagenheit",
     "Ängste / Panikattacken",
@@ -154,8 +45,10 @@ VALID_SYMPTOMS = [
 class TestZahlungsreferenzExtraction:
     """Test extraction of zahlungsreferenz from registration token."""
     
-    def test_extract_zahlungsreferenz_from_token_in_import(self):
+    def test_extract_zahlungsreferenz_from_token_in_import(self, mock_patient_service_modules):
         """Test extracting first 8 characters from token during import."""
+        from patient_service.imports.patient_importer import PatientImporter
+        
         importer = PatientImporter()
         
         # Test data with full token
@@ -187,14 +80,17 @@ class TestZahlungsreferenzExtraction:
 class TestPaymentConfirmation:
     """Test payment confirmation and automatic status changes."""
     
-    def test_payment_confirmation_triggers_status_change(self):
+    def test_payment_confirmation_triggers_status_change(self, mock_patient_service_modules):
         """Test that confirming payment changes status from offen → auf_der_Suche."""
+        from patient_service.api.patients import check_and_apply_payment_status_transition
+        from models.patient import Patientenstatus
+        
         # Create a mock patient
         patient = Mock()
         patient.id = 1
         patient.vertraege_unterschrieben = True
         patient.zahlung_eingegangen = True  # Payment just confirmed
-        patient.status = MockPatientenstatus.offen
+        patient.status = Patientenstatus.offen
         patient.startdatum = None
         
         # Mock database session
@@ -217,20 +113,23 @@ class TestPaymentConfirmation:
                     )
         
         # Verify the changes
-        assert patient.status == MockPatientenstatus.auf_der_Suche
+        assert patient.status == Patientenstatus.auf_der_Suche
         assert patient.startdatum == date(2025, 1, 15)
         
         # Verify event was published
         mock_publish.assert_called_once()
         mock_db.commit.assert_called()
     
-    def test_payment_without_contracts_no_status_change(self):
+    def test_payment_without_contracts_no_status_change(self, mock_patient_service_modules):
         """Test that payment without signed contracts doesn't change status."""
+        from patient_service.api.patients import check_and_apply_payment_status_transition
+        from models.patient import Patientenstatus
+        
         patient = Mock()
         patient.id = 1
         patient.vertraege_unterschrieben = False  # Contracts NOT signed
         patient.zahlung_eingegangen = True
-        patient.status = MockPatientenstatus.offen
+        patient.status = Patientenstatus.offen
         patient.startdatum = None
         
         mock_db = Mock()
@@ -242,18 +141,21 @@ class TestPaymentConfirmation:
         )
         
         # Status should remain unchanged
-        assert patient.status == MockPatientenstatus.offen
+        assert patient.status == Patientenstatus.offen
         assert patient.startdatum is None
         
         # No event should be published
         mock_db.commit.assert_not_called()
     
-    def test_payment_already_confirmed_idempotent(self):
+    def test_payment_already_confirmed_idempotent(self, mock_patient_service_modules):
         """Test that re-confirming payment doesn't change dates or status."""
+        from patient_service.api.patients import check_and_apply_payment_status_transition
+        from models.patient import Patientenstatus
+        
         patient = Mock()
         patient.id = 1
         patient.zahlung_eingegangen = True  # Already paid
-        patient.status = MockPatientenstatus.auf_der_Suche
+        patient.status = Patientenstatus.auf_der_Suche
         patient.startdatum = date(2025, 1, 10)
         
         mock_db = Mock()
@@ -266,20 +168,23 @@ class TestPaymentConfirmation:
         )
         
         # Nothing should change
-        assert patient.status == MockPatientenstatus.auf_der_Suche
+        assert patient.status == Patientenstatus.auf_der_Suche
         assert patient.startdatum == date(2025, 1, 10)
         
         # No database commit needed
         mock_db.commit.assert_not_called()
     
-    def test_startdatum_not_overwritten(self):
+    def test_startdatum_not_overwritten(self, mock_patient_service_modules):
         """Test that if startdatum already set, it's not overwritten."""
+        from patient_service.api.patients import check_and_apply_payment_status_transition
+        from models.patient import Patientenstatus
+        
         original_date = date(2025, 1, 5)
         patient = Mock()
         patient.id = 1
         patient.vertraege_unterschrieben = True
         patient.zahlung_eingegangen = True
-        patient.status = MockPatientenstatus.offen
+        patient.status = Patientenstatus.offen
         patient.startdatum = original_date  # Already has a date
         
         mock_db = Mock()
@@ -302,8 +207,10 @@ class TestPaymentConfirmation:
 class TestSymptomValidation:
     """Test symptom validation with new JSONB array format."""
     
-    def test_validate_symptoms_function(self):
+    def test_validate_symptoms_function(self, mock_patient_service_modules):
         """Test the validate_symptoms function."""
+        from patient_service.api.patients import validate_symptoms
+        
         # Valid case: 1-3 symptoms from the list
         valid_symptoms = ["Depression / Niedergeschlagenheit", "Ängste / Panikattacken"]
         try:
@@ -332,8 +239,10 @@ class TestSymptomValidation:
         with pytest.raises(ValueError, match="must be provided as an array"):
             validate_symptoms("Depression / Niedergeschlagenheit")
     
-    def test_all_valid_symptoms_accepted(self):
+    def test_all_valid_symptoms_accepted(self, mock_patient_service_modules):
         """Test that all 30 approved symptoms are accepted."""
+        from patient_service.api.patients import validate_symptoms
+        
         for symptom in VALID_SYMPTOMS:
             try:
                 validate_symptoms([symptom])
@@ -344,8 +253,10 @@ class TestSymptomValidation:
 class TestPatientImporter:
     """Test patient import functionality with payment fields."""
     
-    def test_import_extracts_zahlungsreferenz(self):
+    def test_import_extracts_zahlungsreferenz(self, mock_patient_service_modules):
         """Test that import extracts zahlungsreferenz from registration token."""
+        from patient_service.imports.patient_importer import PatientImporter
+        
         importer = PatientImporter()
         
         test_data = {
@@ -370,8 +281,10 @@ class TestPatientImporter:
         assert call_args['zahlungsreferenz'] == 'a7f3e9b2'
         assert call_args['zahlung_eingegangen'] == False  # Default for new imports
     
-    def test_import_sends_confirmation_email(self):
+    def test_import_sends_confirmation_email(self, mock_patient_service_modules):
         """Test that successful import sends confirmation email."""
+        from patient_service.imports.patient_importer import PatientImporter
+        
         importer = PatientImporter()
         
         test_data = {

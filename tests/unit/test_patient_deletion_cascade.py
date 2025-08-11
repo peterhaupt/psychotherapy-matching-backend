@@ -3,64 +3,10 @@
 Tests that deleting a patient calls the Matching service to cancel active searches.
 Following the same mock strategy as test_payment_workflow.py.
 """
-import sys
-import os
 import pytest
-from unittest.mock import Mock, patch, MagicMock, call
+from unittest.mock import Mock, patch, call
 from datetime import date
-import json
 
-# Add project root to path so we can import patient_service as a package
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-
-# Mock all the dependencies BEFORE importing
-sys.modules['models'] = MagicMock()
-sys.modules['models.patient'] = MagicMock()
-sys.modules['shared'] = MagicMock()
-sys.modules['shared.utils'] = MagicMock()
-sys.modules['shared.utils.database'] = MagicMock()
-sys.modules['shared.config'] = MagicMock()
-sys.modules['shared.api'] = MagicMock()
-sys.modules['shared.api.base_resource'] = MagicMock()
-sys.modules['shared.api.retry_client'] = MagicMock()
-sys.modules['flask'] = MagicMock()
-sys.modules['flask_restful'] = MagicMock()
-sys.modules['sqlalchemy'] = MagicMock()
-sys.modules['sqlalchemy.exc'] = MagicMock()
-sys.modules['sqlalchemy.orm'] = MagicMock()
-sys.modules['requests'] = MagicMock()
-
-# Mock the Patient model
-MockPatient = MagicMock()
-sys.modules['models.patient'].Patient = MockPatient
-
-# Mock database components
-MockSessionLocal = MagicMock()
-sys.modules['shared.utils.database'].SessionLocal = MockSessionLocal
-
-# Mock Flask components
-sys.modules['flask_restful'].Resource = MagicMock()
-
-# Mock config
-mock_config = MagicMock()
-mock_config.get_service_url = MagicMock(return_value="http://matching-service")
-sys.modules['shared.config'].get_config = MagicMock(return_value=mock_config)
-
-# Mock RetryAPIClient
-class MockRetryAPIClient:
-    MAX_RETRIES = 3
-    RETRY_DELAY = 1
-    
-    @classmethod
-    def call_with_retry(cls, method, url, json=None, timeout=10):
-        # This will be mocked in tests
-        pass
-
-sys.modules['shared.api.retry_client'].RetryAPIClient = MockRetryAPIClient
-
-# Mock requests module for the implementation
-mock_requests = MagicMock()
-sys.modules['requests'] = mock_requests
 
 # Expected implementation after Phase 2
 class PatientResource:
@@ -118,8 +64,11 @@ class PatientResource:
 class TestPatientDeletionCascade:
     """Test patient deletion with cascade to Matching service."""
     
-    def test_delete_patient_calls_matching_api(self):
+    def test_delete_patient_calls_matching_api(self, mock_all_modules):
         """Test that deleting patient calls Matching service cascade endpoint."""
+        from shared.utils.database import SessionLocal
+        from shared.api.retry_client import RetryAPIClient
+        
         resource = PatientResource()
         
         # Mock patient
@@ -134,14 +83,14 @@ class TestPatientDeletionCascade:
         mock_query.filter.return_value = mock_filter
         mock_db.query.return_value = mock_query
         
-        MockSessionLocal.return_value = mock_db
+        SessionLocal.return_value = mock_db
         
         # Mock successful API response
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.text = '{"cancelled_searches": 2}'
         
-        with patch.object(MockRetryAPIClient, 'call_with_retry', return_value=mock_response) as mock_call:
+        with patch.object(RetryAPIClient, 'call_with_retry', return_value=mock_response) as mock_call:
             # Execute
             result, status_code = resource.delete(123)
         
@@ -160,8 +109,11 @@ class TestPatientDeletionCascade:
         assert status_code == 200
         assert result['message'] == "Patient deleted successfully"
     
-    def test_delete_patient_rollback_on_matching_failure(self):
+    def test_delete_patient_rollback_on_matching_failure(self, mock_all_modules):
         """Test that patient deletion is rolled back if Matching service fails."""
+        from shared.utils.database import SessionLocal
+        from shared.api.retry_client import RetryAPIClient
+        
         resource = PatientResource()
         
         # Mock patient
@@ -176,14 +128,14 @@ class TestPatientDeletionCascade:
         mock_query.filter.return_value = mock_filter
         mock_db.query.return_value = mock_query
         
-        MockSessionLocal.return_value = mock_db
+        SessionLocal.return_value = mock_db
         
         # Mock failed API response
         mock_response = Mock()
         mock_response.status_code = 500
         mock_response.text = 'Internal server error'
         
-        with patch.object(MockRetryAPIClient, 'call_with_retry', return_value=mock_response):
+        with patch.object(RetryAPIClient, 'call_with_retry', return_value=mock_response):
             # Execute
             result, status_code = resource.delete(123)
         
@@ -195,8 +147,12 @@ class TestPatientDeletionCascade:
         assert status_code == 500
         assert "Cannot delete patient: Matching service error" in result['message']
     
-    def test_delete_patient_retries_on_network_error(self):
+    def test_delete_patient_retries_on_network_error(self, mock_all_modules):
         """Test that deletion retries on network errors."""
+        from shared.utils.database import SessionLocal
+        from shared.api.retry_client import RetryAPIClient
+        import requests
+        
         resource = PatientResource()
         
         # Mock patient
@@ -211,12 +167,12 @@ class TestPatientDeletionCascade:
         mock_query.filter.return_value = mock_filter
         mock_db.query.return_value = mock_query
         
-        MockSessionLocal.return_value = mock_db
+        SessionLocal.return_value = mock_db
         
         # Mock network error
-        mock_requests.RequestException = Exception
+        requests.RequestException = Exception
         
-        with patch.object(MockRetryAPIClient, 'call_with_retry', 
+        with patch.object(RetryAPIClient, 'call_with_retry', 
                          side_effect=Exception("Connection timeout")):
             # Execute
             result, status_code = resource.delete(123)
@@ -229,8 +185,11 @@ class TestPatientDeletionCascade:
         assert status_code == 503
         assert "Matching service unavailable" in result['message']
     
-    def test_delete_nonexistent_patient(self):
+    def test_delete_nonexistent_patient(self, mock_all_modules):
         """Test deleting a patient that doesn't exist."""
+        from shared.utils.database import SessionLocal
+        from shared.api.retry_client import RetryAPIClient
+        
         resource = PatientResource()
         
         # Mock database session - no patient found
@@ -241,7 +200,7 @@ class TestPatientDeletionCascade:
         mock_query.filter.return_value = mock_filter
         mock_db.query.return_value = mock_query
         
-        MockSessionLocal.return_value = mock_db
+        SessionLocal.return_value = mock_db
         
         # Execute
         result, status_code = resource.delete(999)
@@ -251,7 +210,7 @@ class TestPatientDeletionCascade:
         assert result['message'] == "Patient not found"
         
         # Verify no API call was made
-        with patch.object(MockRetryAPIClient, 'call_with_retry') as mock_call:
+        with patch.object(RetryAPIClient, 'call_with_retry') as mock_call:
             mock_call.assert_not_called()
 
 

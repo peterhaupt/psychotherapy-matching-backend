@@ -6,29 +6,9 @@ Tests that will only PASS after Phase 2 are marked with [PHASE2].
 """
 import json
 import os
-import sys
 import pytest
 from unittest.mock import Mock, patch, mock_open, MagicMock, call
 from datetime import datetime, date
-
-# Mock all the problematic imports BEFORE importing the module under test
-# This prevents import errors when running tests from project root
-sys.modules['models'] = MagicMock()
-sys.modules['models.patient'] = MagicMock()
-sys.modules['events'] = MagicMock()
-sys.modules['events.producers'] = MagicMock()
-
-# Create mock Patient class for the imports
-MockPatient = MagicMock()
-sys.modules['models.patient'].Patient = MockPatient
-
-# Create mock functions for events
-mock_publish_patient_created = MagicMock()
-sys.modules['events.producers'].publish_patient_created = mock_publish_patient_created
-
-# Now we can safely import our modules under test
-from patient_service.imports.gcs_monitor import GCSMonitor
-from patient_service.imports.import_status import ImportStatus
 
 
 # Phase 2: Approved symptom list for validation
@@ -87,6 +67,7 @@ def mock_gcs_monitor():
             with patch('os.path.exists', return_value=True):
                 # Mock directory creation
                 with patch('os.makedirs'):
+                    from patient_service.imports.gcs_monitor import GCSMonitor
                     monitor = GCSMonitor()
                     
                     # Setup mock clients
@@ -104,6 +85,8 @@ class TestProcessFile:
     
     def test_successful_import_file_stays_in_base_path_with_email(self, mock_gcs_monitor):
         """[PHASE2] Test successful import - file stays in base path, email sent, GCS deleted."""
+        from patient_service.imports.import_status import ImportStatus
+        
         file_name = "test_patient.json"
         local_path = os.path.join(mock_gcs_monitor.local_base_path, file_name)
         
@@ -155,6 +138,8 @@ class TestProcessFile:
     
     def test_database_error_file_moved_to_failed(self, mock_gcs_monitor):
         """[EXISTING] Test database error during import - file should be moved to failed/ folder."""
+        from patient_service.imports.import_status import ImportStatus
+        
         file_name = "test_patient.json"
         local_path = os.path.join(mock_gcs_monitor.local_base_path, file_name)
         failed_path = os.path.join(mock_gcs_monitor.local_base_path, 'failed', file_name)
@@ -200,6 +185,8 @@ class TestProcessFile:
     
     def test_symptom_validation_error_file_moved_to_failed(self, mock_gcs_monitor):
         """[PHASE2] Test symptom validation error - file should be moved to failed/ folder."""
+        from patient_service.imports.import_status import ImportStatus
+        
         file_name = "test_patient.json"
         local_path = os.path.join(mock_gcs_monitor.local_base_path, file_name)
         failed_path = os.path.join(mock_gcs_monitor.local_base_path, 'failed', file_name)
@@ -237,6 +224,8 @@ class TestProcessFile:
     
     def test_too_many_symptoms_validation_error(self, mock_gcs_monitor):
         """[PHASE2] Test too many symptoms (>3) - file should be moved to failed/ folder."""
+        from patient_service.imports.import_status import ImportStatus
+        
         file_name = "test_patient.json"
         local_path = os.path.join(mock_gcs_monitor.local_base_path, file_name)
         failed_path = os.path.join(mock_gcs_monitor.local_base_path, 'failed', file_name)
@@ -271,6 +260,8 @@ class TestProcessFile:
     
     def test_missing_registration_token_error(self, mock_gcs_monitor):
         """[PHASE2] Test missing registration_token - file should be moved to failed/ folder."""
+        from patient_service.imports.import_status import ImportStatus
+        
         file_name = "test_patient.json"
         local_path = os.path.join(mock_gcs_monitor.local_base_path, file_name)
         failed_path = os.path.join(mock_gcs_monitor.local_base_path, 'failed', file_name)
@@ -300,6 +291,8 @@ class TestProcessFile:
     
     def test_legacy_symptom_text_format_rejected(self, mock_gcs_monitor):
         """[PHASE2] Test legacy text symptom format is rejected."""
+        from patient_service.imports.import_status import ImportStatus
+        
         file_name = "legacy_patient.json"
         local_path = os.path.join(mock_gcs_monitor.local_base_path, file_name)
         failed_path = os.path.join(mock_gcs_monitor.local_base_path, 'failed', file_name)
@@ -329,6 +322,8 @@ class TestProcessFile:
     
     def test_import_without_diagnosis_field_succeeds(self, mock_gcs_monitor):
         """[PHASE2] Test that import succeeds without diagnosis field."""
+        from patient_service.imports.import_status import ImportStatus
+        
         file_name = "no_diagnosis.json"
         local_path = os.path.join(mock_gcs_monitor.local_base_path, file_name)
         
@@ -356,6 +351,8 @@ class TestProcessFile:
     
     def test_ptv11_fields_ignored_if_present(self, mock_gcs_monitor):
         """[PHASE2] Test that PTV11 fields are ignored if present in import."""
+        from patient_service.imports.import_status import ImportStatus
+        
         file_name = "with_ptv11.json"
         local_path = os.path.join(mock_gcs_monitor.local_base_path, file_name)
         
@@ -383,6 +380,8 @@ class TestProcessFile:
     
     def test_download_failure_no_file_no_gcs_deletion(self, mock_gcs_monitor):
         """[EXISTING] Test download failure - no local file created, GCS file NOT deleted."""
+        from patient_service.imports.import_status import ImportStatus
+        
         file_name = "test_patient.json"
         local_path = os.path.join(mock_gcs_monitor.local_base_path, file_name)
         
@@ -409,6 +408,8 @@ class TestProcessFile:
     
     def test_move_to_failed_error_file_preserved(self, mock_gcs_monitor):
         """[EXISTING] Test when move to failed/ fails - file should still be preserved in base path."""
+        from patient_service.imports.import_status import ImportStatus
+        
         file_name = "test_patient.json"
         local_path = os.path.join(mock_gcs_monitor.local_base_path, file_name)
         failed_path = os.path.join(mock_gcs_monitor.local_base_path, 'failed', file_name)
@@ -449,6 +450,8 @@ class TestProcessFile:
     
     def test_json_decode_error_file_moved_to_failed(self, mock_gcs_monitor):
         """[EXISTING] Test invalid JSON - file should be moved to failed/ folder."""
+        from patient_service.imports.import_status import ImportStatus
+        
         file_name = "test_patient.json"
         local_path = os.path.join(mock_gcs_monitor.local_base_path, file_name)
         failed_path = os.path.join(mock_gcs_monitor.local_base_path, 'failed', file_name)
@@ -480,6 +483,8 @@ class TestProcessFile:
     
     def test_missing_patient_data_section_file_moved_to_failed(self, mock_gcs_monitor):
         """[EXISTING] Test JSON missing patient_data section - file should be moved to failed/ folder."""
+        from patient_service.imports.import_status import ImportStatus
+        
         file_name = "test_patient.json"
         local_path = os.path.join(mock_gcs_monitor.local_base_path, file_name)
         
@@ -513,6 +518,8 @@ class TestZahlungsreferenzExtraction:
     
     def test_zahlungsreferenz_extracted_and_stored(self, mock_gcs_monitor):
         """Test that zahlungsreferenz is extracted from registration_token."""
+        from patient_service.imports.import_status import ImportStatus
+        
         file_name = "patient_with_token.json"
         local_path = os.path.join(mock_gcs_monitor.local_base_path, file_name)
         
@@ -544,6 +551,8 @@ class TestEmailSending:
     
     def test_email_sent_after_successful_import(self, mock_gcs_monitor):
         """Test that confirmation email is sent after successful patient import."""
+        from patient_service.imports.import_status import ImportStatus
+        
         file_name = "patient_with_email.json"
         local_path = os.path.join(mock_gcs_monitor.local_base_path, file_name)
         
@@ -745,6 +754,8 @@ class TestImportStatusIntegration:
     
     def test_import_status_tracks_all_outcomes(self, mock_gcs_monitor):
         """Test that ImportStatus correctly tracks successes and failures."""
+        from patient_service.imports.import_status import ImportStatus
+        
         # Reset ImportStatus
         with patch.object(ImportStatus, '_status', {
             'running': True,
