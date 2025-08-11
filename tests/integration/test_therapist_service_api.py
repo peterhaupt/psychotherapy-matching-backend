@@ -494,6 +494,186 @@ class TestTherapistServiceAPI:
         ]
         for field in expected_fields:
             assert field in status_data, f"Missing field: {field}"
+    
+    @pytest.mark.xfail(reason="Phase 2: Cascade functionality not yet implemented")
+    def test_therapist_blocking_cascade_integration(self, therapist_factory, test_session):
+        """Test that blocking a therapist triggers cascade operations in the Matching service to cancel unsent anfragen.
+        
+        This test will initially FAIL until Phase 2 implementation of the cascade functionality.
+        It verifies that when a therapist is blocked, all their unsent anfragen are automatically cancelled.
+        """
+        # Get required service URLs from environment
+        MATCHING_API_URL = os.environ.get("MATCHING_API_URL")
+        PATIENT_API_URL = os.environ.get("PATIENT_API_URL")
+        
+        if not MATCHING_API_URL or not PATIENT_API_URL:
+            pytest.skip("MATCHING_API_URL and PATIENT_API_URL environment variables required for this test")
+        
+        print(f"\n{'='*60}")
+        print(f"STARTING THERAPIST BLOCKING CASCADE TEST")
+        print(f"{'='*60}")
+        
+        # Step 1: Create a test therapist
+        print(f"\n--- Step 1: Creating test therapist ---")
+        therapist = therapist_factory(
+            vorname="CascadeTest",
+            nachname="Therapist",
+            status="aktiv",
+            potenziell_verfuegbar=True
+        )
+        therapist_id = therapist['id']
+        print(f"  Created therapist ID: {therapist_id}")
+        
+        # Step 2: Create test patients via Patient service
+        print(f"\n--- Step 2: Creating test patients ---")
+        patient_ids = []
+        for i in range(2):
+            patient_data = {
+                "vorname": f"TestPatient_{test_session['session_id']}_{i}",
+                "nachname": f"CascadeTest_{i}",
+                "email": f"patient_{i}_{test_session['session_id']}@test.com",
+                "telefon": f"+49 241 1234567{i}",
+                "geburtsdatum": "1990-01-01",
+                "geschlecht": "männlich" if i % 2 == 0 else "weiblich",
+                "plz": "52062",
+                "ort": "Aachen"
+            }
+            
+            response = requests.post(f"{PATIENT_API_URL}/patients", json=patient_data)
+            if response.status_code == 201:
+                patient = response.json()
+                patient_ids.append(patient['id'])
+                print(f"  Created patient {i+1}: ID {patient['id']}")
+            else:
+                print(f"  Failed to create patient {i+1}: {response.status_code} - {response.text}")
+                pytest.fail(f"Failed to create test patient: {response.text}")
+        
+        # Step 3: Create platzsuchen (placement searches) for patients
+        print(f"\n--- Step 3: Creating platzsuchen for patients ---")
+        platzsuche_ids = []
+        for patient_id in patient_ids:
+            platzsuche_data = {
+                "patient_id": patient_id,
+                "psychotherapieverfahren": "Verhaltenstherapie",
+                "geschlecht_therapeut": "egal",
+                "status": "aktiv",
+                "max_entfernung_km": 10
+            }
+            
+            response = requests.post(f"{MATCHING_API_URL}/platzsuchen", json=platzsuche_data)
+            if response.status_code == 201:
+                platzsuche = response.json()
+                platzsuche_ids.append(platzsuche['id'])
+                print(f"  Created platzsuche: ID {platzsuche['id']} for patient {patient_id}")
+            else:
+                print(f"  Failed to create platzsuche: {response.status_code} - {response.text}")
+                pytest.fail(f"Failed to create platzsuche: {response.text}")
+        
+        # Step 4: Create unsent therapeutenanfragen for this therapist
+        print(f"\n--- Step 4: Creating unsent therapeutenanfragen ---")
+        anfragen_ids = []
+        for platzsuche_id in platzsuche_ids:
+            anfrage_data = {
+                "therapist_id": therapist_id,
+                "platzsuche_id": platzsuche_id,
+                "sofort_senden": False  # Important: create as unsent
+            }
+            
+            response = requests.post(
+                f"{MATCHING_API_URL}/therapeutenanfragen/erstellen-fuer-therapeut",
+                json=anfrage_data
+            )
+            if response.status_code == 201:
+                anfrage = response.json()
+                anfragen_ids.append(anfrage['id'])
+                print(f"  Created unsent anfrage: ID {anfrage['id']} for platzsuche {platzsuche_id}")
+                print(f"    Status: {anfrage.get('status')}")
+            else:
+                print(f"  Failed to create anfrage: {response.status_code} - {response.text}")
+                pytest.fail(f"Failed to create therapeutenanfrage: {response.text}")
+        
+        # Verify anfragen are created and unsent
+        print(f"\n--- Verifying anfragen are unsent ---")
+        for anfrage_id in anfragen_ids:
+            response = requests.get(f"{MATCHING_API_URL}/therapeutenanfragen/{anfrage_id}")
+            if response.status_code == 200:
+                anfrage = response.json()
+                assert anfrage['status'] in ['erstellt', 'geplant'], f"Anfrage {anfrage_id} should be unsent, but status is {anfrage['status']}"
+                print(f"  Anfrage {anfrage_id}: status = {anfrage['status']} ✓")
+            else:
+                print(f"  Failed to get anfrage {anfrage_id}: {response.status_code}")
+        
+        # Small delay to ensure consistency
+        time.sleep(0.5)
+        
+        # Step 5: Block the therapist
+        print(f"\n--- Step 5: Blocking therapist {therapist_id} ---")
+        block_data = {"status": "gesperrt"}
+        response = requests.put(f"{BASE_URL}/therapists/{therapist_id}", json=block_data)
+        
+        if response.status_code == 200:
+            print(f"  Successfully blocked therapist {therapist_id}")
+        else:
+            print(f"  Failed to block therapist: {response.status_code} - {response.text}")
+            pytest.fail(f"Failed to block therapist: {response.text}")
+        
+        # Wait for cascade to potentially happen
+        print(f"\n--- Waiting 2 seconds for cascade operations ---")
+        time.sleep(2)
+        
+        # Step 6: Verify the cascade effect - anfragen should be cancelled
+        print(f"\n--- Step 6: Verifying cascade effect on anfragen ---")
+        cancelled_count = 0
+        for anfrage_id in anfragen_ids:
+            response = requests.get(f"{MATCHING_API_URL}/therapeutenanfragen/{anfrage_id}")
+            if response.status_code == 200:
+                anfrage = response.json()
+                print(f"  Anfrage {anfrage_id}: status = {anfrage['status']}")
+                
+                # This assertion will FAIL until Phase 2 is implemented
+                if anfrage['status'] == 'storniert':
+                    cancelled_count += 1
+                    print(f"    ✓ Anfrage was cancelled as expected")
+                else:
+                    print(f"    ❌ Anfrage was NOT cancelled (still {anfrage['status']})")
+            else:
+                print(f"  Failed to get anfrage {anfrage_id}: {response.status_code}")
+        
+        # Step 7: Verify therapist status is "gesperrt"
+        print(f"\n--- Step 7: Verifying therapist status ---")
+        response = requests.get(f"{BASE_URL}/therapists/{therapist_id}")
+        if response.status_code == 200:
+            therapist_data = response.json()
+            assert therapist_data['status'] == "gesperrt", f"Therapist status should be 'gesperrt', got {therapist_data['status']}"
+            print(f"  Therapist status: {therapist_data['status']} ✓")
+        else:
+            pytest.fail(f"Failed to get therapist: {response.text}")
+        
+        # The main assertion that will fail until Phase 2
+        print(f"\n--- FINAL VERIFICATION ---")
+        print(f"  Anfragen cancelled: {cancelled_count}/{len(anfragen_ids)}")
+        assert cancelled_count == len(anfragen_ids), \
+            f"Expected all {len(anfragen_ids)} anfragen to be cancelled, but only {cancelled_count} were cancelled. " \
+            f"This is expected to fail until Phase 2 cascade functionality is implemented."
+        
+        # Cleanup: Delete test data
+        print(f"\n--- Cleanup ---")
+        try:
+            # Delete anfragen
+            for anfrage_id in anfragen_ids:
+                requests.delete(f"{MATCHING_API_URL}/therapeutenanfragen/{anfrage_id}")
+            
+            # Delete platzsuchen
+            for platzsuche_id in platzsuche_ids:
+                requests.delete(f"{MATCHING_API_URL}/platzsuchen/{platzsuche_id}")
+            
+            # Delete patients
+            for patient_id in patient_ids:
+                requests.delete(f"{PATIENT_API_URL}/patients/{patient_id}")
+            
+            print(f"  Cleanup completed")
+        except Exception as e:
+            print(f"  Warning during cleanup: {e}")
 
 
 # Pytest entry point - can be run with: pytest test_therapist_service_api.py -v

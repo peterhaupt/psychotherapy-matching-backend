@@ -736,6 +736,92 @@ class TestCommunicationServiceAPI:
             requests.delete(f"{BASE_URL}/phone-calls/{call['id']}")
             requests.delete(f"{PATIENT_BASE_URL}/patients/{patient['id']}")
 
+    def test_communication_patient_update_integration(self):
+        """Test that sending emails or completing phone calls updates patient's last_contact field.
+        
+        This test will initially FAIL until Phase 2 implementation is complete.
+        It verifies that the Communication service properly calls the Patient service
+        to update the letzter_kontakt field when communication events occur.
+        """
+        # Step 1: Create a test patient
+        patient = self.create_test_patient(
+            vorname="Integration",
+            nachname="TestPatient",
+            email="integration.test@example.com"
+        )
+        patient_id = patient['id']
+        
+        # Store for cleanup
+        if not hasattr(self, '_temp_patients'):
+            self._temp_patients = []
+        self._temp_patients.append(patient_id)
+        
+        # Step 2: Get initial letzter_kontakt value
+        response = requests.get(f"{PATIENT_BASE_URL}/patients/{patient_id}")
+        assert response.status_code == 200
+        initial_patient_data = response.json()
+        initial_letzter_kontakt = initial_patient_data.get('letzter_kontakt')
+        
+        # Step 3: Create an email for this patient
+        email = self.create_test_email(
+            patient_id=patient_id,
+            betreff="Integration Test Email",
+            inhalt_text="Testing patient update integration",
+            empfaenger_email="integration.test@example.com",
+            empfaenger_name="Integration TestPatient"
+        )
+        email_id = email['id']
+        
+        # Step 4: Update email status to "Gesendet"
+        update_response = requests.put(
+            f"{BASE_URL}/emails/{email_id}",
+            json={"status": "Gesendet"}
+        )
+        assert update_response.status_code == 200
+        
+        # Step 5: Check patient's letzter_kontakt was updated to today
+        response = requests.get(f"{PATIENT_BASE_URL}/patients/{patient_id}")
+        assert response.status_code == 200
+        updated_patient_data = response.json()
+        
+        today = date.today().isoformat()
+        assert updated_patient_data.get('letzter_kontakt') == today, \
+            f"Expected letzter_kontakt to be {today} after sending email, but got {updated_patient_data.get('letzter_kontakt')}"
+        
+        # Step 6: Create a phone call for the patient
+        tomorrow = (date.today() + timedelta(days=1)).isoformat()
+        call = self.create_test_phone_call(
+            patient_id=patient_id,
+            notizen="Integration test phone call",
+            geplantes_datum=tomorrow,
+            geplante_zeit="10:00"
+        )
+        call_id = call['id']
+        
+        # Step 7: Complete the phone call by updating status to "abgeschlossen"
+        update_response = requests.put(
+            f"{BASE_URL}/phone-calls/{call_id}",
+            json={
+                "status": "abgeschlossen",
+                "tatsaechliches_datum": date.today().isoformat(),
+                "tatsaechliche_zeit": "10:30"
+            }
+        )
+        assert update_response.status_code == 200
+        
+        # Step 8: Verify patient's letzter_kontakt was updated again
+        response = requests.get(f"{PATIENT_BASE_URL}/patients/{patient_id}")
+        assert response.status_code == 200
+        final_patient_data = response.json()
+        
+        assert final_patient_data.get('letzter_kontakt') == today, \
+            f"Expected letzter_kontakt to remain {today} after completing phone call, but got {final_patient_data.get('letzter_kontakt')}"
+        
+        # Step 9: Cleanup all created resources
+        requests.delete(f"{BASE_URL}/emails/{email_id}")
+        requests.delete(f"{BASE_URL}/phone-calls/{call_id}")
+        # Patient cleanup is handled by teardown_method through _temp_patients
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
