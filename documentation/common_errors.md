@@ -1,5 +1,145 @@
 # Common Errors in the Therapy Matching Platform
 
+## Test Contamination from Module-Level Mocking
+
+### Error
+```
+ModuleNotFoundError: No module named 'google.cloud.storage'
+AttributeError: 'MagicMock' object has no attribute 'adapters'
+ImportError: cannot import name 'Client' from 'unittest.mock'
+```
+
+### Symptoms
+- Tests pass when run individually but fail when run together
+- Different test results based on test execution order
+- Import errors that don't make sense given your imports
+- MagicMock objects appearing where real modules should be
+
+### Cause
+Module-level `sys.modules` mocking contaminates the global Python interpreter state:
+
+```python
+# BAD: This runs during test collection and affects ALL subsequent tests
+import sys
+from unittest.mock import MagicMock
+
+sys.modules['requests'] = MagicMock()  # ❌ Pollutes global state
+sys.modules['models'] = MagicMock()     # ❌ Persists across tests
+
+from patient_service.api.patients import some_function  # Now imports with mocked deps
+```
+
+**Why this happens:**
+1. Pytest runs all tests in a single Python process
+2. During test collection, pytest imports ALL test files
+3. Module-level code executes during import
+4. `sys.modules` is global to the entire process
+5. Once polluted, it affects all subsequent test files
+
+### Example Timeline
+```
+1. Pytest collects test_payment_workflow.py
+   → Executes: sys.modules['requests'] = MagicMock()
+   → Now 'requests' is broken for the entire test run
+
+2. Pytest collects test_gcs_file_import.py
+   → Tries to: from google.cloud import storage
+   → storage needs real 'requests.adapters'
+   → But gets MagicMock instead → FAILS
+```
+
+### Solution: Fixture-Based Mocking
+
+Create a `tests/unit/conftest.py` file with proper fixture-based mocking:
+
+```python
+# tests/unit/conftest.py
+import pytest
+import sys
+from unittest.mock import MagicMock
+
+@pytest.fixture(autouse=True, scope="function")
+def mock_all_dependencies(monkeypatch):
+    """Mock all dependencies with automatic cleanup."""
+    
+    # Mock modules using monkeypatch
+    modules_to_mock = [
+        'models', 'models.patient', 'shared', 'shared.utils',
+        'flask', 'sqlalchemy', 'requests', # etc...
+    ]
+    
+    for module_name in modules_to_mock:
+        monkeypatch.setitem(sys.modules, module_name, MagicMock())
+    
+    # Set up specific mocks
+    mock_config = MagicMock()
+    mock_config.get_service_url = MagicMock(return_value="http://test-service")
+    sys.modules['shared.config'].get_config = MagicMock(return_value=mock_config)
+    
+    # ... other mock setups ...
+    
+    yield  # Test runs here
+    
+    # Automatic cleanup by monkeypatch!
+```
+
+Then refactor test files to:
+1. **Remove** all module-level `sys.modules` mocking
+2. **Move** imports inside test methods:
+
+```python
+# BEFORE (BAD):
+import sys
+sys.modules['models'] = MagicMock()  # ❌ Module level
+from patient_service.api.patients import validate_symptoms  # ❌ Module level
+
+class TestSymptoms:
+    def test_validation(self):
+        validate_symptoms(["Depression"])
+
+# AFTER (GOOD):
+class TestSymptoms:
+    def test_validation(self):
+        # Import AFTER fixtures have set up mocks ✅
+        from patient_service.api.patients import validate_symptoms
+        validate_symptoms(["Depression"])
+```
+
+### Benefits of This Approach
+- **Test Isolation**: Each test gets a clean `sys.modules` state
+- **Automatic Cleanup**: `monkeypatch` restores original state after each test
+- **No Contamination**: Tests can run in any order without issues
+- **Pytest Best Practice**: Follows recommended patterns for test fixtures
+
+### Migration Steps
+1. Create `tests/unit/conftest.py` with the fixture
+2. Remove module-level mocking from each test file
+3. Move production code imports inside test methods
+4. Run tests to verify isolation
+
+### Alternative Quick Fixes (Not Recommended)
+1. **Process Isolation**: Run each test in separate process
+   ```bash
+   pytest --forked  # Requires pytest-forked
+   ```
+   ⚠️ Slower, doesn't fix root cause
+
+2. **Run Tests Individually**: Script to run each test file separately
+   ```bash
+   for test in tests/unit/test_*.py; do
+       pytest "$test"
+   done
+   ```
+   ⚠️ Hides the problem, CI/CD complexity
+
+### Prevention
+- Never mock `sys.modules` at module level
+- Always use pytest fixtures for mocking
+- Consider dependency injection in production code to reduce mocking needs
+- Use `pytest-mock` or similar tools that provide proper cleanup
+
+---
+
 ## Kafka Connection Issues
 
 ### Error
