@@ -51,7 +51,7 @@ class TestSymptomValidation:
     """Unit tests for the validate_symptoms function."""
     
     @pytest.mark.parametrize("symptom", VALID_SYMPTOMS)
-    def test_valid_symptoms_accepted(self, symptom, mock_patient_service_modules):
+    def test_valid_symptoms_accepted(self, symptom):
         """Test that all 30 approved symptoms are individually accepted."""
         from patient_service.api.patients import validate_symptoms
         
@@ -72,7 +72,7 @@ class TestSymptomValidation:
         "Test Symptom",
         123,  # Not a string
     ])
-    def test_invalid_symptom_rejected(self, invalid_symptom, mock_patient_service_modules):
+    def test_invalid_symptom_rejected(self, invalid_symptom):
         """Test that various invalid symptom strings are rejected."""
         from patient_service.api.patients import validate_symptoms
         
@@ -81,7 +81,7 @@ class TestSymptomValidation:
         
         assert "Invalid symptom" in str(exc_info.value)
     
-    def test_minimum_one_symptom_required(self, mock_patient_service_modules):
+    def test_minimum_one_symptom_required(self):
         """Test that empty array should fail - at least 1 symptom required."""
         from patient_service.api.patients import validate_symptoms
         
@@ -90,7 +90,7 @@ class TestSymptomValidation:
         
         assert "At least one symptom is required" in str(exc_info.value)
     
-    def test_maximum_three_symptoms_allowed(self, mock_patient_service_modules):
+    def test_maximum_three_symptoms_allowed(self):
         """Test that 4+ symptoms should fail - maximum 3 allowed."""
         from patient_service.api.patients import validate_symptoms
         
@@ -102,7 +102,7 @@ class TestSymptomValidation:
         
         assert "Between 1 and 3 symptoms must be selected" in str(exc_info.value)
     
-    def test_exactly_one_symptom_valid(self, mock_patient_service_modules):
+    def test_exactly_one_symptom_valid(self):
         """Test that exactly one valid symptom passes."""
         from patient_service.api.patients import validate_symptoms
         
@@ -112,7 +112,7 @@ class TestSymptomValidation:
         except ValueError as e:
             pytest.fail(f"One valid symptom should pass, but got: {e}")
     
-    def test_exactly_two_symptoms_valid(self, mock_patient_service_modules):
+    def test_exactly_two_symptoms_valid(self):
         """Test that exactly two valid symptoms pass."""
         from patient_service.api.patients import validate_symptoms
         
@@ -125,7 +125,7 @@ class TestSymptomValidation:
         except ValueError as e:
             pytest.fail(f"Two valid symptoms should pass, but got: {e}")
     
-    def test_exactly_three_symptoms_valid(self, mock_patient_service_modules):
+    def test_exactly_three_symptoms_valid(self):
         """Test that exactly three valid symptoms pass."""
         from patient_service.api.patients import validate_symptoms
         
@@ -139,7 +139,7 @@ class TestSymptomValidation:
         except ValueError as e:
             pytest.fail(f"Three valid symptoms should pass, but got: {e}")
     
-    def test_mixed_valid_invalid_symptoms(self, mock_patient_service_modules):
+    def test_mixed_valid_invalid_symptoms(self):
         """Test that mix of valid and invalid symptoms should fail."""
         from patient_service.api.patients import validate_symptoms
         
@@ -154,7 +154,7 @@ class TestSymptomValidation:
         
         assert "Invalid symptom" in str(exc_info.value)
     
-    def test_duplicate_symptoms_counted(self, mock_patient_service_modules):
+    def test_duplicate_symptoms_counted(self):
         """Test that same symptom twice counts as 2 symptoms."""
         from patient_service.api.patients import validate_symptoms
         
@@ -178,7 +178,7 @@ class TestSymptomValidation:
             ])
         assert "Between 1 and 3 symptoms must be selected" in str(exc_info.value)
     
-    def test_symptom_case_sensitive(self, mock_patient_service_modules):
+    def test_symptom_case_sensitive(self):
         """Test that exact case match is required."""
         from patient_service.api.patients import validate_symptoms
         
@@ -189,7 +189,7 @@ class TestSymptomValidation:
         with pytest.raises(ValueError):
             validate_symptoms(["DEPRESSION / NIEDERGESCHLAGENHEIT"])  # uppercase
     
-    def test_symptom_with_extra_whitespace(self, mock_patient_service_modules):
+    def test_symptom_with_extra_whitespace(self):
         """Test that symptoms with extra whitespace should be rejected."""
         from patient_service.api.patients import validate_symptoms
         
@@ -200,7 +200,7 @@ class TestSymptomValidation:
         with pytest.raises(ValueError):
             validate_symptoms(["Depression  /  Niedergeschlagenheit"])
     
-    def test_symptome_not_array(self, mock_patient_service_modules):
+    def test_symptome_not_array(self):
         """Test that non-array inputs should fail appropriately."""
         from patient_service.api.patients import validate_symptoms
         
@@ -219,7 +219,7 @@ class TestSymptomValidation:
             validate_symptoms(None)
         assert "At least one symptom is required" in str(exc_info.value)
     
-    def test_complete_symptom_list(self, mock_patient_service_modules):
+    def test_complete_symptom_list(self):
         """Test that all 30 symptoms are present in VALID_SYMPTOMS from production code."""
         from patient_service.api.patients import VALID_SYMPTOMS as prod_valid_symptoms
         
@@ -269,7 +269,7 @@ class TestSymptomValidation:
         # Check count
         assert len(prod_valid_symptoms) == 30, f"Expected 30 symptoms, got {len(prod_valid_symptoms)}"
     
-    def test_none_values_in_list(self, mock_patient_service_modules):
+    def test_none_values_in_list(self):
         """Test that None values within the symptom list are rejected."""
         from patient_service.api.patients import validate_symptoms
         
@@ -281,7 +281,7 @@ class TestSymptomValidation:
             validate_symptoms(["Depression / Niedergeschlagenheit", None])
         assert "Invalid symptom" in str(exc_info.value)
     
-    def test_empty_strings_in_list(self, mock_patient_service_modules):
+    def test_empty_strings_in_list(self):
         """Test that empty strings within the symptom list are rejected."""
         from patient_service.api.patients import validate_symptoms
         
@@ -293,7 +293,7 @@ class TestSymptomValidation:
             validate_symptoms(["Depression / Niedergeschlagenheit", ""])
         assert "Invalid symptom" in str(exc_info.value)
     
-    def test_whitespace_only_strings(self, mock_patient_service_modules):
+    def test_whitespace_only_strings(self):
         """Test that whitespace-only strings are rejected."""
         from patient_service.api.patients import validate_symptoms
         
@@ -309,7 +309,7 @@ class TestSymptomValidation:
             validate_symptoms(["\n"])
         assert "Invalid symptom" in str(exc_info.value)
     
-    def test_numeric_values_in_list(self, mock_patient_service_modules):
+    def test_numeric_values_in_list(self):
         """Test that numeric values in the list are rejected."""
         from patient_service.api.patients import validate_symptoms
         
@@ -325,7 +325,7 @@ class TestSymptomValidation:
             validate_symptoms(["Depression / Niedergeschlagenheit", 42])
         assert "Invalid symptom" in str(exc_info.value)
     
-    def test_boolean_values_in_list(self, mock_patient_service_modules):
+    def test_boolean_values_in_list(self):
         """Test that boolean values in the list are rejected."""
         from patient_service.api.patients import validate_symptoms
         
@@ -337,7 +337,7 @@ class TestSymptomValidation:
             validate_symptoms([False])
         assert "Invalid symptom" in str(exc_info.value)
     
-    def test_list_values_in_list(self, mock_patient_service_modules):
+    def test_list_values_in_list(self):
         """Test that nested lists are rejected."""
         from patient_service.api.patients import validate_symptoms
         
@@ -345,7 +345,7 @@ class TestSymptomValidation:
             validate_symptoms([["Depression / Niedergeschlagenheit"]])
         assert "Invalid symptom" in str(exc_info.value)
     
-    def test_dict_values_in_list(self, mock_patient_service_modules):
+    def test_dict_values_in_list(self):
         """Test that dict values in the list are rejected."""
         from patient_service.api.patients import validate_symptoms
         

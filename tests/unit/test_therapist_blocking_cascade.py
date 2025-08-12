@@ -92,7 +92,7 @@ class TherapistResource:
 class TestTherapistBlockingCascade:
     """Test therapist blocking/unblocking with cascade to Matching service."""
     
-    def test_block_therapist_calls_matching_api(self, mock_all_modules):
+    def test_block_therapist_calls_matching_api(self):
         """Test that blocking therapist calls Matching service cascade endpoint."""
         from flask_restful import reqparse
         from shared.utils.database import SessionLocal
@@ -151,7 +151,7 @@ class TestTherapistBlockingCascade:
         assert status_code == 200
         assert result['message'] == "Therapist updated successfully"
     
-    def test_block_therapist_rollback_on_matching_failure(self, mock_all_modules):
+    def test_block_therapist_rollback_on_matching_failure(self):
         """Test that therapist blocking is rolled back if Matching service fails."""
         from flask_restful import reqparse
         from shared.utils.database import SessionLocal
@@ -199,7 +199,7 @@ class TestTherapistBlockingCascade:
         assert status_code == 500
         assert "Cannot block therapist: Matching service error" in result['message']
     
-    def test_unblock_therapist_calls_matching_api(self, mock_all_modules):
+    def test_unblock_therapist_calls_matching_api(self):
         """Test that unblocking therapist calls Matching service cascade endpoint."""
         from flask_restful import reqparse
         from shared.utils.database import SessionLocal
@@ -252,7 +252,7 @@ class TestTherapistBlockingCascade:
         # Verify response
         assert status_code == 200
     
-    def test_unblock_therapist_non_critical_failure(self, mock_all_modules):
+    def test_unblock_therapist_non_critical_failure(self):
         """Test that unblocking continues even if cascade fails (non-critical)."""
         from flask_restful import reqparse
         from shared.utils.database import SessionLocal
@@ -296,7 +296,7 @@ class TestTherapistBlockingCascade:
         # Verify success response
         assert status_code == 200
     
-    def test_status_change_not_to_gesperrt_no_cascade(self, mock_all_modules):
+    def test_status_change_not_to_gesperrt_no_cascade(self):
         """Test that changing status to something other than gesperrt doesn't trigger cascade."""
         from flask_restful import reqparse
         from shared.utils.database import SessionLocal

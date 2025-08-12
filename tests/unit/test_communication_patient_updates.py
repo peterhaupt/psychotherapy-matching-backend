@@ -11,11 +11,11 @@ from datetime import date, datetime
 class TestCommunicationPatientUpdates:
     """Test Communication service updating patient last contact."""
     
-    def test_email_sent_updates_patient_last_contact(self, mock_email_model, mock_session_local, 
-                                                      mock_request_parser, mock_retry_api_client,
-                                                      mock_config, mock_logger):
+    def test_email_sent_updates_patient_last_contact(self, get_mocks):
         """Test that marking email as sent updates patient last contact."""
-        # Import EmailResource implementation
+        mocks = get_mocks
+        
+        # Import dependencies after mocking
         from flask_restful import reqparse
         from shared.utils.database import SessionLocal
         from models.email import Email
@@ -24,6 +24,7 @@ class TestCommunicationPatientUpdates:
         from datetime import date
         import logging
         
+        # Define EmailResource implementation
         class EmailResource:
             """Handle email updates with patient notification."""
             
@@ -90,10 +91,10 @@ class TestCommunicationPatientUpdates:
         mock_query.filter.return_value = mock_filter
         mock_db.query.return_value = mock_query
         
-        mock_session_local.return_value = mock_db
+        mocks['MockSessionLocal'].return_value = mock_db
         
         # Mock request parser
-        mock_request_parser.parse_args.return_value = {
+        mocks['mock_parser'].parse_args.return_value = {
             'status': 'Gesendet',
             'antwort_erhalten': None
         }
@@ -105,7 +106,7 @@ class TestCommunicationPatientUpdates:
         with patch('datetime.date') as mock_date:
             mock_date.today.return_value.isoformat.return_value = '2025-01-15'
             
-            with patch.object(mock_retry_api_client, 'call_with_retry', return_value=mock_response) as mock_call:
+            with patch.object(mocks['MockRetryAPIClient'], 'call_with_retry', return_value=mock_response) as mock_call:
                 # Execute
                 result, status_code = resource.put(789)
         
@@ -123,11 +124,11 @@ class TestCommunicationPatientUpdates:
         # Verify response
         assert status_code == 200
     
-    def test_email_response_updates_patient_last_contact(self, mock_email_model, mock_session_local,
-                                                         mock_request_parser, mock_retry_api_client,
-                                                         mock_config, mock_logger):
+    def test_email_response_updates_patient_last_contact(self, get_mocks):
         """Test that receiving email response updates patient last contact."""
-        # Import EmailResource implementation
+        mocks = get_mocks
+        
+        # Import dependencies after mocking
         from flask_restful import reqparse
         from shared.utils.database import SessionLocal
         from models.email import Email
@@ -136,6 +137,7 @@ class TestCommunicationPatientUpdates:
         from datetime import date
         import logging
         
+        # Define EmailResource implementation
         class EmailResource:
             """Handle email updates with patient notification."""
             
@@ -201,10 +203,10 @@ class TestCommunicationPatientUpdates:
         mock_query.filter.return_value = mock_filter
         mock_db.query.return_value = mock_query
         
-        mock_session_local.return_value = mock_db
+        mocks['MockSessionLocal'].return_value = mock_db
         
         # Mock request parser
-        mock_request_parser.parse_args.return_value = {
+        mocks['mock_parser'].parse_args.return_value = {
             'status': None,
             'antwort_erhalten': True
         }
@@ -212,7 +214,7 @@ class TestCommunicationPatientUpdates:
         with patch('datetime.date') as mock_date:
             mock_date.today.return_value.isoformat.return_value = '2025-01-16'
             
-            with patch.object(mock_retry_api_client, 'call_with_retry') as mock_call:
+            with patch.object(mocks['MockRetryAPIClient'], 'call_with_retry') as mock_call:
                 # Execute
                 result, status_code = resource.put(789)
         
@@ -225,11 +227,11 @@ class TestCommunicationPatientUpdates:
         assert mock_email.antwort_erhalten == True
         assert status_code == 200
     
-    def test_phone_call_completed_updates_patient_last_contact(self, mock_phone_call_model, mock_session_local,
-                                                               mock_request_parser, mock_retry_api_client,
-                                                               mock_config, mock_logger):
+    def test_phone_call_completed_updates_patient_last_contact(self, get_mocks):
         """Test that completing phone call updates patient last contact."""
-        # Import PhoneCallResource implementation
+        mocks = get_mocks
+        
+        # Import dependencies after mocking
         from flask_restful import reqparse
         from shared.utils.database import SessionLocal
         from models.phone_call import PhoneCall
@@ -238,6 +240,7 @@ class TestCommunicationPatientUpdates:
         from datetime import date
         import logging
         
+        # Define PhoneCallResource implementation
         class PhoneCallResource:
             """Handle phone call updates with patient notification."""
             
@@ -303,10 +306,10 @@ class TestCommunicationPatientUpdates:
         mock_query.filter.return_value = mock_filter
         mock_db.query.return_value = mock_query
         
-        mock_session_local.return_value = mock_db
+        mocks['MockSessionLocal'].return_value = mock_db
         
         # Mock request parser
-        mock_request_parser.parse_args.return_value = {
+        mocks['mock_parser'].parse_args.return_value = {
             'status': 'abgeschlossen',
             'tatsaechliches_datum': '2025-01-15',
             'tatsaechliche_zeit': '14:30'
@@ -315,7 +318,7 @@ class TestCommunicationPatientUpdates:
         with patch('datetime.date') as mock_date:
             mock_date.today.return_value.isoformat.return_value = '2025-01-15'
             
-            with patch.object(mock_retry_api_client, 'call_with_retry') as mock_api_call:
+            with patch.object(mocks['MockRetryAPIClient'], 'call_with_retry') as mock_api_call:
                 # Execute
                 result, status_code = resource.put(456)
         
@@ -331,11 +334,11 @@ class TestCommunicationPatientUpdates:
         assert mock_call.tatsaechliches_datum == '2025-01-15'
         assert status_code == 200
     
-    def test_patient_api_retry_logic(self, mock_email_model, mock_session_local,
-                                     mock_request_parser, mock_retry_api_client,
-                                     mock_config, mock_logger):
+    def test_patient_api_retry_logic(self, get_mocks):
         """Test that patient API calls use retry logic."""
-        # Import EmailResource implementation
+        mocks = get_mocks
+        
+        # Import dependencies after mocking
         from flask_restful import reqparse
         from shared.utils.database import SessionLocal
         from models.email import Email
@@ -344,6 +347,7 @@ class TestCommunicationPatientUpdates:
         from datetime import date
         import logging
         
+        # Define EmailResource implementation
         class EmailResource:
             """Handle email updates with patient notification."""
             
@@ -408,13 +412,13 @@ class TestCommunicationPatientUpdates:
         mock_query.filter.return_value = mock_filter
         mock_db.query.return_value = mock_query
         
-        mock_session_local.return_value = mock_db
+        mocks['MockSessionLocal'].return_value = mock_db
         
         # Mock request parser
-        mock_request_parser.parse_args.return_value = {'status': 'Gesendet'}
+        mocks['mock_parser'].parse_args.return_value = {'status': 'Gesendet'}
         
         # Mock API failure then success (to test retry)
-        with patch.object(mock_retry_api_client, 'call_with_retry') as mock_call:
+        with patch.object(mocks['MockRetryAPIClient'], 'call_with_retry') as mock_call:
             mock_call.side_effect = [Exception("Network error"), Mock(status_code=200)]
             
             # Execute
@@ -426,11 +430,11 @@ class TestCommunicationPatientUpdates:
         # Email update should still succeed even if patient update fails
         assert status_code == 200
     
-    def test_patient_api_failure_handling(self, mock_phone_call_model, mock_session_local,
-                                          mock_request_parser, mock_retry_api_client,
-                                          mock_config, mock_logger):
+    def test_patient_api_failure_handling(self, get_mocks):
         """Test that patient API failure doesn't fail the main operation."""
-        # Import PhoneCallResource implementation
+        mocks = get_mocks
+        
+        # Import dependencies after mocking
         from flask_restful import reqparse
         from shared.utils.database import SessionLocal
         from models.phone_call import PhoneCall
@@ -439,6 +443,7 @@ class TestCommunicationPatientUpdates:
         from datetime import date
         import logging
         
+        # Define PhoneCallResource implementation
         class PhoneCallResource:
             """Handle phone call updates with patient notification."""
             
@@ -503,30 +508,30 @@ class TestCommunicationPatientUpdates:
         mock_query.filter.return_value = mock_filter
         mock_db.query.return_value = mock_query
         
-        mock_session_local.return_value = mock_db
+        mocks['MockSessionLocal'].return_value = mock_db
         
         # Mock request parser
-        mock_request_parser.parse_args.return_value = {'status': 'abgeschlossen'}
+        mocks['mock_parser'].parse_args.return_value = {'status': 'abgeschlossen'}
         
         # Mock API failure
-        with patch.object(mock_retry_api_client, 'call_with_retry', side_effect=Exception("API Error")):
+        with patch.object(mocks['MockRetryAPIClient'], 'call_with_retry', side_effect=Exception("API Error")):
             # Execute
             result, status_code = resource.put(456)
         
         # Verify error was logged
-        mock_logger.error.assert_called_once()
-        assert "Failed to update patient last contact for patient 123" in str(mock_logger.error.call_args)
+        mocks['mock_logger'].error.assert_called_once()
+        assert "Failed to update patient last contact for patient 123" in str(mocks['mock_logger'].error.call_args)
         
         # Phone call update should still succeed
         assert mock_call.status == 'abgeschlossen'
         mock_db.commit.assert_called_once()
         assert status_code == 200
     
-    def test_no_patient_id_no_api_call(self, mock_email_model, mock_session_local,
-                                       mock_request_parser, mock_retry_api_client,
-                                       mock_config, mock_logger):
+    def test_no_patient_id_no_api_call(self, get_mocks):
         """Test that emails/calls without patient_id don't trigger API calls."""
-        # Import EmailResource implementation
+        mocks = get_mocks
+        
+        # Import dependencies after mocking
         from flask_restful import reqparse
         from shared.utils.database import SessionLocal
         from models.email import Email
@@ -535,6 +540,7 @@ class TestCommunicationPatientUpdates:
         from datetime import date
         import logging
         
+        # Define EmailResource implementation
         class EmailResource:
             """Handle email updates with patient notification."""
             
@@ -600,12 +606,12 @@ class TestCommunicationPatientUpdates:
         mock_query.filter.return_value = mock_filter
         mock_db.query.return_value = mock_query
         
-        mock_session_local.return_value = mock_db
+        mocks['MockSessionLocal'].return_value = mock_db
         
         # Mock request parser
-        mock_request_parser.parse_args.return_value = {'status': 'Gesendet'}
+        mocks['mock_parser'].parse_args.return_value = {'status': 'Gesendet'}
         
-        with patch.object(mock_retry_api_client, 'call_with_retry') as mock_call:
+        with patch.object(mocks['MockRetryAPIClient'], 'call_with_retry') as mock_call:
             # Execute
             result, status_code = resource.put(789)
         
@@ -616,11 +622,11 @@ class TestCommunicationPatientUpdates:
         assert mock_email.status == 'Gesendet'
         assert status_code == 200
     
-    def test_status_not_triggering_update(self, mock_phone_call_model, mock_session_local,
-                                          mock_request_parser, mock_retry_api_client,
-                                          mock_config, mock_logger):
+    def test_status_not_triggering_update(self, get_mocks):
         """Test that non-triggering statuses don't update patient."""
-        # Import PhoneCallResource implementation
+        mocks = get_mocks
+        
+        # Import dependencies after mocking
         from flask_restful import reqparse
         from shared.utils.database import SessionLocal
         from models.phone_call import PhoneCall
@@ -629,6 +635,7 @@ class TestCommunicationPatientUpdates:
         from datetime import date
         import logging
         
+        # Define PhoneCallResource implementation
         class PhoneCallResource:
             """Handle phone call updates with patient notification."""
             
@@ -693,12 +700,12 @@ class TestCommunicationPatientUpdates:
         mock_query.filter.return_value = mock_filter
         mock_db.query.return_value = mock_query
         
-        mock_session_local.return_value = mock_db
+        mocks['MockSessionLocal'].return_value = mock_db
         
         # Mock request parser - status that doesn't trigger update
-        mock_request_parser.parse_args.return_value = {'status': 'abgesagt'}  # Cancelled, not completed
+        mocks['mock_parser'].parse_args.return_value = {'status': 'abgesagt'}  # Cancelled, not completed
         
-        with patch.object(mock_retry_api_client, 'call_with_retry') as mock_call_api:
+        with patch.object(mocks['MockRetryAPIClient'], 'call_with_retry') as mock_call_api:
             # Execute
             result, status_code = resource.put(456)
         

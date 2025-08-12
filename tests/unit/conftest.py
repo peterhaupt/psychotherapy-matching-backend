@@ -1,4 +1,5 @@
 """Pytest fixtures for mocking dependencies in unit tests."""
+import sys
 import pytest
 from unittest.mock import MagicMock, Mock
 
@@ -53,85 +54,48 @@ def mock_all_dependencies(monkeypatch):
     monkeypatch.setitem(sys.modules, 'requests', mock_requests)
     monkeypatch.setitem(sys.modules, 'logging', mock_logging)
     
-    # Return configured mocks for use in tests
+    # Configure mock models
+    MockEmail = MagicMock()
+    MockPhoneCall = MagicMock()
+    mock_models_email.Email = MockEmail
+    mock_models_phone_call.PhoneCall = MockPhoneCall
+    
+    # Configure database components
+    MockSessionLocal = MagicMock()
+    mock_shared_utils_database.SessionLocal = MockSessionLocal
+    
+    # Configure Flask components
+    mock_parser = MagicMock()
+    mock_reqparse = MagicMock()
+    mock_reqparse.RequestParser = MagicMock(return_value=mock_parser)
+    mock_flask_restful.Resource = MagicMock()
+    mock_flask_restful.reqparse = mock_reqparse
+    
+    # Configure config
+    mock_config_obj = MagicMock()
+    mock_config_obj.get_service_url = MagicMock(return_value="http://patient-service")
+    mock_shared_config.get_config = MagicMock(return_value=mock_config_obj)
+    
+    # Configure RetryAPIClient
+    mock_shared_api_retry_client.RetryAPIClient = MockRetryAPIClient
+    
+    # Configure logger
+    mock_logger = MagicMock()
+    mock_logging.getLogger = MagicMock(return_value=mock_logger)
+    
+    # Return configured mocks for use in tests that need them
     return {
-        'models': mock_models,
-        'models_email': mock_models_email,
-        'models_phone_call': mock_models_phone_call,
-        'shared_utils_database': mock_shared_utils_database,
-        'shared_config': mock_shared_config,
-        'shared_api_retry_client': mock_shared_api_retry_client,
-        'flask_restful': mock_flask_restful,
-        'logging': mock_logging
+        'MockEmail': MockEmail,
+        'MockPhoneCall': MockPhoneCall,
+        'MockSessionLocal': MockSessionLocal,
+        'mock_parser': mock_parser,
+        'MockRetryAPIClient': MockRetryAPIClient,
+        'mock_config': mock_config_obj,
+        'mock_logger': mock_logger
     }
 
 
 @pytest.fixture
-def mock_email_model(mock_all_dependencies):
-    """Fixture for mocked Email model."""
-    MockEmail = MagicMock()
-    mock_all_dependencies['models_email'].Email = MockEmail
-    return MockEmail
-
-
-@pytest.fixture
-def mock_phone_call_model(mock_all_dependencies):
-    """Fixture for mocked PhoneCall model."""
-    MockPhoneCall = MagicMock()
-    mock_all_dependencies['models_phone_call'].PhoneCall = MockPhoneCall
-    return MockPhoneCall
-
-
-@pytest.fixture
-def mock_session_local(mock_all_dependencies):
-    """Fixture for mocked SessionLocal."""
-    MockSessionLocal = MagicMock()
-    mock_all_dependencies['shared_utils_database'].SessionLocal = MockSessionLocal
-    return MockSessionLocal
-
-
-@pytest.fixture
-def mock_retry_api_client(mock_all_dependencies):
-    """Fixture for mocked RetryAPIClient."""
-    mock_all_dependencies['shared_api_retry_client'].RetryAPIClient = MockRetryAPIClient
-    return MockRetryAPIClient
-
-
-@pytest.fixture
-def mock_request_parser(mock_all_dependencies):
-    """Fixture for mocked Flask-RESTful request parser."""
-    mock_parser = MagicMock()
-    mock_reqparse = MagicMock()
-    mock_reqparse.RequestParser = MagicMock(return_value=mock_parser)
-    mock_all_dependencies['flask_restful'].reqparse = mock_reqparse
-    mock_all_dependencies['flask_restful'].Resource = MagicMock()
-    return mock_parser
-
-
-@pytest.fixture
-def mock_config(mock_all_dependencies):
-    """Fixture for mocked configuration."""
-    mock_config_obj = MagicMock()
-    mock_config_obj.get_service_url = MagicMock(return_value="http://patient-service")
-    mock_all_dependencies['shared_config'].get_config = MagicMock(return_value=mock_config_obj)
-    return mock_config_obj
-
-
-@pytest.fixture
-def mock_logger(mock_all_dependencies):
-    """Fixture for mocked logger."""
-    logger = MagicMock()
-    mock_all_dependencies['logging'].getLogger = MagicMock(return_value=logger)
-    return logger
-
-
-@pytest.fixture
-def mock_date(monkeypatch):
-    """Fixture for mocking datetime.date."""
-    from unittest.mock import Mock
-    mock_date_obj = Mock()
-    mock_date_obj.today.return_value.isoformat.return_value = '2025-01-15'
-    return mock_date_obj
-
-
-import sys
+def get_mocks(mock_all_dependencies):
+    """Provide access to the configured mocks for tests that need them."""
+    return mock_all_dependencies

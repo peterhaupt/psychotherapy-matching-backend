@@ -40,7 +40,7 @@ class MockTherapieverfahren(str, Enum):
 
 
 @pytest.fixture
-def mock_therapist_importer(mock_all_modules):
+def mock_therapist_importer():
     """Create a TherapistImporter instance with mocked dependencies."""
     from therapist_service.imports.therapist_importer import TherapistImporter
     from shared.config import get_config
@@ -55,7 +55,7 @@ def mock_therapist_importer(mock_all_modules):
 
 
 @pytest.fixture
-def mock_file_monitor(mock_all_modules):
+def mock_file_monitor():
     """Create a LocalFileMonitor instance with mocked dependencies."""
     from therapist_service.imports.file_monitor import LocalFileMonitor
     from therapist_service.imports.therapist_importer import TherapistImporter
@@ -109,13 +109,12 @@ class TestStatusPreservation:
     ⚠️ THESE TESTS WILL FAIL - demonstrating the current bug!
     """
     
-    def test_update_preserves_gesperrt_status(self, mock_therapist_importer, mock_all_modules):
+    def test_update_preserves_gesperrt_status(self, mock_therapist_importer):
         """Test that a therapist marked as 'gesperrt' is NOT reset to 'aktiv'.
         
         THIS TEST WILL FAIL - demonstrating the bug!
         """
         from shared.utils.database import SessionLocal
-        from models.therapist import TherapistStatus
         
         # Setup database mock
         db_mock = MagicMock()
@@ -164,7 +163,7 @@ class TestStatusPreservation:
         assert existing_therapist.sperrdatum == date.today() - timedelta(days=30), \
             "Sperrdatum should be preserved"
     
-    def test_update_preserves_potenziell_verfuegbar_true(self, mock_therapist_importer, mock_all_modules):
+    def test_update_preserves_potenziell_verfuegbar_true(self, mock_therapist_importer):
         """Test that potenziell_verfuegbar=True is NOT reset to False.
         
         THIS TEST WILL FAIL - demonstrating the bug!
@@ -211,7 +210,7 @@ class TestStatusPreservation:
         assert existing_therapist.potenziell_verfuegbar_notizen == "Hat Kapazität ab März", \
             "Notes about availability should be preserved"
     
-    def test_update_preserves_ueber_curavani_informiert_true(self, mock_therapist_importer, mock_all_modules):
+    def test_update_preserves_ueber_curavani_informiert_true(self, mock_therapist_importer):
         """Test that ueber_curavani_informiert=True is NOT reset to False.
         
         THIS TEST WILL FAIL - demonstrating the bug!
@@ -256,7 +255,7 @@ class TestStatusPreservation:
         assert existing_therapist.ueber_curavani_informiert == True, \
             "ueber_curavani_informiert should remain True but was reset to False"
     
-    def test_update_preserves_kassensitz_false(self, mock_therapist_importer, mock_all_modules):
+    def test_update_preserves_kassensitz_false(self, mock_therapist_importer):
         """Test that kassensitz=False is NOT reset to True.
         
         THIS TEST WILL FAIL - demonstrating the bug!
@@ -300,7 +299,7 @@ class TestStatusPreservation:
         assert existing_therapist.kassensitz == False, \
             "kassensitz should remain False but was reset to True"
     
-    def test_update_preserves_all_manual_fields_together(self, mock_therapist_importer, mock_all_modules):
+    def test_update_preserves_all_manual_fields_together(self, mock_therapist_importer):
         """Test that ALL manual fields are preserved together during update.
         
         THIS TEST WILL FAIL - demonstrating the bug comprehensively!
@@ -377,7 +376,7 @@ class TestStatusPreservation:
 class TestTherapistImporter:
     """Test the core TherapistImporter functionality."""
     
-    def test_successful_new_therapist_import(self, mock_therapist_importer, mock_all_modules):
+    def test_successful_new_therapist_import(self, mock_therapist_importer):
         """Test successful import of a new therapist."""
         from shared.utils.database import SessionLocal
         
@@ -423,7 +422,7 @@ class TestTherapistImporter:
         db_mock.add.assert_called_once()
         db_mock.commit.assert_called_once()
     
-    def test_email_preservation_rule(self, mock_therapist_importer, mock_all_modules):
+    def test_email_preservation_rule(self, mock_therapist_importer):
         """Test that existing email is never overwritten with empty value."""
         from shared.utils.database import SessionLocal
         
@@ -466,7 +465,7 @@ class TestTherapistImporter:
         assert existing_therapist.email == "important.email@example.com", \
             "Existing email should not be overwritten with empty value"
     
-    def test_deduplication_by_name_and_plz(self, mock_therapist_importer, mock_all_modules):
+    def test_deduplication_by_name_and_plz(self, mock_therapist_importer):
         """Test therapist deduplication by name and PLZ."""
         from shared.utils.database import SessionLocal
         
@@ -727,7 +726,7 @@ class TestLocalFileMonitor:
 class TestImportStatusTracking:
     """Test ImportStatus tracking during import operations."""
     
-    def test_import_status_tracks_success(self, mock_therapist_importer, mock_all_modules):
+    def test_import_status_tracks_success(self, mock_therapist_importer):
         """Test that ImportStatus correctly tracks successful imports."""
         from therapist_service.imports.import_status import ImportStatus
         
@@ -760,7 +759,7 @@ class TestImportStatusTracking:
             assert status['total_therapists_failed'] == 2
             assert len(status['recent_imports']) == 1
     
-    def test_import_status_daily_reset(self, mock_all_modules):
+    def test_import_status_daily_reset(self):
         """Test that ImportStatus resets daily counters on date change."""
         from therapist_service.imports.import_status import ImportStatus
         
@@ -799,7 +798,7 @@ class TestImportStatusTracking:
 class TestErrorHandling:
     """Test error handling in import process."""
     
-    def test_database_connection_error(self, mock_therapist_importer, mock_all_modules):
+    def test_database_connection_error(self, mock_therapist_importer):
         """Test handling of database connection errors."""
         from shared.utils.database import SessionLocal
         
@@ -819,7 +818,7 @@ class TestErrorHandling:
         assert success == False
         assert "exception" in message.lower() or "error" in message.lower()
     
-    def test_validation_error_handling(self, mock_therapist_importer, mock_all_modules):
+    def test_validation_error_handling(self, mock_therapist_importer):
         """Test handling of validation errors during create and update."""
         from shared.utils.database import SessionLocal
         from api.therapists import validate_and_get_anrede

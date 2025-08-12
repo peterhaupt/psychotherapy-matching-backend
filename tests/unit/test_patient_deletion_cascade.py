@@ -64,7 +64,7 @@ class PatientResource:
 class TestPatientDeletionCascade:
     """Test patient deletion with cascade to Matching service."""
     
-    def test_delete_patient_calls_matching_api(self, mock_all_modules):
+    def test_delete_patient_calls_matching_api(self):
         """Test that deleting patient calls Matching service cascade endpoint."""
         from shared.utils.database import SessionLocal
         from shared.api.retry_client import RetryAPIClient
@@ -109,7 +109,7 @@ class TestPatientDeletionCascade:
         assert status_code == 200
         assert result['message'] == "Patient deleted successfully"
     
-    def test_delete_patient_rollback_on_matching_failure(self, mock_all_modules):
+    def test_delete_patient_rollback_on_matching_failure(self):
         """Test that patient deletion is rolled back if Matching service fails."""
         from shared.utils.database import SessionLocal
         from shared.api.retry_client import RetryAPIClient
@@ -147,7 +147,7 @@ class TestPatientDeletionCascade:
         assert status_code == 500
         assert "Cannot delete patient: Matching service error" in result['message']
     
-    def test_delete_patient_retries_on_network_error(self, mock_all_modules):
+    def test_delete_patient_retries_on_network_error(self):
         """Test that deletion retries on network errors."""
         from shared.utils.database import SessionLocal
         from shared.api.retry_client import RetryAPIClient
@@ -185,7 +185,7 @@ class TestPatientDeletionCascade:
         assert status_code == 503
         assert "Matching service unavailable" in result['message']
     
-    def test_delete_nonexistent_patient(self, mock_all_modules):
+    def test_delete_nonexistent_patient(self):
         """Test deleting a patient that doesn't exist."""
         from shared.utils.database import SessionLocal
         from shared.api.retry_client import RetryAPIClient

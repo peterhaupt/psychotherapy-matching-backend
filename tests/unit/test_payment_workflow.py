@@ -45,7 +45,7 @@ VALID_SYMPTOMS = [
 class TestZahlungsreferenzExtraction:
     """Test extraction of zahlungsreferenz from registration token."""
     
-    def test_extract_zahlungsreferenz_from_token_in_import(self, mock_patient_service_modules):
+    def test_extract_zahlungsreferenz_from_token_in_import(self):
         """Test extracting first 8 characters from token during import."""
         from patient_service.imports.patient_importer import PatientImporter
         
@@ -80,7 +80,7 @@ class TestZahlungsreferenzExtraction:
 class TestPaymentConfirmation:
     """Test payment confirmation and automatic status changes."""
     
-    def test_payment_confirmation_triggers_status_change(self, mock_patient_service_modules):
+    def test_payment_confirmation_triggers_status_change(self):
         """Test that confirming payment changes status from offen → auf_der_Suche."""
         from patient_service.api.patients import check_and_apply_payment_status_transition
         from models.patient import Patientenstatus
@@ -120,7 +120,7 @@ class TestPaymentConfirmation:
         mock_publish.assert_called_once()
         mock_db.commit.assert_called()
     
-    def test_payment_without_contracts_no_status_change(self, mock_patient_service_modules):
+    def test_payment_without_contracts_no_status_change(self):
         """Test that payment without signed contracts doesn't change status."""
         from patient_service.api.patients import check_and_apply_payment_status_transition
         from models.patient import Patientenstatus
@@ -147,7 +147,7 @@ class TestPaymentConfirmation:
         # No event should be published
         mock_db.commit.assert_not_called()
     
-    def test_payment_already_confirmed_idempotent(self, mock_patient_service_modules):
+    def test_payment_already_confirmed_idempotent(self):
         """Test that re-confirming payment doesn't change dates or status."""
         from patient_service.api.patients import check_and_apply_payment_status_transition
         from models.patient import Patientenstatus
@@ -174,7 +174,7 @@ class TestPaymentConfirmation:
         # No database commit needed
         mock_db.commit.assert_not_called()
     
-    def test_startdatum_not_overwritten(self, mock_patient_service_modules):
+    def test_startdatum_not_overwritten(self):
         """Test that if startdatum already set, it's not overwritten."""
         from patient_service.api.patients import check_and_apply_payment_status_transition
         from models.patient import Patientenstatus
@@ -207,7 +207,7 @@ class TestPaymentConfirmation:
 class TestSymptomValidation:
     """Test symptom validation with new JSONB array format."""
     
-    def test_validate_symptoms_function(self, mock_patient_service_modules):
+    def test_validate_symptoms_function(self):
         """Test the validate_symptoms function."""
         from patient_service.api.patients import validate_symptoms
         
@@ -239,7 +239,7 @@ class TestSymptomValidation:
         with pytest.raises(ValueError, match="must be provided as an array"):
             validate_symptoms("Depression / Niedergeschlagenheit")
     
-    def test_all_valid_symptoms_accepted(self, mock_patient_service_modules):
+    def test_all_valid_symptoms_accepted(self):
         """Test that all 30 approved symptoms are accepted."""
         from patient_service.api.patients import validate_symptoms
         
@@ -253,7 +253,7 @@ class TestSymptomValidation:
 class TestPatientImporter:
     """Test patient import functionality with payment fields."""
     
-    def test_import_extracts_zahlungsreferenz(self, mock_patient_service_modules):
+    def test_import_extracts_zahlungsreferenz(self):
         """Test that import extracts zahlungsreferenz from registration token."""
         from patient_service.imports.patient_importer import PatientImporter
         
@@ -281,7 +281,7 @@ class TestPatientImporter:
         assert call_args['zahlungsreferenz'] == 'a7f3e9b2'
         assert call_args['zahlung_eingegangen'] == False  # Default for new imports
     
-    def test_import_sends_confirmation_email(self, mock_patient_service_modules):
+    def test_import_sends_confirmation_email(self):
         """Test that successful import sends confirmation email."""
         from patient_service.imports.patient_importer import PatientImporter
         

@@ -49,7 +49,7 @@ class PatientLastContactResource:
 class TestPatientLastContactAPI:
     """Test the new PATCH endpoint for updating patient last contact."""
     
-    def test_update_last_contact_success(self, mock_all_modules):
+    def test_update_last_contact_success(self):
         """Test successful update of patient last contact."""
         from flask_restful import reqparse
         from shared.utils.database import SessionLocal
@@ -87,7 +87,7 @@ class TestPatientLastContactAPI:
         mock_db.commit.assert_called_once()
         mock_db.close.assert_called_once()
     
-    def test_update_last_contact_patient_not_found(self, mock_all_modules):
+    def test_update_last_contact_patient_not_found(self):
         """Test update when patient doesn't exist."""
         from flask_restful import reqparse
         from shared.utils.database import SessionLocal
@@ -118,7 +118,7 @@ class TestPatientLastContactAPI:
         mock_db.commit.assert_not_called()
         mock_db.close.assert_called_once()
     
-    def test_update_last_contact_uses_today_if_no_date(self, mock_all_modules):
+    def test_update_last_contact_uses_today_if_no_date(self):
         """Test that endpoint uses today's date if no date provided."""
         from flask_restful import reqparse
         from shared.utils.database import SessionLocal
@@ -156,7 +156,7 @@ class TestPatientLastContactAPI:
         assert status_code == 200
         assert mock_patient.letzter_kontakt == '2025-01-20'
     
-    def test_update_last_contact_idempotent(self, mock_all_modules):
+    def test_update_last_contact_idempotent(self):
         """Test that updating with same date is idempotent."""
         from flask_restful import reqparse
         from shared.utils.database import SessionLocal
