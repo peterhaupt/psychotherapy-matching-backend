@@ -11,6 +11,7 @@ from models.patient import Patient, Patientenstatus, Therapeutgeschlechtspraefer
 from shared.utils.database import SessionLocal
 from shared.api.base_resource import PaginatedListResource
 from shared.config import get_config
+from shared.api.retry_client import RetryAPIClient
 from events.producers import (
     publish_patient_created,
     publish_patient_updated,
@@ -340,6 +341,44 @@ def check_and_apply_payment_status_transition(patient, old_payment_status, db):
                 )
 
 
+class PatientLastContactResource(Resource):
+    """REST resource for updating patient last contact date only."""
+    
+    def patch(self, patient_id):
+        """Update only the last contact date for a patient."""
+        parser = reqparse.RequestParser()
+        parser.add_argument('date', type=str, required=False)
+        args = parser.parse_args()
+        
+        db = SessionLocal()
+        try:
+            patient = db.query(Patient).filter(Patient.id == patient_id).first()
+            if not patient:
+                return {"message": "Patient not found"}, 404
+            
+            # Use provided date or today
+            if args.get('date'):
+                try:
+                    contact_date = datetime.strptime(args.get('date'), '%Y-%m-%d').date()
+                except ValueError:
+                    return {"message": "Invalid date format. Use YYYY-MM-DD"}, 400
+            else:
+                contact_date = date.today()
+            
+            patient.letzter_kontakt = contact_date
+            
+            db.commit()
+            return {
+                "message": "Last contact updated", 
+                "letzter_kontakt": contact_date.isoformat()
+            }, 200
+        except SQLAlchemyError as e:
+            db.rollback()
+            return {"message": f"Database error: {str(e)}"}, 500
+        finally:
+            db.close()
+
+
 class PatientResource(Resource):
     """REST resource for individual patient operations."""
 
@@ -490,23 +529,48 @@ class PatientResource(Resource):
             db.close()
 
     def delete(self, patient_id):
-        """Delete a patient."""
+        """Delete patient with cascade to Matching service."""
         db = SessionLocal()
         try:
             patient = db.query(Patient).filter(Patient.id == patient_id).first()
             if not patient:
-                return {'message': 'Patient not found'}, 404
+                return {"message": "Patient not found"}, 404
             
+            # Call Matching service BEFORE deleting patient
+            matching_url = config.get_service_url('matching', internal=True)
+            cascade_url = f"{matching_url}/api/matching/cascade/patient-deleted"
+            
+            try:
+                response = RetryAPIClient.call_with_retry(
+                    method="POST",
+                    url=cascade_url,
+                    json={"patient_id": patient_id}
+                )
+                
+                if response.status_code != 200:
+                    # Matching service couldn't process cascade
+                    return {
+                        "message": f"Cannot delete patient: Matching service error: {response.text}"
+                    }, 500
+                    
+            except requests.RequestException as e:
+                # Network or timeout error after retries
+                return {
+                    "message": f"Cannot delete patient: Matching service unavailable: {str(e)}"
+                }, 503
+            
+            # Now safe to delete patient
             db.delete(patient)
             db.commit()
             
             # Publish deletion event
             publish_patient_deleted(patient_id, {'id': patient_id})
             
-            return {'message': 'Patient deleted successfully'}, 200
+            return {"message": "Patient deleted successfully"}, 200
+            
         except SQLAlchemyError as e:
             db.rollback()
-            return {'message': f'Database error: {str(e)}'}, 500
+            return {"message": f"Database error: {str(e)}"}, 500
         finally:
             db.close()
 

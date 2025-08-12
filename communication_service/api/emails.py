@@ -2,7 +2,7 @@
 from flask import request, jsonify
 from flask_restful import Resource, fields, marshal_with, reqparse, marshal
 from sqlalchemy.exc import SQLAlchemyError
-from datetime import datetime
+from datetime import datetime, date
 import re
 import logging
 
@@ -11,6 +11,7 @@ from shared.utils.database import SessionLocal
 from shared.api.base_resource import PaginatedListResource
 from shared.config import get_config
 from utils.markdown_processor import markdown_to_html, strip_html
+from shared.api.retry_client import RetryAPIClient
 # PHASE 2: Import event publishers
 from events.producers import publish_email_sent, publish_email_response_received
 
@@ -257,7 +258,7 @@ class EmailResource(Resource):
             db.close()
 
     def put(self, email_id):
-        """Update an existing email."""
+        """Update an existing email and notify patient service if needed."""
         parser = reqparse.RequestParser()
         parser.add_argument('status', type=str)
         parser.add_argument('antwort_erhalten', type=bool)
@@ -319,6 +320,25 @@ class EmailResource(Resource):
             if old_status != EmailStatus.Gesendet and email.status == EmailStatus.Gesendet:
                 logger.info(f"Email {email_id} status changed to Gesendet, publishing event")
                 publish_email_sent(email.id, email_data_for_event)
+                
+                # KAFKA REMOVAL: Update patient last contact via API
+                if email.patient_id:
+                    patient_service_url = config.get_service_url('patient', internal=True)
+                    patient_url = f"{patient_service_url}/api/patients/{email.patient_id}/last-contact"
+                    
+                    try:
+                        response = RetryAPIClient.call_with_retry(
+                            method="PATCH",
+                            url=patient_url,
+                            json={"date": date.today().isoformat()}
+                        )
+                        if response.status_code == 200:
+                            logger.info(f"Successfully updated patient {email.patient_id} last contact after email sent")
+                        else:
+                            logger.error(f"Failed to update patient last contact for patient {email.patient_id}: {response.status_code}")
+                    except Exception as e:
+                        # Log error but don't fail the email update
+                        logger.error(f"Failed to update patient last contact for patient {email.patient_id}: {str(e)}")
             
             # Check if response was just received
             if not old_antwort_erhalten and email.antwort_erhalten:

@@ -6,7 +6,13 @@ from flask import Flask, jsonify
 from flask_restful import Api, Resource
 from flask_cors import CORS
 
-from api.patients import PatientResource, PatientListResource, PatientCommunicationResource, PatientImportStatusResource
+from api.patients import (
+    PatientResource, 
+    PatientListResource, 
+    PatientCommunicationResource, 
+    PatientImportStatusResource,
+    PatientLastContactResource
+)
 from shared.config import get_config, setup_logging
 # PHASE 2: Import start_consumers
 from events.consumers import start_consumers
@@ -66,6 +72,9 @@ def create_app():
     # Register API endpoints
     api.add_resource(PatientListResource, '/api/patients')
     api.add_resource(PatientResource, '/api/patients/<int:patient_id>')
+    
+    # NEW: Register last contact update endpoint
+    api.add_resource(PatientLastContactResource, '/api/patients/<int:patient_id>/last-contact')
     
     # NEW: Register communication history endpoint
     api.add_resource(PatientCommunicationResource, 

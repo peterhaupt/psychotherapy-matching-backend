@@ -8,9 +8,17 @@ import logging
 from models.phone_call import PhoneCall, PhoneCallStatus
 from shared.utils.database import SessionLocal
 from shared.api.base_resource import PaginatedListResource
+from shared.config import get_config
 from utils.phone_call_scheduler import find_available_slot
+from shared.api.retry_client import RetryAPIClient
 # PHASE 2: Import event publishers
 from events.producers import publish_phone_call_scheduled, publish_phone_call_completed
+
+# Get configuration
+config = get_config()
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 # Custom field for nullable foreign keys
 class NullableIntegerField(fields.Raw):
@@ -69,7 +77,7 @@ class PhoneCallResource(Resource):
             db.close()
 
     def put(self, call_id):
-        """Update an existing phone call."""
+        """Update an existing phone call and notify patient service if needed."""
         parser = reqparse.RequestParser()
         parser.add_argument('geplantes_datum', type=str)
         parser.add_argument('geplante_zeit', type=str)
@@ -141,12 +149,31 @@ class PhoneCallResource(Resource):
                     'ergebnis': phone_call.ergebnis
                 }
                 
-                logging.info(f"Phone call {call_id} completed, publishing event")
+                logger.info(f"Phone call {call_id} completed, publishing event")
                 publish_phone_call_completed(
                     phone_call.id, 
                     call_data_for_event,
                     outcome=phone_call.ergebnis
                 )
+                
+                # KAFKA REMOVAL: Update patient last contact via API
+                if phone_call.patient_id:
+                    patient_service_url = config.get_service_url('patient', internal=True)
+                    patient_url = f"{patient_service_url}/api/patients/{phone_call.patient_id}/last-contact"
+                    
+                    try:
+                        response = RetryAPIClient.call_with_retry(
+                            method="PATCH",
+                            url=patient_url,
+                            json={"date": date.today().isoformat()}
+                        )
+                        if response.status_code == 200:
+                            logger.info(f"Successfully updated patient {phone_call.patient_id} last contact after phone call completed")
+                        else:
+                            logger.error(f"Failed to update patient last contact for patient {phone_call.patient_id}: {response.status_code}")
+                    except Exception as e:
+                        # Log error but don't fail the call update
+                        logger.error(f"Failed to update patient last contact for patient {phone_call.patient_id}: {str(e)}")
             
             return marshal(phone_call, phone_call_fields)
         except SQLAlchemyError as e:
@@ -337,7 +364,7 @@ class PhoneCallListResource(PaginatedListResource):
                     'scheduled_time': phone_call.geplante_zeit.isoformat()
                 })
             except Exception as e:
-                logging.error(f"Error publishing phone_call_scheduled event: {e}")
+                logger.error(f"Error publishing phone_call_scheduled event: {e}")
             
             return marshal(phone_call, phone_call_fields), 201
         except SQLAlchemyError as e:
@@ -345,7 +372,7 @@ class PhoneCallListResource(PaginatedListResource):
             return {'message': f'Database error: {str(e)}'}, 500
         except Exception as e:
             db.rollback()
-            logging.error(f"Error creating phone call: {str(e)}", exc_info=True)
+            logger.error(f"Error creating phone call: {str(e)}", exc_info=True)
             return {'message': f'Error creating phone call: {str(e)}'}, 500
         finally:
             db.close()

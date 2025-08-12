@@ -11,12 +11,7 @@ from models.therapist import Therapist, TherapistStatus, Anrede, Geschlecht, The
 from shared.utils.database import SessionLocal
 from shared.api.base_resource import PaginatedListResource
 from shared.config import get_config
-from events.producers import (
-    publish_therapist_created,
-    publish_therapist_updated,
-    publish_therapist_blocked,
-    publish_therapist_unblocked
-)
+from shared.api.retry_client import RetryAPIClient
 # NEW: Import for import status
 from imports import ImportStatus
 
@@ -280,7 +275,7 @@ class TherapistResource(Resource):
             db.close()
 
     def put(self, therapist_id):
-        """Update an existing therapist."""
+        """Update an existing therapist with cascade operations for status changes."""
         parser = reqparse.RequestParser()
         # Personal Information
         parser.add_argument('anrede', type=str)
@@ -334,6 +329,45 @@ class TherapistResource(Resource):
             
             old_status = therapist.status
             
+            # Check if status is changing to "gesperrt"
+            if args.get('status') == 'gesperrt' and old_status != TherapistStatus.gesperrt:
+                # Call Matching service BEFORE updating status
+                matching_url = f"{config.get_service_url('matching', internal=True)}/api/matching/cascade/therapist-blocked"
+                
+                try:
+                    response = RetryAPIClient.call_with_retry(
+                        method="POST",
+                        url=matching_url,
+                        json={
+                            "therapist_id": therapist_id,
+                            "reason": args.get('sperrgrund', 'Status changed to blocked')
+                        }
+                    )
+                    
+                    if response.status_code != 200:
+                        return {
+                            "message": f"Cannot block therapist: Matching service error: {response.text}"
+                        }, 500
+                        
+                except requests.RequestException as e:
+                    return {
+                        "message": f"Cannot block therapist: Matching service unavailable: {str(e)}"
+                    }, 503
+            
+            # Check if status is changing from "gesperrt" to "aktiv"
+            elif args.get('status') == 'aktiv' and old_status == TherapistStatus.gesperrt:
+                # Call Matching service for unblocking
+                matching_url = f"{config.get_service_url('matching', internal=True)}/api/matching/cascade/therapist-unblocked"
+                
+                try:
+                    response = RetryAPIClient.call_with_retry(
+                        method="POST",
+                        url=matching_url,
+                        json={"therapist_id": therapist_id}
+                    )
+                except:
+                    pass  # Unblocking cascade is non-critical
+            
             # Update fields from request
             for key, value in args.items():
                 if value is not None:
@@ -371,26 +405,9 @@ class TherapistResource(Resource):
             db.commit()
             db.refresh(therapist)
             
-            # Publish appropriate event based on status change
-            therapist_data = marshal(therapist, therapist_fields)
-            
-            # Check for status changes to publish specific events
-            if old_status != therapist.status:
-                if therapist.status == TherapistStatus.gesperrt:
-                    publish_therapist_blocked(
-                        therapist.id,
-                        therapist_data,
-                        therapist.sperrgrund
-                    )
-                elif (old_status == TherapistStatus.gesperrt and
-                      therapist.status == TherapistStatus.aktiv):
-                    publish_therapist_unblocked(therapist.id, therapist_data)
-                else:
-                    publish_therapist_updated(therapist.id, therapist_data)
-            else:
-                publish_therapist_updated(therapist.id, therapist_data)
-            
+            # Return the updated therapist
             return marshal(therapist, therapist_fields)
+            
         except SQLAlchemyError as e:
             db.rollback()
             return {'message': f'Database error: {str(e)}'}, 500
@@ -596,11 +613,9 @@ class TherapistListResource(PaginatedListResource):
             db.commit()
             db.refresh(therapist)
             
-            # Publish event for therapist creation
-            therapist_marshalled = marshal(therapist, therapist_fields)
-            publish_therapist_created(therapist.id, therapist_marshalled)
+            # Return the created therapist
+            return marshal(therapist, therapist_fields), 201
             
-            return therapist_marshalled, 201
         except SQLAlchemyError as e:
             db.rollback()
             return {'message': f'Database error: {str(e)}'}, 500

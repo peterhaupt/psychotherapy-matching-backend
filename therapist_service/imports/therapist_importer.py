@@ -9,7 +9,6 @@ from sqlalchemy.exc import SQLAlchemyError
 from models.therapist import Therapist, Therapieverfahren
 from shared.utils.database import SessionLocal
 from shared.config import get_config
-from events.producers import publish_therapist_created, publish_therapist_updated
 
 logger = logging.getLogger(__name__)
 
@@ -270,10 +269,6 @@ class TherapistImporter:
             db.commit()
             db.refresh(therapist)
             
-            # Publish event
-            therapist_marshalled = marshal(therapist, therapist_fields)
-            publish_therapist_created(therapist.id, therapist_marshalled)
-            
             logger.info(f"Created new therapist: {therapist.id}")
             return True, therapist.id, None
             
@@ -415,10 +410,6 @@ class TherapistImporter:
                 
                 db.commit()
                 db.refresh(therapist)
-                
-                # Publish event
-                therapist_marshalled = marshal(therapist, therapist_fields)
-                publish_therapist_updated(therapist.id, therapist_marshalled)
                 
                 logger.info(f"Updated therapist: {therapist.id}")
             else:
