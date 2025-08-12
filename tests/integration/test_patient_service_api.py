@@ -853,18 +853,16 @@ class TestPatientServiceAPI:
             vorname="CascadeTest",
             nachname="Patient",
             email="cascade.test@example.com",
-            status="auf_der_Suche"
+            status="auf_der_Suche",
+            erfahrung_mit_psychotherapie=False,
+            offen_fuer_gruppentherapie=False,
+            zeitliche_verfuegbarkeit={"montag": ["09:00-17:00"]}
         )
         patient_id = patient['id']
         
         # Step 2: Create an active platzsuche for this patient
         platzsuche_data = {
-            "patient_id": patient_id,
-            "status": "aktiv",
-            "suchkriterien": {
-                "therapieverfahren": ["Verhaltenstherapie"],
-                "max_entfernung_km": 20
-            }
+            "patient_id": patient_id
         }
         
         try:
