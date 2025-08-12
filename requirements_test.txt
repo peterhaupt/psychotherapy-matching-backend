@@ -20,3 +20,9 @@ responses==0.25.0  # For mocking HTTP responses (if needed)
 
 # Google Cloud Storage testing
 google-cloud-storage==2.10.0 
+
+# Flask dependencies (needed since we're not mocking them)
+Flask==3.1.0
+Flask-RESTful==0.3.10
+werkzeug==3.1.0  # Flask's underlying WSGI library (for test client)
+flask-cors==4.0.0

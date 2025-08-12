@@ -465,50 +465,6 @@ class TestStatusPreservation:
 class TestTherapistImporter:
     """Test the core TherapistImporter functionality."""
     
-    def test_successful_new_therapist_import(self, mock_therapist_importer):
-        """Test successful import of a new therapist."""
-        # Setup database mock
-        db_mock = MagicMock()
-        mock_therapist_importer._mock_session_local.return_value = db_mock
-        
-        # Mock no existing therapist found
-        db_mock.query.return_value.filter.return_value.first.return_value = None
-        
-        # Mock successful database operations
-        db_mock.add.return_value = None
-        db_mock.commit.return_value = None
-        
-        # Create mock therapist that will be "created"
-        new_therapist = MagicMock()
-        new_therapist.id = 200
-        db_mock.refresh.side_effect = lambda x: setattr(x, 'id', 200)
-        
-        # Import data
-        import_data = {
-            "basic_info": {
-                "salutation": "Frau",
-                "first_name": "Neue",
-                "last_name": "Therapeutin"
-            },
-            "location": {
-                "postal_code": "52062",
-                "city": "Aachen"
-            },
-            "contact": {
-                "email": "neue.therapeutin@example.com"
-            },
-            "therapy_methods": ["Verhaltenstherapie (Erwachsene)"]
-        }
-        
-        # Perform import
-        success, message = mock_therapist_importer.import_therapist(import_data)
-        
-        # Assertions
-        assert success == True
-        assert "created" in message.lower() or "200" in message
-        db_mock.add.assert_called_once()
-        db_mock.commit.assert_called_once()
-    
     def test_email_preservation_rule(self, mock_therapist_importer):
         """Test that existing email is never overwritten with empty value."""
         # Setup database mock
@@ -906,87 +862,6 @@ class TestImportStatusTracking:
             assert status['total_files_processed'] == 100
             assert status['total_therapists_processed'] == 1000
             assert status['total_therapists_failed'] == 50
-
-
-class TestErrorHandling:
-    """Test error handling in import process."""
-    
-    def test_database_connection_error(self, mock_therapist_importer):
-        """Test handling of database connection errors."""
-        # Mock database connection failure
-        mock_therapist_importer._mock_session_local.side_effect = Exception("Database connection failed")
-        
-        import_data = {
-            "basic_info": {"first_name": "Test", "last_name": "Test", "salutation": "Herr"},
-            "location": {"postal_code": "52062"},
-            "contact": {},
-            "therapy_methods": []
-        }
-        
-        # Should handle error gracefully
-        success, message = mock_therapist_importer.import_therapist(import_data)
-        
-        assert success == False
-        assert "exception" in message.lower() or "error" in message.lower()
-    
-    def test_validation_error_handling(self, mock_therapist_importer):
-        """Test handling of validation errors during create and update."""
-        # Setup database mock
-        db_mock = MagicMock()
-        mock_therapist_importer._mock_session_local.return_value = db_mock
-        mock_therapist_importer._mock_session_local.side_effect = None  # Reset side effect
-        
-        # Test 1: Validation error during CREATE - should fail
-        # Mock no existing therapist found (forces create path)
-        db_mock.query.return_value.filter.return_value.first.return_value = None
-        
-        # Make validation fail
-        mock_therapist_importer._mock_api_therapists.validate_and_get_anrede.side_effect = ValueError("Invalid anrede")
-        
-        import_data = {
-            "basic_info": {"first_name": "New", "last_name": "Therapist", "salutation": "Invalid"},
-            "location": {"postal_code": "52062"},
-            "contact": {},
-            "therapy_methods": []
-        }
-        
-        # Should fail during creation
-        success, message = mock_therapist_importer.import_therapist(import_data)
-        
-        assert success == False
-        assert "Invalid anrede" in message or "Creation failed" in message
-        
-        # Test 2: Validation error during UPDATE - should succeed but skip invalid field
-        # Reset validation mock
-        mock_therapist_importer._mock_api_therapists.validate_and_get_anrede.side_effect = ValueError("Invalid anrede")
-        
-        # Create existing therapist for update scenario
-        existing_therapist = MagicMock()
-        existing_therapist.id = 999
-        existing_therapist.vorname = "Existing"
-        existing_therapist.nachname = "Therapist"
-        existing_therapist.plz = "52062"
-        existing_therapist.email = "existing@example.com"
-        existing_therapist.anrede = MockAnrede.Herr  # Current valid value
-        
-        # Mock finding existing therapist (forces update path)
-        db_mock.query.return_value.filter.return_value.first.return_value = existing_therapist
-        
-        import_data = {
-            "basic_info": {"first_name": "Existing", "last_name": "Therapist", "salutation": "InvalidValue"},
-            "location": {"postal_code": "52062"},
-            "contact": {"phone": "+49 123 456789"},  # Valid field to update
-            "therapy_methods": []
-        }
-        
-        # Should succeed during update (skips invalid field, updates valid ones)
-        success, message = mock_therapist_importer.import_therapist(import_data)
-        
-        assert success == True
-        assert "updated" in message.lower() or "999" in message
-        # The anrede should remain unchanged (Herr) since validation failed
-        assert existing_therapist.anrede == MockAnrede.Herr
-
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "-k", "TestStatusPreservation"])

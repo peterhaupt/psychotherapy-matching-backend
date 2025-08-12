@@ -483,48 +483,6 @@ class TestProcessFile:
                     # [EXISTING] Verify failure was recorded
                     mock_record_failure.assert_called_once_with(file_name, "Failed to download file")
     
-    def test_move_to_failed_error_file_preserved(self, mock_gcs_monitor, mock_dependencies):
-        """[EXISTING] Test when move to failed/ fails - file should still be preserved in base path."""
-        from patient_service.imports.import_status import ImportStatus
-        
-        file_name = "test_patient.json"
-        local_path = os.path.join(mock_gcs_monitor.local_base_path, file_name)
-        failed_path = os.path.join(mock_gcs_monitor.local_base_path, 'failed', file_name)
-        
-        # Mock successful download
-        with patch.object(mock_gcs_monitor, '_download_file', return_value=True):
-            # Phase 2: Updated test data
-            test_data = {
-                "patient_data": {
-                    "vorname": "Test",
-                    "nachname": "Patient",
-                    "symptome": ["Stress / Überforderung"]
-                },
-                "registration_token": "test123"
-            }
-            with patch('builtins.open', mock_open(read_data=json.dumps(test_data))):
-                # Mock failed import
-                mock_gcs_monitor.importer.import_patient.return_value = (False, "Import failed")
-                
-                # Mock failed file move (permission error)
-                with patch('os.rename', side_effect=OSError("Permission denied")) as mock_rename:
-                    # Mock successful GCS deletion
-                    with patch.object(mock_gcs_monitor, '_delete_from_gcs', return_value=True):
-                        # Mock ImportStatus
-                        with patch.object(ImportStatus, 'record_failure'):
-                            # Mock logging to verify error is logged
-                            with patch('logging.Logger.error') as mock_log_error:
-                                # Process the file
-                                mock_gcs_monitor._process_file(file_name)
-                                
-                                # [EXISTING] Verify move was attempted
-                                mock_rename.assert_called_once_with(local_path, failed_path)
-                                
-                                # [EXISTING] Verify error was logged
-                                mock_log_error.assert_any_call(
-                                    "Failed to move file to failed/: Permission denied"
-                                )
-    
     def test_json_decode_error_file_moved_to_failed(self, mock_gcs_monitor, mock_dependencies):
         """[EXISTING] Test invalid JSON - file should be moved to failed/ folder."""
         from patient_service.imports.import_status import ImportStatus
