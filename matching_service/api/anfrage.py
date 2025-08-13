@@ -15,12 +15,8 @@ from models.platzsuche import SuchStatus
 from models.therapeutenanfrage import AntwortTyp
 from models.therapeut_anfrage_patient import AnfragePatientStatus, PatientenErgebnis
 from services import AnfrageService, PatientService, TherapistService
-from events.producers import (
-    publish_anfrage_created,
-    publish_anfrage_sent,
-    publish_anfrage_response_received,
-    publish_search_status_changed
-)
+# REMOVED: Kafka event producers imports
+
 from algorithms.anfrage_creator import (
     get_therapists_for_selection,
     create_anfrage_for_therapist
@@ -172,14 +168,8 @@ class PlatzsucheResource(Resource):
                         new_status = SuchStatus[args['status']]
                         search.status = new_status
                         
-                        # Publish status change event
-                        if old_status != new_status:
-                            publish_search_status_changed(
-                                search.id,
-                                search.patient_id,
-                                old_status.value,
-                                new_status.value
-                            )
+                        # REMOVED: Kafka event publishing for status change
+                        
                     except KeyError:
                         valid_values = [status.value for status in SuchStatus]
                         return {"message": f"Invalid status '{args['status']}'. Valid values: {valid_values}"}, 400
@@ -350,13 +340,7 @@ class PlatzsucheListResource(PaginatedListResource):
                     search.add_note(args['notizen'], author="API")
                     db.commit()
                 
-                # Publish creation event
-                publish_search_status_changed(
-                    search.id,
-                    search.patient_id,
-                    None,
-                    SuchStatus.aktiv.value
-                )
+                # REMOVED: Kafka event publishing for search creation
                 
                 return {
                     "id": search.id,
@@ -731,28 +715,19 @@ class AnfrageCreationResource(Resource):
                 # Commit the anfrage
                 db.commit()
                 
-                # Publish creation event
-                patient_ids = [ap.patient_id for ap in anfrage.anfrage_patients]
-                publish_anfrage_created(
-                    anfrage.id,
-                    anfrage.therapist_id,
-                    patient_ids,
-                    anfrage.anfragegroesse
-                )
+                # REMOVED: Kafka event publishing for anfrage creation
                 
                 # Send anfrage if requested
                 if args.get('sofort_senden'):
                     try:
                         result = AnfrageService.send_anfrage(db, anfrage.id)
                         if result["success"]:
-                            # Publish sent event
-                            publish_anfrage_sent(
-                                anfrage.id,
-                                result["communication_type"],
-                                result.get("email_id") or result.get("phone_call_id")
-                            )
+                            # REMOVED: Kafka event publishing for anfrage sent
+                            logger.info(f"Anfrage {anfrage.id} sent successfully")
                     except Exception as e:
                         logger.error(f"Failed to send anfrage {anfrage.id}: {str(e)}")
+                
+                patient_ids = [ap.patient_id for ap in anfrage.anfrage_patients]
                 
                 return {
                     "message": f"Created anfrage with {anfrage.anfragegroesse} patients",
@@ -841,14 +816,7 @@ class AnfrageResponseResource(Resource):
                 # Set cooling period for therapist
                 TherapistService.set_cooling_period(anfrage.therapist_id)
                 
-                # Publish response event
-                publish_anfrage_response_received(
-                    anfrage.id,
-                    anfrage.antworttyp.value if anfrage.antworttyp else None,
-                    anfrage.angenommen_anzahl,
-                    anfrage.abgelehnt_anzahl,
-                    anfrage.keine_antwort_anzahl
-                )
+                # REMOVED: Kafka event publishing for response received
                 
                 # Handle accepted patients
                 accepted_patients = []
@@ -863,12 +831,7 @@ class AnfrageResponseResource(Resource):
                         search = db.query(Platzsuche).filter_by(id=ap.platzsuche_id).first()
                         if search and search.status == SuchStatus.aktiv:
                             search.mark_successful()
-                            publish_search_status_changed(
-                                search.id,
-                                search.patient_id,
-                                SuchStatus.aktiv.value,
-                                SuchStatus.erfolgreich.value
-                            )
+                            # REMOVED: Kafka event publishing for search status change
                 
                 db.commit()
                 
