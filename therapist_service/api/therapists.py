@@ -11,7 +11,6 @@ from models.therapist import Therapist, TherapistStatus, Anrede, Geschlecht, The
 from shared.utils.database import SessionLocal
 from shared.api.base_resource import PaginatedListResource
 from shared.config import get_config
-from shared.api.retry_client import RetryAPIClient
 # NEW: Import for import status
 from imports import ImportStatus
 
@@ -257,6 +256,40 @@ def parse_date_field(date_string: str, field_name: str):
         raise ValueError(f"Invalid date format for {field_name}. Use YYYY-MM-DD")
 
 
+def check_therapist_has_anfragen(therapist_id: int) -> bool:
+    """Check if a therapist has any therapeutenanfragen in the matching service.
+    
+    Args:
+        therapist_id: ID of the therapist to check
+        
+    Returns:
+        True if therapist has anfragen, False otherwise
+    """
+    try:
+        # Call matching service to check for anfragen
+        matching_url = f"{config.get_service_url('matching', internal=True)}/api/therapeutenanfragen"
+        response = requests.get(
+            matching_url,
+            params={'therapist_id': therapist_id},
+            timeout=5
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            # Check if any anfragen exist for this therapist
+            if isinstance(result, dict) and 'data' in result:
+                return len(result['data']) > 0
+            return False
+        else:
+            # If we can't check, we should be conservative and assume anfragen might exist
+            logging.error(f"Failed to check anfragen for therapist {therapist_id}: {response.status_code}")
+            return True  # Safer to prevent deletion if we can't verify
+            
+    except requests.RequestException as e:
+        logging.error(f"Error checking anfragen for therapist {therapist_id}: {str(e)}")
+        return True  # Safer to prevent deletion if service is unavailable
+
+
 class TherapistResource(Resource):
     """REST resource for individual therapist operations."""
 
@@ -275,7 +308,7 @@ class TherapistResource(Resource):
             db.close()
 
     def put(self, therapist_id):
-        """Update an existing therapist with cascade operations for status changes."""
+        """Update an existing therapist - simplified without cascade operations."""
         parser = reqparse.RequestParser()
         # Personal Information
         parser.add_argument('anrede', type=str)
@@ -327,46 +360,8 @@ class TherapistResource(Resource):
             if not therapist:
                 return {'message': 'Therapist not found'}, 404
             
-            old_status = therapist.status
-            
-            # Check if status is changing to "gesperrt"
-            if args.get('status') == 'gesperrt' and old_status != TherapistStatus.gesperrt:
-                # Call Matching service BEFORE updating status
-                matching_url = f"{config.get_service_url('matching', internal=True)}/api/matching/cascade/therapist-blocked"
-                
-                try:
-                    response = RetryAPIClient.call_with_retry(
-                        method="POST",
-                        url=matching_url,
-                        json={
-                            "therapist_id": therapist_id,
-                            "reason": args.get('sperrgrund', 'Status changed to blocked')
-                        }
-                    )
-                    
-                    if response.status_code != 200:
-                        return {
-                            "message": f"Cannot block therapist: Matching service error: {response.text}"
-                        }, 500
-                        
-                except requests.RequestException as e:
-                    return {
-                        "message": f"Cannot block therapist: Matching service unavailable: {str(e)}"
-                    }, 503
-            
-            # Check if status is changing from "gesperrt" to "aktiv"
-            elif args.get('status') == 'aktiv' and old_status == TherapistStatus.gesperrt:
-                # Call Matching service for unblocking
-                matching_url = f"{config.get_service_url('matching', internal=True)}/api/matching/cascade/therapist-unblocked"
-                
-                try:
-                    response = RetryAPIClient.call_with_retry(
-                        method="POST",
-                        url=matching_url,
-                        json={"therapist_id": therapist_id}
-                    )
-                except:
-                    pass  # Unblocking cascade is non-critical
+            # SIMPLIFIED: No cascade operations for status changes
+            # Just update the therapist directly
             
             # Update fields from request
             for key, value in args.items():
@@ -415,7 +410,14 @@ class TherapistResource(Resource):
             db.close()
 
     def delete(self, therapist_id):
-        """Delete a therapist."""
+        """Delete a therapist - with check for existing anfragen."""
+        # SIMPLIFIED: Check if therapist has any anfragen before allowing deletion
+        if check_therapist_has_anfragen(therapist_id):
+            return {
+                'message': 'Cannot delete therapist: Therapeutenanfragen exist for this therapist. '
+                          'Please delete all related Therapeutenanfragen first.'
+            }, 409  # Conflict status code
+        
         db = SessionLocal()
         try:
             therapist = db.query(Therapist).filter(Therapist.id == therapist_id).first()

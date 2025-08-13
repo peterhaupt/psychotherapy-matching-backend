@@ -11,7 +11,6 @@ from models.patient import Patient, Patientenstatus, Therapeutgeschlechtspraefer
 from shared.utils.database import SessionLocal
 from shared.api.base_resource import PaginatedListResource
 from shared.config import get_config
-from shared.api.retry_client import RetryAPIClient
 # NEW: Import for import status
 from imports import ImportStatus
 
@@ -498,37 +497,43 @@ class PatientResource(Resource):
             db.close()
 
     def delete(self, patient_id):
-        """Delete patient with cascade to Matching service."""
+        """Delete patient - simplified to check for existing Platzsuche first."""
         db = SessionLocal()
         try:
             patient = db.query(Patient).filter(Patient.id == patient_id).first()
             if not patient:
                 return {"message": "Patient not found"}, 404
             
-            # Call Matching service BEFORE deleting patient
+            # Check if patient has any Platzsuche records in matching service
             matching_url = config.get_service_url('matching', internal=True)
-            cascade_url = f"{matching_url}/api/matching/cascade/patient-deleted"
+            check_url = f"{matching_url}/api/platzsuchen?patient_id={patient_id}"
             
             try:
-                response = RetryAPIClient.call_with_retry(
-                    method="POST",
-                    url=cascade_url,
-                    json={"patient_id": patient_id}
-                )
+                response = requests.get(check_url, timeout=5)
                 
-                if response.status_code != 200:
-                    # Matching service couldn't process cascade
+                if response.status_code == 200:
+                    result = response.json()
+                    # Check if any Platzsuche records exist
+                    if result.get('data') and len(result['data']) > 0:
+                        # Patient has Platzsuche records - block deletion
+                        return {
+                            "message": f"Cannot delete patient: Active search exists. Please delete the search first.",
+                            "existing_searches": len(result['data'])
+                        }, 400
+                    # No Platzsuche records - safe to delete
+                else:
+                    # If we can't check, be conservative and block deletion
                     return {
-                        "message": f"Cannot delete patient: Matching service error: {response.text}"
-                    }, 500
+                        "message": f"Cannot verify if patient has active searches. Please try again later."
+                    }, 503
                     
             except requests.RequestException as e:
-                # Network or timeout error after retries
+                # Network error - be conservative and block deletion
                 return {
-                    "message": f"Cannot delete patient: Matching service unavailable: {str(e)}"
+                    "message": f"Cannot verify if patient has active searches: {str(e)}"
                 }, 503
             
-            # Now safe to delete patient
+            # No Platzsuche records found - safe to delete patient
             db.delete(patient)
             db.commit()
             

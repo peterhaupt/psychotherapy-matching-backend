@@ -7,7 +7,7 @@ Changes made:
 3. Removed HTTP import tests (import is file-based via GCS)
 4. Updated automatic startdatum test for new payment-based logic
 5. Fixed case sensitivity for auf_der_Suche status (capital 'S')
-6. Added cascade integration tests for patient deletion with Matching service
+6. Updated cascade integration tests for simplified deletion logic
 """
 import pytest
 import requests
@@ -840,19 +840,21 @@ class TestPatientServiceAPI:
         # Cleanup
         requests.delete(f"{BASE_URL}/patients/{created_patient['id']}")
 
-    # ==================== CASCADE INTEGRATION TESTS ====================
+    # ==================== SIMPLIFIED DELETION TEST ====================
 
-    def test_patient_deletion_cascade_integration(self):
-        """Test that deleting a patient triggers cascade operations in the Matching service to cancel active searches.
+    def test_patient_deletion_blocked_with_platzsuche(self):
+        """Test that patient deletion is blocked when Platzsuche exists.
         
-        This test will initially FAIL until Phase 2 implementation of cascade operations.
-        Expected initial behavior: Patient will be deleted but platzsuche will remain active.
+        This test verifies the simplified deletion logic where:
+        1. Patient deletion is blocked if a Platzsuche exists
+        2. User must manually delete Platzsuche first
+        3. Then patient can be deleted
         """
         # Step 1: Create a test patient
         patient = self.create_test_patient(
-            vorname="CascadeTest",
-            nachname="Patient",
-            email="cascade.test@example.com",
+            vorname="BlockedDeletion",
+            nachname="TestPatient",
+            email="blocked.deletion@example.com",
             status="auf_der_Suche",
             erfahrung_mit_psychotherapie=False,
             offen_fuer_gruppentherapie=False,
@@ -867,134 +869,60 @@ class TestPatientServiceAPI:
         
         try:
             response = requests.post(f"{MATCHING_API_URL}/platzsuchen", json=platzsuche_data)
-            assert response.status_code == 201
+            if response.status_code != 201:
+                pytest.skip(f"Could not create Platzsuche: {response.status_code} - {response.text}")
+            
             platzsuche = response.json()
             platzsuche_id = platzsuche['id']
             
-            # Step 3: Delete the patient
-            response = requests.delete(f"{BASE_URL}/patients/{patient_id}")
-            assert response.status_code == 200
-            
-            # Step 4: Verify the platzsuche was cancelled
-            response = requests.get(f"{MATCHING_API_URL}/platzsuchen/{platzsuche_id}")
-            assert response.status_code == 200
-            
-            updated_platzsuche = response.json()
-            # This assertion will FAIL initially - platzsuche will still be "aktiv" instead of "abgebrochen"
-            assert updated_platzsuche['status'] == "abgebrochen", \
-                "CASCADE NOT IMPLEMENTED: Platzsuche should be cancelled when patient is deleted"
-            
-            # Step 5: Verify the patient is deleted
-            response = requests.get(f"{BASE_URL}/patients/{patient_id}")
-            assert response.status_code == 404
-            
-        except AssertionError as e:
-            # Expected to fail initially
-            if "CASCADE NOT IMPLEMENTED" in str(e):
-                pytest.xfail("Patient deletion cascade to Matching service not yet implemented")
-            raise
-        except requests.ConnectionError:
-            pytest.skip("Matching service not available for cascade testing")
-        finally:
-            # Cleanup - try to delete patient if it still exists
-            try:
-                requests.delete(f"{BASE_URL}/patients/{patient_id}")
-            except:
-                pass
-
-    def test_cascade_failure_rollback(self):
-        """Test that patient deletion is rolled back if the Matching service cascade operation fails.
-        
-        This test will initially FAIL until Phase 2 implementation of rollback mechanism.
-        Expected initial behavior: Patient will be deleted even if Matching service is unavailable.
-        
-        Note: This test simulates Matching service unavailability by using a non-existent port.
-        """
-        # Step 1: Create a test patient
-        patient = self.create_test_patient(
-            vorname="RollbackTest",
-            nachname="Patient",
-            email="rollback.test@example.com",
-            status="auf_der_Suche"
-        )
-        patient_id = patient['id']
-        
-        # Step 2: Create an active platzsuche for this patient
-        platzsuche_data = {
-            "patient_id": patient_id,
-            "status": "aktiv",
-            "suchkriterien": {
-                "therapieverfahren": ["tiefenpsychologisch_fundierte_Psychotherapie"],
-                "max_entfernung_km": 10
-            }
-        }
-        
-        try:
-            # Try to create platzsuche - if Matching service is available
-            try:
-                response = requests.post(f"{MATCHING_API_URL}/platzsuchen", json=platzsuche_data)
-                if response.status_code == 201:
-                    platzsuche_created = True
-                    platzsuche_id = response.json()['id']
-                else:
-                    platzsuche_created = False
-            except requests.ConnectionError:
-                pytest.skip("Matching service not available for cascade rollback testing")
-            
-            # Step 3: Simulate Matching service unavailability
-            # Save original URL and set to non-existent port
-            original_matching_url = MATCHING_API_URL
-            invalid_matching_url = "http://localhost:99999"  # Non-existent port
-            
-            # Note: In actual implementation, the Patient service would need to be configured
-            # to use this invalid URL for Matching service calls
-            # This is a limitation of integration testing - we can't easily change service config
-            
-            # Step 4: Attempt to delete the patient - should fail with 503 if cascade is implemented
+            # Step 3: Attempt to delete the patient - should be BLOCKED
             response = requests.delete(f"{BASE_URL}/patients/{patient_id}")
             
-            # Expected behavior after Phase 2: Should get 503 Service Unavailable
-            # Initial behavior: Will get 200 OK (patient deleted despite Matching service being down)
-            if response.status_code == 200:
-                # This is the current (incorrect) behavior
-                pytest.xfail("ROLLBACK NOT IMPLEMENTED: Patient deletion succeeded despite Matching service unavailability")
+            # Verify deletion is blocked with error 400
+            assert response.status_code == 400
+            error_message = response.json()["message"]
+            assert "Cannot delete patient" in error_message
+            assert "Active search exists" in error_message
+            assert "Please delete the search first" in error_message
             
-            assert response.status_code == 503, \
-                "Patient deletion should fail with 503 when Matching service is unavailable"
-            assert "Service Unavailable" in response.json().get("message", "")
+            # Also check if the response includes the count of existing searches
+            if "existing_searches" in response.json():
+                assert response.json()["existing_searches"] == 1
             
-            # Step 5: Verify patient still exists (rollback worked)
+            # Step 4: Verify the patient still exists
             response = requests.get(f"{BASE_URL}/patients/{patient_id}")
             assert response.status_code == 200
             still_exists = response.json()
             assert still_exists['id'] == patient_id
             
-            # Step 6: Restore Matching service availability
-            # (In real test, this would involve restoring the service connection)
+            # Step 5: Delete the Platzsuche first
+            response = requests.delete(f"{MATCHING_API_URL}/platzsuchen/{platzsuche_id}")
+            if response.status_code != 200:
+                print(f"Warning: Could not delete Platzsuche: {response.status_code}")
             
-            # Step 7: Retry deletion - should now succeed
+            # Step 6: Now try to delete the patient again - should succeed
             response = requests.delete(f"{BASE_URL}/patients/{patient_id}")
             assert response.status_code == 200
             
-            # Verify patient is now deleted
+            # Step 7: Verify patient is now deleted
             response = requests.get(f"{BASE_URL}/patients/{patient_id}")
             assert response.status_code == 404
             
-        except AssertionError as e:
-            if "ROLLBACK NOT IMPLEMENTED" in str(e):
-                # Clean up the patient that was incorrectly deleted
-                pass  # Patient already deleted
-            else:
-                # Try cleanup if test failed for other reasons
-                try:
-                    requests.delete(f"{BASE_URL}/patients/{patient_id}")
-                except:
-                    pass
-            raise
         except requests.ConnectionError:
-            pytest.skip("Required services not available for cascade rollback testing")
+            pytest.skip("Matching service not available for deletion blocking test")
+        except AssertionError:
+            # If test fails, try cleanup
+            try:
+                # Try to delete Platzsuche if it exists
+                if 'platzsuche_id' in locals():
+                    requests.delete(f"{MATCHING_API_URL}/platzsuchen/{platzsuche_id}")
+                # Try to delete patient if it still exists
+                requests.delete(f"{BASE_URL}/patients/{patient_id}")
+            except:
+                pass
+            raise
         finally:
-            # Ensure cleanup
+            # Final cleanup attempt
             try:
                 requests.delete(f"{BASE_URL}/patients/{patient_id}")
             except:

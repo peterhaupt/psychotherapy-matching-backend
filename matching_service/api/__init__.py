@@ -10,11 +10,6 @@ from .anfrage import (
     AnfrageResponseResource,
     AnfrageSendResource
 )
-from .cascade_operations import (
-    PatientDeletedCascadeResource,
-    TherapistBlockedCascadeResource,
-    TherapistUnblockedCascadeResource
-)
 
 __all__ = [
     # Anfrage system endpoints
@@ -27,8 +22,4 @@ __all__ = [
     'AnfrageCreationResource',
     'AnfrageResponseResource',
     'AnfrageSendResource',
-    # Cascade operation endpoints
-    'PatientDeletedCascadeResource',
-    'TherapistBlockedCascadeResource',
-    'TherapistUnblockedCascadeResource'
 ]
