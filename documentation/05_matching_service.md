@@ -3,15 +3,14 @@
 > **Note**: For complete API documentation, see `API_REFERENCE.md`
 
 ## Summary
-FULLY OPERATIONAL anfrage-based matching system that creates optimal groups of 1-6 patients for therapists through manual therapist selection, handles responses, manages the entire matching workflow, and provides cascade operations for cross-service consistency.
+FULLY OPERATIONAL anfrage-based matching system that creates optimal groups of 1-6 patients for therapists through manual therapist selection, handles responses, and manages the entire matching workflow.
 
 ## Current Status ✅ PRODUCTION READY
 - **Database**: Complete schema with German field names
 - **Models**: Full implementation with business logic
 - **Algorithm**: Manual therapist selection with hard constraints
 - **APIs**: All endpoints functional and tested
-- **Integration**: Seamless synchronous communication with other services
-- **Cascade Operations**: Handles patient deletion and therapist status changes
+- **Integration**: Direct synchronous communication with other services
 
 ## Core Components
 
@@ -42,6 +41,7 @@ See `models/` directory:
 - **PLZ-based filtering**: Two-digit postal code prefix matching
 - **Prioritized sorting**: Available + informed, Available + not informed, Not available + informed, Others
 - **Contactable check**: Respects cooling periods (`naechster_kontakt_moeglich`)
+- **Email deduplication**: Groups therapists by email, returns only practice owners
 
 ### Hard Constraints Only
 Unlike scoring systems, this uses binary pass/fail constraints:
@@ -54,30 +54,6 @@ Unlike scoring systems, this uses binary pass/fail constraints:
 - **Size**: 1-6 patients (configurable via `MAX_ANFRAGE_SIZE`, `MIN_ANFRAGE_SIZE`)
 - **Selection order**: Oldest searches first (FIFO)
 - **PLZ filtering**: Patients must match therapist's PLZ prefix
-
-## Cascade API Endpoints
-
-The Matching Service provides cascade endpoints for maintaining data consistency across services:
-
-### Patient Deletion Cascade
-**Endpoint**: `POST /api/matching/cascade/patient-deleted`
-- Cancels all active searches (platzsuche) for the deleted patient
-- Updates search status to `abgebrochen` with appropriate notes
-- Returns count of cancelled searches
-- Transactional operation ensuring consistency
-
-### Therapist Blocking Cascade
-**Endpoint**: `POST /api/matching/cascade/therapist-blocked`
-- Cancels all unsent anfragen for the blocked therapist
-- Adds therapist to exclusion lists for affected patients
-- Updates anfragen with blocking reason
-- Returns count of affected anfragen
-
-### Therapist Unblocking Cascade
-**Endpoint**: `POST /api/matching/cascade/therapist-unblocked`
-- Optional notification for therapist reactivation
-- Currently minimal implementation
-- Can be extended for additional logic
 
 ## Business Rules Implementation
 
@@ -108,6 +84,12 @@ Patient outcomes tracked individually:
 - **CommunicationService**: Create and send anfrage emails
 - **GeoCodingService**: Distance calculations for constraints
 
+### Data Consistency
+- **Soft References**: Integer foreign keys without database constraints
+- **Service Boundaries**: Each service owns its schema completely
+- **Error Handling**: Operations fail gracefully when dependent services unavailable
+- **Manual Cleanup**: Administrative processes for orphaned data
+
 ### Email Generation
 Professional HTML emails automatically generated with:
 - Patient list with key demographics (age, diagnosis, location)
@@ -134,11 +116,6 @@ All endpoints documented in `API_REFERENCE.md`:
 - Response recording and processing
 - Conflict detection and resolution
 
-### Cascade Operations
-- Patient deletion handling
-- Therapist blocking/unblocking processing
-- Transactional consistency maintenance
-
 ## Configuration
 
 All settings managed through `shared.config`:
@@ -154,7 +131,6 @@ All settings managed through `shared.config`:
 - Acceptance statistics
 - Wait time analysis
 - Conflict detection and resolution tracking
-- Cascade operation success rates
 
 ## Production Considerations
 - **Database Indexes**: Optimized for status and date queries
@@ -162,7 +138,6 @@ All settings managed through `shared.config`:
 - **Error Recovery**: Graceful handling of service failures
 - **Audit Trail**: Complete logging of all operations
 - **Performance**: Designed for high-volume patient matching
-- **Consistency**: Transactional cascade operations ensure data integrity
 
 ## Algorithm Differences from Traditional Matching
 
@@ -188,9 +163,9 @@ Traditional matching systems use weighted scoring. This system uses binary const
 - Provides clear error messages for dependent services
 - Implements retry logic where appropriate
 
-### Data Consistency
-- All cascade operations are transactional
-- Rollback on partial failures
-- Audit logging for all state changes
+### Data Integrity
+- Service isolation prevents cascading failures
+- Each service maintains its own data consistency
+- Manual administrative cleanup when needed
 
-This approach prioritizes match quality and human oversight over pure automation, resulting in higher success rates and therapist satisfaction while maintaining strict data consistency through synchronous cascade operations.
+This approach prioritizes match quality and human oversight over pure automation, resulting in higher success rates and therapist satisfaction.

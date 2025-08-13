@@ -229,9 +229,9 @@ Each environment configured with appropriate frontend URLs:
 **Problem**: Services attempting to connect during restore.
 **Solution**: Stop application services during restore process.
 
-### 5. Cross-Service Cascade Operations
+### 5. Cross-Service Data Consistency
 **Problem**: Need to maintain data consistency across services.
-**Solution**: Implemented synchronous cascade APIs with proper error handling.
+**Solution**: Each service maintains its own data integrity, administrative cleanup for orphaned data.
 
 ## Architecture Simplifications
 
@@ -242,10 +242,16 @@ Each environment configured with appropriate frontend URLs:
 - **Lower resource usage**: Removed Kafka and Zookeeper containers
 - **Faster startup**: Services don't wait for message broker availability
 
+### Current Approach Benefits
+- **Service isolation**: Each service maintains its own data
+- **Graceful degradation**: Services continue operating when others are down
+- **Simple recovery**: No complex cascade rollback scenarios
+- **Clear boundaries**: Each service fully owns its schema
+
 ### Trade-offs
-- **Increased latency**: Some operations take longer due to synchronous cascades
+- **Manual cleanup**: Orphaned data requires administrative intervention
+- **No automatic consistency**: Cross-service data may become inconsistent
 - **Service coupling**: Services must handle dependent service unavailability
-- **No message buffering**: Failed operations must be retried by clients
 
 ## Best Practices
 
@@ -258,4 +264,4 @@ Each environment configured with appropriate frontend URLs:
 7. **Test restore process** regularly to ensure backups work
 8. **Handle service unavailability** gracefully in API calls
 9. **Implement retry logic** for cross-service communication
-10. **Monitor cascade operations** for performance impact
+10. **Monitor orphaned data** and perform regular cleanup
