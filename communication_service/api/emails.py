@@ -5,13 +5,13 @@ from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime, date
 import re
 import logging
+import requests
 
 from models.email import Email, EmailStatus
 from shared.utils.database import SessionLocal
 from shared.api.base_resource import PaginatedListResource
 from shared.config import get_config
 from utils.markdown_processor import markdown_to_html, strip_html
-from shared.api.retry_client import RetryAPIClient
 
 # Get configuration
 config = get_config()
@@ -314,10 +314,10 @@ class EmailResource(Resource):
                     patient_url = f"{patient_service_url}/api/patients/{email.patient_id}/last-contact"
                     
                     try:
-                        response = RetryAPIClient.call_with_retry(
-                            method="PATCH",
-                            url=patient_url,
-                            json={"date": date.today().isoformat()}
+                        response = requests.patch(
+                            patient_url,
+                            json={"date": date.today().isoformat()},
+                            timeout=10
                         )
                         if response.status_code == 200:
                             logger.info(f"Successfully updated patient {email.patient_id} last contact after email sent")

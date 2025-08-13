@@ -4,13 +4,13 @@ from flask_restful import Resource, fields, marshal_with, reqparse, marshal
 from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime, time, date, timedelta
 import logging
+import requests
 
 from models.phone_call import PhoneCall, PhoneCallStatus
 from shared.utils.database import SessionLocal
 from shared.api.base_resource import PaginatedListResource
 from shared.config import get_config
 from utils.phone_call_scheduler import find_available_slot
-from shared.api.retry_client import RetryAPIClient
 
 # Get configuration
 config = get_config()
@@ -143,10 +143,10 @@ class PhoneCallResource(Resource):
                     patient_url = f"{patient_service_url}/api/patients/{phone_call.patient_id}/last-contact"
                     
                     try:
-                        response = RetryAPIClient.call_with_retry(
-                            method="PATCH",
-                            url=patient_url,
-                            json={"date": date.today().isoformat()}
+                        response = requests.patch(
+                            patient_url,
+                            json={"date": date.today().isoformat()},
+                            timeout=10
                         )
                         if response.status_code == 200:
                             logger.info(f"Successfully updated patient {phone_call.patient_id} last contact after phone call completed")
