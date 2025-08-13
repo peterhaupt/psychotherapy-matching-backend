@@ -321,10 +321,6 @@ def check_and_apply_payment_status_transition(patient, old_payment_status, db):
                 old_status = patient.status
                 patient.status = Patientenstatus.auf_der_suche
                 logger.info(f"Changed status from {old_status.value} to {patient.status.value} for patient {patient.id}")
-                
-                # Commit changes
-                db.commit()
-                db.refresh(patient)
 
 
 class PatientLastContactResource(Resource):

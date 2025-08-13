@@ -124,7 +124,7 @@ def mock_patient_dependencies():
     from enum import Enum
     class MockPatientenstatus(str, Enum):
         offen = "offen"
-        auf_der_Suche = "auf_der_Suche"
+        auf_der_Suche = "auf_der_Suche"  # Value with capital S
         in_Therapie = "in_Therapie"
         Therapie_abgeschlossen = "Therapie_abgeschlossen"
         Suche_abgebrochen = "Suche_abgebrochen"
@@ -314,6 +314,8 @@ class TestPaymentConfirmation:
         
         # startdatum should remain unchanged (not overwritten)
         assert patient.startdatum == original_date
+        # Status should have changed to auf_der_Suche
+        assert patient.status == Patientenstatus.auf_der_Suche
 
 
 class TestSymptomValidation:
