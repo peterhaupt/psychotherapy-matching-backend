@@ -1,8 +1,8 @@
-# API Reference - Psychotherapy Matching Platform (PHASE 2 UPDATED)
+# API Reference - Psychotherapy Matching Platform
 
 **Single Source of Truth for All API Integration**
 
-Last Updated: January 2025
+Last Updated: August 2025
 
 ## Overview
 
@@ -35,6 +35,8 @@ The following values are configurable via environment variables and will be refl
 - **DEFAULT_PHONE_CALL_TIME**: Default time for phone calls (default: "12:00")
 
 Error messages and validation will reflect the configured values, not hardcoded constants.
+
+**Note:** All timeout values, check intervals, and batch sizes mentioned in this documentation are configurable via environment variables and the actual values may differ from examples based on deployment configuration.
 
 ## Common Response Patterns
 
@@ -363,14 +365,16 @@ curl "http://localhost:8001/health"
 
 ## Import Health Check (Patient & Therapist Services)
 
-**Description:** Check import system health status.
+**Description:** Check import system health status with detailed diagnostics.
 
 **Example Request:**
 ```bash
 curl "http://localhost:8001/health/import"
+# or
+curl "http://localhost:8002/health/import"
 ```
 
-**Example Response:**
+**Example Response (Healthy):**
 ```json
 {
   "status": "healthy",
@@ -381,6 +385,26 @@ curl "http://localhost:8001/health/import"
     "files_processed_today": 5,
     "files_failed_today": 0,
     "issues": []
+  }
+}
+```
+
+**Example Response (Unhealthy):**
+```json
+{
+  "status": "unhealthy",
+  "service": "therapist-import-monitor",
+  "details": {
+    "monitor_running": true,
+    "last_check": "2025-01-15T08:30:00",
+    "files_processed_today": 3,
+    "files_failed_today": 2,
+    "last_error": "Invalid JSON in file 52062.json",
+    "last_error_time": "2025-01-15T08:25:00",
+    "issues": [
+      "High failure rate: 66.7%",
+      "Monitor inactive for too long"
+    ]
   }
 }
 ```
@@ -481,6 +505,32 @@ curl "http://localhost:8001/api/patients/1"
 ```
 
 **Example Response:** Same structure as single patient in list response (all fields included).
+
+## PATCH /patients/{id}/last-contact
+
+**Description:** Update only the last contact date for a patient. Used by communication service to automatically update when emails or calls are sent.
+
+**Request Body (Optional):**
+```json
+{
+  "date": "2025-01-15"  // Optional, defaults to today if not provided
+}
+```
+
+**Example Request:**
+```bash
+curl -X PATCH "http://localhost:8001/api/patients/1/last-contact" \
+  -H "Content-Type: application/json" \
+  -d '{"date": "2025-01-15"}'
+```
+
+**Example Response:**
+```json
+{
+  "message": "Last contact updated",
+  "letzter_kontakt": "2025-01-15"
+}
+```
 
 ## GET /patients/{id}/communication
 
@@ -600,7 +650,7 @@ curl "http://localhost:8001/api/patients/import-status"
 
 **Process Status:**
 - `vertraege_unterschrieben` (boolean)
-- ~~`startdatum`~~ **AUTOMATIC** - Set when both vertraege_unterschrieben and zahlung_eingegangen are true
+- `startdatum` **AUTOMATIC** - Set when both vertraege_unterschrieben and zahlung_eingegangen are true
 - `status` (string, see enum values) - **AUTOMATIC** changes to "auf_der_Suche" when payment confirmed
 - `empfehler_der_unterstuetzung` (string)
 - `erster_therapieplatz_am` (string, YYYY-MM-DD)
@@ -618,7 +668,7 @@ curl "http://localhost:8001/api/patients/import-status"
 **Preferences:**
 - `offen_fuer_gruppentherapie` (boolean)
 - `offen_fuer_diga` (boolean)
-- ~~`letzter_kontakt`~~ **AUTOMATIC** - Updated via communication events
+- `letzter_kontakt` **AUTOMATIC** - Updated via communication events
 
 **Therapist Preferences:**
 - `ausgeschlossene_therapeuten` (array of integers)
@@ -758,6 +808,9 @@ curl -X PUT "http://localhost:8001/api/patients/1" \
 
 **Description:** Delete a patient.
 
+**Deletion Protection:**
+Before deletion, the service checks if the patient has any active Platzsuche records in the matching service. If searches exist, deletion is blocked with a 400 error.
+
 **Example Request:**
 ```bash
 curl -X DELETE "http://localhost:8001/api/patients/1"
@@ -767,6 +820,21 @@ curl -X DELETE "http://localhost:8001/api/patients/1"
 ```json
 {
   "message": "Patient deleted successfully"
+}
+```
+
+**Error Response (400):**
+```json
+{
+  "message": "Cannot delete patient: Active search exists. Please delete the search first.",
+  "existing_searches": 2
+}
+```
+
+**Error Response (503):**
+```json
+{
+  "message": "Cannot verify if patient has active searches. Please try again later."
 }
 ```
 
@@ -789,6 +857,8 @@ curl -X DELETE "http://localhost:8001/api/patients/1"
 **Search Behavior:**
 - Searches across `vorname`, `nachname` fields with case-insensitive partial matching
 - For `psychotherapieverfahren`, checks if search term matches any part of the enum values
+  - Example: searching "verhaltens" will match therapists with "Verhaltenstherapie"
+  - Example: searching "tiefen" will match "tiefenpsychologisch_fundierte_Psychotherapie"
 - Results include all therapists where ANY of the searched fields contain the search term
 
 **Example Request:**
@@ -957,7 +1027,32 @@ curl "http://localhost:8002/api/therapists/123/communication"
 curl "http://localhost:8002/api/therapists/import-status"
 ```
 
-**Example Response:** Same format as patient import status.
+**Example Response:**
+```json
+{
+  "running": true,
+  "last_check": "2025-01-15T10:30:00",
+  "last_import_run": "2025-01-15T02:00:00",
+  "next_import_run": "2025-01-16T02:00:00",
+  "files_processed_today": 5,
+  "therapists_processed_today": 450,
+  "therapists_failed_today": 12,
+  "last_error": null,
+  "last_error_time": null,
+  "total_files_processed": 150,
+  "total_therapists_processed": 13500,
+  "total_therapists_failed": 234,
+  "recent_imports": [
+    {
+      "file": "20250115/52062.json",
+      "therapist_count": 89,
+      "success_count": 87,
+      "failed_count": 2,
+      "time": "2025-01-15T02:15:00"
+    }
+  ]
+}
+```
 
 ## POST /therapists
 
@@ -1061,9 +1156,26 @@ curl -X PUT "http://localhost:8002/api/therapists/1" \
 
 **Description:** Delete a therapist.
 
+**Deletion Protection:**
+Before deletion, the service checks if the therapist has any Therapeutenanfragen in the matching service. If anfragen exist, deletion is blocked with a 409 error.
+
 **Example Request:**
 ```bash
 curl -X DELETE "http://localhost:8002/api/therapists/1"
+```
+
+**Example Response:**
+```json
+{
+  "message": "Therapist deleted successfully"
+}
+```
+
+**Error Response (409):**
+```json
+{
+  "message": "Cannot delete therapist: Therapeutenanfragen exist for this therapist. Please delete all related Therapeutenanfragen first."
+}
 ```
 
 ---
@@ -1236,13 +1348,59 @@ curl -X PUT "http://localhost:8003/api/platzsuchen/1" \
   }'
 ```
 
+## POST /platzsuchen/{id}/kontaktanfrage
+
+**Description:** Request additional contacts for a patient search. Updates the total requested contact count.
+
+**Request Body:**
+```json
+{
+  "requested_count": 5,  // Required: Number of additional contacts to request (1-100)
+  "notizen": "Patient urgently needs more options"  // Optional: Notes about the request
+}
+```
+
+**Example Request:**
+```bash
+curl -X POST "http://localhost:8003/api/platzsuchen/1/kontaktanfrage" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "requested_count": 3,
+    "notizen": "Previous therapists declined"
+  }'
+```
+
+**Example Response:**
+```json
+{
+  "message": "Requested 3 additional contacts",
+  "previous_total": 6,
+  "new_total": 9,
+  "search_id": 1
+}
+```
+
+**Error Response (400):**
+```json
+{
+  "message": "Can only request contacts for active searches. Current status: erfolgreich"
+}
+```
+
 ## DELETE /platzsuchen/{id}
 
-**Description:** Delete a patient search and all related records.
+**Description:** Delete a patient search and all related TherapeutAnfragePatient entries (cascade delete).
 
 **Example Request:**
 ```bash
 curl -X DELETE "http://localhost:8003/api/platzsuchen/1"
+```
+
+**Example Response:**
+```json
+{
+  "message": "Patient search deleted successfully"
+}
 ```
 
 ## GET /therapeuten-zur-auswahl
@@ -1432,11 +1590,18 @@ curl -X PUT "http://localhost:8003/api/therapeutenanfragen/101/antwort" \
 
 ## DELETE /therapeutenanfragen/{id}
 
-**Description:** Delete a therapeutenanfrage and all related records.
+**Description:** Delete a therapeutenanfrage and all related TherapeutAnfragePatient entries (cascade delete).
 
 **Example Request:**
 ```bash
 curl -X DELETE "http://localhost:8003/api/therapeutenanfragen/101"
+```
+
+**Example Response:**
+```json
+{
+  "message": "Therapeutenanfrage deleted successfully"
+}
 ```
 
 ---
@@ -1508,7 +1673,10 @@ curl "http://localhost:8004/api/emails/1"
 
 **Description:** Create a new email. Must specify either `therapist_id` OR `patient_id`, not both.
 
-**IMPORTANT:** Emails are ALWAYS created with status "Entwurf" (draft). The status field cannot be set via API. To send emails, you must update the status to "In_Warteschlange" after creation.
+**Status Field Behavior:**
+- Default status is "Entwurf" (draft) if not specified
+- You CAN provide an initial status in the request (e.g., "In_Warteschlange" to queue immediately)
+- The status field is optional and accepts any valid EmailStatus value
 
 **Required Fields:**
 - Either `therapist_id` (integer) OR `patient_id` (integer) - exactly one must be provided
@@ -1518,6 +1686,7 @@ curl "http://localhost:8004/api/emails/1"
 - `empfaenger_name` (string)
 
 **Optional Fields:**
+- `status` (string) - Initial status (default: "Entwurf")
 - `inhalt_text` (string) - plain text version
 - `absender_email` (string) - defaults to system email
 - `absender_name` (string) - defaults to system name
@@ -1528,12 +1697,25 @@ curl "http://localhost:8004/api/emails/1"
 - Must specify at least one of `therapist_id` or `patient_id`
 - Must provide either `inhalt_markdown` or `inhalt_html`
 
+**Validation Errors (400):**
+```json
+{
+  "message": "Either therapist_id or patient_id is required"
+}
+```
+
+```json
+{
+  "message": "Cannot specify both therapist_id and patient_id"
+}
+```
+
 **Important Notes:**
-1. **Always Draft**: All emails are created as drafts regardless of any status parameter
+1. **Status Control**: You can set initial status via the API
 2. **Markdown Processing**: URLs in markdown content are automatically detected and converted to clickable links
 3. **Legal Footer**: Added by default unless explicitly disabled
 
-**Example Request (Patient Email):**
+**Example Request (Patient Email with immediate queuing):**
 ```bash
 curl -X POST "http://localhost:8004/api/emails" \
   -H "Content-Type: application/json" \
@@ -1542,7 +1724,8 @@ curl -X POST "http://localhost:8004/api/emails" \
     "betreff": "Update zu Ihrer Therapieplatzsuche",
     "inhalt_markdown": "# Update\n\nSehr geehrter Herr Mustermann...",
     "empfaenger_email": "patient@example.com",
-    "empfaenger_name": "Max Mustermann"
+    "empfaenger_name": "Max Mustermann",
+    "status": "In_Warteschlange"
   }'
 ```
 
@@ -1608,6 +1791,35 @@ curl -X DELETE "http://localhost:8004/api/emails/1"
   "page": 1,
   "limit": 20,
   "total": 23
+}
+```
+
+## GET /phone-calls/{id}
+
+**Description:** Retrieve a specific phone call by ID.
+
+**Example Request:**
+```bash
+curl "http://localhost:8004/api/phone-calls/1"
+```
+
+**Example Response:**
+```json
+{
+  "id": 1,
+  "therapist_id": 123,
+  "patient_id": null,
+  "therapeutenanfrage_id": 456,
+  "geplantes_datum": "2025-06-10",
+  "geplante_zeit": "14:30",
+  "dauer_minuten": 5,
+  "tatsaechliches_datum": null,
+  "tatsaechliche_zeit": null,
+  "status": "geplant",
+  "ergebnis": null,
+  "notizen": "Follow-up für Anfrage #456",
+  "created_at": "2025-06-09T10:30:00",
+  "updated_at": "2025-06-09T10:30:00"
 }
 ```
 
@@ -1843,6 +2055,7 @@ All endpoints follow consistent error response patterns:
 
 ### New Endpoints:
 - **`GET /api/patients/import-status`** - Monitor import system health
+- **`PATCH /api/patients/{id}/last-contact`** - Update last contact date only
 
 ## 🔄 Therapist Service Changes
 
@@ -1875,15 +2088,22 @@ All endpoints follow consistent error response patterns:
 - Multiple therapists sharing same email are grouped
 - Only practice owner is returned for selection
 
+### New Endpoints:
+- **`POST /api/platzsuchen/{id}/kontaktanfrage`** - Request additional contacts
+- **`DELETE /api/platzsuchen/{id}`** - Delete patient search
+- **`DELETE /api/therapeutenanfragen/{id}`** - Delete therapeutenanfrage
+
 ## 🔄 Communication Service Changes
 
 ### Phone Calls:
 - New field **`therapeutenanfrage_id`** - Links calls to specific anfragen
 - Can now be created for patients (not just therapists)
+- New endpoint **`GET /api/phone-calls/{id}`** - Get individual phone call
 
 ### Emails:
 - Can now be created for patients (not just therapists)
 - Both `therapist_id` and `patient_id` supported
+- Status field CAN be set on creation (not always draft)
 
 ### New Endpoint:
 - **`POST /api/system-messages`** - Send system notifications without database storage
@@ -1906,3 +2126,4 @@ All German enums follow proper grammar rules with noun capitalization:
 - Pagination available on all list endpoints
 - Search functionality uses case-insensitive partial matching
 - Automatic field management cannot be overridden via API
+- Configuration values (timeouts, intervals, batch sizes) are environment-variable driven
