@@ -49,8 +49,6 @@ def mock_patient_dependencies():
     # Save original modules
     original_modules = {}
     modules_to_mock = [
-        'events',
-        'events.producers',
         'imports',
         'imports.import_status',
         'models',
@@ -64,8 +62,6 @@ def mock_patient_dependencies():
         'shared.api',
         'shared.api.base_resource',
         'shared.api.retry_client',
-        'shared.kafka',
-        'shared.kafka.robust_producer',
         'flask',
         'flask_restful',
         'sqlalchemy',
@@ -90,8 +86,6 @@ def mock_patient_dependencies():
             original_modules[module] = sys.modules[module]
     
     # Mock all dependencies
-    sys.modules['events'] = MagicMock()
-    sys.modules['events.producers'] = MagicMock()
     sys.modules['imports'] = MagicMock()
     sys.modules['imports.import_status'] = MagicMock()
     sys.modules['models'] = MagicMock()
@@ -105,8 +99,6 @@ def mock_patient_dependencies():
     sys.modules['shared.api'] = MagicMock()
     sys.modules['shared.api.base_resource'] = MagicMock()
     sys.modules['shared.api.retry_client'] = MagicMock()
-    sys.modules['shared.kafka'] = MagicMock()
-    sys.modules['shared.kafka.robust_producer'] = MagicMock()
     sys.modules['flask'] = MagicMock()
     sys.modules['flask_restful'] = MagicMock()
     sys.modules['sqlalchemy'] = MagicMock()
@@ -223,24 +215,22 @@ class TestPaymentConfirmation:
         with patch('patient_service.api.patients.date') as mock_date:
             mock_date.today.return_value = date(2025, 1, 15)
             
-            # Mock publish event
-            with patch('patient_service.api.patients.publish_patient_status_changed') as mock_publish:
-                with patch('patient_service.api.patients.marshal') as mock_marshal:
-                    mock_marshal.return_value = {'id': 1}
-                    
-                    # Call the actual function
-                    check_and_apply_payment_status_transition(
-                        patient, 
-                        old_payment_status=False,  # Was not paid
-                        db=mock_db
-                    )
+            # Mock marshal for logging purposes
+            with patch('patient_service.api.patients.marshal') as mock_marshal:
+                mock_marshal.return_value = {'id': 1}
+                
+                # Call the actual function
+                check_and_apply_payment_status_transition(
+                    patient, 
+                    old_payment_status=False,  # Was not paid
+                    db=mock_db
+                )
         
         # Verify the changes
         assert patient.status == Patientenstatus.auf_der_Suche
         assert patient.startdatum == date(2025, 1, 15)
         
-        # Verify event was published
-        mock_publish.assert_called_once()
+        # Verify database was committed
         mock_db.commit.assert_called()
     
     def test_payment_without_contracts_no_status_change(self, mock_patient_dependencies):
@@ -267,7 +257,7 @@ class TestPaymentConfirmation:
         assert patient.status == Patientenstatus.offen
         assert patient.startdatum is None
         
-        # No event should be published
+        # No database commit should be called
         mock_db.commit.assert_not_called()
     
     def test_payment_already_confirmed_idempotent(self, mock_patient_dependencies):
@@ -315,13 +305,12 @@ class TestPaymentConfirmation:
         with patch('patient_service.api.patients.date') as mock_date:
             mock_date.today.return_value = date(2025, 1, 15)
             
-            with patch('patient_service.api.patients.publish_patient_status_changed'):
-                with patch('patient_service.api.patients.marshal'):
-                    check_and_apply_payment_status_transition(
-                        patient,
-                        old_payment_status=False,
-                        db=mock_db
-                    )
+            with patch('patient_service.api.patients.marshal'):
+                check_and_apply_payment_status_transition(
+                    patient,
+                    old_payment_status=False,
+                    db=mock_db
+                )
         
         # startdatum should remain unchanged (not overwritten)
         assert patient.startdatum == original_date

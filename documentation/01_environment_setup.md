@@ -36,7 +36,6 @@ VS Code: Version 1.99.3 (Universal)
 2. Standard Python .gitignore file created and extended with:
    - Docker-specific exclusions
    - Database files
-   - Kafka data
    - Log files
    - Local configuration
    - IDE-specific files
@@ -76,7 +75,7 @@ Each environment has its own Docker Compose file with:
 
 ## Environment Variables
 
-The platform uses over 80 environment variables for configuration. Key categories include:
+The platform uses environment variables for configuration. Key categories include:
 
 ### Database Configuration
 - `DB_USER`, `DB_PASSWORD`, `DB_NAME`
@@ -92,7 +91,6 @@ Each service has environment-specific ports:
 - `GEOCODING_SERVICE_PORT` (8005/8015/8025)
 
 ### External Services
-- `KAFKA_BOOTSTRAP_SERVERS`, `KAFKA_ZOOKEEPER_CONNECT`
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`
 - `OSM_API_URL`, `OSRM_API_URL` (Geocoding)
 
@@ -124,7 +122,6 @@ boona_MVP/
 ├── shared/               # Shared code libraries
 │   ├── models/           # Common data models
 │   ├── utils/            # Utility functions
-│   ├── kafka/            # Kafka helpers
 │   ├── api/              # REST API utilities
 │   ├── config/           # Centralized configuration
 │   └── auth/             # Authentication modules
@@ -145,7 +142,6 @@ Each service follows a similar structure:
 service-name/
 ├── api/                  # API endpoints
 ├── models/               # Service-specific models
-├── events/               # Kafka producers/consumers
 ├── templates/            # HTML templates
 ├── static/               # CSS, JS, etc.
 ├── tests/                # Unit and integration tests
@@ -160,7 +156,7 @@ We're taking a step-by-step approach to implementation:
 1. Basic Structure: Create minimal foundation first
 2. Docker Configuration: Set up containerization environment with three environments
 3. Iterative Service Implementation: Build and test one service at a time
-4. Integration: Connect services incrementally
+4. Integration: Connect services incrementally via synchronous APIs
 5. Test-First Deployment: Always deploy to test environment before production
 
 ## Getting Started
@@ -205,4 +201,4 @@ make health-check
 make logs-prod
 ```
 
-For complete deployment procedures, see `documentation/12_deployment_and_operations.md`.
+For complete deployment procedures, see `documentation/10_deployment_and_operations.md`.

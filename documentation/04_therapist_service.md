@@ -57,12 +57,12 @@ Automatic contact frequency control:
 - **Manual override**: Administrative control for special cases
 - **Bypass conditions**: Emergency or high-priority patient matching
 
-### Status Transitions
-Controlled therapist status management:
-- **Blocking**: Automatic or manual status change to `gesperrt`
+### Status Transitions with Cascade
+Controlled therapist status management with synchronous cascades:
+- **Blocking**: Triggers cascade to Matching Service to cancel unsent anfragen
 - **Reason tracking**: `sperrgrund` and `sperrdatum` for audit trail
-- **Event publishing**: Status changes trigger system-wide notifications
-- **Reactivation**: Controlled process for returning blocked therapists to active status
+- **Cascade failure handling**: Blocks status change if Matching Service unavailable
+- **Reactivation**: Controlled process with optional cascade for returning blocked therapists to active status
 
 ### Preference Matching
 Sophisticated preference management for anfrage composition:
@@ -70,21 +70,6 @@ Sophisticated preference management for anfrage composition:
 - **Flexible matching**: Null preferences act as wildcards
 - **Priority weighting**: Available and informed therapists prioritized
 - **Geographic clustering**: PLZ-based therapist selection
-
-## Event Management
-
-### Event Publishers (`events/producers.py`)
-Comprehensive Kafka event system:
-- `therapist.created` - New therapist registration
-- `therapist.updated` - Profile or preference changes
-- `therapist.blocked` - Status change to blocked with reason
-- `therapist.unblocked` - Reactivation from blocked status
-
-### Event Consumers (`events/consumers.py`)
-Framework for processing events from other services:
-- **Patient events**: React to patient creation/updates for matching optimization
-- **Communication events**: Process email responses and call outcomes
-- **Matching events**: Handle anfrage responses and conflicts
 
 ## Integration Points
 
@@ -94,11 +79,15 @@ Framework for processing events from other services:
 - **Response tracking**: Monitor inquiry responses and outcomes
 - **History aggregation**: Combined communication timeline
 
-### With Matching Service
+### With Matching Service (Synchronous API)
 - **Availability queries**: Real-time therapist availability checking
 - **Preference filtering**: Apply therapist constraints in anfrage creation
 - **Cooling period enforcement**: Respect contact frequency limits
 - **Response processing**: Handle anfrage outcomes and update status
+- **Cascade operations**: Status changes trigger synchronous API calls:
+  - Blocking therapist → Cancel unsent anfragen
+  - Unblocking therapist → Notification for potential reactivation
+- **Error handling**: Operations blocked if Matching Service unavailable
 
 ### With Patient Service
 - **Cross-referencing**: Validate patient-therapist compatibility
@@ -118,13 +107,28 @@ Helper functions for therapist communication:
 All configuration managed through `shared.config`:
 - **Database connectivity**: PgBouncer connection pooling
 - **Service communication**: Internal API endpoints
-- **Kafka messaging**: Event streaming configuration
 - **Email settings**: SMTP and template configuration
 
 ### Feature Flags
 - **Anfrage system**: Enable/disable new matching features
 - **Communication**: Control email and phone call functionality
 - **Data validation**: Toggle strict validation rules
+
+## API Client Integration
+
+### Retry Logic
+The service uses `shared.api.retry_client.RetryAPIClient` for resilient communication:
+- Automatic retry on network failures
+- Exponential backoff strategy
+- Configurable timeout settings
+- Proper error propagation
+
+### Cascade Operations
+Critical operations that affect other services:
+- **Block**: Requires cascade to Matching Service to cancel anfragen
+- **Unblock**: Optional cascade notification to Matching Service
+- **Status changes**: May trigger operations in dependent services
+- **Profile updates**: May affect matching eligibility
 
 ## Security and Compliance
 
@@ -138,7 +142,7 @@ All configuration managed through `shared.config`:
 - **Status changes**: Complete history of therapist status modifications
 - **Contact tracking**: Detailed log of all communication attempts
 - **Preference updates**: Audit trail for matching preference changes
-- **System events**: Comprehensive event logging for compliance
+- **System operations**: Comprehensive operation logging for compliance
 
 ## Performance Optimizations
 
@@ -153,4 +157,4 @@ All configuration managed through `shared.config`:
 - **Preference queries**: Optimized matching constraint evaluation
 - **Status updates**: Efficient propagation of status changes
 
-This service forms the backbone of therapist management in the platform, providing comprehensive professional profile management while maintaining strict data consistency and integration with the broader matching ecosystem.
+This service forms the backbone of therapist management in the platform, providing comprehensive professional profile management while maintaining strict data consistency and integration with the broader matching ecosystem through synchronous API communication.

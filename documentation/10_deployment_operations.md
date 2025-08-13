@@ -19,8 +19,6 @@ Each environment is completely isolated with:
 | **Infrastructure** | | | |
 | PostgreSQL | 5432 | 5433 | 5434 |
 | PgBouncer | 6432 | 6433 | 6434 |
-| Kafka | 9092 | 9093 | 9094 |
-| Zookeeper | 2181 | 2182 | 2183 |
 | **Microservices** | | | |
 | Patient Service | 8001 | 8011 | 8021 |
 | Therapist Service | 8002 | 8012 | 8022 |
@@ -137,19 +135,19 @@ make test-restore-test
 After deployment, containers are organized by environment:
 ```
 ▼ curavani_backend_dev
-  - postgres, pgbouncer, kafka, zookeeper
+  - postgres, pgbouncer
   - patient_service-dev, therapist_service-dev
   - matching_service-dev, communication_service-dev
   - geocoding_service-dev
 
 ▼ curavani_backend_test
-  - postgres-test, pgbouncer-test, kafka-test, zookeeper-test
+  - postgres-test, pgbouncer-test
   - patient_service-test, therapist_service-test
   - matching_service-test, communication_service-test
   - geocoding_service-test
 
 ▼ curavani_backend_prod
-  - postgres-prod, pgbouncer-prod, kafka-prod, zookeeper-prod
+  - postgres-prod, pgbouncer-prod
   - patient_service-prod, therapist_service-prod
   - matching_service-prod, communication_service-prod
   - geocoding_service-prod
@@ -161,7 +159,6 @@ After deployment, containers are organized by environment:
 Each service exposes `/health` endpoint with:
 - Service status
 - Database connectivity
-- Kafka connectivity
 - Version information
 
 ### Monitoring Commands
@@ -198,10 +195,9 @@ make test-smoke-prod
 ## Configuration Management
 
 ### Environment Variables
-Over 80 environment variables configured per environment:
+Environment variables configured per environment:
 - Database connections (with PgBouncer)
 - Service ports and URLs
-- Kafka configuration
 - SMTP settings
 - API keys and secrets
 - Feature flags
@@ -217,9 +213,9 @@ Each environment configured with appropriate frontend URLs:
 
 ## Issues Encountered and Resolved
 
-### 1. Kafka Connection Issues
-**Problem**: Services starting before Kafka fully initialized.
-**Solution**: Implemented `RobustKafkaProducer` for graceful handling of connection failures.
+### 1. Service Dependency Management
+**Problem**: Services need to handle dependent service unavailability.
+**Solution**: Implemented retry logic with exponential backoff for API calls.
 
 ### 2. Database Creation Timing
 **Problem**: Services attempting to connect before database exists.
@@ -233,6 +229,24 @@ Each environment configured with appropriate frontend URLs:
 **Problem**: Services attempting to connect during restore.
 **Solution**: Stop application services during restore process.
 
+### 5. Cross-Service Cascade Operations
+**Problem**: Need to maintain data consistency across services.
+**Solution**: Implemented synchronous cascade APIs with proper error handling.
+
+## Architecture Simplifications
+
+### Post-Kafka Removal Benefits
+- **Simpler deployment**: No message queue infrastructure to manage
+- **Easier debugging**: Synchronous operations are easier to trace
+- **Reduced complexity**: No eventual consistency issues to handle
+- **Lower resource usage**: Removed Kafka and Zookeeper containers
+- **Faster startup**: Services don't wait for message broker availability
+
+### Trade-offs
+- **Increased latency**: Some operations take longer due to synchronous cascades
+- **Service coupling**: Services must handle dependent service unavailability
+- **No message buffering**: Failed operations must be retried by clients
+
 ## Best Practices
 
 1. **Always test in test environment** before production deployment
@@ -242,3 +256,6 @@ Each environment configured with appropriate frontend URLs:
 5. **Use Makefile commands** for consistency
 6. **Document configuration changes** in `.env.example`
 7. **Test restore process** regularly to ensure backups work
+8. **Handle service unavailability** gracefully in API calls
+9. **Implement retry logic** for cross-service communication
+10. **Monitor cascade operations** for performance impact

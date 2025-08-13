@@ -86,22 +86,6 @@ Geocoding settings in `.env`:
     - `therapists`: List of therapist data with addresses
   - Returns filtered list of therapists with distance information
 
-## Kafka Events
-
-### Consumed Events
-- **geocoding.calculate_distance**
-  - Process a distance calculation request asynchronously
-  - Parameters:
-    - `request_id`: Unique identifier for the request
-    - `origin`: Origin address or coordinates
-    - `destination`: Destination address or coordinates
-    - `travel_mode`: "car" or "transit"
-
-### Published Events
-- **geocoding.distance_result**
-  - Contains result of a distance calculation
-  - Payload includes distance in kilometers and travel time in minutes
-
 ## Technical Details
 
 ### OpenStreetMap Integration

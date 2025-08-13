@@ -1,5 +1,117 @@
 # Common Errors in the Therapy Matching Platform
 
+## Service Unavailability During Cascade Operations
+
+### Error
+```
+Cannot delete patient: Matching service unavailable: HTTPConnectionPool(host='matching-service', port=8003): Max retries exceeded
+Cannot block therapist: Matching service error: 503 Service Unavailable
+```
+
+### Cause
+Dependent service is down or unreachable during a cascade operation. The system blocks the operation to maintain data consistency.
+
+### Solution
+1. **Verify service health**:
+```bash
+make health-check-dev  # or -test/-prod
+docker-compose ps
+```
+
+2. **Restart affected service**:
+```bash
+docker-compose restart matching_service-dev
+```
+
+3. **Check service logs**:
+```bash
+docker-compose logs matching_service-dev
+```
+
+4. **Retry operation** after service is back online
+
+### Prevention
+- Monitor service health regularly
+- Implement proper health checks in Docker Compose
+- Use retry logic with exponential backoff
+- Consider implementing circuit breakers for repeated failures
+
+---
+
+## Cross-Service API Timeout
+
+### Error
+```
+ReadTimeout: HTTPConnectionPool(host='patient-service', port=8001): Read timed out. (read timeout=10)
+```
+
+### Cause
+API call between services takes longer than configured timeout, often during cascade operations or when a service is under heavy load.
+
+### Solution
+1. **Increase timeout in shared.api.retry_client**:
+```python
+# Adjust timeout parameter
+RetryAPIClient.call_with_retry(
+    method="POST",
+    url=url,
+    json=data,
+    timeout=30  # Increase from default 10 seconds
+)
+```
+
+2. **Optimize the slow operation**:
+- Add database indexes
+- Reduce cascade operation complexity
+- Implement pagination for large datasets
+
+### Prevention
+- Profile slow API endpoints
+- Implement proper database indexing
+- Use connection pooling (PgBouncer)
+- Monitor API response times
+
+---
+
+## Cascade Operation Rollback
+
+### Error
+```
+Database error: ROLLBACK; nested exception is psycopg2.errors.InFailedSqlTransaction
+```
+
+### Cause
+A cascade operation partially succeeded but failed midway, leaving the database transaction in an inconsistent state.
+
+### Solution
+1. **Ensure proper transaction management**:
+```python
+db = SessionLocal()
+try:
+    # Cascade operations
+    db.commit()
+except Exception as e:
+    db.rollback()
+    raise
+finally:
+    db.close()
+```
+
+2. **Verify all cascade operations are idempotent**
+
+3. **Check for database locks**:
+```sql
+SELECT * FROM pg_locks WHERE NOT granted;
+```
+
+### Prevention
+- Use database transactions for all cascade operations
+- Implement proper rollback handling
+- Make operations idempotent where possible
+- Add retry logic for transient failures
+
+---
+
 ## Test Contamination from Module-Level Mocking
 
 ### Error
@@ -140,111 +252,6 @@ class TestSymptoms:
 
 ---
 
-## Kafka Connection Issues
-
-### Error
-```
-Failed to connect to Kafka: NoBrokersAvailable
-```
-
-### Cause
-Services start before Kafka is fully initialized.
-
-### Solution
-The `RobustKafkaProducer` handles this gracefully by queuing messages until Kafka is available. The error is expected and non-fatal.
-
-### Best Practices
-- Use `RobustKafkaProducer` for non-blocking initialization
-- Configure proper health checks with `condition: service_healthy`
-- Initial "Failed to connect" messages are normal
-
----
-
-## Kafka Zookeeper Registration Conflict
-
-### Error
-```
-org.apache.zookeeper.KeeperException$NodeExistsException: KeeperErrorCode = NodeExists
-```
-
-### Cause
-Kafka cannot register with Zookeeper because a stale broker registration exists from a previous run.
-
-### Solution
-Restart only Kafka and Zookeeper containers (preserves database):
-```bash
-# Stop only Kafka and Zookeeper
-docker-compose stop kafka zookeeper
-
-# Remove only these containers (not volumes)
-docker-compose rm -f kafka zookeeper
-
-# Restart them fresh
-docker-compose up -d kafka zookeeper
-```
-
-### Note
-This is safe because:
-- PostgreSQL data is in a named volume (`postgres_data`) which is preserved
-- Kafka/Zookeeper only use container storage (no persistent volumes defined)
-
----
-
-## PostgreSQL Client Version Mismatch in Backup Container
-
-### Error
-```
-pg_dump: error: server version: 16.6; pg_dump version: 15.8
-pg_dump: error: aborting because of server version mismatch
-```
-
-### Cause
-The backup container is using a different version of PostgreSQL client tools than the main PostgreSQL server. The Alpine Linux `postgresql-client` package installs an older version (15.x) while the main PostgreSQL container runs version 16.x.
-
-### Solution
-Update the backup container Dockerfile to use PostgreSQL 16 client tools:
-
-```dockerfile
-FROM alpine:latest
-
-# Install PostgreSQL 16 client from edge repository
-RUN apk add --no-cache \
-    curl \
-    && echo "http://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositories \
-    && apk add --no-cache postgresql16-client \
-    && ln -s /usr/bin/psql16 /usr/bin/psql \
-    && ln -s /usr/bin/pg_dump16 /usr/bin/pg_dump \
-    && ln -s /usr/bin/pg_restore16 /usr/bin/pg_restore \
-    && ln -s /usr/bin/pg_isready16 /usr/bin/pg_isready
-
-COPY backup.sh /backup.sh
-RUN chmod +x /backup.sh
-
-CMD ["/backup.sh"]
-```
-
-### Rebuild Process
-```bash
-# Stop the current backup container
-docker-compose -f docker-compose.dev.yml stop postgres-backup
-
-# Rebuild with the new Dockerfile
-docker-compose -f docker-compose.dev.yml build postgres-backup
-
-# Start it back up
-docker-compose -f docker-compose.dev.yml up -d postgres-backup
-
-# Verify the fix
-docker exec postgres-backup pg_dump --version
-```
-
-### Key Changes
-1. **Removed** the generic `postgresql-client` package (installs v15)
-2. **Added** `postgresql16-client` from Alpine edge repository
-3. **Created symbolic links** for compatibility (`psql16` → `psql`, etc.)
-
----
-
 ## PgBouncer Health Check Issues
 
 ### Error
@@ -305,6 +312,61 @@ docker logs postgres | grep "database.*does not exist"
 - Always use `-d $DB_NAME` in all PostgreSQL commands
 - Set `PGDATABASE` environment variable as a fallback
 - Use connection strings that include the database name
+
+---
+
+## PostgreSQL Client Version Mismatch in Backup Container
+
+### Error
+```
+pg_dump: error: server version: 16.6; pg_dump version: 15.8
+pg_dump: error: aborting because of server version mismatch
+```
+
+### Cause
+The backup container is using a different version of PostgreSQL client tools than the main PostgreSQL server. The Alpine Linux `postgresql-client` package installs an older version (15.x) while the main PostgreSQL container runs version 16.x.
+
+### Solution
+Update the backup container Dockerfile to use PostgreSQL 16 client tools:
+
+```dockerfile
+FROM alpine:latest
+
+# Install PostgreSQL 16 client from edge repository
+RUN apk add --no-cache \
+    curl \
+    && echo "http://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositories \
+    && apk add --no-cache postgresql16-client \
+    && ln -s /usr/bin/psql16 /usr/bin/psql \
+    && ln -s /usr/bin/pg_dump16 /usr/bin/pg_dump \
+    && ln -s /usr/bin/pg_restore16 /usr/bin/pg_restore \
+    && ln -s /usr/bin/pg_isready16 /usr/bin/pg_isready
+
+COPY backup.sh /backup.sh
+RUN chmod +x /backup.sh
+
+CMD ["/backup.sh"]
+```
+
+### Rebuild Process
+```bash
+# Stop the current backup container
+docker-compose -f docker-compose.dev.yml stop postgres-backup
+
+# Rebuild with the new Dockerfile
+docker-compose -f docker-compose.dev.yml build postgres-backup
+
+# Start it back up
+docker-compose -f docker-compose.dev.yml up -d postgres-backup
+
+# Verify the fix
+docker exec postgres-backup pg_dump --version
+```
+
+### Key Changes
+1. **Removed** the generic `postgresql-client` package (installs v15)
+2. **Added** `postgresql16-client` from Alpine edge repository
+3. **Created symbolic links** for compatibility (`psql16` → `psql`, etc.)
 
 ---
 

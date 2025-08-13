@@ -27,6 +27,14 @@ Standard REST operations with German field support:
 - **Communication History**: Integrated endpoint fetching emails and calls from Communication Service
 - **Filtering**: Search by status and other criteria
 - **Pagination**: All list endpoints support pagination
+- **Last Contact Update**: `PATCH /api/patients/{id}/last-contact` for updating contact date only
+
+### Patient Deletion with Cascade
+The delete operation now includes synchronous cascade to Matching Service:
+- Calls Matching Service API to cancel active searches before deletion
+- Blocks deletion if Matching Service is unavailable (data consistency)
+- Uses retry logic for transient failures
+- Returns appropriate error messages to user
 
 ### Communication Integration (`patient_service/utils/communication.py`)
 Helper functions for patient communication:
@@ -40,14 +48,6 @@ Pre-built communication functions:
 - Therapy match found notifications
 - Progress tracking communications
 
-### Event Management
-**Publishers** (`events/producers.py`):
-- `patient.created` - New patient registration
-- `patient.updated` - Patient information changes
-- `patient.deleted` - Patient removal from system
-
-Uses `RobustKafkaProducer` for resilient event messaging across services.
-
 ## Integration Points
 
 ### With Communication Service
@@ -56,11 +56,13 @@ Uses `RobustKafkaProducer` for resilient event messaging across services.
 - **History tracking**: Combined view of all patient communications
 - **Response tracking**: Monitors email responses and call outcomes
 
-### With Matching Service
-- **Search creation**: Patient data consumed for anfrage composition
+### With Matching Service (Synchronous API)
+- **Search creation**: Patient data used for anfrage composition
 - **Preference matching**: Therapy preferences used in therapist selection
 - **Status updates**: Search success triggers patient status changes
 - **Exclusion management**: Tracks excluded therapists per patient
+- **Cascade operations**: Patient deletion triggers search cancellation via API call
+- **Error handling**: Blocks operations if Matching Service unavailable
 
 ### With Geocoding Service
 - **Distance calculation**: Patient addresses used for travel distance constraints
@@ -70,7 +72,6 @@ Uses `RobustKafkaProducer` for resilient event messaging across services.
 All settings managed through `shared.config`:
 - Database connection via PgBouncer
 - Service ports and URLs
-- Kafka configuration
 - CORS settings for frontend integration
 
 ## Data Consistency Features
@@ -111,10 +112,26 @@ All settings managed through `shared.config`:
 - **Therapy experience**: Previous therapy experience documentation
 - **Medical history**: Comprehensive medical background information
 
+## API Client Integration
+
+### Retry Logic
+The service uses `shared.api.retry_client.RetryAPIClient` for resilient communication:
+- Automatic retry on network failures
+- Exponential backoff strategy
+- Configurable timeout settings
+- Proper error propagation
+
+### Cascade Operations
+Critical operations that affect other services:
+- **Delete**: Requires successful cascade to Matching Service
+- **Status changes**: May trigger notifications in other services
+- **Profile updates**: May affect matching eligibility
+
 ## Best Practices Implementation
 - **Error Handling**: All database operations wrapped in try-except blocks
-- **Event Publishing**: Asynchronous event publishing with error tolerance
+- **Synchronous Communication**: Direct API calls with proper error handling
 - **Input Validation**: Comprehensive validation for all API inputs
 - **Date Handling**: Consistent ISO format usage across all date fields
 - **Communication Tracking**: Automatic last contact date updates
 - **Security**: No sensitive data logging, proper error message sanitization
+- **Data Consistency**: Blocking operations ensure cross-service consistency
