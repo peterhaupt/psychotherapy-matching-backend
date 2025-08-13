@@ -11,7 +11,6 @@ from sqlalchemy.exc import SQLAlchemyError
 from models.patient import Patient
 from shared.utils.database import SessionLocal
 from shared.config import get_config
-from events.producers import publish_patient_created
 
 logger = logging.getLogger(__name__)
 
@@ -222,10 +221,6 @@ class PatientImporter:
             db.add(patient)
             db.commit()
             db.refresh(patient)
-            
-            # Publish event
-            patient_marshalled = marshal(patient, patient_fields)
-            publish_patient_created(patient.id, patient_marshalled)
             
             return True, patient.id, None
             

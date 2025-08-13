@@ -14,8 +14,6 @@ from api.patients import (
     PatientLastContactResource
 )
 from shared.config import get_config, setup_logging
-# PHASE 2: Import start_consumers
-from events.consumers import start_consumers
 # NEW: Import the patient import monitor
 from imports import start_patient_import_monitor, ImportStatus
 
@@ -83,9 +81,6 @@ def create_app():
     # NEW: Register import status endpoint
     api.add_resource(PatientImportStatusResource, 
                      '/api/patients/import-status')
-    
-    # PHASE 2: Start Kafka consumers for event-driven updates
-    start_consumers()
     
     # NEW: Start patient import monitoring thread
     # IMPORTANT: Only start in the main worker process, not in the reloader process

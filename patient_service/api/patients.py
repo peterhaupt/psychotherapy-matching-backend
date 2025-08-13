@@ -12,13 +12,6 @@ from shared.utils.database import SessionLocal
 from shared.api.base_resource import PaginatedListResource
 from shared.config import get_config
 from shared.api.retry_client import RetryAPIClient
-from events.producers import (
-    publish_patient_created,
-    publish_patient_updated,
-    publish_patient_deleted,
-    publish_patient_status_changed,
-    publish_patient_excluded_therapist
-)
 # NEW: Import for import status
 from imports import ImportStatus
 
@@ -326,19 +319,12 @@ def check_and_apply_payment_status_transition(patient, old_payment_status, db):
             # Change status from offen to auf_der_suche
             if patient.status == Patientenstatus.offen:
                 old_status = patient.status
-                patient.status = Patientenstatus.auf_der_Suche
+                patient.status = Patientenstatus.auf_der_suche
                 logger.info(f"Changed status from {old_status.value} to {patient.status.value} for patient {patient.id}")
                 
-                # Publish status change event
+                # Commit changes
                 db.commit()
                 db.refresh(patient)
-                patient_data = marshal(patient, patient_fields)
-                publish_patient_status_changed(
-                    patient.id,
-                    old_status.value,
-                    patient.status.value,
-                    patient_data
-                )
 
 
 class PatientLastContactResource(Resource):
@@ -507,20 +493,7 @@ class PatientResource(Resource):
             db.commit()
             db.refresh(patient)
             
-            # Publish appropriate event
-            patient_data = marshal(patient, patient_fields)
-            
-            # Check for status change to publish specific event
-            if old_status != patient.status:
-                publish_patient_status_changed(
-                    patient.id,
-                    old_status.value if old_status else None,
-                    patient.status.value if patient.status else None,
-                    patient_data
-                )
-            else:
-                publish_patient_updated(patient.id, patient_data)
-            
+            # Return updated patient data
             return marshal(patient, patient_fields)
         except SQLAlchemyError as e:
             db.rollback()
@@ -562,9 +535,6 @@ class PatientResource(Resource):
             # Now safe to delete patient
             db.delete(patient)
             db.commit()
-            
-            # Publish deletion event
-            publish_patient_deleted(patient_id, {'id': patient_id})
             
             return {"message": "Patient deleted successfully"}, 200
             
@@ -748,9 +718,8 @@ class PatientListResource(PaginatedListResource):
             db.commit()
             db.refresh(patient)
             
-            # Publish event for patient creation
+            # Return created patient data
             patient_marshalled = marshal(patient, patient_fields)
-            publish_patient_created(patient.id, patient_marshalled)
             
             return patient_marshalled, 201
         except SQLAlchemyError as e:
