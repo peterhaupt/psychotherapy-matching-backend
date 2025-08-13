@@ -72,11 +72,6 @@ class Config:
     PGBOUNCER_ADMIN_USER: Optional[str] = os.environ.get("PGBOUNCER_ADMIN_USER")
     PGBOUNCER_ADMIN_PASSWORD: Optional[str] = os.environ.get("PGBOUNCER_ADMIN_PASSWORD")
     
-    # Kafka Configuration
-    KAFKA_BOOTSTRAP_SERVERS: Optional[str] = os.environ.get("KAFKA_BOOTSTRAP_SERVERS")
-    KAFKA_ZOOKEEPER_CONNECT: Optional[str] = os.environ.get("KAFKA_ZOOKEEPER_CONNECT")
-    KAFKA_LOG_LEVEL: Optional[str] = os.environ.get("KAFKA_LOG_LEVEL")
-    
     # Environment Settings
     FLASK_ENV: Optional[str] = os.environ.get("FLASK_ENV")
     FLASK_DEBUG: Optional[bool] = _get_env_bool("FLASK_DEBUG")
@@ -213,26 +208,26 @@ class Config:
     
     REQUIRED_BY_SERVICE: Dict[str, Set[str]] = {
         "patient": {
-            "PATIENT_SERVICE_PORT", "KAFKA_BOOTSTRAP_SERVERS",
+            "PATIENT_SERVICE_PORT",
             "GCS_IMPORT_BUCKET", "PATIENT_IMPORT_LOCAL_PATH",
             "PATIENT_IMPORT_CHECK_INTERVAL_SECONDS"
         },
         "therapist": {
-            "THERAPIST_SERVICE_PORT", "KAFKA_BOOTSTRAP_SERVERS",
+            "THERAPIST_SERVICE_PORT",
             "THERAPIST_IMPORT_FOLDER_PATH", "THERAPIST_IMPORT_CHECK_INTERVAL_SECONDS"
         },
         "matching": {
-            "MATCHING_SERVICE_PORT", "KAFKA_BOOTSTRAP_SERVERS",
+            "MATCHING_SERVICE_PORT",
             "MAX_ANFRAGE_SIZE", "MIN_ANFRAGE_SIZE", "PLZ_MATCH_DIGITS",
             "FOLLOW_UP_THRESHOLD_DAYS", "DEFAULT_PHONE_CALL_TIME"
         },
         "communication": {
-            "COMMUNICATION_SERVICE_PORT", "KAFKA_BOOTSTRAP_SERVERS",
+            "COMMUNICATION_SERVICE_PORT",
             "SMTP_HOST", "SMTP_PORT", "SMTP_USERNAME", "SMTP_PASSWORD",
             "EMAIL_SENDER", "EMAIL_SENDER_NAME", "SYSTEM_NOTIFICATION_EMAIL"
         },
         "geocoding": {
-            "GEOCODING_SERVICE_PORT", "KAFKA_BOOTSTRAP_SERVERS",
+            "GEOCODING_SERVICE_PORT",
             "OSM_API_URL", "OSM_USER_AGENT", "OSRM_API_URL"
         }
     }
@@ -503,7 +498,6 @@ def setup_logging(service_name: str = "unknown-service") -> None:
     This function:
     - Sets up basic logging configuration with the configured format
     - Sets the root logger to the configured LOG_LEVEL
-    - Silences noisy Kafka loggers by setting them to WARNING or higher
     - Allows service-specific loggers to use their own levels
     
     Args:
@@ -527,28 +521,8 @@ def setup_logging(service_name: str = "unknown-service") -> None:
         datefmt='%Y-%m-%d %H:%M:%S'
     )
     
-    # Get the kafka log level (default to WARNING if not set)
-    kafka_level_name = current_config.KAFKA_LOG_LEVEL or "WARNING"
-    kafka_level = getattr(logging, kafka_level_name, logging.WARNING)
-    
-    # List of Kafka-related logger names to silence
-    kafka_loggers = [
-        'kafka', 'kafka.client', 'kafka.consumer', 'kafka.consumer.fetcher',
-        'kafka.consumer.group', 'kafka.conn', 'kafka.connection',
-        'kafka.coordinator', 'kafka.coordinator.consumer', 'kafka.coordinator.base',
-        'kafka.metrics', 'kafka.protocol', 'kafka.protocol.parser',
-        'kafka.producer', 'kafka.producer.kafka', 'kafka.producer.record_accumulator',
-        'kafka.producer.sender', 'kafka.python'
-    ]
-    
-    # Set all Kafka loggers to WARNING level or higher
-    for logger_name in kafka_loggers:
-        kafka_logger = logging.getLogger(logger_name)
-        kafka_logger.setLevel(kafka_level)
-    
     # Log the configuration for debugging
     logger = logging.getLogger(__name__)
     logger.info(f"Logging configured for {service_name}")
     logger.info(f"Root log level: {logging.getLevelName(root_level)}")
-    logger.info(f"Kafka log level: {logging.getLevelName(kafka_level)}")
     logger.debug("This is a debug message - you should see this in debug mode")
