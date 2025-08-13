@@ -1,8 +1,78 @@
 # Future Enhancements - Priority Items
 
-**Document Version:** 3.7  
+**Document Version:** 3.9  
 **Date:** August 2025  
-**Status:** Requirements Gathering (Updated)
+**Status:** Requirements Gathering (Updated with Phone Call Scheduling Bug)
+
+---
+
+## Implementation Priority
+
+| Priority | Enhancement | Complexity | Impact |
+|----------|-------------|------------|--------|
+| **CRITICAL** | Backup and Restore Testing & Monitoring (#30) | Medium-High | Critical |
+| **CRITICAL** | Handle Duplicate Therapists & Fix Import Matching Logic (#16) | Medium-High | Critical |
+| **CRITICAL** | Database ID Gap Investigation (#8) | Medium | Critical |
+| **CRITICAL** | Internal Server Error After Sending Emails (#9) | Medium-High | Critical |
+| **CRITICAL** | PostgreSQL Database Stability (#4) | High | Critical |
+| **CRITICAL** | Handle Duplicate Patient Registrations (#15) | Medium-High | Critical |
+| **CRITICAL** | Fix Non-Functional Automatic Reminders (#21) | Medium | Critical |
+| **CRITICAL** | Protection from Injection Attacks (#27) | High | Critical |
+| **High** | Fix Phone Call Scheduling with Availability Hours (#36) | Medium | High |
+| **High** | Handle "Null" Last Name in Imports (#31) | Medium | High |
+| **High** | Comprehensive Email Automation System (#1) | High | Very High |
+| **High** | Fix ICD10 Diagnostic Matching Logic (#22) | Medium-High | High |
+| **High** | Fix Therapeutenanfrage Frontend Exit Issue (#10) | Low | High |
+| **High** | Improve Patient Eligibility Criteria (#11) | Medium | High |
+| **High** | Automatic Removal of Successful Platzsuchen (#6) | Medium | High |
+| **High** | Track Successful Match Details (#7) | Low-Medium | High |
+| **High** | Fix Dashboard "Ohne Aktive Platzsuche" (#14) | Low-Medium | High |
+| **High** | Patient Payment Tracking System (#20) | Medium-High | High |
+| **High** | Phone Number Display and Copy Functionality (#23) | Low-Medium | High |
+| **High** | Email Delivery Testing and Verification (#5) | Medium | High |
+| **High** | Temporarily Pause Vermittlung/Platzsuche (#24) | Medium | High |
+| **High** | Validate Last Psychotherapy Date (#25) | Low-Medium | High |
+| **High** | Production Container Log Management (#29) | Medium | High |
+| **High** | Automatic Patient Status Update (#32) | Low-Medium | High |
+| **High** | Fix Area Code Formatting (#33) | Medium | High |
+| **High** | Matching Service Cleanup (#34) | High | High |
+| **High** | Replace SendGrid with European Provider (#35) | Medium-High | High |
+| **Medium** | Enhanced Support for Multi-Location Practices (#17) | High | Medium |
+| **Medium** | Grammar Correction for Singular Patient (#18) | Low | Medium |
+| **Medium** | Phone Call Templates (#19) | Medium | Medium |
+| **Medium** | Track Incoming Emails (#12) | High | Medium |
+| **Medium** | Add Pagination for Therapist Selection (#13) | Medium | Medium |
+| **Medium** | GCS Deletion Logic (#2) | Medium | Medium |
+| **Medium** | Therapist Import Reporting Fix (#3) | Low-Medium | Medium |
+| **Medium** | Set Phone Call Time to Current Time (#26) | Low | Medium |
+| **Medium** | Replace Google Cloud Storage (#28) | High | Medium |
+
+---
+
+## Next Steps
+
+1. **IMMEDIATE - Data Protection:** Implement backup testing and monitoring (#30) to ensure data recoverability
+2. **CRITICAL - Import Bug:** Fix duplicate therapist matching logic (#16) - prevents data loss from incorrect merging
+3. **URGENT - Communication:** Fix phone call scheduling to respect therapist availability hours (#36)
+4. **URGENT - Import Fix:** Handle "Null" last name issue (#31) affecting therapist imports and scraper
+5. **URGENT - Security:** Implement injection attack protection (#27) across all forms
+6. **URGENT:** Investigate database ID gaps in production environment (#8)
+7. **URGENT:** Resolve internal server errors affecting email functionality (#9)
+8. **URGENT:** Fix non-functional automatic reminders and follow-up systems (#21)
+9. **URGENT:** Implement duplicate handling for patients (#15) to ensure data integrity
+10. **URGENT:** Fix ICD10 diagnostic matching logic (#22) - review Angela Fath-Volk case
+11. **Infrastructure:** Set up production log management (#29)
+12. **Quick Wins:** Implement frontend fixes (#10, #14, #18, #23, #26) and eligibility improvements (#11)
+13. **User Experience:** Implement pause functionality (#24) and validation improvements (#25)
+14. **Email System:** Design and implement comprehensive email automation (#1)
+15. **Payment System:** Design and implement patient payment tracking (#20)
+16. **Communication:** Implement phone call templates (#19)
+17. **Data Quality:** Design and implement multi-location support (#17)
+18. **European Compliance:** Plan migration from Google Cloud Storage (#28) and SendGrid (#35) to European solutions
+19. **Requirements Clarification:** Schedule discussion sessions for items #2-3, #5, and #12
+20. **Implementation Planning:** Create detailed technical specifications for high-priority items
+21. **New Features:** Implement automatic status updates (#32), fix area code formatting (#33), and cleanup matching service (#34)
+22. **Audit Current Systems:** Review therapist import reporting logic and email delivery
 
 ---
 
@@ -600,39 +670,81 @@ Implement robust duplicate detection and handling mechanism for patient imports 
 
 ---
 
-## 16. Handle Duplicate Therapists with Same Email Address - **NEW**
+## 16. Handle Duplicate Therapists with Same Email Address & Fix Import Matching Logic - **CRITICAL**
 
 ### Current Issue
-Multiple therapists working in the same practice often share the same email address, causing system conflicts and communication issues. The system needs to properly handle this common scenario.
+Multiple critical issues with therapist duplicate handling and import matching:
+
+1. **Shared Email Problem:** Multiple therapists working in the same practice often share the same email address, causing system conflicts
+2. **Critical Import Bug:** The secondary matching rule in the import process incorrectly merges therapists with the same first name at the same address, causing data loss
+
+### Critical Bug Details
+- **Example Case:** Anna Aller (Dr., Martinstraße 10-12, 52062 Aachen) is being incorrectly matched to Anna Bonni (same address, same first name)
+- **Root Cause:** The import logic assumes "same first name + same address = same person with name change" 
+- **Impact:** New therapist data overwrites existing therapist records, causing data loss
+- **Failed Scenarios:**
+  - Colleagues in group practices
+  - Employee/employer relationships at same address
+  - Multiple therapists sharing office space
 
 ### Requirement
-Implement a solution that allows multiple therapists to share email addresses while maintaining individual therapist identities and proper communication routing.
+1. Fix the critical import matching bug to prevent data loss
+2. Implement proper handling for therapists sharing email addresses
+3. Support group practices with multiple therapists
 
 ### Implementation Details
-- **Data Model Enhancement:**
-  - Separate therapist personal email from practice email
+
+#### A. Fix Critical Import Matching Logic - **URGENT**
+- **Remove or Restrict Secondary Match:**
+  ```python
+  # CURRENT PROBLEMATIC CODE:
+  # Secondary match for "marriage name change" - TOO BROAD
+  existing = db.query(Therapist).filter(
+      Therapist.vorname == data.get('vorname'),
+      Therapist.plz == data.get('plz'),
+      Therapist.ort == data.get('ort'),
+      Therapist.strasse == data.get('strasse')
+  ).first()
+  
+  # PROPOSED FIX - Remove secondary match entirely or add more constraints:
+  # Option 1: Remove secondary match completely
+  # Option 2: Require additional matching criteria
+  existing = db.query(Therapist).filter(
+      Therapist.vorname == data.get('vorname'),
+      Therapist.plz == data.get('plz'),
+      Therapist.ort == data.get('ort'),
+      Therapist.strasse == data.get('strasse'),
+      # Add more constraints:
+      Therapist.telefon == data.get('telefon'),  # Same phone number
+      # OR
+      Therapist.email == data.get('email')  # Same email
+  ).first()
+  ```
+
+#### B. Data Model Enhancement for Email Handling
+- **Separate Personal and Practice Emails:**
   - Add fields:
     - `practice_email` - Shared practice email
     - `personal_email` - Individual therapist email (optional)
     - `is_primary_contact` - Flag for main contact at practice
     - `practice_id` - Link therapists to same practice
 
-- **Communication Routing:**
-  - For shared emails, send consolidated communications
-  - Include all relevant therapists' information in emails
-  - Implement email templates that handle multiple therapists
-  - Add "on behalf of" functionality for practice emails
+#### C. Communication Routing for Shared Emails
+- For shared emails, send consolidated communications
+- Include all relevant therapists' information in emails
+- Implement email templates that handle multiple therapists
+- Add "on behalf of" functionality for practice emails
 
-- **Duplicate Detection:**
-  - Allow multiple therapists with same practice_email
-  - Prevent exact duplicates (same name + same email)
-  - Warn during import/creation about potential duplicates
-  - Provide merge functionality for accidental duplicates
+#### D. Duplicate Detection Enhancement
+- Allow multiple therapists with same practice_email
+- Prevent exact duplicates (same name + same personal details)
+- Warn during import/creation about potential duplicates
+- Provide merge functionality for accidental duplicates
 
 ### Technical Implementation
 - **Database Changes:**
   - Remove unique constraint on therapist email
-  - Add composite unique constraint on (name + email)
+  - Add composite unique constraint on (vorname + nachname + plz)
   - Create practice table to group therapists
   - Add indexes for efficient duplicate checking
 
@@ -647,6 +759,13 @@ Implement a solution that allows multiple therapists to share email addresses wh
   - Add practice management endpoints
   - Modify email sending logic for grouped communications
 
+### Testing Requirements
+- **Critical Test Cases:**
+  - Import Anna Aller - should create new record, not update Anna Bonni
+  - Import therapist with name change - should handle appropriately
+  - Import multiple therapists at same address - all should be created
+  - Import therapist with shared email - should handle correctly
+
 ### User Interface Enhancements
 - Practice management interface
 - Visual indicators for therapists in same practice
@@ -654,10 +773,14 @@ Implement a solution that allows multiple therapists to share email addresses wh
 - Clear duplicate warning messages
 
 ### Benefits
+- **Prevents data loss from incorrect matching**
 - Accurate representation of real-world practice structures
 - Improved communication efficiency
 - Reduced data entry errors
 - Better therapist relationship management
+
+### Priority
+**CRITICAL** - This bug causes data loss and corrupts therapist records
 
 ---
 
@@ -2028,70 +2151,149 @@ Replace SendGrid with a European-based email service provider that ensures data 
 
 ---
 
-## Implementation Priority
+## 36. Fix Phone Call Scheduling with Availability Hours - **HIGH PRIORITY NEW**
 
-| Priority | Enhancement | Complexity | Impact |
-|----------|-------------|------------|--------|
-| **CRITICAL** | Backup and Restore Testing & Monitoring (#30) | Medium-High | Critical |
-| **CRITICAL** | Database ID Gap Investigation (#8) | Medium | Critical |
-| **CRITICAL** | Internal Server Error After Sending Emails (#9) | Medium-High | Critical |
-| **CRITICAL** | PostgreSQL Database Stability (#4) | High | Critical |
-| **CRITICAL** | Handle Duplicate Patient Registrations (#15) | Medium-High | Critical |
-| **CRITICAL** | Fix Non-Functional Automatic Reminders (#21) | Medium | Critical |
-| **CRITICAL** | Protection from Injection Attacks (#27) | High | Critical |
-| **High** | Handle "Null" Last Name in Imports (#31) | Medium | High |
-| **High** | Comprehensive Email Automation System (#1) | High | Very High |
-| **High** | Fix ICD10 Diagnostic Matching Logic (#22) | Medium-High | High |
-| **High** | Handle Duplicate Therapists with Same Email (#16) | Medium-High | High |
-| **High** | Fix Therapeutenanfrage Frontend Exit Issue (#10) | Low | High |
-| **High** | Improve Patient Eligibility Criteria (#11) | Medium | High |
-| **High** | Automatic Removal of Successful Platzsuchen (#6) | Medium | High |
-| **High** | Track Successful Match Details (#7) | Low-Medium | High |
-| **High** | Fix Dashboard "Ohne Aktive Platzsuche" (#14) | Low-Medium | High |
-| **High** | Patient Payment Tracking System (#20) | Medium-High | High |
-| **High** | Phone Number Display and Copy Functionality (#23) | Low-Medium | High |
-| **High** | Email Delivery Testing and Verification (#5) | Medium | High |
-| **High** | Temporarily Pause Vermittlung/Platzsuche (#24) | Medium | High |
-| **High** | Validate Last Psychotherapy Date (#25) | Low-Medium | High |
-| **High** | Production Container Log Management (#29) | Medium | High |
-| **High** | Automatic Patient Status Update (#32) | Low-Medium | High |
-| **High** | Fix Area Code Formatting (#33) | Medium | High |
-| **High** | Matching Service Cleanup (#34) | High | High |
-| **High** | Replace SendGrid with European Provider (#35) | Medium-High | High |
-| **Medium** | Enhanced Support for Multi-Location Practices (#17) | High | Medium |
-| **Medium** | Grammar Correction for Singular Patient (#18) | Low | Medium |
-| **Medium** | Phone Call Templates (#19) | Medium | Medium |
-| **Medium** | Track Incoming Emails (#12) | High | Medium |
-| **Medium** | Add Pagination for Therapist Selection (#13) | Medium | Medium |
-| **Medium** | GCS Deletion Logic (#2) | Medium | Medium |
-| **Medium** | Therapist Import Reporting Fix (#3) | Low-Medium | Medium |
-| **Medium** | Set Phone Call Time to Current Time (#26) | Low | Medium |
-| **Medium** | Replace Google Cloud Storage (#28) | High | Medium |
+### Current Issue
+The automatic phone call scheduling system for therapists who don't respond to emails is not working properly. It fails to consider the therapist's "telefonische Erreichbarkeit" (phone availability hours) and schedules calls outside these specified time windows.
 
----
+### Problems Identified
+- **Ignoring Availability:** System schedules calls without checking therapist's availability
+- **Wrong Time Slots:** Calls are scheduled outside the specified hours
+- **Day Mismatch:** Calls scheduled on days when therapist is not available
+- **No Validation:** System doesn't validate or warn about unavailable time slots
 
-## Next Steps
+### Example Case
+- **Therapist:** Has availability Monday 9:00-10:00, Wednesday 14:00-15:00
+- **Current Behavior:** System schedules call for Tuesday 11:00
+- **Expected Behavior:** System should only schedule within available windows
 
-1. **IMMEDIATE - Data Protection:** Implement backup testing and monitoring (#30) to ensure data recoverability
-2. **URGENT - Import Fix:** Handle "Null" last name issue (#31) affecting therapist imports and scraper
-3. **URGENT - Security:** Implement injection attack protection (#27) across all forms
-4. **URGENT:** Investigate database ID gaps in production environment (#8)
-5. **URGENT:** Resolve internal server errors affecting email functionality (#9)
-6. **URGENT:** Fix non-functional automatic reminders and follow-up systems (#21)
-7. **URGENT:** Implement duplicate handling for patients (#15) to ensure data integrity
-8. **URGENT:** Fix ICD10 diagnostic matching logic (#22) - review Angela Fath-Volk case
-9. **Infrastructure:** Set up production log management (#29)
-10. **Quick Wins:** Implement frontend fixes (#10, #14, #18, #23, #26) and eligibility improvements (#11)
-11. **User Experience:** Implement pause functionality (#24) and validation improvements (#25)
-12. **Email System:** Design and implement comprehensive email automation (#1)
-13. **Payment System:** Design and implement patient payment tracking (#20)
-14. **Communication:** Implement phone call templates (#19)
-15. **Data Quality:** Design and implement therapist duplicate handling (#16) and multi-location support (#17)
-16. **European Compliance:** Plan migration from Google Cloud Storage (#28) and SendGrid (#35) to European solutions
-17. **Requirements Clarification:** Schedule discussion sessions for items #2-3, #5, and #12
-18. **Implementation Planning:** Create detailed technical specifications for high-priority items
-19. **New Features:** Implement automatic status updates (#32), fix area code formatting (#33), and cleanup matching service (#34)
-20. **Audit Current Systems:** Review therapist import reporting logic and email delivery
+### Implementation Requirements
+
+#### A. Availability Checking Logic
+- **Parse Availability Data:**
+  ```javascript
+  // Example availability structure
+  telefonische_erreichbarkeit: {
+    "Mo": ["9:00-10:00", "14:00-15:00"],
+    "Mi": ["9:00-12:00"],
+    "Fr": ["13:00-14:00"]
+  }
+  ```
+
+- **Find Next Available Slot:**
+  ```javascript
+  function findNextAvailableSlot(therapist, preferredDate) {
+    const availability = therapist.telefonische_erreichbarkeit;
+    
+    // Check if preferred date has availability
+    const dayOfWeek = getDayOfWeek(preferredDate);
+    const slots = availability[dayOfWeek];
+    
+    if (!slots || slots.length === 0) {
+      // Find next available day
+      return findNextDayWithAvailability(therapist, preferredDate);
+    }
+    
+    // Return first available slot on that day
+    return parseTimeSlot(slots[0], preferredDate);
+  }
+  ```
+
+#### B. Scheduling Algorithm Enhancement
+- **Validation Before Scheduling:**
+  - Check if therapist has any availability defined
+  - Validate requested time against availability windows
+  - Calculate next available slot if requested time unavailable
+  - Consider business days and holidays
+
+- **Smart Scheduling:**
+  - Prioritize earliest available slots
+  - Distribute calls evenly across available windows
+  - Avoid scheduling multiple calls in same time slot
+  - Respect minimum call duration requirements
+
+#### C. Fallback Handling
+- **No Availability Defined:**
+  - Flag therapist for manual scheduling
+  - Send notification to staff
+  - Use default business hours as fallback
+  - Log missing availability data
+
+- **All Slots Booked:**
+  - Queue for next available week
+  - Notify staff of scheduling conflict
+  - Option to override with manual scheduling
+
+### Technical Implementation
+- **Database Query Updates:**
+  ```sql
+  -- Get therapists with availability for specific day
+  SELECT * FROM therapists 
+  WHERE telefonische_erreichbarkeit->>'Mo' IS NOT NULL
+  AND id = :therapist_id;
+  ```
+
+- **Scheduler Service Updates:**
+  - Add availability parser module
+  - Implement time slot validation
+  - Create conflict detection system
+  - Add scheduling queue management
+
+- **API Enhancements:**
+  - New endpoint: `/api/therapists/{id}/available-slots`
+  - Validation in phone call creation endpoint
+  - Bulk availability checking for multiple therapists
+
+### Testing Requirements
+- **Unit Tests:**
+  - Availability parsing with various formats
+  - Time slot calculation and validation
+  - Edge cases (no availability, all slots full)
+  - Time zone handling
+
+- **Integration Tests:**
+  - End-to-end scheduling workflow
+  - Conflict resolution scenarios
+  - Fallback mechanism testing
+  - Performance with large datasets
+
+### User Interface Improvements
+- **Visual Availability Calendar:**
+  - Show therapist availability in calendar view
+  - Highlight available vs. booked slots
+  - Click to schedule in available slot
+  - Drag-and-drop rescheduling
+
+- **Scheduling Feedback:**
+  - Clear indication why time was chosen
+  - Warning when no availability found
+  - Suggested alternative times
+  - Manual override option with justification
+
+### Monitoring and Alerts
+- **Tracking Metrics:**
+  - Calls scheduled outside availability
+  - Therapists with missing availability data
+  - Success rate of automatic scheduling
+  - Average time to find available slot
+
+- **Alert Conditions:**
+  - Failed scheduling attempts
+  - High percentage of manual overrides
+  - Therapists consistently unavailable
+  - System unable to find slots
+
+### Success Metrics
+- **100% Compliance:** All calls scheduled within availability windows
+- **Reduced Manual Work:** 80% decrease in manual scheduling
+- **Improved Contact Rate:** Higher success rate for therapist calls
+- **Staff Satisfaction:** Reduced complaints about scheduling issues
+
+### Migration Strategy
+- **Phase 1:** Audit existing scheduled calls
+- **Phase 2:** Update all future scheduling
+- **Phase 3:** Reschedule non-compliant existing calls
+- **Phase 4:** Monitor and optimize
 
 ---
 
