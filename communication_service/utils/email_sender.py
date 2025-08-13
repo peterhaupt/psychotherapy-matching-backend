@@ -152,17 +152,6 @@ def send_queued_emails(limit: int = 10) -> int:
                 logger.error(f"Failed to send email {email.id}")
             
             db.commit()
-            
-            # Publish event if needed
-            from events.producers import publish_email_sent
-            if success:
-                publish_email_sent(email.id, {
-                    'therapist_id': email.therapist_id,
-                    'patient_id': email.patient_id,
-                    'recipient_type': email.recipient_type,
-                    'betreff': email.betreff,
-                    'status': email.status.value if hasattr(email.status, 'value') else str(email.status)
-                })
         
         return sent_count
         

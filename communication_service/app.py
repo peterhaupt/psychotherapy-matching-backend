@@ -6,7 +6,6 @@ from flask_cors import CORS
 from api.emails import EmailResource, EmailListResource
 from api.phone_calls import PhoneCallResource, PhoneCallListResource
 from api.system_messages import SystemMessageResource
-from events.consumers import start_consumers
 from shared.config import get_config, setup_logging
 
 
@@ -70,9 +69,6 @@ def create_app():
     
     # Register API endpoint for system messages
     api.add_resource(SystemMessageResource, '/api/system-messages')
-
-    # Start Kafka consumers
-    start_consumers()
 
     return app
 

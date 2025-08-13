@@ -11,8 +11,6 @@ from shared.api.base_resource import PaginatedListResource
 from shared.config import get_config
 from utils.phone_call_scheduler import find_available_slot
 from shared.api.retry_client import RetryAPIClient
-# PHASE 2: Import event publishers
-from events.producers import publish_phone_call_scheduled, publish_phone_call_completed
 
 # Get configuration
 config = get_config()
@@ -41,12 +39,11 @@ class TimeField(fields.Raw):
         return str(value)
 
 # Output fields definition for phone call responses - German field names
-# ADDED: therapeutenanfrage_id field
 phone_call_fields = {
     'id': fields.Integer,
     'therapist_id': NullableIntegerField,  # Use custom field
     'patient_id': NullableIntegerField,    # Use custom field
-    'therapeutenanfrage_id': NullableIntegerField,  # NEW field
+    'therapeutenanfrage_id': NullableIntegerField,  # For anfrage tracking
     'geplantes_datum': fields.String,
     'geplante_zeit': TimeField,  # Use custom time field
     'dauer_minuten': fields.Integer,
@@ -87,7 +84,6 @@ class PhoneCallResource(Resource):
         parser.add_argument('status', type=str)
         parser.add_argument('ergebnis', type=str)
         parser.add_argument('notizen', type=str)
-        # ADDED: therapeutenanfrage_id argument
         parser.add_argument('therapeutenanfrage_id', type=int)
         
         args = parser.parse_args()
@@ -98,7 +94,7 @@ class PhoneCallResource(Resource):
             if not phone_call:
                 return {'message': 'Phone call not found'}, 404
             
-            # PHASE 2: Track status changes for events
+            # Track status changes
             old_status = phone_call.status
             
             # Update fields from request
@@ -137,26 +133,11 @@ class PhoneCallResource(Resource):
             db.commit()
             db.refresh(phone_call)
             
-            # PHASE 2: Publish event if call was just completed
+            # If call was just completed, update patient last contact
             if old_status != PhoneCallStatus.abgeschlossen.value and phone_call.status == PhoneCallStatus.abgeschlossen.value:
-                call_data_for_event = {
-                    'call_id': phone_call.id,
-                    'therapist_id': phone_call.therapist_id,
-                    'patient_id': phone_call.patient_id,
-                    'therapeutenanfrage_id': phone_call.therapeutenanfrage_id,  # Include anfrage ID
-                    'recipient_type': phone_call.recipient_type,
-                    'status': phone_call.status,
-                    'ergebnis': phone_call.ergebnis
-                }
+                logger.info(f"Phone call {call_id} completed")
                 
-                logger.info(f"Phone call {call_id} completed, publishing event")
-                publish_phone_call_completed(
-                    phone_call.id, 
-                    call_data_for_event,
-                    outcome=phone_call.ergebnis
-                )
-                
-                # KAFKA REMOVAL: Update patient last contact via API
+                # Update patient last contact via API
                 if phone_call.patient_id:
                     patient_service_url = config.get_service_url('patient', internal=True)
                     patient_url = f"{patient_service_url}/api/patients/{phone_call.patient_id}/last-contact"
@@ -209,7 +190,7 @@ class PhoneCallListResource(PaginatedListResource):
         # Parse query parameters for filtering
         therapist_id = request.args.get('therapist_id', type=int)
         patient_id = request.args.get('patient_id', type=int)
-        therapeutenanfrage_id = request.args.get('therapeutenanfrage_id', type=int)  # NEW parameter
+        therapeutenanfrage_id = request.args.get('therapeutenanfrage_id', type=int)
         recipient_type = request.args.get('recipient_type')
         status = request.args.get('status')
         geplantes_datum = request.args.get('geplantes_datum')
@@ -238,7 +219,7 @@ class PhoneCallListResource(PaginatedListResource):
                 if patient_id:
                     query = query.filter(PhoneCall.patient_id == patient_id)
             
-            # NEW: Filter by therapeutenanfrage_id if provided
+            # Filter by therapeutenanfrage_id if provided
             if therapeutenanfrage_id:
                 query = query.filter(PhoneCall.therapeutenanfrage_id == therapeutenanfrage_id)
             
@@ -274,7 +255,7 @@ class PhoneCallListResource(PaginatedListResource):
         # Recipient fields - now both optional
         parser.add_argument('therapist_id', type=int, required=False)
         parser.add_argument('patient_id', type=int, required=False)
-        # NEW: therapeutenanfrage_id field
+        # therapeutenanfrage_id field
         parser.add_argument('therapeutenanfrage_id', type=int, required=False)
         
         # Optional fields with automatic scheduling
@@ -341,7 +322,7 @@ class PhoneCallListResource(PaginatedListResource):
             phone_call = PhoneCall(
                 therapist_id=args.get('therapist_id'),
                 patient_id=args.get('patient_id'),
-                therapeutenanfrage_id=args.get('therapeutenanfrage_id'),  # NEW field
+                therapeutenanfrage_id=args.get('therapeutenanfrage_id'),
                 geplantes_datum=scheduled_date,
                 geplante_zeit=call_time,
                 dauer_minuten=args.get('dauer_minuten', 5),
@@ -353,18 +334,7 @@ class PhoneCallListResource(PaginatedListResource):
             db.commit()
             db.refresh(phone_call)
             
-            # Publish event for phone call creation
-            try:
-                publish_phone_call_scheduled(phone_call.id, {
-                    'therapist_id': phone_call.therapist_id,
-                    'patient_id': phone_call.patient_id,
-                    'therapeutenanfrage_id': phone_call.therapeutenanfrage_id,  # Include anfrage ID
-                    'recipient_type': phone_call.recipient_type,
-                    'scheduled_date': phone_call.geplantes_datum.isoformat(),
-                    'scheduled_time': phone_call.geplante_zeit.isoformat()
-                })
-            except Exception as e:
-                logger.error(f"Error publishing phone_call_scheduled event: {e}")
+            logger.info(f"Created phone call {phone_call.id}")
             
             return marshal(phone_call, phone_call_fields), 201
         except SQLAlchemyError as e:
