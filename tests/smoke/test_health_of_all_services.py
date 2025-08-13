@@ -17,6 +17,7 @@ CORE_SERVICES = [
     ("therapist-import", os.environ["THERAPIST_HEALTH_URL"].replace("/health", "/health/import"), "therapist-import"),
     ("matching", os.environ["MATCHING_HEALTH_URL"], "matching"),
     ("communication", os.environ["COMMUNICATION_HEALTH_URL"], "communication"),
+    ("communication-email-queue", os.environ["COMMUNICATION_HEALTH_URL"].replace("/health", "/health/email-queue"), "email-queue"),
     ("geocoding", os.environ["GEOCODING_HEALTH_URL"], "geocoding"),
 ]
 
@@ -448,15 +449,15 @@ class TestEnvironmentConfiguration:
         print(f"  Backup services: {backup_service_count}")
         print(f"  Total services: {total_service_count}")
         
-        # Verify reasonable service counts
-        assert core_service_count == 7, f"Expected 7 core services, got {core_service_count}"
+        # Verify reasonable service counts (updated to account for email-queue)
+        assert core_service_count == 8, f"Expected 8 core services, got {core_service_count}"
         
         if BACKUP_HEALTH_TESTS_ENABLED:
             assert backup_service_count == 1, f"Expected 1 backup service when enabled, got {backup_service_count}"
-            assert total_service_count == 8, f"Expected 8 total services when backup enabled, got {total_service_count}"
+            assert total_service_count == 9, f"Expected 9 total services when backup enabled, got {total_service_count}"
         else:
             assert backup_service_count == 0, f"Expected 0 backup services when disabled, got {backup_service_count}"
-            assert total_service_count == 7, f"Expected 7 total services when backup disabled, got {total_service_count}"
+            assert total_service_count == 8, f"Expected 8 total services when backup disabled, got {total_service_count}"
         
         print(f"✅ Service count is appropriate for {TEST_ENV} environment")
 

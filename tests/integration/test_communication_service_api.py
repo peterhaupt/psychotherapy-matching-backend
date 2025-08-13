@@ -358,6 +358,49 @@ class TestCommunicationServiceAPI:
         requests.delete(f"{BASE_URL}/emails/{email['id']}")
         requests.delete(f"{THERAPIST_BASE_URL}/therapists/{therapist['id']}")
 
+    def test_email_queue_processing(self):
+        """Test that emails with status 'In_Warteschlange' are processed and sent."""
+        # Create a therapist
+        therapist = self.create_test_therapist()
+        
+        # Create an email with status In_Warteschlange
+        email_data = {
+            "therapist_id": therapist['id'],
+            "betreff": "test email",
+            "inhalt_markdown": "This is a test email for queue processing.",
+            "empfaenger_email": "mail@peterhaupt.de",
+            "empfaenger_name": "Test Recipient",
+            "status": "In_Warteschlange"  # Queue the email for sending
+        }
+        
+        response = requests.post(f"{BASE_URL}/emails", json=email_data)
+        assert response.status_code == 201
+        
+        created_email = response.json()
+        email_id = created_email['id']
+        assert created_email["status"] == "In_Warteschlange"
+        
+        print(f"Email {email_id} created with status 'In_Warteschlange'")
+        print("Waiting 35 seconds for email queue processor to send the email...")
+        
+        # Wait for the email queue processor to process the email
+        time.sleep(35)
+        
+        # Check if the email status has changed to Gesendet
+        response = requests.get(f"{BASE_URL}/emails/{email_id}")
+        assert response.status_code == 200
+        
+        updated_email = response.json()
+        assert updated_email["status"] == "Gesendet", \
+            f"Expected email status to be 'Gesendet' after processing, but got '{updated_email['status']}'"
+        
+        print(f"Email {email_id} successfully sent (status: {updated_email['status']})")
+        
+        # Cleanup (keeping therapist for teardown)
+        if not hasattr(self, '_temp_therapists'):
+            self._temp_therapists = []
+        self._temp_therapists.append(therapist['id'])
+
     # Phone Call Tests
 
     def test_create_phone_call_for_therapist(self):
