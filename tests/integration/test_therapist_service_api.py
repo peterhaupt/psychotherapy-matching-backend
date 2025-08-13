@@ -515,9 +515,10 @@ class TestTherapistServiceAPI:
         therapist2_id = therapist2['id']
         print(f"  Created therapist ID: {therapist2_id}")
         
-        # Step 4: Create a test patient via Patient service
+        # Step 4: Create a test patient via Patient service - FIXED with all required fields
         print(f"\n--- Step 4: Creating test patient ---")
         patient_data = {
+            "anrede": "Herr",  # ADDED: Required field
             "vorname": f"TestPatient_{test_session['session_id']}",
             "nachname": "DeletionTest",
             "email": f"deletion_test_{test_session['session_id']}@test.com",
@@ -526,7 +527,7 @@ class TestTherapistServiceAPI:
             "geschlecht": "männlich",
             "plz": "52062",
             "ort": "Aachen",
-            "symptome": "Teststörung",
+            "symptome": ["Depression / Niedergeschlagenheit", "Schlafstörungen"],  # FIXED: Array with valid symptoms
             "krankenkasse": "Techniker Krankenkasse",
             "erfahrung_mit_psychotherapie": False,
             "offen_fuer_gruppentherapie": True,
