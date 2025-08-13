@@ -27,7 +27,6 @@ from api.cascade_operations import (
     TherapistBlockedCascadeResource,
     TherapistUnblockedCascadeResource
 )
-from events.consumers import start_consumers
 from shared.config import get_config, setup_logging
 from db import close_db, get_db_context
 from services import AnfrageService
@@ -143,9 +142,6 @@ def create_app():
     api.add_resource(PatientDeletedCascadeResource, '/api/matching/cascade/patient-deleted')
     api.add_resource(TherapistBlockedCascadeResource, '/api/matching/cascade/therapist-blocked')
     api.add_resource(TherapistUnblockedCascadeResource, '/api/matching/cascade/therapist-unblocked')
-
-    # Start Kafka consumers
-    start_consumers()
     
     # Start follow-up scheduler thread
     scheduler_thread = threading.Thread(
