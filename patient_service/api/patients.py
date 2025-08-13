@@ -297,7 +297,7 @@ def check_and_apply_payment_status_transition(patient, old_payment_status, db):
     PHASE 2: Automatic status transition logic
     When zahlung_eingegangen changes from False to True:
     - Set startdatum to today (if vertraege_unterschrieben is true)
-    - Change status from "offen" to "auf_der_suche"
+    - Change status from "offen" to "auf_der_Suche"
     
     Args:
         patient: The patient object
@@ -316,10 +316,10 @@ def check_and_apply_payment_status_transition(patient, old_payment_status, db):
                 patient.startdatum = date.today()
                 logger.info(f"Set startdatum to {patient.startdatum} for patient {patient.id}")
             
-            # Change status from offen to auf_der_suche
+            # Change status from offen to auf_der_Suche
             if patient.status == Patientenstatus.offen:
                 old_status = patient.status
-                patient.status = Patientenstatus.auf_der_suche
+                patient.status = Patientenstatus.auf_der_Suche
                 logger.info(f"Changed status from {old_status.value} to {patient.status.value} for patient {patient.id}")
 
 
@@ -708,7 +708,7 @@ class PatientListResource(PaginatedListResource):
                     patient.startdatum = date.today()
                 # Also set status if it's still offen
                 if patient.status == Patientenstatus.offen:
-                    patient.status = Patientenstatus.auf_der_suche
+                    patient.status = Patientenstatus.auf_der_Suche
             
             db.add(patient)
             db.commit()
