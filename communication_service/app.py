@@ -119,4 +119,4 @@ if __name__ == "__main__":
     app.run(
         host="0.0.0.0", 
         port=config.COMMUNICATION_SERVICE_INTERNAL_PORT, 
-        debug=config.FLASK_DEBUG
+        debug=config.FLASK_DEBUG)
