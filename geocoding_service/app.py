@@ -14,7 +14,6 @@ from api.geocoding import (
     DistanceCalculationResource,
     PLZDistanceResource
 )
-from events.consumers import start_consumers
 from shared.config import get_config, setup_logging
 
 
@@ -215,9 +214,6 @@ def create_app():
 
     # Initialize PLZ data if needed
     initialize_plz_data()
-
-    # Start Kafka consumers
-    start_consumers()
 
     return app
 
