@@ -1,7 +1,7 @@
 # Future Enhancements - Priority Items
 
-**Document Version:** 3.6  
-**Date:** January 2025  
+**Document Version:** 3.7  
+**Date:** August 2025  
 **Status:** Requirements Gathering (Updated)
 
 ---
@@ -165,27 +165,7 @@ Need to ensure GCS files are only deleted after successful import to patient-ser
 
 ---
 
-## 3. Kafka/Zookeeper Stability Improvements
-
-### Current Issue
-Kafka and Zookeeper are unstable and crashing, affecting system reliability.
-
-### Questions for Discussion
-- What **type of crashes** are you seeing (out of memory, connection timeouts, data corruption, pod restarts)?
-- **How frequently** are these crashes happening?
-- Are you **losing data/events** when they crash, or just experiencing downtime?
-- Do you need **monitoring/alerting**, **auto-restart capabilities**, or **architectural changes** (like switching to managed Kafka)?
-
-### Potential Solutions
-- Enhanced monitoring and alerting
-- Auto-restart mechanisms
-- Resource allocation improvements
-- Consider managed Kafka services
-- Circuit breaker patterns for resilience
-
----
-
-## 4. Therapist Import Reporting Corrections
+## 3. Therapist Import Reporting Corrections
 
 ### Current Issue
 Reporting of therapist imports shows incorrect numbers for successful and failed imports.
@@ -205,7 +185,7 @@ Reporting of therapist imports shows incorrect numbers for successful and failed
 
 ---
 
-## 5. PostgreSQL Database Stability Investigation - **HIGH PRIORITY**
+## 4. PostgreSQL Database Stability Investigation - **HIGH PRIORITY**
 
 ### Current Issue
 PostgreSQL database in production is frequently crashing, causing system downtime and data availability issues.
@@ -236,7 +216,7 @@ PostgreSQL database in production is frequently crashing, causing system downtim
 
 ---
 
-## 6. Email Delivery Testing and Verification
+## 5. Email Delivery Testing and Verification
 
 ### Requirement
 Implement comprehensive testing to verify that emails are actually being sent and delivered successfully.
@@ -263,7 +243,7 @@ Implement comprehensive testing to verify that emails are actually being sent an
 
 ---
 
-## 7. Automatic Removal of Successful Platzsuchen from Other Therapeutenanfragen - **NEW**
+## 6. Automatic Removal of Successful Platzsuchen from Other Therapeutenanfragen - **NEW**
 
 ### Current Issue
 When a patient is successfully matched (angenommen) in one therapeutenanfrage, they remain in all other pending therapeutenanfragen. This creates confusion and potential duplicate acceptances.
@@ -296,7 +276,7 @@ Implement automatic cleanup: when a patient's platzsuche becomes "erfolgreich", 
 
 ---
 
-## 8. Track Successful Match Details in Platzsuche - **NEW**
+## 7. Track Successful Match Details in Platzsuche - **NEW**
 
 ### Current Issue
 When viewing a successful (erfolgreich) platzsuche, there's no direct way to see which therapist accepted the patient or which therapeutenanfrage led to the successful match.
@@ -330,7 +310,7 @@ Enhance the platzsuche model to track successful match details for better visibi
 
 ---
 
-## 9. Investigation: Unexpected Database ID Gaps in Local Production - **CRITICAL NEW**
+## 8. Investigation: Unexpected Database ID Gaps in Local Production - **CRITICAL NEW**
 
 ### Current Issue
 In the local production environment, therapeutenanfragen IDs show unexpected gaps (IDs 1-10, then jumping to 42+). This is concerning because:
@@ -370,7 +350,7 @@ In the local production environment, therapeutenanfragen IDs show unexpected gap
 
 ---
 
-## 10. Internal Server Error After Sending Patient Emails - **CRITICAL NEW**
+## 9. Internal Server Error After Sending Patient Emails - **CRITICAL NEW**
 
 ### Current Issue
 Internal server errors are occurring intermittently after sending emails to patients, causing system instability.
@@ -395,7 +375,7 @@ Internal server errors are occurring intermittently after sending emails to pati
 
 ---
 
-## 11. Fix Therapeutenanfrage Frontend Exit Issue - **NEW**
+## 10. Fix Therapeutenanfrage Frontend Exit Issue - **NEW**
 
 ### Current Issue
 When a therapeutenanfrage is created but contains 0 patients, the frontend provides no proper way to exit or quit the process.
@@ -424,7 +404,7 @@ Implement proper navigation controls for empty therapeutenanfragen.
 
 ---
 
-## 12. Improve Patient Eligibility Criteria for Platzsuche Creation - **NEW**
+## 11. Improve Patient Eligibility Criteria for Platzsuche Creation - **NEW**
 
 ### Current Issue
 When creating a new platzsuche, the patient list shows patients who are not eligible (e.g., patients without PTV11 form), making the selection process inefficient and potentially creating invalid platzsuchen.
@@ -460,7 +440,7 @@ Implement stricter eligibility criteria to only show patients who are truly elig
 
 ---
 
-## 13. Track Incoming Emails - **NEW**
+## 12. Track Incoming Emails - **NEW**
 
 ### Requirement
 Implement comprehensive incoming email tracking system to monitor and integrate email communications with patient records.
@@ -500,7 +480,7 @@ Implement comprehensive incoming email tracking system to monitor and integrate 
 
 ---
 
-## 14. Add Pagination for Therapist Selection in Vermittlung - **NEW**
+## 13. Add Pagination for Therapist Selection in Vermittlung - **NEW**
 
 ### Requirement
 Implement pagination for therapist selection in the vermittlung process of therapeutenanfragen to improve performance and user experience.
@@ -536,7 +516,7 @@ Large therapist lists in the therapeutenanfrage form cause performance issues an
 
 ---
 
-## 15. Fix Dashboard "Ohne Aktive Platzsuche" Section - **NEW**
+## 14. Fix Dashboard "Ohne Aktive Platzsuche" Section - **NEW**
 
 ### Current Issue
 The dashboard section "ohne aktive Platzsuche" incorrectly includes patients with successful (erfolgreich) platzsuchen, who no longer need therapy placement.
@@ -571,7 +551,7 @@ Adjust the dashboard logic to exclude patients who have successfully been matche
 
 ---
 
-## 16. Handle Duplicate Patient Registrations During Import - **NEW**
+## 15. Handle Duplicate Patient Registrations During Import - **NEW**
 
 ### Current Issue
 Patients can register multiple times on the website, creating duplicate records in the system. This leads to data integrity issues, inefficient resource usage, and confusion in patient management.
@@ -620,7 +600,7 @@ Implement robust duplicate detection and handling mechanism for patient imports 
 
 ---
 
-## 17. Handle Duplicate Therapists with Same Email Address - **NEW**
+## 16. Handle Duplicate Therapists with Same Email Address - **NEW**
 
 ### Current Issue
 Multiple therapists working in the same practice often share the same email address, causing system conflicts and communication issues. The system needs to properly handle this common scenario.
@@ -681,7 +661,7 @@ Implement a solution that allows multiple therapists to share email addresses wh
 
 ---
 
-## 18. Enhanced Support for Multi-Location Practices - **NEW**
+## 17. Enhanced Support for Multi-Location Practices - **NEW**
 
 ### Current Issue
 Practices with two or more locations are currently treated as independent duplicates in the system, causing confusion and inefficient management of therapist data.
@@ -739,7 +719,7 @@ Implement proper support for practices with multiple locations while maintaining
 
 ---
 
-## 19. Grammar Correction for Singular Patient in Therapeutenanfrage - **NEW**
+## 18. Grammar Correction for Singular Patient in Therapeutenanfrage - **NEW**
 
 ### Current Issue
 When a therapeutenanfrage contains only 1 patient, the system uses plural grammar forms, creating unprofessional communications.
@@ -786,7 +766,7 @@ Implement dynamic text adjustment to use singular forms when exactly one patient
 
 ---
 
-## 20. Phone Call Templates for Patient Communication - **NEW**
+## 19. Phone Call Templates for Patient Communication - **NEW**
 
 ### Current Issue
 Staff members lack standardized scripts for phone calls with patients, leading to inconsistent communication and missed important topics.
@@ -847,7 +827,7 @@ Create customizable phone call templates for various patient interaction scenari
 
 ---
 
-## 21. Patient Payment Tracking System - **NEW**
+## 20. Patient Payment Tracking System - **NEW**
 
 ### Current Issue
 No systematic way to document whether patients have paid for services, causing billing confusion and follow-up difficulties.
@@ -915,7 +895,7 @@ Implement comprehensive payment tracking functionality integrated with patient r
 
 ---
 
-## 22. Fix Non-Functional Automatic Reminders and Follow-up Calls - **CRITICAL NEW**
+## 21. Fix Non-Functional Automatic Reminders and Follow-up Calls - **CRITICAL NEW**
 
 ### Current Issue
 Automatic reminders and follow-up call scheduling features appear to be broken or non-functional, requiring manual intervention for all patient communications.
@@ -971,7 +951,7 @@ Automatic reminders and follow-up call scheduling features appear to be broken o
 
 ---
 
-## 23. Fix ICD10 Diagnostic Matching Logic - **HIGH PRIORITY NEW**
+## 22. Fix ICD10 Diagnostic Matching Logic - **HIGH PRIORITY NEW**
 
 ### Current Issue
 The logic for matching patient ICD10 diagnoses with therapist preferences needs to be reviewed and fixed. Specifically, single/parent diagnoses from patients are not properly matching with therapist group preferences (subcategories).
@@ -1043,7 +1023,7 @@ Implement proper hierarchical matching logic for ICD10 codes where:
 
 ---
 
-## 24. Phone Number Display and Copy Functionality in Frontend - **NEW**
+## 23. Phone Number Display and Copy Functionality in Frontend - **NEW**
 
 ### Current Issue
 Phone numbers are not easily visible or copyable in the frontend interface, making it difficult for staff to quickly contact patients and therapists.
@@ -1105,7 +1085,7 @@ Implement clear phone number display with one-click copy functionality throughou
 
 ---
 
-## 25. Temporarily Pause Vermittlung/Platzsuche for Patient Holidays - **NEW**
+## 24. Temporarily Pause Vermittlung/Platzsuche for Patient Holidays - **NEW**
 
 ### Current Issue
 When patients go on holiday or are temporarily unavailable, there's no way to pause their vermittlung/platzsuche activities, leading to wasted efforts contacting therapists on their behalf.
@@ -1163,7 +1143,7 @@ Implement functionality to temporarily pause and resume platzsuche activities wi
 
 ---
 
-## 26. Validate Last Psychotherapy Date in Registration Process - **NEW**
+## 25. Validate Last Psychotherapy Date in Registration Process - **NEW**
 
 ### Current Issue
 Invalid or implausible dates for last psychotherapy are being entered during patient registration, causing data quality issues and affecting eligibility assessments.
@@ -1222,7 +1202,7 @@ Implement comprehensive validation for the "date of last psychotherapy" field du
 
 ---
 
-## 27. Set Phone Call Time to Current Time When Call is Finished - **NEW**
+## 26. Set Phone Call Time to Current Time When Call is Finished - **NEW**
 
 ### Current Issue
 When logging phone calls, the time of the call is not automatically set to the current time when the call is marked as finished, requiring manual time entry and potentially leading to inaccurate records.
@@ -1283,7 +1263,7 @@ Automatically capture and set the phone call timestamp to the current time when 
 
 ---
 
-## 28. Protection from Injection Attacks in Forms - **CRITICAL NEW**
+## 27. Protection from Injection Attacks in Forms - **CRITICAL NEW**
 
 ### Current Issue
 Forms throughout the application need protection against injection attacks (SQL injection, XSS, etc.) to ensure system security.
@@ -1355,7 +1335,7 @@ Forms throughout the application need protection against injection attacks (SQL 
 
 ---
 
-## 29. Replace Google Cloud Storage with European Solution - **NEW**
+## 28. Replace Google Cloud Storage with European Solution - **NEW**
 
 ### Current Issue
 Google Cloud Storage may not meet European data sovereignty requirements and could be unnecessarily complex for the application's needs.
@@ -1408,128 +1388,7 @@ Replace GCS with a simpler, GDPR-compliant European storage solution.
 
 ---
 
-## 30. Evaluate if Kafka is Still Needed - **NEW**
-
-### Current Issue
-Kafka adds complexity to the system architecture and may no longer be necessary for current requirements.
-
-### Investigation Required
-- **Current Kafka Usage:**
-  - List all topics and their purposes
-  - Message volume and frequency
-  - Consumer groups and processing patterns
-  - Critical vs non-critical use cases
-
-- **Architecture Analysis:**
-  - Can PostgreSQL LISTEN/NOTIFY replace Kafka?
-  - Would simple message queues suffice?
-  - Are we using Kafka's unique features?
-  - Cost of maintaining Kafka infrastructure
-
-### Alternative Solutions
-- **Lighter Alternatives:**
-  - PostgreSQL LISTEN/NOTIFY for real-time events
-  - Redis Pub/Sub for simple messaging
-  - RabbitMQ for reliable message queuing
-  - AWS SQS/Google Pub/Sub for managed solutions
-  
-- **Direct Integration:**
-  - Synchronous API calls where appropriate
-  - Database triggers for event handling
-  - Scheduled jobs for batch processing
-
-### Decision Criteria
-- Message volume requirements
-- Ordering guarantees needed
-- Durability requirements
-- Operational complexity
-- Cost considerations
-- Team expertise
-
-### Migration Strategy (if removing)
-- Identify critical message flows
-- Implement alternative solutions
-- Parallel running for verification
-- Gradual topic migration
-- Monitor for issues
-- Complete removal
-
----
-
-## 31. Fix Dashboard Platzsuche Duration Calculation - **MEDIUM NEW**
-
-### Current Issue
-The dashboard incorrectly calculates how long a platzsuche has been active/searching, showing inaccurate duration information that affects patient management decisions.
-
-### Investigation Required
-- **Current Calculation Logic:**
-  - Review how search duration is calculated
-  - Check if creation date vs start date is used correctly
-  - Verify timezone handling in duration calculations
-  - Identify if business days vs calendar days should be used
-
-- **Data Analysis:**
-  - Compare calculated durations with expected values
-  - Check for edge cases (weekends, holidays, pauses)
-  - Verify historical accuracy of existing records
-  - Identify patterns in incorrect calculations
-
-### Root Cause Analysis
-- **Potential Issues:**
-  - Wrong reference date being used (created vs started)
-  - Timezone conversion errors
-  - Including weekends/holidays when shouldn't
-  - Paused periods not excluded from calculation
-  - Database date field inconsistencies
-  - Frontend vs backend calculation mismatches
-
-### Implementation Fix
-- **Calculation Logic:**
-  ```javascript
-  // Example corrected duration calculation
-  const calculateSearchDuration = (platzsuche) => {
-    const startDate = platzsuche.actual_start_date || platzsuche.created_date;
-    const endDate = platzsuche.ended_date || new Date();
-    
-    // Exclude paused periods
-    const pausedDays = calculatePausedDuration(platzsuche.pauses);
-    
-    // Calculate business days or calendar days
-    const totalDays = calculateDaysBetween(startDate, endDate);
-    return totalDays - pausedDays;
-  };
-  ```
-
-- **Technical Changes:**
-  - Update duration calculation functions
-  - Add unit tests for all edge cases
-  - Implement timezone-aware calculations
-  - Handle paused periods correctly
-  - Add validation for date consistency
-
-### Dashboard Updates
-- Fix duration display in patient lists
-- Update search duration statistics
-- Add tooltips explaining calculation method
-- Include pause periods in detailed view
-- Show both calendar and business day durations
-
-### Testing Requirements
-- Unit tests for duration calculation logic
-- Integration tests with real platzsuche data
-- Edge case testing (timezones, pauses, holidays)
-- Manual verification of existing records
-- Performance testing for bulk calculations
-
-### Data Cleanup
-- Review existing platzsuche records for accuracy
-- Migrate historical data to correct calculation
-- Add data validation for future records
-- Create reports showing before/after comparison
-
----
-
-## 32. Production Container Log Management - **NEW**
+## 29. Production Container Log Management - **NEW**
 
 ### Current Issue
 Production logs need better management - currently showing too many INFO level logs and missing proper monitoring for WARNING level events.
@@ -1591,7 +1450,7 @@ Production logs need better management - currently showing too many INFO level l
 
 ---
 
-## 33. Backup and Restore Testing & Monitoring - **CRITICAL NEW**
+## 30. Backup and Restore Testing & Monitoring - **CRITICAL NEW**
 
 ### Current Issue
 There is no regular verification that database backups are working correctly and can be successfully restored, creating a critical risk of data loss in case of system failure.
@@ -1760,7 +1619,7 @@ send_test_report $TEST_DB
 
 ---
 
-## 34. Handle "Null" Last Name in Therapist Imports and Scraper - **HIGH PRIORITY NEW**
+## 31. Handle "Null" Last Name in Therapist Imports and Scraper - **HIGH PRIORITY NEW**
 
 ### Current Issue
 Therapists with the literal last name "Null" (e.g., Anne-Kathrin Null) are causing import failures and scraper issues. The system is interpreting the string "Null" as a null value, leading to data processing errors.
@@ -1897,73 +1756,345 @@ Therapists with the literal last name "Null" (e.g., Anne-Kathrin Null) are causi
 
 ---
 
+## 32. Automatic Patient Status Update to "In Therapie" - **NEW**
+
+### Current Issue
+When a platzsuche becomes successful (erfolgreich), the patient's status is not automatically updated to "In Therapie", requiring manual updates and potentially causing confusion about patient's current treatment status.
+
+### Requirement
+Implement automatic status transition when a patient is successfully matched with a therapist.
+
+### Implementation Details
+- **Trigger Event:** When platzsuche status changes to "erfolgreich"
+- **Action:** Automatically update patient status from "Sucht Therapie" to "In Therapie"
+- **Additional Updates:**
+  - Record therapy start date
+  - Link patient to assigned therapist
+  - Update patient timeline
+  - Send confirmation notifications
+
+### Technical Implementation
+- **Event Handler:**
+  ```javascript
+  // When platzsuche becomes successful
+  onPlatzSucheSuccess(platzsuche) {
+    const patient = getPatient(platzsuche.patient_id);
+    
+    updatePatient({
+      id: patient.id,
+      status: 'In Therapie',
+      therapy_start_date: new Date(),
+      therapist_id: platzsuche.erfolgreicher_therapeut_id
+    });
+    
+    sendStatusChangeNotification(patient);
+    updatePatientTimeline(patient, 'therapy_started');
+  }
+  ```
+
+- **Database Changes:**
+  - Add trigger or event listener for platzsuche status changes
+  - Ensure transactional consistency
+  - Add audit trail for status changes
+
+### Business Rules
+- Only transition from "Sucht Therapie" to "In Therapie"
+- Preserve history of status changes
+- Allow manual override if needed
+- Handle edge cases (multiple successful matches)
+
+### Benefits
+- Accurate patient status tracking
+- Reduced manual work
+- Better reporting accuracy
+- Clearer patient journey visualization
+
+---
+
+## 33. Fix Area Code Formatting Issue - **NEW**
+
+### Current Issue
+Frontend always formats area codes as 4 digits, but some German cities have 5-digit area codes (e.g., Berlin 030 vs. smaller cities with 5 digits), causing incorrect phone number display and potential calling issues.
+
+### Examples of German Area Codes
+- **2-digit:** None in Germany
+- **3-digit:** Major cities (030 Berlin, 089 Munich, 040 Hamburg)
+- **4-digit:** Most common (0221 Cologne, 0711 Stuttgart)
+- **5-digit:** Smaller cities and rural areas (03581 Görlitz, 04928 Schlieben)
+
+### Implementation Requirements
+- **Dynamic Area Code Detection:**
+  - Implement lookup table for German area codes
+  - Detect area code length based on prefix
+  - Format numbers correctly based on actual area code length
+
+- **Formatting Logic:**
+  ```javascript
+  function formatGermanPhoneNumber(number) {
+    const cleaned = number.replace(/\D/g, '');
+    
+    // Detect area code length from lookup table
+    const areaCodeLength = detectAreaCodeLength(cleaned);
+    
+    // Format based on detected length
+    if (areaCodeLength === 3) {
+      // e.g., 030 1234567
+      return `${cleaned.slice(0, 3)} ${cleaned.slice(3)}`;
+    } else if (areaCodeLength === 4) {
+      // e.g., 0221 1234567
+      return `${cleaned.slice(0, 4)} ${cleaned.slice(4)}`;
+    } else if (areaCodeLength === 5) {
+      // e.g., 03581 123456
+      return `${cleaned.slice(0, 5)} ${cleaned.slice(5)}`;
+    }
+    
+    // Fallback formatting
+    return number;
+  }
+  ```
+
+### Technical Implementation
+- **Area Code Database:**
+  - Create comprehensive list of German area codes
+  - Include mobile prefixes (015x, 016x, 017x)
+  - Regular updates for new area codes
+
+- **Frontend Updates:**
+  - Replace hardcoded 4-digit formatting
+  - Implement dynamic formatter
+  - Add unit tests for various area codes
+  - Update all phone number display components
+
+### Testing Requirements
+- Test with all area code lengths (3, 4, 5 digits)
+- Verify mobile number formatting
+- International number handling
+- Edge cases and invalid numbers
+
+### User Experience
+- Correct phone number display
+- Improved readability
+- Accurate copy/paste functionality
+- Better user confidence in data accuracy
+
+---
+
+## 34. Matching Service Cleanup - **NEW**
+
+### Current Issue
+The matching service requires cleanup and optimization as described in the separate matching service document.
+
+### Requirement
+Implement comprehensive cleanup of the matching service to improve performance, maintainability, and reliability.
+
+### Implementation Areas
+- **Code Refactoring:**
+  - Remove duplicate code
+  - Improve error handling
+  - Optimize database queries
+  - Standardize coding patterns
+
+- **Performance Optimization:**
+  - Implement caching strategies
+  - Optimize matching algorithms
+  - Reduce database round trips
+  - Improve query performance
+
+- **Architecture Improvements:**
+  - Separate concerns properly
+  - Implement proper service boundaries
+  - Add comprehensive logging
+  - Improve testability
+
+### Technical Tasks
+- **Database Optimization:**
+  - Add missing indexes
+  - Optimize complex queries
+  - Implement query result caching
+  - Review and optimize joins
+
+- **Service Refactoring:**
+  - Extract common functionality
+  - Implement proper interfaces
+  - Add dependency injection
+  - Improve configuration management
+
+- **Testing Enhancement:**
+  - Add unit tests for all components
+  - Implement integration tests
+  - Add performance benchmarks
+  - Create test data generators
+
+### Documentation Requirements
+- Update API documentation
+- Create service architecture diagrams
+- Document matching algorithms
+- Add troubleshooting guide
+
+### Success Metrics
+- Reduced matching time by 50%
+- Improved code coverage to 80%+
+- Reduced bug reports by 40%
+- Better service reliability
+
+---
+
+## 35. Replace SendGrid with European Email Provider - **NEW**
+
+### Current Issue
+SendGrid, while functional, may not meet European data sovereignty requirements. Need to migrate to a GDPR-compliant European email service provider.
+
+### Requirement
+Replace SendGrid with a European-based email service provider that ensures data remains within EU borders.
+
+### Evaluation Criteria
+- **Data Sovereignty:** All data processing within EU
+- **GDPR Compliance:** Full compliance with privacy regulations
+- **Feature Parity:** Similar capabilities to SendGrid
+- **Reliability:** High deliverability rates
+- **Cost:** Competitive pricing
+- **API Compatibility:** Easy migration path
+
+### Potential European Providers
+- **Mailjet** (France)
+  - EU data centers
+  - GDPR compliant
+  - Good API documentation
+  - Competitive pricing
+
+- **Sendinblue/Brevo** (France)
+  - French company, EU servers
+  - Marketing automation features
+  - Transactional email support
+  - GDPR compliant
+
+- **Mailgun EU** (EU Region)
+  - Dedicated EU region
+  - Strong deliverability
+  - Developer-friendly API
+  - GDPR compliant
+
+- **SMTP2GO** (New Zealand/EU servers)
+  - EU data center option
+  - Simple integration
+  - Good deliverability rates
+
+### Migration Plan
+- **Phase 1: Evaluation (Week 1-2)**
+  - Test deliverability rates
+  - API compatibility assessment
+  - Cost analysis
+  - Feature comparison
+
+- **Phase 2: Implementation (Week 3-4)**
+  - Set up new provider account
+  - Update email service configuration
+  - Implement abstraction layer
+  - Update DNS records (SPF, DKIM, DMARC)
+
+- **Phase 3: Migration (Week 5-6)**
+  - Parallel running period
+  - Gradual traffic migration
+  - Monitor deliverability
+  - Complete cutover
+
+### Technical Implementation
+- **Email Service Abstraction:**
+  ```javascript
+  // Abstract email provider interface
+  interface EmailProvider {
+    sendEmail(to, subject, content);
+    sendBulkEmails(recipients, template);
+    getDeliveryStatus(messageId);
+  }
+  
+  // Provider-specific implementations
+  class BrevoProvider implements EmailProvider { }
+  class MailjetProvider implements EmailProvider { }
+  ```
+
+- **Configuration Updates:**
+  - Environment variables for API keys
+  - Provider-specific settings
+  - Fallback configuration
+  - Rate limiting adjustments
+
+### Success Metrics
+- Maintain 95%+ deliverability rate
+- Zero data outside EU
+- Cost neutral or savings
+- No service interruptions
+- Full GDPR compliance
+
+---
+
 ## Implementation Priority
 
 | Priority | Enhancement | Complexity | Impact |
 |----------|-------------|------------|--------|
-| **CRITICAL** | Backup and Restore Testing & Monitoring (#33) | Medium-High | Critical |
-| **CRITICAL** | Database ID Gap Investigation (#9) | Medium | Critical |
-| **CRITICAL** | Internal Server Error After Sending Emails (#10) | Medium-High | Critical |
-| **CRITICAL** | PostgreSQL Database Stability (#5) | High | Critical |
-| **CRITICAL** | Handle Duplicate Patient Registrations (#16) | Medium-High | Critical |
-| **CRITICAL** | Fix Non-Functional Automatic Reminders (#22) | Medium | Critical |
-| **CRITICAL** | Protection from Injection Attacks (#28) | High | Critical |
-| **High** | Handle "Null" Last Name in Imports (#34) | Medium | High |
+| **CRITICAL** | Backup and Restore Testing & Monitoring (#30) | Medium-High | Critical |
+| **CRITICAL** | Database ID Gap Investigation (#8) | Medium | Critical |
+| **CRITICAL** | Internal Server Error After Sending Emails (#9) | Medium-High | Critical |
+| **CRITICAL** | PostgreSQL Database Stability (#4) | High | Critical |
+| **CRITICAL** | Handle Duplicate Patient Registrations (#15) | Medium-High | Critical |
+| **CRITICAL** | Fix Non-Functional Automatic Reminders (#21) | Medium | Critical |
+| **CRITICAL** | Protection from Injection Attacks (#27) | High | Critical |
+| **High** | Handle "Null" Last Name in Imports (#31) | Medium | High |
 | **High** | Comprehensive Email Automation System (#1) | High | Very High |
-| **High** | Fix ICD10 Diagnostic Matching Logic (#23) | Medium-High | High |
-| **High** | Handle Duplicate Therapists with Same Email (#17) | Medium-High | High |
-| **High** | Fix Therapeutenanfrage Frontend Exit Issue (#11) | Low | High |
-| **High** | Improve Patient Eligibility Criteria (#12) | Medium | High |
-| **High** | Automatic Removal of Successful Platzsuchen (#7) | Medium | High |
-| **High** | Track Successful Match Details (#8) | Low-Medium | High |
-| **High** | Fix Dashboard "Ohne Aktive Platzsuche" (#15) | Low-Medium | High |
-| **High** | Patient Payment Tracking System (#21) | Medium-High | High |
-| **High** | Phone Number Display and Copy Functionality (#24) | Low-Medium | High |
-| **High** | Kafka/Zookeeper Stability (#3) | Medium-High | High |
-| **High** | Email Delivery Testing and Verification (#6) | Medium | High |
-| **High** | Temporarily Pause Vermittlung/Platzsuche (#25) | Medium | High |
-| **High** | Validate Last Psychotherapy Date (#26) | Low-Medium | High |
-| **High** | Production Container Log Management (#32) | Medium | High |
-| **Medium** | Fix Dashboard Platzsuche Duration Calculation (#31) | Medium | Medium |
-| **Medium** | Enhanced Support for Multi-Location Practices (#18) | High | Medium |
-| **Medium** | Grammar Correction for Singular Patient (#19) | Low | Medium |
-| **Medium** | Phone Call Templates (#20) | Medium | Medium |
-| **Medium** | Track Incoming Emails (#13) | High | Medium |
-| **Medium** | Add Pagination for Therapist Selection (#14) | Medium | Medium |
+| **High** | Fix ICD10 Diagnostic Matching Logic (#22) | Medium-High | High |
+| **High** | Handle Duplicate Therapists with Same Email (#16) | Medium-High | High |
+| **High** | Fix Therapeutenanfrage Frontend Exit Issue (#10) | Low | High |
+| **High** | Improve Patient Eligibility Criteria (#11) | Medium | High |
+| **High** | Automatic Removal of Successful Platzsuchen (#6) | Medium | High |
+| **High** | Track Successful Match Details (#7) | Low-Medium | High |
+| **High** | Fix Dashboard "Ohne Aktive Platzsuche" (#14) | Low-Medium | High |
+| **High** | Patient Payment Tracking System (#20) | Medium-High | High |
+| **High** | Phone Number Display and Copy Functionality (#23) | Low-Medium | High |
+| **High** | Email Delivery Testing and Verification (#5) | Medium | High |
+| **High** | Temporarily Pause Vermittlung/Platzsuche (#24) | Medium | High |
+| **High** | Validate Last Psychotherapy Date (#25) | Low-Medium | High |
+| **High** | Production Container Log Management (#29) | Medium | High |
+| **High** | Automatic Patient Status Update (#32) | Low-Medium | High |
+| **High** | Fix Area Code Formatting (#33) | Medium | High |
+| **High** | Matching Service Cleanup (#34) | High | High |
+| **High** | Replace SendGrid with European Provider (#35) | Medium-High | High |
+| **Medium** | Enhanced Support for Multi-Location Practices (#17) | High | Medium |
+| **Medium** | Grammar Correction for Singular Patient (#18) | Low | Medium |
+| **Medium** | Phone Call Templates (#19) | Medium | Medium |
+| **Medium** | Track Incoming Emails (#12) | High | Medium |
+| **Medium** | Add Pagination for Therapist Selection (#13) | Medium | Medium |
 | **Medium** | GCS Deletion Logic (#2) | Medium | Medium |
-| **Medium** | Therapist Import Reporting Fix (#4) | Low-Medium | Medium |
-| **Medium** | Set Phone Call Time to Current Time (#27) | Low | Medium |
-| **Medium** | Replace Google Cloud Storage (#29) | High | Medium |
-| **Medium** | Evaluate if Kafka is Still Needed (#30) | Medium-High | Medium |
+| **Medium** | Therapist Import Reporting Fix (#3) | Low-Medium | Medium |
+| **Medium** | Set Phone Call Time to Current Time (#26) | Low | Medium |
+| **Medium** | Replace Google Cloud Storage (#28) | High | Medium |
 
 ---
 
 ## Next Steps
 
-1. **IMMEDIATE - Data Protection:** Implement backup testing and monitoring (#33) to ensure data recoverability
-2. **URGENT - Import Fix:** Handle "Null" last name issue (#34) affecting therapist imports and scraper
-3. **URGENT - Security:** Implement injection attack protection (#28) across all forms
-4. **URGENT:** Investigate database ID gaps in production environment (#9)
-5. **URGENT:** Resolve internal server errors affecting email functionality (#10)
-6. **URGENT:** Fix non-functional automatic reminders and follow-up systems (#22)
-7. **URGENT:** Implement duplicate handling for patients (#16) to ensure data integrity
-8. **URGENT:** Fix ICD10 diagnostic matching logic (#23) - review Angela Fath-Volk case
-9. **Infrastructure:** Set up production log management (#32) and evaluate Kafka necessity (#30)
-10. **Quick Wins:** Implement frontend fixes (#11, #15, #19, #24, #27) and eligibility improvements (#12)
-11. **Dashboard Fix:** Correct platzsuche duration calculation (#31) for accurate reporting
-12. **User Experience:** Implement pause functionality (#25) and validation improvements (#26)
-13. **Email System:** Design and implement comprehensive email automation (#1)
-14. **Payment System:** Design and implement patient payment tracking (#21)
-15. **Communication:** Implement phone call templates (#20)
-16. **Data Quality:** Design and implement therapist duplicate handling (#17) and multi-location support (#18)
-17. **European Compliance:** Plan migration from Google Cloud Storage to European solution (#29)
-18. **Requirements Clarification:** Schedule discussion sessions for items #2-4, #6, and #13
-19. **Technical Investigation:** Deep dive into Kafka/Zookeeper issues
+1. **IMMEDIATE - Data Protection:** Implement backup testing and monitoring (#30) to ensure data recoverability
+2. **URGENT - Import Fix:** Handle "Null" last name issue (#31) affecting therapist imports and scraper
+3. **URGENT - Security:** Implement injection attack protection (#27) across all forms
+4. **URGENT:** Investigate database ID gaps in production environment (#8)
+5. **URGENT:** Resolve internal server errors affecting email functionality (#9)
+6. **URGENT:** Fix non-functional automatic reminders and follow-up systems (#21)
+7. **URGENT:** Implement duplicate handling for patients (#15) to ensure data integrity
+8. **URGENT:** Fix ICD10 diagnostic matching logic (#22) - review Angela Fath-Volk case
+9. **Infrastructure:** Set up production log management (#29)
+10. **Quick Wins:** Implement frontend fixes (#10, #14, #18, #23, #26) and eligibility improvements (#11)
+11. **User Experience:** Implement pause functionality (#24) and validation improvements (#25)
+12. **Email System:** Design and implement comprehensive email automation (#1)
+13. **Payment System:** Design and implement patient payment tracking (#20)
+14. **Communication:** Implement phone call templates (#19)
+15. **Data Quality:** Design and implement therapist duplicate handling (#16) and multi-location support (#17)
+16. **European Compliance:** Plan migration from Google Cloud Storage (#28) and SendGrid (#35) to European solutions
+17. **Requirements Clarification:** Schedule discussion sessions for items #2-3, #5, and #12
+18. **Implementation Planning:** Create detailed technical specifications for high-priority items
+19. **New Features:** Implement automatic status updates (#32), fix area code formatting (#33), and cleanup matching service (#34)
 20. **Audit Current Systems:** Review therapist import reporting logic and email delivery
-21. **Implementation Planning:** Create detailed technical specifications for high-priority items
 
 ---
 
 **Document Owner:** Development Team  
-**Last Updated:** January 2025  
+**Last Updated:** August 2025  
 **Next Review:** After critical issue resolution and requirements clarification sessions
