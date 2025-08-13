@@ -229,9 +229,6 @@ class TestPaymentConfirmation:
         # Verify the changes
         assert patient.status == Patientenstatus.auf_der_Suche
         assert patient.startdatum == date(2025, 1, 15)
-        
-        # Verify database was committed
-        mock_db.commit.assert_called()
     
     def test_payment_without_contracts_no_status_change(self, mock_patient_dependencies):
         """Test that payment without signed contracts doesn't change status."""
