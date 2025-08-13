@@ -96,48 +96,6 @@ services:
     networks:
       - curavani_backend_prod
 
-  # Kafka Message Broker
-  zookeeper-prod:
-    image: confluentinc/cp-zookeeper:latest
-    container_name: zookeeper-prod
-    environment:
-      ZOOKEEPER_CLIENT_PORT: ${ZOOKEEPER_CLIENT_PORT}
-      ZOOKEEPER_TICK_TIME: ${ZOOKEEPER_TICK_TIME}
-    ports:
-      - "${ZOOKEEPER_EXTERNAL_PORT}:${ZOOKEEPER_CLIENT_PORT}"
-    healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "${ZOOKEEPER_CLIENT_PORT}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    networks:
-      - curavani_backend_prod
-
-  kafka-prod:
-    image: confluentinc/cp-kafka:latest
-    container_name: kafka-prod
-    depends_on:
-      zookeeper-prod:
-        condition: service_healthy
-    environment:
-      KAFKA_BROKER_ID: ${KAFKA_BROKER_ID}
-      KAFKA_ZOOKEEPER_CONNECT: ${KAFKA_ZOOKEEPER_CONNECT}
-      KAFKA_ADVERTISED_LISTENERS: ${KAFKA_ADVERTISED_LISTENERS}
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: ${KAFKA_LISTENER_SECURITY_PROTOCOL_MAP}
-      KAFKA_LISTENERS: ${KAFKA_LISTENERS}
-      KAFKA_INTER_BROKER_LISTENER_NAME: ${KAFKA_INTER_BROKER_LISTENER_NAME}
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: ${KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR}
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: '${KAFKA_AUTO_CREATE_TOPICS_ENABLE}'
-    healthcheck:
-      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
-      interval: 10s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
-    networks:
-      - curavani_backend_prod
-
   # Patient Service
   patient_service-prod:
     build:
@@ -154,9 +112,6 @@ services:
       # PgBouncer Configuration
       PGBOUNCER_HOST: pgbouncer-prod
       PGBOUNCER_PORT: ${PGBOUNCER_PORT}
-      # Kafka Configuration
-      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
-      KAFKA_LOG_LEVEL: ${KAFKA_LOG_LEVEL}
       # Flask Configuration
       FLASK_ENV: ${FLASK_ENV}
       FLASK_DEBUG: ${FLASK_DEBUG}
@@ -196,8 +151,6 @@ services:
     depends_on:
       pgbouncer-prod:
         condition: service_healthy
-      kafka-prod:
-        condition: service_healthy
     command: python app.py
     networks:
       - curavani_backend_prod
@@ -218,9 +171,6 @@ services:
       # PgBouncer Configuration
       PGBOUNCER_HOST: pgbouncer-prod
       PGBOUNCER_PORT: ${PGBOUNCER_PORT}
-      # Kafka Configuration
-      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
-      KAFKA_LOG_LEVEL: ${KAFKA_LOG_LEVEL}
       # Flask Configuration
       FLASK_ENV: ${FLASK_ENV}
       FLASK_DEBUG: ${FLASK_DEBUG}
@@ -257,8 +207,6 @@ services:
     depends_on:
       pgbouncer-prod:
         condition: service_healthy
-      kafka-prod:
-        condition: service_healthy
     command: python app.py
     networks:
       - curavani_backend_prod
@@ -279,9 +227,6 @@ services:
       # PgBouncer Configuration
       PGBOUNCER_HOST: pgbouncer-prod
       PGBOUNCER_PORT: ${PGBOUNCER_PORT}
-      # Kafka Configuration
-      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
-      KAFKA_LOG_LEVEL: ${KAFKA_LOG_LEVEL}
       # Flask Configuration
       FLASK_ENV: ${FLASK_ENV}
       FLASK_DEBUG: ${FLASK_DEBUG}
@@ -320,8 +265,6 @@ services:
     depends_on:
       pgbouncer-prod:
         condition: service_healthy
-      kafka-prod:
-        condition: service_healthy
     command: python app.py
     networks:
       - curavani_backend_prod
@@ -342,9 +285,6 @@ services:
       # PgBouncer Configuration
       PGBOUNCER_HOST: pgbouncer-prod
       PGBOUNCER_PORT: ${PGBOUNCER_PORT}
-      # Kafka Configuration
-      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
-      KAFKA_LOG_LEVEL: ${KAFKA_LOG_LEVEL}
       # Flask Configuration
       FLASK_ENV: ${FLASK_ENV}
       FLASK_DEBUG: ${FLASK_DEBUG}
@@ -399,8 +339,6 @@ services:
     depends_on:
       pgbouncer-prod:
         condition: service_healthy
-      kafka-prod:
-        condition: service_healthy
     command: python app.py
     networks:
       - curavani_backend_prod
@@ -421,9 +359,6 @@ services:
       # PgBouncer Configuration
       PGBOUNCER_HOST: pgbouncer-prod
       PGBOUNCER_PORT: ${PGBOUNCER_PORT}
-      # Kafka Configuration
-      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
-      KAFKA_LOG_LEVEL: ${KAFKA_LOG_LEVEL}
       # Flask Configuration
       FLASK_ENV: ${FLASK_ENV}
       FLASK_DEBUG: ${FLASK_DEBUG}
@@ -471,8 +406,6 @@ services:
       - ./data:/data:ro  # Mount data folder as read-only
     depends_on:
       pgbouncer-prod:
-        condition: service_healthy
-      kafka-prod:
         condition: service_healthy
     command: python app.py
     networks:
