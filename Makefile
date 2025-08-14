@@ -1,3 +1,5 @@
+SHELL := /bin/bash
+
 .PHONY: start-dev start-prod start-test deploy deploy-test rollback logs-dev logs-prod logs-test stop-dev stop-prod stop-test status status-dev status-prod status-test clean-logs test-unit-dev test-unit-test test-unit-prod test-integration-dev test-integration-test test-integration-prod test-smoke-dev test-smoke-test test-smoke-prod test-all-dev test-all-test test-all-prod check-db-dev check-db-test check-db-prod create-db-dev create-db-test create-db-prod ensure-db-dev ensure-db-test ensure-db-prod backup-dev backup-test backup-prod list-backups backup-verify-dev backup-verify-test backup-verify-prod restore-dev restore-test restore-prod test-restore-test build-dev build-test build-prod db-dev db-test db-prod migrate-dev migrate-test migrate-prod check-migrations-dev check-migrations-test check-migrations-prod reset-test-db health-check health-check-dev health-check-test start-test-db-only start-test-pgbouncer-only clean-docker debug-env-urls dev prod help
 
 # Database check commands - FIXED with -d postgres
