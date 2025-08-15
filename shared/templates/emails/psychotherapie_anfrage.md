@@ -12,11 +12,11 @@ Hier die wichtigsten Infos zu den Patienten, aus Datenschutzgründen hier ohne N
 
 {% for patient in patients %}
 
-**Patienten-ID:** {{ patient.id }}  
+**Patienten-ID:** {{ patient.id }}
+**Alter:** {{ patient.age }} Jahre
 **Geschlecht:** {{ patient.geschlecht }}  
 **Symptome:** {{ patient.symptome|join(', ')|default("Nicht angegeben") }}  
 **Krankenversicherung:** {{ patient.krankenkasse|default("Nicht angegeben") }}  
-**Alter:** {{ patient.age }} Jahre  
 **Erfahrung mit Psychotherapie:** {% if patient.erfahrung_mit_psychotherapie %}Ja{% else %}Nein{% endif %}
 {%- if patient.erfahrung_mit_psychotherapie and patient.letzte_sitzung_vorherige_psychotherapie %}  
 **Letzte Sitzung vorherige Psychotherapie:** {{ patient.letzte_sitzung_vorherige_psychotherapie }}
