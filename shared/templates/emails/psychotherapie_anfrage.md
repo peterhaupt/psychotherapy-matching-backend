@@ -6,9 +6,11 @@ Sehr geehrter Herr
 Sehr geehrte Damen und Herren
 {%- endif %} {% if therapist.titel %}{{ therapist.titel }} {% endif %}{{ therapist.nachname }},
 
-ich bin auf der Suche nach Psychotherapieplätzen für {{ patient_count }} Patienten. Können Sie hier kurzfristig einen oder mehrere Plätze anbieten? Vielen Dank für eine kurze Info.
+wir sind auf der Suche nach Psychotherapieplätzen für {{ patient_count }} Patienten. Können Sie hierfür ein oder mehrere Erstgespräche innerhalb der nächsten drei Wochen anbieten? Außerdem ist uns wichtig, dass bei entsprechender Passung die Therapie innerhalb von weiteren sechs Wochen nach dem Erstgespräch beginnen kann.
 
-Hier die wichtigsten Infos zu den Patienten, aus Datenschutzgründen hier ohne Namen. Wenn Sie einen Platz anbieten können, stelle ich Ihnen für diese Patienten selbstverständlich auch den vollen Namen zur Verfügung.
+Vielen Dank für eine kurze Rückmeldung.
+
+Hier die wichtigsten Infos zu den Patienten, aus Datenschutzgründen hier ohne Namen. Wenn Sie einen Platz anbieten können, stellen wir Ihnen für diese Patienten selbstverständlich auch den vollen Namen zur Verfügung.
 
 {% for patient in patients %}
 
@@ -27,7 +29,7 @@ Hier die wichtigsten Infos zu den Patienten, aus Datenschutzgründen hier ohne N
 
 {% endfor %}
 
-Wenn Sie noch mehr Informationen benötigen, stelle ich diese ebenfalls gerne zur Verfügung. Schreiben Sie mir einfach, was Sie benötigen.
+Wenn Sie noch mehr Informationen benötigen, stellen wir Ihnen diese ebenfalls gerne zur Verfügung. Schreiben Sie uns einfach, was Sie benötigen.
 
 Mit freundlichen Grüßen
 
@@ -36,5 +38,5 @@ Mit freundlichen Grüßen
 Telefon: +49 151 46359691
 
 {% if not therapist.ueber_curavani_informiert %}
-**PS:** Curavani ist eine Vermittlungsplattform, die Patienten bei der Suche nach Psychotherapieplätzen unterstützt. Wir übernehmen für die Patienten die Kontaktaufnahme mit Therapeuten und stellen sicher, dass nur qualifizierte Anfragen bei Ihnen ankommen. Diesen Service bieten wir in Kooperation mit zahlreichen Hausarztpraxen an.
+**PS:** Curavani ist eine Vermittlungsplattform, die Patienten bei der Suche nach Psychotherapieplätzen unterstützt. Wir übernehmen für Patienten die Kontaktaufnahme mit Therapeuten und stellen sicher, dass nur qualifizierte Anfragen bei Ihnen ankommen. Diesen Service bieten wir in Kooperation mit zahlreichen Hausarztpraxen an.
 {% endif %}
