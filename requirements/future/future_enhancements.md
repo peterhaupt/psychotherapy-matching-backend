@@ -1,8 +1,8 @@
 # Future Enhancements - Priority Items
 
-**Document Version:** 3.9  
+**Document Version:** 4.0  
 **Date:** August 2025  
-**Status:** Requirements Gathering (Updated with Phone Call Scheduling Bug)
+**Status:** Requirements Gathering (Updated with Phone Call Cancellation)
 
 ---
 
@@ -19,6 +19,7 @@
 | **CRITICAL** | Fix Non-Functional Automatic Reminders (#21) | Medium | Critical |
 | **CRITICAL** | Protection from Injection Attacks (#27) | High | Critical |
 | **High** | Fix Phone Call Scheduling with Availability Hours (#36) | Medium | High |
+| **High** | Cancel Scheduled Phone Calls on Rejection (#37) | Medium | High |
 | **High** | Handle "Null" Last Name in Imports (#31) | Medium | High |
 | **High** | Comprehensive Email Automation System (#1) | High | Very High |
 | **High** | Fix ICD10 Diagnostic Matching Logic (#22) | Medium-High | High |
@@ -66,7 +67,7 @@
 13. **User Experience:** Implement pause functionality (#24) and validation improvements (#25)
 14. **Email System:** Design and implement comprehensive email automation (#1)
 15. **Payment System:** Design and implement patient payment tracking (#20)
-16. **Communication:** Implement phone call templates (#19)
+16. **Communication:** Implement phone call templates (#19) and cancellation logic (#37)
 17. **Data Quality:** Design and implement multi-location support (#17)
 18. **European Compliance:** Plan migration from Google Cloud Storage (#28) and SendGrid (#35) to European solutions
 19. **Requirements Clarification:** Schedule discussion sessions for items #2-3, #5, and #12
@@ -122,6 +123,17 @@ Implement a comprehensive email automation system that handles all patient and t
   - Content: Proposed time, location, confirmation request
   - Actions: Accept/decline buttons, alternative time request
 
+- **Patient-Initiated Therapist Contact Templates** (**UPDATED**)
+  - Trigger: When patient needs to contact therapist for Erstgespräch
+  - Content: Pre-written email templates for patients to use
+  - Templates include:
+    - Initial contact request for appointment
+    - Response to therapist's availability
+    - Rescheduling request
+    - Confirmation of appointment
+  - Delivery: Send templates to patient with clear instructions
+  - Format: Copy-paste ready text with placeholder fields
+
 - **Therapist Rejection Follow-up**
   - Trigger: When therapist rejects patient (no availability, etc.)
   - Content: Acknowledgment, alternative options, continued search
@@ -140,6 +152,7 @@ Implement a comprehensive email automation system that handles all patient and t
    - First outreach to patients
    - Information requests
    - Document reminders
+   - **Patient email templates for therapist contact** (new)
 
 2. **Status Update Templates**
    - Search progress updates
@@ -155,6 +168,7 @@ Implement a comprehensive email automation system that handles all patient and t
    - Schedule changes
    - Cancellations
    - Rescheduling
+   - **Templates for patients to contact therapists** (new)
 
 ### Implementation Details
 
@@ -240,11 +254,17 @@ Need to ensure GCS files are only deleted after successful import to patient-ser
 ### Current Issue
 Reporting of therapist imports shows incorrect numbers for successful and failed imports.
 
+### Specific Data Quality Issues to Investigate
+- **Silvina Spivak de Weissmann:** Check if "Spivak" is being incorrectly parsed as middle name instead of part of last name "Spivak de Weissmann"
+- **Name Parsing Logic:** Review how compound last names with "de", "von", "van" are handled
+- **Import Statistics:** Verify that these parsing errors are properly reflected in import reports
+
 ### Questions for Discussion
 - What **kind of therapist imports** are these (from external source, CSV uploads, API sync)?
 - What specifically is wrong - **overcounting, undercounting, or wrong success/failure categorization**?
 - **Where are these reports shown** (admin UI, email summaries, dashboard, logs)?
 - Are the **actual imports working correctly** and it's just the reporting numbers that are wrong?
+- How are compound last names being parsed and stored?
 
 ### Investigation Areas
 - Audit import counting logic
@@ -252,6 +272,8 @@ Reporting of therapist imports shows incorrect numbers for successful and failed
 - Check for duplicate counting
 - Validate report generation queries
 - Implement import audit trail
+- **Review name parsing algorithm for compound names**
+- **Check specific case: Silvina Spivak de Weissmann**
 
 ---
 
@@ -679,18 +701,22 @@ Multiple critical issues with therapist duplicate handling and import matching:
 2. **Critical Import Bug:** The secondary matching rule in the import process incorrectly merges therapists with the same first name at the same address, causing data loss
 
 ### Critical Bug Details
-- **Example Case:** Anna Aller (Dr., Martinstraße 10-12, 52062 Aachen) is being incorrectly matched to Anna Bonni (same address, same first name)
+- **Example Cases:** 
+  - Anna Aller (Dr., Martinstraße 10-12, 52062 Aachen) is being incorrectly matched to Anna Bonni (same address, same first name)
+  - **Christa Catharina Jacobskötter:** Check if duplicate detection is incorrectly triggered by matching on both first names
 - **Root Cause:** The import logic assumes "same first name + same address = same person with name change" 
 - **Impact:** New therapist data overwrites existing therapist records, causing data loss
 - **Failed Scenarios:**
   - Colleagues in group practices
   - Employee/employer relationships at same address
   - Multiple therapists sharing office space
+  - Therapists with multiple first names being matched incorrectly
 
 ### Requirement
 1. Fix the critical import matching bug to prevent data loss
 2. Implement proper handling for therapists sharing email addresses
 3. Support group practices with multiple therapists
+4. Review handling of multiple first names
 
 ### Implementation Details
 
@@ -740,6 +766,7 @@ Multiple critical issues with therapist duplicate handling and import matching:
 - Prevent exact duplicates (same name + same personal details)
 - Warn during import/creation about potential duplicates
 - Provide merge functionality for accidental duplicates
+- **Review first name matching logic for compound names**
 
 ### Technical Implementation
 - **Database Changes:**
@@ -753,6 +780,7 @@ Multiple critical issues with therapist duplicate handling and import matching:
   - Automatic practice grouping based on email domain
   - Manual review interface for ambiguous cases
   - Batch processing for practice associations
+  - **Fix first name comparison for multiple first names**
 
 - **API Changes:**
   - Update therapist creation/update endpoints
@@ -765,6 +793,7 @@ Multiple critical issues with therapist duplicate handling and import matching:
   - Import therapist with name change - should handle appropriately
   - Import multiple therapists at same address - all should be created
   - Import therapist with shared email - should handle correctly
+  - **Import Christa Catharina Jacobskötter - verify no false duplicate detection**
 
 ### User Interface Enhancements
 - Practice management interface
@@ -2294,6 +2323,138 @@ The automatic phone call scheduling system for therapists who don't respond to e
 - **Phase 2:** Update all future scheduling
 - **Phase 3:** Reschedule non-compliant existing calls
 - **Phase 4:** Monitor and optimize
+
+---
+
+## 37. Cancel Scheduled Phone Calls on Therapeutenanfrage Rejection - **NEW**
+
+### Current Issue
+When a therapeutenanfrage is rejected or cancelled, any scheduled phone calls related to that anfrage remain in the system and may still be executed, causing unnecessary work and confusion.
+
+### Requirement
+Implement automatic cancellation of scheduled phone calls when the associated therapeutenanfrage is rejected, cancelled, or otherwise terminated.
+
+### Implementation Details
+
+#### A. Trigger Events for Cancellation
+- **Therapeutenanfrage Status Changes:**
+  - Rejection by therapist (all patients rejected)
+  - Cancellation by staff
+  - Automatic expiration
+  - Successful completion (all patients accepted)
+  - Manual closure
+
+#### B. Phone Call Management
+- **Cancellation Logic:**
+  ```javascript
+  function cancelRelatedPhoneCalls(therapeutenanfrageId) {
+    // Find all scheduled calls for this anfrage
+    const scheduledCalls = getScheduledCalls({
+      therapeutenanfrage_id: therapeutenanfrageId,
+      status: 'scheduled'
+    });
+    
+    // Cancel each call
+    scheduledCalls.forEach(call => {
+      updatePhoneCall({
+        id: call.id,
+        status: 'cancelled',
+        cancellation_reason: 'Therapeutenanfrage rejected/cancelled',
+        cancelled_at: new Date()
+      });
+      
+      // Remove from scheduler queue
+      removeFromScheduler(call.id);
+    });
+    
+    // Log the cancellation
+    logCancellation(therapeutenanfrageId, scheduledCalls.length);
+  }
+  ```
+
+#### C. System Integration
+- **Event Listeners:**
+  - Listen for therapeutenanfrage status changes
+  - Trigger phone call cancellation workflow
+  - Update related records
+  - Notify relevant staff
+
+- **Database Updates:**
+  ```sql
+  -- Link phone calls to therapeutenanfragen
+  ALTER TABLE phone_calls 
+  ADD COLUMN therapeutenanfrage_id INTEGER REFERENCES therapeutenanfragen(id);
+  
+  -- Add cancellation tracking
+  ALTER TABLE phone_calls
+  ADD COLUMN cancellation_reason VARCHAR(255),
+  ADD COLUMN cancelled_at TIMESTAMP;
+  ```
+
+### Technical Implementation
+
+#### A. Backend Changes
+- **Status Change Handler:**
+  - Intercept therapeutenanfrage status updates
+  - Check for pending phone calls
+  - Execute cancellation logic
+  - Send notifications
+
+- **API Endpoints:**
+  - `GET /api/therapeutenanfragen/{id}/phone-calls` - List related calls
+  - `POST /api/therapeutenanfragen/{id}/cancel-calls` - Manual cancellation
+  - `GET /api/phone-calls/orphaned` - Find calls without valid anfrage
+
+#### B. Frontend Updates
+- **Visual Indicators:**
+  - Show linked phone calls in therapeutenanfrage view
+  - Display cancellation status
+  - Warning before rejecting anfrage with scheduled calls
+  - Confirmation dialog for bulk cancellations
+
+### Business Rules
+- **Cancellation Conditions:**
+  - Only cancel future calls (not past or in-progress)
+  - Keep call history for audit purposes
+  - Allow manual override to keep specific calls
+  - Option to reschedule instead of cancel
+
+- **Edge Cases:**
+  - Partial rejection (some patients accepted)
+  - Therapeutenanfrage reactivation
+  - Multiple calls for same therapist
+  - Calls already in progress
+
+### Monitoring and Reporting
+- **Metrics to Track:**
+  - Number of auto-cancelled calls
+  - Time saved from prevented unnecessary calls
+  - Orphaned calls without valid anfrage
+  - Manual override frequency
+
+- **Alerts:**
+  - Orphaned phone calls detected
+  - Failed cancellation attempts
+  - Unusual cancellation patterns
+
+### User Experience Improvements
+- Clear indication of linked phone calls
+- Bulk actions for call management
+- Undo capability within time window
+- Alternative action suggestions
+
+### Testing Requirements
+- Unit tests for cancellation logic
+- Integration tests for event handling
+- Edge case validation
+- Performance testing with bulk cancellations
+
+### Benefits
+- Reduced wasted staff time on unnecessary calls
+- Cleaner scheduling system
+- Better resource allocation
+- Improved data consistency
+- Reduced confusion and errors
 
 ---
 
