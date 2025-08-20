@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../therapist_serv
 
 # Now these imports will work (as if we're inside the Docker container)
 from shared.utils.database import SessionLocal
-from models.therapist import Therapist  # Now this works!
+from models.therapist import Therapist
 from imports.therapist_importer import TherapistImporter
 
 
@@ -161,25 +161,29 @@ class TestTherapistImporter:
     
     # ========== PRIMARY MATCH TESTS ==========
     
-    def test_primary_match_exact_name_and_plz(self, importer, test_data_factory, db_therapist_factory):
+    def test_primary_match_exact_name_and_plz(self, importer, test_data_factory, db_therapist_factory, test_session):
         """Test that therapist with same first name, last name, and PLZ updates existing."""
         print(f"\n{'='*60}")
         print(f"TEST: Primary match - exact name and PLZ")
         print(f"{'='*60}")
         
-        # Create existing therapist in database
+        # Use unique test data to avoid collision with existing database
+        unique_suffix = f"_{test_session['session_id']}"
+        test_plz = "99001"  # Use unlikely PLZ
+        
+        # Create existing therapist in database with unique data
         existing = db_therapist_factory(
-            vorname="Maria",
-            nachname="Schmidt",
-            plz="52062",
+            vorname=f"Maria{unique_suffix}",
+            nachname=f"Schmidt{unique_suffix}",
+            plz=test_plz,
             telefon="+49 241 111111"
         )
         
         # Import therapist with same name and PLZ but different phone
         import_data = test_data_factory(
-            first_name="Maria",
-            last_name="Schmidt",
-            postal_code="52062",
+            first_name=f"Maria{unique_suffix}",
+            last_name=f"Schmidt{unique_suffix}",
+            postal_code=test_plz,
             phone="+49 241 222222"
         )
         
@@ -191,9 +195,9 @@ class TestTherapistImporter:
         db = SessionLocal()
         try:
             therapists = db.query(Therapist).filter(
-                Therapist.vorname == "Maria",
-                Therapist.nachname == "Schmidt",
-                Therapist.plz == "52062"
+                Therapist.vorname == f"Maria{unique_suffix}",
+                Therapist.nachname == f"Schmidt{unique_suffix}",
+                Therapist.plz == test_plz
             ).all()
             
             assert len(therapists) == 1, f"Should have 1 therapist, found {len(therapists)}"
@@ -242,24 +246,29 @@ class TestTherapistImporter:
         finally:
             db.close()
     
-    def test_primary_match_different_plz(self, importer, test_data_factory, db_therapist_factory):
+    def test_primary_match_different_plz(self, importer, test_data_factory, db_therapist_factory, test_session):
         """Test that same name but different PLZ creates new therapist."""
         print(f"\n{'='*60}")
         print(f"TEST: Primary match - different PLZ creates new")
         print(f"{'='*60}")
         
-        # Create existing therapist
+        # Use unique test data to avoid collision
+        unique_suffix = f"_{test_session['session_id']}"
+        test_plz1 = "99002"
+        test_plz2 = "99003"
+        
+        # Create existing therapist with unique data
         existing = db_therapist_factory(
-            vorname="Julia",
-            nachname="Weber",
-            plz="52062"
+            vorname=f"Julia{unique_suffix}",
+            nachname=f"Weber{unique_suffix}",
+            plz=test_plz1
         )
         
         # Import therapist with same name but different PLZ
         import_data = test_data_factory(
-            first_name="Julia",
-            last_name="Weber",
-            postal_code="50667"  # Different PLZ
+            first_name=f"Julia{unique_suffix}",
+            last_name=f"Weber{unique_suffix}",
+            postal_code=test_plz2  # Different PLZ
         )
         
         success, message = importer.import_therapist(import_data)
@@ -270,45 +279,50 @@ class TestTherapistImporter:
         db = SessionLocal()
         try:
             therapists = db.query(Therapist).filter(
-                Therapist.vorname == "Julia",
-                Therapist.nachname == "Weber"
+                Therapist.vorname == f"Julia{unique_suffix}",
+                Therapist.nachname == f"Weber{unique_suffix}"
             ).all()
             
             assert len(therapists) == 2, f"Should have 2 therapists, found {len(therapists)}"
             plz_codes = {t.plz for t in therapists}
-            assert plz_codes == {"52062", "50667"}, f"PLZ codes don't match: {plz_codes}"
+            assert plz_codes == {test_plz1, test_plz2}, f"PLZ codes don't match: {plz_codes}"
             print(f"  ✓ Different PLZ created new therapist")
         finally:
             db.close()
     
     # ========== SECONDARY MATCH TESTS ==========
     
-    def test_secondary_match_name_change_same_email(self, importer, test_data_factory, db_therapist_factory):
+    def test_secondary_match_name_change_same_email(self, importer, test_data_factory, db_therapist_factory, test_session):
         """Test marriage name change with same address and email updates existing."""
         print(f"\n{'='*60}")
         print(f"TEST: Secondary match - name change with same email")
         print(f"{'='*60}")
         
-        # Create existing therapist (maiden name)
+        # Use unique test data to avoid collision
+        unique_suffix = f"_{test_session['session_id']}"
+        test_plz = "99004"
+        test_email = f"sarah.test{unique_suffix}@example.com"
+        
+        # Create existing therapist (maiden name) with unique data
         existing = db_therapist_factory(
-            vorname="Sarah",
-            nachname="Klein",
-            plz="52062",
-            ort="Aachen",
-            strasse="Hauptstraße 10",
-            email="sarah.klein@example.com",
+            vorname=f"Sarah{unique_suffix}",
+            nachname=f"Klein{unique_suffix}",
+            plz=test_plz,
+            ort="TestStadt",
+            strasse=f"Hauptstraße{unique_suffix} 10",
+            email=test_email,
             titel=""
         )
         
         # Import with married name but same address and email
         import_data = test_data_factory(
-            first_name="Sarah",
-            last_name="Meyer",  # Changed last name
-            postal_code="52062",
-            city="Aachen",
-            street="Hauptstraße",
+            first_name=f"Sarah{unique_suffix}",
+            last_name=f"Meyer{unique_suffix}",  # Changed last name
+            postal_code=test_plz,
+            city="TestStadt",
+            street=f"Hauptstraße{unique_suffix}",
             house_number="10",
-            email="sarah.klein@example.com",  # Same email
+            email=test_email,  # Same email
             title=""
         )
         
@@ -320,12 +334,13 @@ class TestTherapistImporter:
         db = SessionLocal()
         try:
             therapists = db.query(Therapist).filter(
-                Therapist.vorname == "Sarah"
+                Therapist.vorname == f"Sarah{unique_suffix}",
+                Therapist.email == test_email
             ).all()
             
             assert len(therapists) == 1, f"Should have 1 therapist, found {len(therapists)}"
-            assert therapists[0].nachname == "Meyer", "Last name should be updated"
-            assert therapists[0].email == "sarah.klein@example.com", "Email should remain"
+            assert therapists[0].nachname == f"Meyer{unique_suffix}", "Last name should be updated"
+            assert therapists[0].email == test_email, "Email should remain"
             print(f"  ✓ Secondary match detected name change correctly")
         finally:
             db.close()
@@ -377,34 +392,39 @@ class TestTherapistImporter:
         finally:
             db.close()
     
-    def test_no_false_match_same_practice_different_therapists(self, importer, test_data_factory, db_therapist_factory):
+    def test_no_false_match_same_practice_different_therapists(self, importer, test_data_factory, db_therapist_factory, test_session):
         """Test Dr. Anna Aller and Anna Bonni at same practice create separate therapists."""
         print(f"\n{'='*60}")
         print(f"TEST: No false match - Dr. Anna Aller and Anna Bonni case")
         print(f"{'='*60}")
         
-        # Create Dr. Anna Aller
+        # Use unique test data to avoid collision with existing Annas
+        unique_suffix = f"_{test_session['session_id']}"
+        test_plz = "99005"
+        test_email = f"praxis{unique_suffix}@example.com"
+        
+        # Create Dr. Anna Aller with unique identifiers
         aller = db_therapist_factory(
-            vorname="Anna",
-            nachname="Aller",
+            vorname=f"Anna{unique_suffix}",
+            nachname=f"Aller{unique_suffix}",
             titel="Dr. med.",
-            plz="52062",
-            ort="Aachen",
-            strasse="Praxisstraße 15",
-            email="praxis@example.com"  # Shared practice email
+            plz=test_plz,
+            ort="TestStadt",
+            strasse=f"Praxisstraße{unique_suffix} 15",
+            email=test_email  # Shared practice email
         )
         print(f"  Created Dr. Anna Aller: ID={aller.id}")
         
         # Import Anna Bonni (no title, same address and email)
         bonni_data = test_data_factory(
-            first_name="Anna",
-            last_name="Bonni",
+            first_name=f"Anna{unique_suffix}",
+            last_name=f"Bonni{unique_suffix}",
             title="",  # No title - this should prevent false match
-            postal_code="52062",
-            city="Aachen",
-            street="Praxisstraße",
+            postal_code=test_plz,
+            city="TestStadt",
+            street=f"Praxisstraße{unique_suffix}",
             house_number="15",
-            email="praxis@example.com"  # Same practice email
+            email=test_email  # Same practice email
         )
         
         success, message = importer.import_therapist(bonni_data)
@@ -415,15 +435,15 @@ class TestTherapistImporter:
         db = SessionLocal()
         try:
             therapists = db.query(Therapist).filter(
-                Therapist.vorname == "Anna",
-                Therapist.strasse == "Praxisstraße 15"
+                Therapist.vorname == f"Anna{unique_suffix}",
+                Therapist.strasse == f"Praxisstraße{unique_suffix} 15"
             ).all()
             
             assert len(therapists) == 2, f"Should have 2 therapists, found {len(therapists)}"
             
             # Verify both therapists have correct data
-            aller_db = next((t for t in therapists if t.nachname == "Aller"), None)
-            bonni_db = next((t for t in therapists if t.nachname == "Bonni"), None)
+            aller_db = next((t for t in therapists if t.nachname == f"Aller{unique_suffix}"), None)
+            bonni_db = next((t for t in therapists if t.nachname == f"Bonni{unique_suffix}"), None)
             
             assert aller_db is not None, "Dr. Anna Aller not found"
             assert bonni_db is not None, "Anna Bonni not found"
@@ -436,30 +456,34 @@ class TestTherapistImporter:
         finally:
             db.close()
     
-    def test_secondary_match_blocked_by_different_title(self, importer, test_data_factory, db_therapist_factory):
+    def test_secondary_match_blocked_by_different_title(self, importer, test_data_factory, db_therapist_factory, test_session):
         """Test that different title prevents secondary match."""
         print(f"\n{'='*60}")
         print(f"TEST: Secondary match blocked by different title")
         print(f"{'='*60}")
         
-        # Create therapist with title
+        # Use unique test data to avoid collision
+        unique_suffix = f"_{test_session['session_id']}"
+        test_plz = "99006"
+        
+        # Create therapist with title and unique data
         existing = db_therapist_factory(
-            vorname="Claudia",
-            nachname="Fischer",
+            vorname=f"Claudia{unique_suffix}",
+            nachname=f"Fischer{unique_suffix}",
             titel="Prof. Dr.",
-            plz="52066",
-            ort="Aachen",
-            strasse="Universitätsstraße 20"
+            plz=test_plz,
+            ort="TestStadt",
+            strasse=f"Universitätsstraße{unique_suffix} 20"
         )
         
         # Import therapist with same first name and address but different title
         import_data = test_data_factory(
-            first_name="Claudia",
-            last_name="Becker",  # Different last name
+            first_name=f"Claudia{unique_suffix}",
+            last_name=f"Becker{unique_suffix}",  # Different last name
             title="Dr. med.",  # Different title
-            postal_code="52066",
-            city="Aachen",
-            street="Universitätsstraße",
+            postal_code=test_plz,
+            city="TestStadt",
+            street=f"Universitätsstraße{unique_suffix}",
             house_number="20"
         )
         
@@ -471,8 +495,8 @@ class TestTherapistImporter:
         db = SessionLocal()
         try:
             therapists = db.query(Therapist).filter(
-                Therapist.vorname == "Claudia",
-                Therapist.strasse == "Universitätsstraße 20"
+                Therapist.vorname == f"Claudia{unique_suffix}",
+                Therapist.strasse == f"Universitätsstraße{unique_suffix} 20"
             ).all()
             
             assert len(therapists) == 2, f"Should have 2 therapists, found {len(therapists)}"
@@ -482,33 +506,37 @@ class TestTherapistImporter:
         finally:
             db.close()
     
-    def test_secondary_match_blocked_by_different_email(self, importer, test_data_factory, db_therapist_factory):
+    def test_secondary_match_blocked_by_different_email(self, importer, test_data_factory, db_therapist_factory, test_session):
         """Test that different email prevents secondary match."""
         print(f"\n{'='*60}")
         print(f"TEST: Secondary match blocked by different email")
         print(f"{'='*60}")
         
-        # Create therapist with personal email
+        # Use unique test data to avoid collision
+        unique_suffix = f"_{test_session['session_id']}"
+        test_plz = "99007"
+        
+        # Create therapist with personal email and unique data
         existing = db_therapist_factory(
-            vorname="Nina",
-            nachname="Schulz",
+            vorname=f"Nina{unique_suffix}",
+            nachname=f"Schulz{unique_suffix}",
             titel="",
-            plz="52068",
-            ort="Aachen",
-            strasse="Gartenstraße 8",
-            email="nina.schulz@personal.com"
+            plz=test_plz,
+            ort="TestStadt",
+            strasse=f"Gartenstraße{unique_suffix} 8",
+            email=f"nina.schulz{unique_suffix}@personal.com"
         )
         
         # Import therapist with same name/address but different email
         import_data = test_data_factory(
-            first_name="Nina",
-            last_name="Zimmermann",  # Different last name
+            first_name=f"Nina{unique_suffix}",
+            last_name=f"Zimmermann{unique_suffix}",  # Different last name
             title="",  # Same title (empty)
-            postal_code="52068",
-            city="Aachen",
-            street="Gartenstraße",
+            postal_code=test_plz,
+            city="TestStadt",
+            street=f"Gartenstraße{unique_suffix}",
             house_number="8",
-            email="nina.zimmermann@other.com"  # Different email
+            email=f"nina.zimmermann{unique_suffix}@other.com"  # Different email
         )
         
         success, message = importer.import_therapist(import_data)
@@ -519,8 +547,8 @@ class TestTherapistImporter:
         db = SessionLocal()
         try:
             therapists = db.query(Therapist).filter(
-                Therapist.vorname == "Nina",
-                Therapist.strasse == "Gartenstraße 8"
+                Therapist.vorname == f"Nina{unique_suffix}",
+                Therapist.strasse == f"Gartenstraße{unique_suffix} 8"
             ).all()
             
             assert len(therapists) == 2, f"Should have 2 therapists, found {len(therapists)}"
