@@ -6,6 +6,7 @@ with hard constraints only (no scoring or progressive filtering).
 Updated with 8-tier email priority sorting for Phase 2 implementation.
 FIXED: Hard constraints for therapy procedure, gender preference, and group therapy matching.
 PHASE 3: Email deduplication to prevent multiple emails to same practice.
+FIXED: Now checks BOTH Patient and Platzsuche exclusion lists.
 """
 import logging
 from datetime import datetime, date
@@ -337,8 +338,8 @@ def check_all_hard_constraints(
     if not check_distance_constraint(patient, therapist):
         return False
     
-    # 2. Exclusion check
-    if not check_exclusion_constraint(search, therapist['id']):
+    # 2. Exclusion check - NOW PASSING PATIENT DATA
+    if not check_exclusion_constraint(search, therapist['id'], patient):
         return False
     
     # 3. Patient preferences (ALL must be satisfied or null)
@@ -407,18 +408,35 @@ def check_distance_constraint(
 
 def check_exclusion_constraint(
     search: Platzsuche,
-    therapist_id: int
+    therapist_id: int,
+    patient: Dict[str, Any]  # ADDED: Now checks both Patient and Platzsuche exclusions
 ) -> bool:
     """Check if therapist is not excluded by patient.
+    
+    FIXED: Now checks BOTH:
+    - Patient's permanent exclusion list (from patient_service)
+    - Platzsuche's additional exclusions (from current search)
     
     Args:
         search: Patient search instance
         therapist_id: ID of the therapist
+        patient: Patient data dictionary with exclusion list
         
     Returns:
         True if not excluded, False if excluded
     """
-    return not search.is_therapist_excluded(therapist_id)
+    # Check Platzsuche exclusions (therapists excluded during this search)
+    if search.is_therapist_excluded(therapist_id):
+        logger.debug(f"Therapist {therapist_id} excluded in Platzsuche {search.id}")
+        return False
+    
+    # Check Patient's permanent exclusions (from patient service)
+    patient_exclusions = patient.get('ausgeschlossene_therapeuten', [])
+    if patient_exclusions and therapist_id in patient_exclusions:
+        logger.debug(f"Therapist {therapist_id} excluded in Patient's permanent list")
+        return False
+    
+    return True
 
 
 def check_patient_preferences(
