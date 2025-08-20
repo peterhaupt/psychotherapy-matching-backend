@@ -179,7 +179,7 @@ class TherapistImporter:
         """Find existing therapist using matching logic.
         
         Primary match: Same first name, last name, and PLZ
-        Secondary match: Same first name, PLZ, ort, and street (marriage scenario)
+        Secondary match: Same first name, PLZ, ort, street, title, and email (if present)
         
         Args:
             data: Mapped therapist data
@@ -201,13 +201,22 @@ class TherapistImporter:
                 return existing
             
             # Secondary match: marriage name change scenario
-            # Same first name, different last name, but same PLZ, ort, and street
-            existing = db.query(Therapist).filter(
+            # Same first name, different last name, but same PLZ, ort, street, and title
+            # Also check email if present in incoming data
+            query = db.query(Therapist).filter(
                 Therapist.vorname == data.get('vorname'),
                 Therapist.plz == data.get('plz'),
                 Therapist.ort == data.get('ort'),
-                Therapist.strasse == data.get('strasse')
-            ).first()
+                Therapist.strasse == data.get('strasse'),
+                Therapist.titel == data.get('titel', '')  # Exact title match including empty strings
+            )
+            
+            # Add email check if email is present in incoming data
+            incoming_email = data.get('email')
+            if incoming_email and incoming_email.strip():
+                query = query.filter(Therapist.email == incoming_email)
+            
+            existing = query.first()
             
             if existing:
                 logger.info(f"Found therapist by secondary match (possible name change): {existing.id}")
