@@ -802,19 +802,17 @@ class TestMatchingServiceAPI:
         self.safe_delete_patient(patient['id'])
 
     def test_send_anfrage_to_therapist_without_email(self):
-        """Test that sending anfrage to therapist without email creates phone call.
-        
-        NOTE: Email sending step temporarily disabled to avoid bounce messages.
-        """
+        """Test that sending anfrage to therapist without email creates phone call with correct availability time."""
         unique_suffix = str(uuid.uuid4())[:8]
+        
+        # Create therapist with PRODUCTION FORMAT availability - ONLY TUESDAY
         therapist = self.create_test_therapist(
             plz="52064",
             email=None,  # Explicitly no email
             telefon="+49 241 123456",
             nachname=f"NoEmail_{unique_suffix}",
             telefonische_erreichbarkeit={
-                "montag": ["10:00-12:00"],
-                "mittwoch": ["14:00-16:00"]
+                "Di": ["8:00-9:00"]  # PRODUCTION FORMAT: Only Tuesday 8-9am
             }
         )
         
@@ -839,24 +837,37 @@ class TestMatchingServiceAPI:
         if anfrage_response.status_code == 201:
             anfrage = anfrage_response.json()
             
-            # NOTE: Commenting out actual email sending to avoid bounce messages in test environment
-            # TODO: Re-enable when we have proper email mocking or test email service
+            # ACTUALLY SEND THE ANFRAGE (no longer commented out!)
+            send_response = requests.post(
+                f"{BASE_URL}/therapeutenanfragen/{anfrage['anfrage_id']}/senden"
+            )
+            assert send_response.status_code == 200
             
-            # # Send the anfrage
-            # send_response = requests.post(
-            #     f"{BASE_URL}/therapeutenanfragen/{anfrage['anfrage_id']}/senden"
-            # )
-            # assert send_response.status_code == 200
-            # 
-            # send_data = send_response.json()
-            # 
-            # # Verify response structure for phone call
-            # assert send_data['communication_type'] == 'phone_call'
-            # assert send_data['email_id'] is None
-            # assert send_data['phone_call_id'] is not None
-            # assert 'sent_date' in send_data
+            send_data = send_response.json()
             
-            print("SKIPPED: Email sending test temporarily disabled")
+            # Verify response structure for phone call
+            assert send_data['communication_type'] == 'phone_call'
+            assert send_data['email_id'] is None
+            assert send_data['phone_call_id'] is not None
+            assert 'sent_date' in send_data
+            
+            # GET THE PHONE CALL DETAILS TO VERIFY SCHEDULING
+            phone_call_id = send_data['phone_call_id']
+            phone_call_response = requests.get(
+                f"{COMMUNICATION_BASE_URL}/phone-calls/{phone_call_id}"
+            )
+            assert phone_call_response.status_code == 200
+            
+            phone_call = phone_call_response.json()
+            
+            # VERIFY THE PHONE CALL IS SCHEDULED FOR NEXT TUESDAY AT 08:00
+            # The scheduled time should be "08:00" (not "12:00"!)
+            assert phone_call['geplante_zeit'] == "08:00", f"Expected 08:00 but got {phone_call['geplante_zeit']}"
+            
+            # Verify it's scheduled for a Tuesday
+            from datetime import datetime
+            scheduled_date = datetime.fromisoformat(phone_call['geplantes_datum']).date()
+            assert scheduled_date.weekday() == 1, "Phone call should be scheduled for Tuesday (weekday=1)"
             
             # Cleanup
             try:

@@ -525,23 +525,29 @@ class CommunicationService:
                 telefonische_erreichbarkeit = therapist.get('telefonische_erreichbarkeit', {})
                 
                 if telefonische_erreichbarkeit and isinstance(telefonische_erreichbarkeit, dict):
-                    # Get day name for the scheduled date
-                    day_names = ['montag', 'dienstag', 'mittwoch', 'donnerstag', 'freitag', 'samstag', 'sonntag']
-                    weekday = scheduled_date.weekday()  # 0 = Monday
-                    day_name = day_names[weekday]
+                    # Map weekdays to abbreviations
+                    day_abbreviations = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
                     
-                    # Check if therapist is available on this day
-                    day_availability = telefonische_erreichbarkeit.get(day_name, [])
-                    if day_availability and isinstance(day_availability, list) and len(day_availability) > 0:
-                        # Use the first available time slot
-                        first_slot = day_availability[0]
-                        if '-' in str(first_slot):
-                            # Extract start time from range like "10:00-12:00"
-                            scheduled_time = str(first_slot).split('-')[0].strip()
-                        else:
-                            scheduled_time = str(first_slot).strip()
-                    else:
-                        # No availability on this day, use default
+                    # Try to find next available day (check up to 7 days ahead)
+                    for days_ahead in range(1, 8):
+                        check_date = date.today() + timedelta(days=days_ahead)
+                        weekday = check_date.weekday()
+                        day_abbreviation = day_abbreviations[weekday]
+                        
+                        # Check if therapist is available on this day
+                        day_availability = telefonische_erreichbarkeit.get(day_abbreviation, [])
+                        if day_availability and isinstance(day_availability, list) and len(day_availability) > 0:
+                            # Found an available day!
+                            scheduled_date = check_date
+                            first_slot = day_availability[0]
+                            if '-' in str(first_slot):
+                                scheduled_time = str(first_slot).split('-')[0].strip()
+                            else:
+                                scheduled_time = str(first_slot).strip()
+                            break
+                    
+                    # If no availability found in next 7 days, use default
+                    if not scheduled_time:
                         follow_up_config = config.get_follow_up_config()
                         scheduled_time = follow_up_config['default_call_time']
                 else:
