@@ -1,8 +1,8 @@
 # Future Enhancements - Priority Items
 
-**Document Version:** 4.0  
+**Document Version:** 5.0  
 **Date:** August 2025  
-**Status:** Requirements Gathering (Updated with Phone Call Cancellation)
+**Status:** Requirements Gathering (Updated)
 
 ---
 
@@ -10,70 +10,62 @@
 
 | Priority | Enhancement | Complexity | Impact |
 |----------|-------------|------------|--------|
-| **CRITICAL** | Backup and Restore Testing & Monitoring (#30) | Medium-High | Critical |
-| **CRITICAL** | Handle Duplicate Therapists & Fix Import Matching Logic (#16) | Medium-High | Critical |
-| **CRITICAL** | Database ID Gap Investigation (#8) | Medium | Critical |
-| **CRITICAL** | Internal Server Error After Sending Emails (#9) | Medium-High | Critical |
+| **CRITICAL** | Backup and Restore Testing & Monitoring (#27) | Medium-High | Critical |
+| **CRITICAL** | Handle Duplicate Patient Registrations (#12) | Medium-High | Critical |
 | **CRITICAL** | PostgreSQL Database Stability (#4) | High | Critical |
-| **CRITICAL** | Handle Duplicate Patient Registrations (#15) | Medium-High | Critical |
-| **CRITICAL** | Fix Non-Functional Automatic Reminders (#21) | Medium | Critical |
-| **CRITICAL** | Protection from Injection Attacks (#27) | High | Critical |
-| **High** | Fix Phone Call Scheduling with Availability Hours (#36) | Medium | High |
-| **High** | Cancel Scheduled Phone Calls on Rejection (#37) | Medium | High |
-| **High** | Handle "Null" Last Name in Imports (#31) | Medium | High |
+| **CRITICAL** | Protection from Injection Attacks (#24) | High | Critical |
+| **CRITICAL** | Patient Excluded Therapists Removal Bug (#28) | Medium | Critical |
+| **High** | Cancel Scheduled Phone Calls on Rejection (#30) | Medium | High |
+| **High** | Handle "Null" Last Name in Imports (#26) | Medium | High |
 | **High** | Comprehensive Email Automation System (#1) | High | Very High |
-| **High** | Fix ICD10 Diagnostic Matching Logic (#22) | Medium-High | High |
-| **High** | Fix Therapeutenanfrage Frontend Exit Issue (#10) | Low | High |
-| **High** | Improve Patient Eligibility Criteria (#11) | Medium | High |
-| **High** | Automatic Removal of Successful Platzsuchen (#6) | Medium | High |
-| **High** | Track Successful Match Details (#7) | Low-Medium | High |
-| **High** | Fix Dashboard "Ohne Aktive Platzsuche" (#14) | Low-Medium | High |
-| **High** | Patient Payment Tracking System (#20) | Medium-High | High |
-| **High** | Phone Number Display and Copy Functionality (#23) | Low-Medium | High |
-| **High** | Email Delivery Testing and Verification (#5) | Medium | High |
-| **High** | Temporarily Pause Vermittlung/Platzsuche (#24) | Medium | High |
-| **High** | Validate Last Psychotherapy Date (#25) | Low-Medium | High |
-| **High** | Production Container Log Management (#29) | Medium | High |
-| **High** | Automatic Patient Status Update (#32) | Low-Medium | High |
-| **High** | Fix Area Code Formatting (#33) | Medium | High |
-| **High** | Matching Service Cleanup (#34) | High | High |
-| **High** | Replace SendGrid with European Provider (#35) | Medium-High | High |
-| **Medium** | Enhanced Support for Multi-Location Practices (#17) | High | Medium |
-| **Medium** | Grammar Correction for Singular Patient (#18) | Low | Medium |
-| **Medium** | Phone Call Templates (#19) | Medium | Medium |
-| **Medium** | Track Incoming Emails (#12) | High | Medium |
-| **Medium** | Add Pagination for Therapist Selection (#13) | Medium | Medium |
+| **High** | Fix ICD10 Diagnostic Matching Logic (#19) | Medium-High | High |
+| **High** | Fix Therapeutenanfrage Frontend Exit Issue (#7) | Low | High |
+| **High** | Automatic Removal of Successful Platzsuchen (#5) | Medium | High |
+| **High** | Track Successful Match Details (#6) | Low-Medium | High |
+| **High** | Patient Payment Tracking System (#17) | Medium-High | High |
+| **High** | Temporarily Pause Vermittlung/Platzsuche (#21) | Medium | High |
+| **High** | Validate Last Psychotherapy Date (#22) | Low-Medium | High |
+| **High** | Production Container Log Management (#25) | Medium | High |
+| **High** | Automatic Patient Status Update (#29) | Low-Medium | High |
+| **High** | Replace SendGrid with European Provider (#31) | Medium-High | High |
+| **High** | Email Template for Found Therapy Spot (#32) | Medium | High |
+| **Medium** | Enhanced Support for Multi-Location Practices (#14) | High | Medium |
+| **Medium** | Grammar Correction for Singular Patient (#15) | Low | Medium |
+| **Medium** | Phone Call Templates (#16) | Medium | Medium |
+| **Medium** | Track Incoming Emails (#9) | High | Medium |
+| **Medium** | Add Pagination for Therapist Selection (#10) | Medium | Medium |
 | **Medium** | GCS Deletion Logic (#2) | Medium | Medium |
 | **Medium** | Therapist Import Reporting Fix (#3) | Low-Medium | Medium |
-| **Medium** | Set Phone Call Time to Current Time (#26) | Low | Medium |
-| **Medium** | Replace Google Cloud Storage (#28) | High | Medium |
+| **Medium** | Replace Google Cloud Storage (#23) | High | Medium |
+| **Medium** | Proton Drive Backup Alternative (#33) | Low-Medium | Medium |
+| **Medium** | Fix Area Code Formatting (#8) | Medium | Medium |
+| **Medium** | Matching Service Cleanup (#11) | High | Medium |
+| **Medium** | Phone Call Templates (#18) | Medium | Medium |
 
 ---
 
 ## Next Steps
 
-1. **IMMEDIATE - Data Protection:** Implement backup testing and monitoring (#30) to ensure data recoverability
-2. **CRITICAL - Import Bug:** Fix duplicate therapist matching logic (#16) - prevents data loss from incorrect merging
-3. **URGENT - Communication:** Fix phone call scheduling to respect therapist availability hours (#36)
-4. **URGENT - Import Fix:** Handle "Null" last name issue (#31) affecting therapist imports and scraper
-5. **URGENT - Security:** Implement injection attack protection (#27) across all forms
-6. **URGENT:** Investigate database ID gaps in production environment (#8)
-7. **URGENT:** Resolve internal server errors affecting email functionality (#9)
-8. **URGENT:** Fix non-functional automatic reminders and follow-up systems (#21)
-9. **URGENT:** Implement duplicate handling for patients (#15) to ensure data integrity
-10. **URGENT:** Fix ICD10 diagnostic matching logic (#22) - review Angela Fath-Volk case
-11. **Infrastructure:** Set up production log management (#29)
-12. **Quick Wins:** Implement frontend fixes (#10, #14, #18, #23, #26) and eligibility improvements (#11)
-13. **User Experience:** Implement pause functionality (#24) and validation improvements (#25)
-14. **Email System:** Design and implement comprehensive email automation (#1)
-15. **Payment System:** Design and implement patient payment tracking (#20)
-16. **Communication:** Implement phone call templates (#19) and cancellation logic (#37)
-17. **Data Quality:** Design and implement multi-location support (#17)
-18. **European Compliance:** Plan migration from Google Cloud Storage (#28) and SendGrid (#35) to European solutions
-19. **Requirements Clarification:** Schedule discussion sessions for items #2-3, #5, and #12
-20. **Implementation Planning:** Create detailed technical specifications for high-priority items
-21. **New Features:** Implement automatic status updates (#32), fix area code formatting (#33), and cleanup matching service (#34)
-22. **Audit Current Systems:** Review therapist import reporting logic and email delivery
+1. **IMMEDIATE - Data Protection:** Implement backup testing and monitoring (#27) to ensure data recoverability
+2. **CRITICAL - Bug Fix:** Fix excluded therapists removal bug (#28) affecting patient data integrity
+3. **URGENT - Communication:** Implement email template for therapy spot notifications (#32)
+4. **URGENT - Import Fix:** Handle "Null" last name issue (#26) affecting therapist imports and scraper
+5. **URGENT - Security:** Implement injection attack protection (#24) across all forms
+6. **URGENT:** Fix non-functional automatic reminders and follow-up systems
+7. **URGENT:** Implement duplicate handling for patients (#12) to ensure data integrity
+8. **URGENT:** Fix ICD10 diagnostic matching logic (#19) - review Angela Fath-Volk case
+9. **Infrastructure:** Set up production log management (#25)
+10. **Quick Wins:** Implement frontend fixes (#7) and validation improvements (#22)
+11. **User Experience:** Implement pause functionality (#21)
+12. **Email System:** Design and implement comprehensive email automation (#1)
+13. **Payment System:** Design and implement patient payment tracking (#17)
+14. **Communication:** Implement phone call templates (#16) and cancellation logic (#30)
+15. **Data Quality:** Design and implement multi-location support (#14)
+16. **European Compliance:** Plan migration from Google Cloud Storage (#23) and SendGrid (#31) to European solutions
+17. **Backup Strategy:** Evaluate Proton Drive as iCloud alternative (#33)
+18. **Requirements Clarification:** Schedule discussion sessions for items #2-3 and #9
+19. **Implementation Planning:** Create detailed technical specifications for high-priority items
+20. **Audit Current Systems:** Review therapist import reporting logic
 
 ---
 
@@ -308,34 +300,7 @@ PostgreSQL database in production is frequently crashing, causing system downtim
 
 ---
 
-## 5. Email Delivery Testing and Verification
-
-### Requirement
-Implement comprehensive testing to verify that emails are actually being sent and delivered successfully.
-
-### Questions for Discussion
-- Should we implement a **test mode** that sends emails to designated test addresses?
-- Do we need **delivery confirmation tracking** (open rates, bounce handling)?
-- Should we maintain an **email audit log** showing all sent emails and their status?
-- What level of **integration testing** is needed for email workflows?
-- Should we implement **periodic health checks** that send test emails to verify the system is working?
-
-### Implementation Considerations
-- Set up dedicated test email addresses for different email types
-- Implement email delivery status tracking
-- Create email sending reports and dashboards
-- Add unit and integration tests for email functionality
-- Consider using email testing services (e.g., Mailtrap) for development/staging
-- Implement bounce and complaint handling
-- Add monitoring and alerting for email delivery failures
-
-### Related Features
-- Affects Comprehensive Email Automation System
-- Any future email-based features
-
----
-
-## 6. Automatic Removal of Successful Platzsuchen from Other Therapeutenanfragen - **NEW**
+## 5. Automatic Removal of Successful Platzsuchen from Other Therapeutenanfragen - **NEW**
 
 ### Current Issue
 When a patient is successfully matched (angenommen) in one therapeutenanfrage, they remain in all other pending therapeutenanfragen. This creates confusion and potential duplicate acceptances.
@@ -368,7 +333,7 @@ Implement automatic cleanup: when a patient's platzsuche becomes "erfolgreich", 
 
 ---
 
-## 7. Track Successful Match Details in Platzsuche - **NEW**
+## 6. Track Successful Match Details in Platzsuche - **NEW**
 
 ### Current Issue
 When viewing a successful (erfolgreich) platzsuche, there's no direct way to see which therapist accepted the patient or which therapeutenanfrage led to the successful match.
@@ -402,72 +367,7 @@ Enhance the platzsuche model to track successful match details for better visibi
 
 ---
 
-## 8. Investigation: Unexpected Database ID Gaps in Local Production - **CRITICAL NEW**
-
-### Current Issue
-In the local production environment, therapeutenanfragen IDs show unexpected gaps (IDs 1-10, then jumping to 42+). This is concerning because:
-- This is a **production environment** where no testing should occur
-- No known deletions or rollbacks have been performed
-- The gaps suggest 30+ records were somehow created and removed
-
-### Investigation Required
-- **Audit Database Logs:** Check PostgreSQL logs for DELETE operations or rolled back transactions
-- **Review Application Logs:** Look for errors during anfrage creation around those missing IDs
-- **Check for Automated Processes:** Identify any background jobs that might create/delete records
-- **Verify Environment Isolation:** Ensure no test processes are accidentally running in production
-- **Database Sequence Analysis:** Check the auto-increment sequence for anomalies
-
-### Potential Causes to Investigate
-- **Unintended Test Scripts:** Development or test scripts accidentally running against production
-- **Failed Bulk Operations:** Batch imports or migrations that partially failed
-- **Database Corruption:** Sequence corruption or transaction log issues
-- **Unauthorized Access:** Someone manually deleting records
-- **Application Bug:** Code path that creates and immediately deletes records
-- **Kafka Event Issues:** Events triggering unwanted record creation/deletion
-
-### Immediate Actions Needed
-- **Enable Detailed Audit Logging:** Track all INSERT/DELETE operations on therapeutenanfragen
-- **Review Access Controls:** Verify who has delete permissions in production
-- **Check Cron Jobs:** Audit all scheduled tasks and background workers
-- **Implement Monitoring:** Alert on unusual deletion patterns
-- **Database Integrity Check:** Run PostgreSQL integrity checks
-- **Review Recent Deployments:** Check if any recent code changes could cause this
-
-### Data to Collect
-- Exact time range when IDs 11-41 would have been created
-- Any error logs from that time period
-- Database connection logs showing which services accessed the DB
-- Kafka event logs for matching-events topic
-- Any manual SQL queries run against production
-
----
-
-## 9. Internal Server Error After Sending Patient Emails - **CRITICAL NEW**
-
-### Current Issue
-Internal server errors are occurring intermittently after sending emails to patients, causing system instability.
-
-### Investigation Required
-- **Error Log Analysis:** Identify specific error messages and stack traces
-- **Timing Analysis:** Determine if errors occur immediately after send or with delay
-- **Email Type Correlation:** Check if specific types of emails trigger the error
-- **Service Dependencies:** Review communication service health and dependencies
-- **Resource Monitoring:** Check for memory leaks or resource exhaustion
-- **Database Connection Issues:** Verify if email sending affects database connections
-
-### Immediate Actions Needed
-- **Enhanced Error Logging:** Add more detailed logging around email sending process
-- **Error Handling:** Implement proper exception handling and recovery
-- **Health Checks:** Add monitoring for email service health
-- **Rollback Plan:** Prepare alternative email sending mechanisms
-- **User Experience:** Implement user-friendly error messages
-
-### Priority
-**CRITICAL** - Affects core functionality and user experience
-
----
-
-## 10. Fix Therapeutenanfrage Frontend Exit Issue - **NEW**
+## 7. Fix Therapeutenanfrage Frontend Exit Issue - **NEW**
 
 ### Current Issue
 When a therapeutenanfrage is created but contains 0 patients, the frontend provides no proper way to exit or quit the process.
@@ -496,43 +396,75 @@ Implement proper navigation controls for empty therapeutenanfragen.
 
 ---
 
-## 11. Improve Patient Eligibility Criteria for Platzsuche Creation - **NEW**
+## 8. Fix Area Code Formatting Issue - **NEW**
 
 ### Current Issue
-When creating a new platzsuche, the patient list shows patients who are not eligible (e.g., patients without PTV11 form), making the selection process inefficient and potentially creating invalid platzsuchen.
+Frontend always formats area codes as 4 digits, but some German cities have 5-digit area codes (e.g., Berlin 030 vs. smaller cities with 5 digits), causing incorrect phone number display and potential calling issues.
 
-### Requirement
-Implement stricter eligibility criteria to only show patients who are truly eligible for platzsuche creation.
+### Examples of German Area Codes
+- **2-digit:** None in Germany
+- **3-digit:** Major cities (030 Berlin, 089 Munich, 040 Hamburg)
+- **4-digit:** Most common (0221 Cologne, 0711 Stuttgart)
+- **5-digit:** Smaller cities and rural areas (03581 Görlitz, 04928 Schlieben)
 
-### Current Problems
-- Patients without PTV11 form are selectable
-- Criteria are too broad for practical use
-- Creates unhelpful platzsuchen for ineligible patients
+### Implementation Requirements
+- **Dynamic Area Code Detection:**
+  - Implement lookup table for German area codes
+  - Detect area code length based on prefix
+  - Format numbers correctly based on actual area code length
 
-### Implementation Details
-- **Eligibility Criteria:**
-  - Must have status "Sucht Therapie"
-  - Must have completed PTV11 form
-  - Must not have an active platzsuche already
-  - Must not have a successful (erfolgreich) platzsuche
-  - Additional medical/administrative requirements (TBD)
+- **Formatting Logic:**
+  ```javascript
+  function formatGermanPhoneNumber(number) {
+    const cleaned = number.replace(/\D/g, '');
+    
+    // Detect area code length from lookup table
+    const areaCodeLength = detectAreaCodeLength(cleaned);
+    
+    // Format based on detected length
+    if (areaCodeLength === 3) {
+      // e.g., 030 1234567
+      return `${cleaned.slice(0, 3)} ${cleaned.slice(3)}`;
+    } else if (areaCodeLength === 4) {
+      // e.g., 0221 1234567
+      return `${cleaned.slice(0, 4)} ${cleaned.slice(4)}`;
+    } else if (areaCodeLength === 5) {
+      // e.g., 03581 123456
+      return `${cleaned.slice(0, 5)} ${cleaned.slice(5)}`;
+    }
+    
+    // Fallback formatting
+    return number;
+  }
+  ```
 
-### Technical Changes
-- Update patient filtering query in platzsuche creation endpoint
-- Add eligibility validation on backend
-- Update frontend patient selection component
-- Add clear indicators for why patients are excluded
-- Implement eligibility status checking service
+### Technical Implementation
+- **Area Code Database:**
+  - Create comprehensive list of German area codes
+  - Include mobile prefixes (015x, 016x, 017x)
+  - Regular updates for new area codes
+
+- **Frontend Updates:**
+  - Replace hardcoded 4-digit formatting
+  - Implement dynamic formatter
+  - Add unit tests for various area codes
+  - Update all phone number display components
+
+### Testing Requirements
+- Test with all area code lengths (3, 4, 5 digits)
+- Verify mobile number formatting
+- International number handling
+- Edge cases and invalid numbers
 
 ### User Experience
-- Show only eligible patients in selection list
-- Display clear reasons when patients are filtered out
-- Add patient count indicators (total vs eligible)
-- Provide guidance for making patients eligible
+- Correct phone number display
+- Improved readability
+- Accurate copy/paste functionality
+- Better user confidence in data accuracy
 
 ---
 
-## 12. Track Incoming Emails - **NEW**
+## 9. Track Incoming Emails - **NEW**
 
 ### Requirement
 Implement comprehensive incoming email tracking system to monitor and integrate email communications with patient records.
@@ -572,7 +504,7 @@ Implement comprehensive incoming email tracking system to monitor and integrate 
 
 ---
 
-## 13. Add Pagination for Therapist Selection in Vermittlung - **NEW**
+## 10. Add Pagination for Therapist Selection in Vermittlung - **NEW**
 
 ### Requirement
 Implement pagination for therapist selection in the vermittlung process of therapeutenanfragen to improve performance and user experience.
@@ -608,42 +540,67 @@ Large therapist lists in the therapeutenanfrage form cause performance issues an
 
 ---
 
-## 14. Fix Dashboard "Ohne Aktive Platzsuche" Section - **NEW**
+## 11. Matching Service Cleanup - **NEW**
 
 ### Current Issue
-The dashboard section "ohne aktive Platzsuche" incorrectly includes patients with successful (erfolgreich) platzsuchen, who no longer need therapy placement.
+The matching service requires cleanup and optimization as described in the separate matching service document.
 
 ### Requirement
-Adjust the dashboard logic to exclude patients who have successfully been matched with therapists.
+Implement comprehensive cleanup of the matching service to improve performance, maintainability, and reliability.
 
-### Implementation Details
-- **Filtering Logic:**
-  - Exclude patients with platzsuche status "erfolgreich"
-  - Exclude patients currently matched with therapists
-  - Only show patients who genuinely need new therapy placement
+### Implementation Areas
+- **Code Refactoring:**
+  - Remove duplicate code
+  - Improve error handling
+  - Optimize database queries
+  - Standardize coding patterns
 
-- **Updated Criteria for "Ohne Aktive Platzsuche":**
-  - Patients with no platzsuche at all
-  - Patients with failed/cancelled platzsuchen
-  - Patients with expired platzsuchen
-  - Exclude patients with successful matches
+- **Performance Optimization:**
+  - Implement caching strategies
+  - Optimize matching algorithms
+  - Reduce database round trips
+  - Improve query performance
 
-### Technical Changes
-- Update dashboard query logic
-- Modify platzsuche status filtering
-- Add proper JOIN conditions to exclude successful matches
-- Update dashboard component rendering
-- Add clear status indicators
+- **Architecture Improvements:**
+  - Separate concerns properly
+  - Implement proper service boundaries
+  - Add comprehensive logging
+  - Improve testability
 
-### User Experience
-- More accurate dashboard statistics
-- Clearer understanding of patients needing help
-- Reduced confusion about patient status
-- Better decision-making data for staff
+### Technical Tasks
+- **Database Optimization:**
+  - Add missing indexes
+  - Optimize complex queries
+  - Implement query result caching
+  - Review and optimize joins
+
+- **Service Refactoring:**
+  - Extract common functionality
+  - Implement proper interfaces
+  - Add dependency injection
+  - Improve configuration management
+
+- **Testing Enhancement:**
+  - Add unit tests for all components
+  - Implement integration tests
+  - Add performance benchmarks
+  - Create test data generators
+
+### Documentation Requirements
+- Update API documentation
+- Create service architecture diagrams
+- Document matching algorithms
+- Add troubleshooting guide
+
+### Success Metrics
+- Reduced matching time by 50%
+- Improved code coverage to 80%+
+- Reduced bug reports by 40%
+- Better service reliability
 
 ---
 
-## 15. Handle Duplicate Patient Registrations During Import - **NEW**
+## 12. Handle Duplicate Patient Registrations During Import - **NEW**
 
 ### Current Issue
 Patients can register multiple times on the website, creating duplicate records in the system. This leads to data integrity issues, inefficient resource usage, and confusion in patient management.
@@ -692,128 +649,7 @@ Implement robust duplicate detection and handling mechanism for patient imports 
 
 ---
 
-## 16. Handle Duplicate Therapists with Same Email Address & Fix Import Matching Logic - **CRITICAL**
-
-### Current Issue
-Multiple critical issues with therapist duplicate handling and import matching:
-
-1. **Shared Email Problem:** Multiple therapists working in the same practice often share the same email address, causing system conflicts
-2. **Critical Import Bug:** The secondary matching rule in the import process incorrectly merges therapists with the same first name at the same address, causing data loss
-
-### Critical Bug Details
-- **Example Cases:** 
-  - Anna Aller (Dr., Martinstraße 10-12, 52062 Aachen) is being incorrectly matched to Anna Bonni (same address, same first name)
-  - **Christa Catharina Jacobskötter:** Check if duplicate detection is incorrectly triggered by matching on both first names
-- **Root Cause:** The import logic assumes "same first name + same address = same person with name change" 
-- **Impact:** New therapist data overwrites existing therapist records, causing data loss
-- **Failed Scenarios:**
-  - Colleagues in group practices
-  - Employee/employer relationships at same address
-  - Multiple therapists sharing office space
-  - Therapists with multiple first names being matched incorrectly
-
-### Requirement
-1. Fix the critical import matching bug to prevent data loss
-2. Implement proper handling for therapists sharing email addresses
-3. Support group practices with multiple therapists
-4. Review handling of multiple first names
-
-### Implementation Details
-
-#### A. Fix Critical Import Matching Logic - **URGENT**
-- **Remove or Restrict Secondary Match:**
-  ```python
-  # CURRENT PROBLEMATIC CODE:
-  # Secondary match for "marriage name change" - TOO BROAD
-  existing = db.query(Therapist).filter(
-      Therapist.vorname == data.get('vorname'),
-      Therapist.plz == data.get('plz'),
-      Therapist.ort == data.get('ort'),
-      Therapist.strasse == data.get('strasse')
-  ).first()
-  
-  # PROPOSED FIX - Remove secondary match entirely or add more constraints:
-  # Option 1: Remove secondary match completely
-  # Option 2: Require additional matching criteria
-  existing = db.query(Therapist).filter(
-      Therapist.vorname == data.get('vorname'),
-      Therapist.plz == data.get('plz'),
-      Therapist.ort == data.get('ort'),
-      Therapist.strasse == data.get('strasse'),
-      # Add more constraints:
-      Therapist.telefon == data.get('telefon'),  # Same phone number
-      # OR
-      Therapist.email == data.get('email')  # Same email
-  ).first()
-  ```
-
-#### B. Data Model Enhancement for Email Handling
-- **Separate Personal and Practice Emails:**
-  - Add fields:
-    - `practice_email` - Shared practice email
-    - `personal_email` - Individual therapist email (optional)
-    - `is_primary_contact` - Flag for main contact at practice
-    - `practice_id` - Link therapists to same practice
-
-#### C. Communication Routing for Shared Emails
-- For shared emails, send consolidated communications
-- Include all relevant therapists' information in emails
-- Implement email templates that handle multiple therapists
-- Add "on behalf of" functionality for practice emails
-
-#### D. Duplicate Detection Enhancement
-- Allow multiple therapists with same practice_email
-- Prevent exact duplicates (same name + same personal details)
-- Warn during import/creation about potential duplicates
-- Provide merge functionality for accidental duplicates
-- **Review first name matching logic for compound names**
-
-### Technical Implementation
-- **Database Changes:**
-  - Remove unique constraint on therapist email
-  - Add composite unique constraint on (vorname + nachname + plz)
-  - Create practice table to group therapists
-  - Add indexes for efficient duplicate checking
-
-- **Import Process Updates:**
-  - Enhanced duplicate detection logic
-  - Automatic practice grouping based on email domain
-  - Manual review interface for ambiguous cases
-  - Batch processing for practice associations
-  - **Fix first name comparison for multiple first names**
-
-- **API Changes:**
-  - Update therapist creation/update endpoints
-  - Add practice management endpoints
-  - Modify email sending logic for grouped communications
-
-### Testing Requirements
-- **Critical Test Cases:**
-  - Import Anna Aller - should create new record, not update Anna Bonni
-  - Import therapist with name change - should handle appropriately
-  - Import multiple therapists at same address - all should be created
-  - Import therapist with shared email - should handle correctly
-  - **Import Christa Catharina Jacobskötter - verify no false duplicate detection**
-
-### User Interface Enhancements
-- Practice management interface
-- Visual indicators for therapists in same practice
-- Bulk email options for practice communications
-- Clear duplicate warning messages
-
-### Benefits
-- **Prevents data loss from incorrect matching**
-- Accurate representation of real-world practice structures
-- Improved communication efficiency
-- Reduced data entry errors
-- Better therapist relationship management
-
-### Priority
-**CRITICAL** - This bug causes data loss and corrupts therapist records
-
----
-
-## 17. Enhanced Support for Multi-Location Practices - **NEW**
+## 13. Enhanced Support for Multi-Location Practices - **NEW**
 
 ### Current Issue
 Practices with two or more locations are currently treated as independent duplicates in the system, causing confusion and inefficient management of therapist data.
@@ -871,7 +707,7 @@ Implement proper support for practices with multiple locations while maintaining
 
 ---
 
-## 18. Grammar Correction for Singular Patient in Therapeutenanfrage - **NEW**
+## 14. Grammar Correction for Singular Patient in Therapeutenanfrage - **NEW**
 
 ### Current Issue
 When a therapeutenanfrage contains only 1 patient, the system uses plural grammar forms, creating unprofessional communications.
@@ -918,7 +754,7 @@ Implement dynamic text adjustment to use singular forms when exactly one patient
 
 ---
 
-## 19. Phone Call Templates for Patient Communication - **NEW**
+## 15. Phone Call Templates for Patient Communication - **NEW**
 
 ### Current Issue
 Staff members lack standardized scripts for phone calls with patients, leading to inconsistent communication and missed important topics.
@@ -979,7 +815,7 @@ Create customizable phone call templates for various patient interaction scenari
 
 ---
 
-## 20. Patient Payment Tracking System - **NEW**
+## 16. Patient Payment Tracking System - **NEW**
 
 ### Current Issue
 No systematic way to document whether patients have paid for services, causing billing confusion and follow-up difficulties.
@@ -1047,63 +883,68 @@ Implement comprehensive payment tracking functionality integrated with patient r
 
 ---
 
-## 21. Fix Non-Functional Automatic Reminders and Follow-up Calls - **CRITICAL NEW**
+## 17. Phone Call Templates - **NEW**
 
 ### Current Issue
-Automatic reminders and follow-up call scheduling features appear to be broken or non-functional, requiring manual intervention for all patient communications.
+Staff members lack standardized scripts for phone calls with patients, leading to inconsistent communication and missed important topics.
 
-### Investigation Required
-- **System Analysis:**
-  - Identify which reminder types are affected
-  - Check cron job/scheduler status
-  - Review error logs for failed executions
-  - Verify database triggers and events
+### Requirement
+Create customizable phone call templates for various patient interaction scenarios.
 
-- **Affected Features:**
-  - PTV11 form reminders
-  - Appointment reminders
-  - Follow-up call scheduling
-  - Status update notifications
-  - Payment reminders
+### Template Categories
+- **First Contact Call:**
+  - Introduction and verification
+  - Explanation of services
+  - Initial information gathering
+  - Next steps explanation
 
-### Root Cause Analysis
-- **Potential Issues:**
-  - Scheduler service not running
-  - Database connection problems
-  - Email service integration failures
-  - Incorrect configuration after deployment
-  - Time zone handling issues
-  - Queue processing failures
+- **Follow-up Calls:**
+  - Status updates
+  - Document reminders
+  - Appointment scheduling
+  - Problem resolution
 
-### Implementation Fix
-- **Immediate Actions:**
-  - Restart scheduler services
-  - Check and fix configuration
-  - Clear any blocked queues
-  - Implement health checks
+- **Special Situations:**
+  - Payment discussions
+  - Complaint handling
+  - Emergency protocols
+  - Therapist matching updates
 
-- **Long-term Solutions:**
-  - Add monitoring and alerting
-  - Implement fallback mechanisms
-  - Create manual trigger options
-  - Add detailed logging
-  - Set up automated testing
+### Implementation Details
+- **Template Management System:**
+  - Create/edit/delete templates
+  - Version control for templates
+  - Categorization and tagging
+  - Search functionality
 
-### Testing Requirements
-- Unit tests for reminder logic
-- Integration tests for full workflow
-- Load testing for bulk reminders
-- Manual verification procedures
+- **Call Script Features:**
+  - Dynamic field insertion (patient name, dates, etc.)
+  - Branching logic for different scenarios
+  - Checkboxes for covered topics
+  - Notes section for call outcomes
 
-### Success Metrics
-- Reminder delivery rate > 99%
-- On-time delivery accuracy
-- Reduced manual interventions
-- Staff time savings
+- **Integration Points:**
+  - Link templates to patient records
+  - Auto-populate patient information
+  - Save call notes to patient history
+  - Generate follow-up tasks
+
+### Technical Implementation
+- Database schema for templates
+- Template editor interface
+- Variable substitution engine
+- Call history tracking
+- Reporting on template usage
+
+### Training and Compliance
+- Mandatory templates for certain call types
+- Training mode for new staff
+- Quality assurance reviews
+- Performance metrics
 
 ---
 
-## 22. Fix ICD10 Diagnostic Matching Logic - **HIGH PRIORITY NEW**
+## 18. Fix ICD10 Diagnostic Matching Logic - **HIGH PRIORITY NEW**
 
 ### Current Issue
 The logic for matching patient ICD10 diagnoses with therapist preferences needs to be reviewed and fixed. Specifically, single/parent diagnoses from patients are not properly matching with therapist group preferences (subcategories).
@@ -1175,69 +1016,7 @@ Implement proper hierarchical matching logic for ICD10 codes where:
 
 ---
 
-## 23. Phone Number Display and Copy Functionality in Frontend - **NEW**
-
-### Current Issue
-Phone numbers are not easily visible or copyable in the frontend interface, making it difficult for staff to quickly contact patients and therapists.
-
-### Requirement
-Implement clear phone number display with one-click copy functionality throughout the application.
-
-### Implementation Details
-- **Display Locations:**
-  - Patient detail pages
-  - Therapist detail pages
-  - Search results
-  - Therapeutenanfrage views
-  - Dashboard widgets
-  - Communication history
-
-- **Features:**
-  - **Clear Formatting:** Display numbers in readable format (e.g., +49 123 456 7890)
-  - **Copy Button:** One-click copy icon next to each phone number
-  - **Copy Feedback:** Visual confirmation when number is copied
-  - **Click-to-Call:** Option to initiate calls directly (tel: links)
-  - **Mobile Detection:** Different behavior for mobile vs desktop
-
-### Technical Implementation
-- **Frontend Components:**
-  ```javascript
-  // Phone number component with copy functionality
-  <PhoneNumber 
-    number="+49 123 456 7890"
-    showCopyButton={true}
-    enableClickToCall={true}
-  />
-  ```
-
-- **Copy Functionality:**
-  - Use Clipboard API for modern browsers
-  - Fallback for older browsers
-  - Success/error notifications
-  - Analytics tracking for usage
-
-- **Styling:**
-  - Consistent phone icon
-  - Hover states for interactive elements
-  - Responsive design for mobile
-  - Accessibility compliance
-
-### User Experience
-- Reduce time to initiate contact
-- Prevent transcription errors
-- Consistent interaction pattern
-- Clear visual feedback
-- Mobile-friendly implementation
-
-### Additional Features
-- **Phone Number Validation:** Visual indicators for invalid numbers
-- **Country Code Handling:** Automatic formatting based on country
-- **History Tracking:** Log when numbers were copied/called
-- **Bulk Actions:** Copy multiple numbers at once
-
----
-
-## 24. Temporarily Pause Vermittlung/Platzsuche for Patient Holidays - **NEW**
+## 19. Temporarily Pause Vermittlung/Platzsuche for Patient Holidays - **NEW**
 
 ### Current Issue
 When patients go on holiday or are temporarily unavailable, there's no way to pause their vermittlung/platzsuche activities, leading to wasted efforts contacting therapists on their behalf.
@@ -1295,7 +1074,7 @@ Implement functionality to temporarily pause and resume platzsuche activities wi
 
 ---
 
-## 25. Validate Last Psychotherapy Date in Registration Process - **NEW**
+## 20. Validate Last Psychotherapy Date in Registration Process - **NEW**
 
 ### Current Issue
 Invalid or implausible dates for last psychotherapy are being entered during patient registration, causing data quality issues and affecting eligibility assessments.
@@ -1354,68 +1133,60 @@ Implement comprehensive validation for the "date of last psychotherapy" field du
 
 ---
 
-## 26. Set Phone Call Time to Current Time When Call is Finished - **NEW**
+## 21. Replace Google Cloud Storage with European Solution - **NEW**
 
 ### Current Issue
-When logging phone calls, the time of the call is not automatically set to the current time when the call is marked as finished, requiring manual time entry and potentially leading to inaccurate records.
+Google Cloud Storage may not meet European data sovereignty requirements and could be unnecessarily complex for the application's needs.
 
 ### Requirement
-Automatically capture and set the phone call timestamp to the current time when a call is marked as completed.
+Replace GCS with a simpler, GDPR-compliant European storage solution.
 
-### Implementation Details
-- **Automatic Time Capture:**
-  - When "Call Finished" is clicked, automatically set timestamp
-  - Option to manually adjust if needed
-  - Show call duration if start time was recorded
-  - Time zone handling for accurate timestamps
+### Evaluation Criteria
+- **Data Sovereignty:** Must store data within EU borders
+- **GDPR Compliance:** Full compliance with European privacy laws
+- **Simplicity:** Easier to manage than current GCS setup
+- **Cost Effectiveness:** Competitive or lower pricing
+- **Reliability:** High availability and durability
 
-- **UI Enhancements:**
-  - "Start Call" button to capture start time
-  - "End Call" button to capture end time
-  - Display call duration in real-time
-  - Quick actions for common call outcomes
+### Potential Solutions
+- **European Providers:**
+  - OVHcloud Object Storage (France)
+  - Scaleway Object Storage (France)
+  - Hetzner Storage Boxes (Germany)
+  - IONOS Cloud Storage (Germany)
+  
+- **Self-Hosted Options:**
+  - MinIO on European servers
+  - NextCloud storage
+  - Simple NFS/SFTP servers
 
-- **Call Tracking Features:**
-  - Automatic calculation of call duration
-  - Integration with phone call templates
-  - Call history with accurate timestamps
-  - Daily call reports for staff
+### Migration Plan
+- **Phase 1: Evaluation**
+  - Compare providers on criteria
+  - Proof of concept with top candidates
+  - Cost analysis
+  
+- **Phase 2: Implementation**
+  - Set up new storage solution
+  - Implement storage abstraction layer
+  - Update all GCS references in code
+  
+- **Phase 3: Migration**
+  - Parallel running period
+  - Incremental data migration
+  - Verification and testing
+  - Cutover and GCS decommission
 
-### Technical Implementation
-- **Database Schema:**
-  ```sql
-  phone_calls (
-    id, patient_id, staff_id,
-    call_start, call_end,
-    duration_seconds,
-    call_type, notes,
-    template_used
-  )
-  ```
-
-- **Frontend Logic:**
-  ```javascript
-  // Auto-set current time on call completion
-  const finishCall = () => {
-    const endTime = new Date();
-    const duration = endTime - startTime;
-    
-    updateCall({
-      call_end: endTime,
-      duration_seconds: Math.floor(duration / 1000)
-    });
-  };
-  ```
-
-### Additional Features
-- Integration with phone system APIs (if available)
-- Automatic call logging from phone system
-- Call recording references (if applicable)
-- Performance metrics for call handling
+### Technical Considerations
+- API compatibility requirements
+- Backup and disaster recovery
+- Access control and encryption
+- Integration with existing services
+- Performance requirements
 
 ---
 
-## 27. Protection from Injection Attacks in Forms - **CRITICAL NEW**
+## 22. Protection from Injection Attacks in Forms - **CRITICAL NEW**
 
 ### Current Issue
 Forms throughout the application need protection against injection attacks (SQL injection, XSS, etc.) to ensure system security.
@@ -1487,60 +1258,7 @@ Forms throughout the application need protection against injection attacks (SQL 
 
 ---
 
-## 28. Replace Google Cloud Storage with European Solution - **NEW**
-
-### Current Issue
-Google Cloud Storage may not meet European data sovereignty requirements and could be unnecessarily complex for the application's needs.
-
-### Requirement
-Replace GCS with a simpler, GDPR-compliant European storage solution.
-
-### Evaluation Criteria
-- **Data Sovereignty:** Must store data within EU borders
-- **GDPR Compliance:** Full compliance with European privacy laws
-- **Simplicity:** Easier to manage than current GCS setup
-- **Cost Effectiveness:** Competitive or lower pricing
-- **Reliability:** High availability and durability
-
-### Potential Solutions
-- **European Providers:**
-  - OVHcloud Object Storage (France)
-  - Scaleway Object Storage (France)
-  - Hetzner Storage Boxes (Germany)
-  - IONOS Cloud Storage (Germany)
-  
-- **Self-Hosted Options:**
-  - MinIO on European servers
-  - NextCloud storage
-  - Simple NFS/SFTP servers
-
-### Migration Plan
-- **Phase 1: Evaluation**
-  - Compare providers on criteria
-  - Proof of concept with top candidates
-  - Cost analysis
-  
-- **Phase 2: Implementation**
-  - Set up new storage solution
-  - Implement storage abstraction layer
-  - Update all GCS references in code
-  
-- **Phase 3: Migration**
-  - Parallel running period
-  - Incremental data migration
-  - Verification and testing
-  - Cutover and GCS decommission
-
-### Technical Considerations
-- API compatibility requirements
-- Backup and disaster recovery
-- Access control and encryption
-- Integration with existing services
-- Performance requirements
-
----
-
-## 29. Production Container Log Management - **NEW**
+## 23. Production Container Log Management - **NEW**
 
 ### Current Issue
 Production logs need better management - currently showing too many INFO level logs and missing proper monitoring for WARNING level events.
@@ -1602,7 +1320,144 @@ Production logs need better management - currently showing too many INFO level l
 
 ---
 
-## 30. Backup and Restore Testing & Monitoring - **CRITICAL NEW**
+## 24. Handle "Null" Last Name in Therapist Imports and Scraper - **HIGH PRIORITY NEW**
+
+### Current Issue
+Therapists with the literal last name "Null" (e.g., Anne-Kathrin Null) are causing import failures and scraper issues. The system is interpreting the string "Null" as a null value, leading to data processing errors.
+
+### Example Case
+- **Therapist:** Anne-Kathrin Null (File: 10243.json)
+- **Error:** "Failed to map therapist data"
+- **Import Summary:** 8262 therapists processed, 1 failed (100% success rate affected)
+
+### Root Causes
+- **String-to-Null Conversion:** The string "Null" is being interpreted as a null/None value
+- **JSON Parsing Issues:** JSON deserializers may auto-convert "Null" strings
+- **Database Constraints:** NOT NULL constraints on last name field reject null values
+- **Scraper Issues:** Web scraper may skip or error on "Null" values
+
+### Implementation Requirements
+
+#### A. Input Validation & Sanitization
+- **String Preservation:**
+  - Treat "Null" as a valid string, not a null value
+  - Case-insensitive handling ("null", "NULL", "Null")
+  - Preserve original casing in database
+
+- **Validation Rules:**
+  ```python
+  def validate_last_name(value):
+      # Check if value is actually None vs string "Null"
+      if value is None:
+          raise ValueError("Last name cannot be empty")
+      
+      # Ensure string "Null" is preserved
+      if isinstance(value, str) and value.lower() == "null":
+          # Mark for special handling
+          return {"value": value, "is_literal_null": True}
+      
+      return {"value": value, "is_literal_null": False}
+  ```
+
+#### B. Import Process Updates
+- **JSON Parsing:**
+  ```python
+  # Custom JSON decoder to preserve "Null" strings
+  def custom_decoder(dct):
+      for key, value in dct.items():
+          if key in ['nachname', 'last_name'] and value == "Null":
+              # Explicitly preserve as string
+              dct[key] = str(value)
+      return dct
+  
+  # Use: json.loads(data, object_hook=custom_decoder)
+  ```
+
+- **Database Handling:**
+  - Add check constraint to differentiate empty string from "Null"
+  - Consider adding metadata flag for literal null names
+  - Update ORM mappings to handle special case
+
+#### C. Scraper Enhancements
+- **Web Scraping:**
+  - Add special handling for "Null" text in name fields
+  - Implement fallback logic if "Null" causes parsing errors
+  - Log occurrences for monitoring
+
+- **Data Extraction:**
+  ```javascript
+  // Scraper logic
+  const lastName = element.textContent.trim();
+  
+  // Preserve "Null" as string
+  if (lastName.toLowerCase() === 'null') {
+      return { lastName: 'Null', hasLiteralNullName: true };
+  }
+  
+  return { lastName: lastName || '' };
+  ```
+
+#### D. System-Wide Fixes
+- **API Responses:**
+  - Ensure APIs return "Null" as string, not null
+  - Add response headers indicating special handling
+
+- **Frontend Display:**
+  - Show "Null" correctly in UI components
+  - Add tooltip or indicator for literal null names
+
+- **Search Functionality:**
+  - Enable searching for therapists with "Null" last name
+  - Case-insensitive search should find "Null" entries
+
+### Testing Requirements
+- **Unit Tests:**
+  - Test import with "Null" last name
+  - Test JSON parsing preservation
+  - Test database insert/update/select
+  - Test API serialization
+
+- **Integration Tests:**
+  - Full import cycle with "Null" name
+  - Scraper handling of "Null" values
+  - End-to-end data flow
+
+- **Edge Cases:**
+  - Multiple "Null" variations (NULL, null, Null)
+  - Other problematic names (True, False, None, Undefined)
+  - International variants (Nul, Nullo)
+
+### Preventive Measures
+- **Reserved Word List:**
+  ```python
+  RESERVED_WORDS = [
+      'null', 'none', 'undefined', 'true', 'false',
+      'nil', 'void', 'empty', 'blank'
+  ]
+  
+  def requires_special_handling(value):
+      return value.lower() in RESERVED_WORDS
+  ```
+
+- **Documentation:**
+  - Document all reserved words requiring special handling
+  - Create guidelines for handling edge cases
+  - Add comments in code for future developers
+
+### Monitoring & Alerts
+- Set up alerts for import failures with "reserved word" names
+- Track occurrences of special-case handling
+- Regular audit of therapist names for data quality
+
+### Success Metrics
+- **Import Success Rate:** Return to 100% with "Null" names handled
+- **Zero Data Loss:** All therapist records preserved accurately
+- **Search Accuracy:** "Null" searchable and findable
+- **API Reliability:** Consistent handling across all endpoints
+
+---
+
+## 25. Backup and Restore Testing & Monitoring - **CRITICAL NEW**
 
 ### Current Issue
 There is no regular verification that database backups are working correctly and can be successfully restored, creating a critical risk of data loss in case of system failure.
@@ -1771,144 +1626,118 @@ send_test_report $TEST_DB
 
 ---
 
-## 31. Handle "Null" Last Name in Therapist Imports and Scraper - **HIGH PRIORITY NEW**
+## 26. Patient Excluded Therapists Removal Bug - **CRITICAL NEW**
 
 ### Current Issue
-Therapists with the literal last name "Null" (e.g., Anne-Kathrin Null) are causing import failures and scraper issues. The system is interpreting the string "Null" as a null value, leading to data processing errors.
+In some patients, the excluded therapists list is being unexpectedly removed. This appears to be related to partial updates from the frontend that may be overwriting the excluded therapists field with an empty value.
 
-### Example Case
-- **Therapist:** Anne-Kathrin Null (File: 10243.json)
-- **Error:** "Failed to map therapist data"
-- **Import Summary:** 8262 therapists processed, 1 failed (100% success rate affected)
-
-### Root Causes
-- **String-to-Null Conversion:** The string "Null" is being interpreted as a null/None value
-- **JSON Parsing Issues:** JSON deserializers may auto-convert "Null" strings
-- **Database Constraints:** NOT NULL constraints on last name field reject null values
-- **Scraper Issues:** Web scraper may skip or error on "Null" values
+### Root Cause Analysis
+- **Frontend Partial Updates:** When the frontend sends partial patient updates, it may be sending an empty array for excluded_therapists instead of omitting the field
+- **Backend Handling:** The backend may not be differentiating between "intentionally clear this field" vs "field not included in update"
+- **State Management:** Frontend state may not be properly preserving excluded therapists during other update operations
 
 ### Implementation Requirements
 
-#### A. Input Validation & Sanitization
-- **String Preservation:**
-  - Treat "Null" as a valid string, not a null value
-  - Case-insensitive handling ("null", "NULL", "Null")
-  - Preserve original casing in database
-
-- **Validation Rules:**
+#### A. Backend Protection
+- **Distinguish Partial Updates:**
   ```python
-  def validate_last_name(value):
-      # Check if value is actually None vs string "Null"
-      if value is None:
-          raise ValueError("Last name cannot be empty")
-      
-      # Ensure string "Null" is preserved
-      if isinstance(value, str) and value.lower() == "null":
-          # Mark for special handling
-          return {"value": value, "is_literal_null": True}
-      
-      return {"value": value, "is_literal_null": False}
+  def update_patient(patient_id, data):
+      # Only update excluded_therapists if explicitly provided
+      if 'excluded_therapists' in data:
+          # Check if this is intentional clearing
+          if data['excluded_therapists'] is None:
+              # Log warning - suspicious clearing of exclusions
+              log.warning(f"Clearing exclusions for patient {patient_id}")
+          patient.excluded_therapists = data['excluded_therapists']
+      # Don't touch excluded_therapists if not in update data
   ```
 
-#### B. Import Process Updates
-- **JSON Parsing:**
-  ```python
-  # Custom JSON decoder to preserve "Null" strings
-  def custom_decoder(dct):
-      for key, value in dct.items():
-          if key in ['nachname', 'last_name'] and value == "Null":
-              # Explicitly preserve as string
-              dct[key] = str(value)
-      return dct
-  
-  # Use: json.loads(data, object_hook=custom_decoder)
-  ```
+- **Add Validation:**
+  - Require explicit confirmation to clear all exclusions
+  - Log all changes to excluded therapists
+  - Implement audit trail for exclusion changes
 
-- **Database Handling:**
-  - Add check constraint to differentiate empty string from "Null"
-  - Consider adding metadata flag for literal null names
-  - Update ORM mappings to handle special case
-
-#### C. Scraper Enhancements
-- **Web Scraping:**
-  - Add special handling for "Null" text in name fields
-  - Implement fallback logic if "Null" causes parsing errors
-  - Log occurrences for monitoring
-
-- **Data Extraction:**
+#### B. Frontend Fixes
+- **Preserve Excluded Therapists in State:**
   ```javascript
-  // Scraper logic
-  const lastName = element.textContent.trim();
-  
-  // Preserve "Null" as string
-  if (lastName.toLowerCase() === 'null') {
-      return { lastName: 'Null', hasLiteralNullName: true };
-  }
-  
-  return { lastName: lastName || '' };
+  // When updating patient, preserve existing exclusions
+  const updatePatient = (updates) => {
+    const currentPatient = getPatientState();
+    
+    // Don't send excluded_therapists unless explicitly changed
+    const payload = {
+      ...updates,
+      // Only include if intentionally modified
+      ...(updates.hasOwnProperty('excluded_therapists') 
+        ? { excluded_therapists: updates.excluded_therapists }
+        : {})
+    };
+    
+    return api.updatePatient(payload);
+  };
   ```
 
-#### D. System-Wide Fixes
-- **API Responses:**
-  - Ensure APIs return "Null" as string, not null
-  - Add response headers indicating special handling
+- **Form Handling:**
+  - Separate forms for different patient data sections
+  - Don't include excluded_therapists in general update forms
+  - Dedicated UI for managing exclusions
 
-- **Frontend Display:**
-  - Show "Null" correctly in UI components
-  - Add tooltip or indicator for literal null names
+#### C. Data Recovery
+- **Audit Historical Changes:**
+  - Review logs to identify affected patients
+  - Determine when exclusions were removed
+  - Attempt to restore from backups if needed
 
-- **Search Functionality:**
-  - Enable searching for therapists with "Null" last name
-  - Case-insensitive search should find "Null" entries
+- **Prevention Measures:**
+  - Add database trigger to log exclusion changes
+  - Implement soft delete for exclusions
+  - Regular backup of exclusion data
+
+### Technical Implementation
+- **API Changes:**
+  ```javascript
+  // New endpoint for exclusion management
+  PUT /api/patients/{id}/excluded-therapists
+  
+  // Separate from general patient update
+  PATCH /api/patients/{id}  // Should not affect exclusions
+  ```
+
+- **Database Changes:**
+  ```sql
+  -- Audit table for tracking changes
+  CREATE TABLE excluded_therapists_audit (
+    id SERIAL PRIMARY KEY,
+    patient_id INTEGER,
+    therapist_id INTEGER,
+    action VARCHAR(10), -- 'added' or 'removed'
+    changed_by VARCHAR(255),
+    changed_at TIMESTAMP,
+    reason TEXT
+  );
+  ```
 
 ### Testing Requirements
-- **Unit Tests:**
-  - Test import with "Null" last name
-  - Test JSON parsing preservation
-  - Test database insert/update/select
-  - Test API serialization
+- Unit tests for partial update handling
+- Integration tests for exclusion preservation
+- Frontend state management tests
+- End-to-end exclusion workflow tests
 
-- **Integration Tests:**
-  - Full import cycle with "Null" name
-  - Scraper handling of "Null" values
-  - End-to-end data flow
-
-- **Edge Cases:**
-  - Multiple "Null" variations (NULL, null, Null)
-  - Other problematic names (True, False, None, Undefined)
-  - International variants (Nul, Nullo)
-
-### Preventive Measures
-- **Reserved Word List:**
-  ```python
-  RESERVED_WORDS = [
-      'null', 'none', 'undefined', 'true', 'false',
-      'nil', 'void', 'empty', 'blank'
-  ]
-  
-  def requires_special_handling(value):
-      return value.lower() in RESERVED_WORDS
-  ```
-
-- **Documentation:**
-  - Document all reserved words requiring special handling
-  - Create guidelines for handling edge cases
-  - Add comments in code for future developers
-
-### Monitoring & Alerts
-- Set up alerts for import failures with "reserved word" names
-- Track occurrences of special-case handling
-- Regular audit of therapist names for data quality
+### Monitoring
+- Alert on bulk exclusion removals
+- Track exclusion changes per patient
+- Monitor API calls affecting exclusions
+- Regular data integrity checks
 
 ### Success Metrics
-- **Import Success Rate:** Return to 100% with "Null" names handled
-- **Zero Data Loss:** All therapist records preserved accurately
-- **Search Accuracy:** "Null" searchable and findable
-- **API Reliability:** Consistent handling across all endpoints
+- Zero unintended exclusion removals
+- Complete audit trail for all changes
+- Improved data integrity
+- Reduced support tickets related to exclusions
 
 ---
 
-## 32. Automatic Patient Status Update to "In Therapie" - **NEW**
+## 27. Automatic Patient Status Update to "In Therapie" - **NEW**
 
 ### Current Issue
 When a platzsuche becomes successful (erfolgreich), the patient's status is not automatically updated to "In Therapie", requiring manual updates and potentially causing confusion about patient's current treatment status.
@@ -1963,370 +1792,7 @@ Implement automatic status transition when a patient is successfully matched wit
 
 ---
 
-## 33. Fix Area Code Formatting Issue - **NEW**
-
-### Current Issue
-Frontend always formats area codes as 4 digits, but some German cities have 5-digit area codes (e.g., Berlin 030 vs. smaller cities with 5 digits), causing incorrect phone number display and potential calling issues.
-
-### Examples of German Area Codes
-- **2-digit:** None in Germany
-- **3-digit:** Major cities (030 Berlin, 089 Munich, 040 Hamburg)
-- **4-digit:** Most common (0221 Cologne, 0711 Stuttgart)
-- **5-digit:** Smaller cities and rural areas (03581 Görlitz, 04928 Schlieben)
-
-### Implementation Requirements
-- **Dynamic Area Code Detection:**
-  - Implement lookup table for German area codes
-  - Detect area code length based on prefix
-  - Format numbers correctly based on actual area code length
-
-- **Formatting Logic:**
-  ```javascript
-  function formatGermanPhoneNumber(number) {
-    const cleaned = number.replace(/\D/g, '');
-    
-    // Detect area code length from lookup table
-    const areaCodeLength = detectAreaCodeLength(cleaned);
-    
-    // Format based on detected length
-    if (areaCodeLength === 3) {
-      // e.g., 030 1234567
-      return `${cleaned.slice(0, 3)} ${cleaned.slice(3)}`;
-    } else if (areaCodeLength === 4) {
-      // e.g., 0221 1234567
-      return `${cleaned.slice(0, 4)} ${cleaned.slice(4)}`;
-    } else if (areaCodeLength === 5) {
-      // e.g., 03581 123456
-      return `${cleaned.slice(0, 5)} ${cleaned.slice(5)}`;
-    }
-    
-    // Fallback formatting
-    return number;
-  }
-  ```
-
-### Technical Implementation
-- **Area Code Database:**
-  - Create comprehensive list of German area codes
-  - Include mobile prefixes (015x, 016x, 017x)
-  - Regular updates for new area codes
-
-- **Frontend Updates:**
-  - Replace hardcoded 4-digit formatting
-  - Implement dynamic formatter
-  - Add unit tests for various area codes
-  - Update all phone number display components
-
-### Testing Requirements
-- Test with all area code lengths (3, 4, 5 digits)
-- Verify mobile number formatting
-- International number handling
-- Edge cases and invalid numbers
-
-### User Experience
-- Correct phone number display
-- Improved readability
-- Accurate copy/paste functionality
-- Better user confidence in data accuracy
-
----
-
-## 34. Matching Service Cleanup - **NEW**
-
-### Current Issue
-The matching service requires cleanup and optimization as described in the separate matching service document.
-
-### Requirement
-Implement comprehensive cleanup of the matching service to improve performance, maintainability, and reliability.
-
-### Implementation Areas
-- **Code Refactoring:**
-  - Remove duplicate code
-  - Improve error handling
-  - Optimize database queries
-  - Standardize coding patterns
-
-- **Performance Optimization:**
-  - Implement caching strategies
-  - Optimize matching algorithms
-  - Reduce database round trips
-  - Improve query performance
-
-- **Architecture Improvements:**
-  - Separate concerns properly
-  - Implement proper service boundaries
-  - Add comprehensive logging
-  - Improve testability
-
-### Technical Tasks
-- **Database Optimization:**
-  - Add missing indexes
-  - Optimize complex queries
-  - Implement query result caching
-  - Review and optimize joins
-
-- **Service Refactoring:**
-  - Extract common functionality
-  - Implement proper interfaces
-  - Add dependency injection
-  - Improve configuration management
-
-- **Testing Enhancement:**
-  - Add unit tests for all components
-  - Implement integration tests
-  - Add performance benchmarks
-  - Create test data generators
-
-### Documentation Requirements
-- Update API documentation
-- Create service architecture diagrams
-- Document matching algorithms
-- Add troubleshooting guide
-
-### Success Metrics
-- Reduced matching time by 50%
-- Improved code coverage to 80%+
-- Reduced bug reports by 40%
-- Better service reliability
-
----
-
-## 35. Replace SendGrid with European Email Provider - **NEW**
-
-### Current Issue
-SendGrid, while functional, may not meet European data sovereignty requirements. Need to migrate to a GDPR-compliant European email service provider.
-
-### Requirement
-Replace SendGrid with a European-based email service provider that ensures data remains within EU borders.
-
-### Evaluation Criteria
-- **Data Sovereignty:** All data processing within EU
-- **GDPR Compliance:** Full compliance with privacy regulations
-- **Feature Parity:** Similar capabilities to SendGrid
-- **Reliability:** High deliverability rates
-- **Cost:** Competitive pricing
-- **API Compatibility:** Easy migration path
-
-### Potential European Providers
-- **Mailjet** (France)
-  - EU data centers
-  - GDPR compliant
-  - Good API documentation
-  - Competitive pricing
-
-- **Sendinblue/Brevo** (France)
-  - French company, EU servers
-  - Marketing automation features
-  - Transactional email support
-  - GDPR compliant
-
-- **Mailgun EU** (EU Region)
-  - Dedicated EU region
-  - Strong deliverability
-  - Developer-friendly API
-  - GDPR compliant
-
-- **SMTP2GO** (New Zealand/EU servers)
-  - EU data center option
-  - Simple integration
-  - Good deliverability rates
-
-### Migration Plan
-- **Phase 1: Evaluation (Week 1-2)**
-  - Test deliverability rates
-  - API compatibility assessment
-  - Cost analysis
-  - Feature comparison
-
-- **Phase 2: Implementation (Week 3-4)**
-  - Set up new provider account
-  - Update email service configuration
-  - Implement abstraction layer
-  - Update DNS records (SPF, DKIM, DMARC)
-
-- **Phase 3: Migration (Week 5-6)**
-  - Parallel running period
-  - Gradual traffic migration
-  - Monitor deliverability
-  - Complete cutover
-
-### Technical Implementation
-- **Email Service Abstraction:**
-  ```javascript
-  // Abstract email provider interface
-  interface EmailProvider {
-    sendEmail(to, subject, content);
-    sendBulkEmails(recipients, template);
-    getDeliveryStatus(messageId);
-  }
-  
-  // Provider-specific implementations
-  class BrevoProvider implements EmailProvider { }
-  class MailjetProvider implements EmailProvider { }
-  ```
-
-- **Configuration Updates:**
-  - Environment variables for API keys
-  - Provider-specific settings
-  - Fallback configuration
-  - Rate limiting adjustments
-
-### Success Metrics
-- Maintain 95%+ deliverability rate
-- Zero data outside EU
-- Cost neutral or savings
-- No service interruptions
-- Full GDPR compliance
-
----
-
-## 36. Fix Phone Call Scheduling with Availability Hours - **HIGH PRIORITY NEW**
-
-### Current Issue
-The automatic phone call scheduling system for therapists who don't respond to emails is not working properly. It fails to consider the therapist's "telefonische Erreichbarkeit" (phone availability hours) and schedules calls outside these specified time windows.
-
-### Problems Identified
-- **Ignoring Availability:** System schedules calls without checking therapist's availability
-- **Wrong Time Slots:** Calls are scheduled outside the specified hours
-- **Day Mismatch:** Calls scheduled on days when therapist is not available
-- **No Validation:** System doesn't validate or warn about unavailable time slots
-
-### Example Case
-- **Therapist:** Has availability Monday 9:00-10:00, Wednesday 14:00-15:00
-- **Current Behavior:** System schedules call for Tuesday 11:00
-- **Expected Behavior:** System should only schedule within available windows
-
-### Implementation Requirements
-
-#### A. Availability Checking Logic
-- **Parse Availability Data:**
-  ```javascript
-  // Example availability structure
-  telefonische_erreichbarkeit: {
-    "Mo": ["9:00-10:00", "14:00-15:00"],
-    "Mi": ["9:00-12:00"],
-    "Fr": ["13:00-14:00"]
-  }
-  ```
-
-- **Find Next Available Slot:**
-  ```javascript
-  function findNextAvailableSlot(therapist, preferredDate) {
-    const availability = therapist.telefonische_erreichbarkeit;
-    
-    // Check if preferred date has availability
-    const dayOfWeek = getDayOfWeek(preferredDate);
-    const slots = availability[dayOfWeek];
-    
-    if (!slots || slots.length === 0) {
-      // Find next available day
-      return findNextDayWithAvailability(therapist, preferredDate);
-    }
-    
-    // Return first available slot on that day
-    return parseTimeSlot(slots[0], preferredDate);
-  }
-  ```
-
-#### B. Scheduling Algorithm Enhancement
-- **Validation Before Scheduling:**
-  - Check if therapist has any availability defined
-  - Validate requested time against availability windows
-  - Calculate next available slot if requested time unavailable
-  - Consider business days and holidays
-
-- **Smart Scheduling:**
-  - Prioritize earliest available slots
-  - Distribute calls evenly across available windows
-  - Avoid scheduling multiple calls in same time slot
-  - Respect minimum call duration requirements
-
-#### C. Fallback Handling
-- **No Availability Defined:**
-  - Flag therapist for manual scheduling
-  - Send notification to staff
-  - Use default business hours as fallback
-  - Log missing availability data
-
-- **All Slots Booked:**
-  - Queue for next available week
-  - Notify staff of scheduling conflict
-  - Option to override with manual scheduling
-
-### Technical Implementation
-- **Database Query Updates:**
-  ```sql
-  -- Get therapists with availability for specific day
-  SELECT * FROM therapists 
-  WHERE telefonische_erreichbarkeit->>'Mo' IS NOT NULL
-  AND id = :therapist_id;
-  ```
-
-- **Scheduler Service Updates:**
-  - Add availability parser module
-  - Implement time slot validation
-  - Create conflict detection system
-  - Add scheduling queue management
-
-- **API Enhancements:**
-  - New endpoint: `/api/therapists/{id}/available-slots`
-  - Validation in phone call creation endpoint
-  - Bulk availability checking for multiple therapists
-
-### Testing Requirements
-- **Unit Tests:**
-  - Availability parsing with various formats
-  - Time slot calculation and validation
-  - Edge cases (no availability, all slots full)
-  - Time zone handling
-
-- **Integration Tests:**
-  - End-to-end scheduling workflow
-  - Conflict resolution scenarios
-  - Fallback mechanism testing
-  - Performance with large datasets
-
-### User Interface Improvements
-- **Visual Availability Calendar:**
-  - Show therapist availability in calendar view
-  - Highlight available vs. booked slots
-  - Click to schedule in available slot
-  - Drag-and-drop rescheduling
-
-- **Scheduling Feedback:**
-  - Clear indication why time was chosen
-  - Warning when no availability found
-  - Suggested alternative times
-  - Manual override option with justification
-
-### Monitoring and Alerts
-- **Tracking Metrics:**
-  - Calls scheduled outside availability
-  - Therapists with missing availability data
-  - Success rate of automatic scheduling
-  - Average time to find available slot
-
-- **Alert Conditions:**
-  - Failed scheduling attempts
-  - High percentage of manual overrides
-  - Therapists consistently unavailable
-  - System unable to find slots
-
-### Success Metrics
-- **100% Compliance:** All calls scheduled within availability windows
-- **Reduced Manual Work:** 80% decrease in manual scheduling
-- **Improved Contact Rate:** Higher success rate for therapist calls
-- **Staff Satisfaction:** Reduced complaints about scheduling issues
-
-### Migration Strategy
-- **Phase 1:** Audit existing scheduled calls
-- **Phase 2:** Update all future scheduling
-- **Phase 3:** Reschedule non-compliant existing calls
-- **Phase 4:** Monitor and optimize
-
----
-
-## 37. Cancel Scheduled Phone Calls on Therapeutenanfrage Rejection - **NEW**
+## 28. Cancel Scheduled Phone Calls on Therapeutenanfrage Rejection - **NEW**
 
 ### Current Issue
 When a therapeutenanfrage is rejected or cancelled, any scheduled phone calls related to that anfrage remain in the system and may still be executed, causing unnecessary work and confusion.
@@ -2458,6 +1924,338 @@ Implement automatic cancellation of scheduled phone calls when the associated th
 
 ---
 
+## 29. Replace SendGrid with European Email Provider - **NEW**
+
+### Current Issue
+SendGrid, while functional, may not meet European data sovereignty requirements. Need to migrate to a GDPR-compliant European email service provider.
+
+### Requirement
+Replace SendGrid with a European-based email service provider that ensures data remains within EU borders.
+
+### Evaluation Criteria
+- **Data Sovereignty:** All data processing within EU
+- **GDPR Compliance:** Full compliance with privacy regulations
+- **Feature Parity:** Similar capabilities to SendGrid
+- **Reliability:** High deliverability rates
+- **Cost:** Competitive pricing
+- **API Compatibility:** Easy migration path
+
+### Potential European Providers
+- **Mailjet** (France)
+  - EU data centers
+  - GDPR compliant
+  - Good API documentation
+  - Competitive pricing
+
+- **Sendinblue/Brevo** (France)
+  - French company, EU servers
+  - Marketing automation features
+  - Transactional email support
+  - GDPR compliant
+
+- **Mailgun EU** (EU Region)
+  - Dedicated EU region
+  - Strong deliverability
+  - Developer-friendly API
+  - GDPR compliant
+
+- **SMTP2GO** (New Zealand/EU servers)
+  - EU data center option
+  - Simple integration
+  - Good deliverability rates
+
+### Migration Plan
+- **Phase 1: Evaluation (Week 1-2)**
+  - Test deliverability rates
+  - API compatibility assessment
+  - Cost analysis
+  - Feature comparison
+
+- **Phase 2: Implementation (Week 3-4)**
+  - Set up new provider account
+  - Update email service configuration
+  - Implement abstraction layer
+  - Update DNS records (SPF, DKIM, DMARC)
+
+- **Phase 3: Migration (Week 5-6)**
+  - Parallel running period
+  - Gradual traffic migration
+  - Monitor deliverability
+  - Complete cutover
+
+### Technical Implementation
+- **Email Service Abstraction:**
+  ```javascript
+  // Abstract email provider interface
+  interface EmailProvider {
+    sendEmail(to, subject, content);
+    sendBulkEmails(recipients, template);
+    getDeliveryStatus(messageId);
+  }
+  
+  // Provider-specific implementations
+  class BrevoProvider implements EmailProvider { }
+  class MailjetProvider implements EmailProvider { }
+  ```
+
+- **Configuration Updates:**
+  - Environment variables for API keys
+  - Provider-specific settings
+  - Fallback configuration
+  - Rate limiting adjustments
+
+### Success Metrics
+- Maintain 95%+ deliverability rate
+- Zero data outside EU
+- Cost neutral or savings
+- No service interruptions
+- Full GDPR compliance
+
+---
+
+## 30. Email Template for Found Therapy Spot - **HIGH PRIORITY NEW**
+
+### Current Issue
+There is no standardized email template to inform patients when a therapy spot has been found for them, including all necessary therapist information and contact templates for the patient to reach out.
+
+### Requirement
+Create comprehensive email templates for notifying patients about successful therapy spot matches, including therapist details and ready-to-use contact templates.
+
+### Email Components
+
+#### A. Main Notification Email
+- **Subject Line:** "Gute Nachrichten: Wir haben einen Therapieplatz für Sie gefunden!"
+- **Content Sections:**
+  1. Congratulations message
+  2. Therapist information (name, specializations, address)
+  3. Next steps explanation
+  4. Contact template links
+  5. Support contact information
+
+#### B. Therapist Information Package
+- **Included Details:**
+  - Full name and title
+  - Practice address and directions
+  - Phone number and email
+  - Specializations and treatment methods
+  - Available appointment times (if known)
+  - Insurance acceptance information
+  - Practice website (if available)
+
+#### C. Patient Contact Templates
+- **Template 1: Initial Contact Email**
+  ```
+  Subject: Therapieanfrage über Curavani - [Patient Name]
+  
+  Sehr geehrte/r [Therapist Title and Name],
+  
+  mein Name ist [Patient Name] und ich wurde Ihnen über Curavani 
+  für einen Therapieplatz vermittelt. 
+  
+  [Optional: Brief description of situation]
+  
+  Ich würde mich sehr über einen Termin für ein Erstgespräch freuen.
+  Folgende Zeiten würden mir gut passen:
+  - [Time option 1]
+  - [Time option 2]
+  - [Time option 3]
+  
+  Meine Kontaktdaten:
+  Telefon: [Phone]
+  Email: [Email]
+  
+  Mit freundlichen Grüßen,
+  [Patient Name]
+  ```
+
+- **Template 2: Phone Call Script**
+  ```
+  Introduction:
+  "Guten Tag, mein Name ist [Name]. 
+  Ich wurde Ihnen über Curavani für einen Therapieplatz vermittelt 
+  und würde gerne einen Termin für ein Erstgespräch vereinbaren."
+  
+  Key Points to Cover:
+  - Mention Curavani referral
+  - Ask about availability
+  - Confirm insurance coverage
+  - Ask about required documents
+  - Confirm practice address
+  ```
+
+- **Template 3: Follow-up Email**
+  ```
+  Subject: Re: Therapieanfrage - [Patient Name]
+  
+  Sehr geehrte/r [Therapist Name],
+  
+  vielen Dank für Ihre Rückmeldung.
+  
+  [Response to therapist's availability/questions]
+  
+  Der Termin am [Date] um [Time] passt mir sehr gut.
+  
+  Soll ich noch etwas Bestimmtes zum Erstgespräch mitbringen?
+  
+  Mit freundlichen Grüßen,
+  [Patient Name]
+  ```
+
+### Implementation Details
+
+#### Technical Architecture
+- **Template Management:**
+  - Store templates in database with versioning
+  - Variable substitution for personalization
+  - Multi-format support (HTML and plain text)
+  - Language variants (German primary, English optional)
+
+- **Delivery System:**
+  - Triggered automatically on successful match
+  - Include templates as attachments or inline
+  - Track email opens and clicks
+  - Follow-up reminders if no action taken
+
+#### Database Schema
+```sql
+therapy_spot_notifications (
+  id, patient_id, therapist_id,
+  sent_at, opened_at, 
+  templates_accessed,
+  contact_made, contact_date
+)
+```
+
+### Success Metrics
+- Email open rate > 95%
+- Template usage rate > 70%
+- Successful first contact rate > 80%
+- Time to first contact < 48 hours
+- Patient satisfaction score > 4.5/5
+
+### Additional Features
+- **SMS Notification:** Optional SMS alert about email
+- **Template Customization:** Allow staff to adjust templates
+- **Tracking:** Monitor which templates are most effective
+- **A/B Testing:** Test different template versions
+- **Feedback Loop:** Survey patients about template helpfulness
+
+---
+
+## 31. Proton Drive as Alternative to iCloud Backup - **MEDIUM PRIORITY NEW**
+
+### Current Issue
+Currently using iCloud for data backups, which may not provide sufficient privacy guarantees and GDPR compliance for sensitive patient data.
+
+### Requirement
+Evaluate and potentially implement Proton Drive as a more privacy-focused, European-based alternative for data backups.
+
+### Proton Drive Advantages
+- **Privacy First:** End-to-end encryption by default
+- **Swiss Jurisdiction:** Strong privacy laws and data protection
+- **GDPR Compliant:** Full compliance with European regulations
+- **Zero-Knowledge Architecture:** Proton cannot access encrypted data
+- **Open Source:** Transparency in security implementation
+
+### Comparison Matrix
+
+| Feature | iCloud | Proton Drive |
+|---------|--------|--------------|
+| End-to-End Encryption | Optional | Default |
+| Data Location | US/Global | Switzerland |
+| GDPR Compliance | Partial | Full |
+| Zero-Knowledge | No | Yes |
+| Price (1TB) | €9.99/month | €9.99/month |
+| API Access | Limited | Available |
+| Business Features | Consumer-focused | Business plans |
+
+### Implementation Plan
+
+#### Phase 1: Evaluation (Week 1-2)
+- **Technical Assessment:**
+  - Test Proton Drive API capabilities
+  - Evaluate backup/restore speeds
+  - Check integration possibilities
+  - Assess storage limitations
+
+- **Security Review:**
+  - Verify encryption standards
+  - Review access controls
+  - Audit compliance certifications
+  - Test recovery procedures
+
+#### Phase 2: Pilot Program (Week 3-4)
+- Set up Proton Business account
+- Implement backup scripts
+- Test automated backups
+- Verify restore procedures
+- Monitor performance
+
+#### Phase 3: Migration (Week 5-6)
+- **Data Transfer:**
+  - Parallel backup to both services
+  - Verify data integrity
+  - Test restore from Proton
+  - Phase out iCloud gradually
+
+### Technical Implementation
+- **Backup Script Integration:**
+  ```bash
+  #!/bin/bash
+  # Proton Drive backup script
+  
+  # Encrypt database dump
+  pg_dump production_db | gpg --encrypt > backup.sql.gpg
+  
+  # Upload to Proton Drive
+  proton-drive upload backup.sql.gpg /backups/
+  
+  # Verify upload
+  proton-drive verify /backups/backup.sql.gpg
+  
+  # Clean old backups (keep 30 days)
+  proton-drive cleanup --older-than 30d /backups/
+  ```
+
+- **Automation Setup:**
+  - Scheduled daily backups
+  - Automated verification
+  - Alert on failures
+  - Regular restore tests
+
+### Security Considerations
+- **Encryption Keys:**
+  - Separate key management
+  - Key rotation schedule
+  - Recovery key storage
+  - Multi-factor authentication
+
+- **Access Control:**
+  - Limited user access
+  - Audit logging
+  - IP restrictions
+  - Regular access reviews
+
+### Cost Analysis
+- **Current (iCloud):** ~€120/year for 2TB
+- **Proton Business:** €13/user/month (includes email, drive, calendar)
+- **Additional Benefits:** Enhanced privacy, better compliance, integrated services
+
+### Success Metrics
+- Zero data breaches
+- 99.9% backup success rate
+- < 30 minute restore time
+- Full GDPR compliance
+- Reduced privacy concerns
+
+### Risks and Mitigation
+- **Service Availability:** Maintain secondary backup location
+- **API Changes:** Regular monitoring and updates
+- **Performance:** Test and optimize transfer speeds
+- **Vendor Lock-in:** Maintain portable backup formats
+
+---
+
 **Document Owner:** Development Team  
 **Last Updated:** August 2025  
-**Next Review:** After critical issue resolution and requirements clarification sessions
+**Next Review:** After critical issue resolution and implementation of high-priority items

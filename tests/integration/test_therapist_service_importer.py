@@ -5,12 +5,21 @@ import json
 from datetime import date, timedelta
 import os
 import sys
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 # Add therapist_service to path so imports work like in Docker
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../therapist_service'))
 
-# Now these imports will work (as if we're inside the Docker container)
-from shared.utils.database import SessionLocal
+# Import config FIRST and create test-specific database session with external URL
+from shared.config import get_config
+
+# Create test-specific database session that uses external ports for local testing
+config = get_config()
+test_engine = create_engine(config.get_database_uri(use_pgbouncer=True, external_url=True))
+TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
+
+# NOW import the models and importer (after database is configured)
 from models.therapist import Therapist
 from imports.therapist_importer import TherapistImporter
 
@@ -30,8 +39,14 @@ def test_session():
 
 @pytest.fixture
 def importer():
-    """Create a TherapistImporter instance for testing."""
-    return TherapistImporter()
+    """Create a TherapistImporter instance for testing with test database session."""
+    # We need to patch the importer to use our test database session
+    class TestTherapistImporter(TherapistImporter):
+        def _get_db_session(self):
+            """Override to use test database session."""
+            return TestSessionLocal()
+    
+    return TestTherapistImporter()
 
 
 @pytest.fixture
@@ -110,7 +125,8 @@ def db_therapist_factory(test_session):
         }
         defaults.update(kwargs)
         
-        db = SessionLocal()
+        # Use TestSessionLocal instead of SessionLocal
+        db = TestSessionLocal()
         try:
             therapist = Therapist(**defaults)
             db.add(therapist)
@@ -134,7 +150,8 @@ def cleanup_therapists(test_session):
     yield  # Let all tests run first
     
     # Cleanup after all tests
-    db = SessionLocal()
+    # Use TestSessionLocal instead of SessionLocal
+    db = TestSessionLocal()
     try:
         created_ids = test_session.get("created_therapist_ids", [])
         print(f"\n=== DEBUG: Cleanup starting for {len(created_ids)} therapists ===")
@@ -156,8 +173,18 @@ def cleanup_therapists(test_session):
         db.close()
 
 
+# Patch the TherapistImporter to use our test database session
 class TestTherapistImporter:
     """Integration tests for the Therapist Importer matching logic."""
+    
+    @pytest.fixture(autouse=True)
+    def patch_importer_db(self, monkeypatch):
+        """Patch TherapistImporter to use test database session."""
+        # Import the actual module to patch
+        import therapist_service.imports.therapist_importer as importer_module
+        
+        # Replace SessionLocal with TestSessionLocal
+        monkeypatch.setattr(importer_module, 'SessionLocal', TestSessionLocal)
     
     # ========== PRIMARY MATCH TESTS ==========
     
@@ -192,7 +219,7 @@ class TestTherapistImporter:
         assert "updated" in message.lower(), f"Should update existing: {message}"
         
         # Verify therapist was updated, not created new
-        db = SessionLocal()
+        db = TestSessionLocal()
         try:
             therapists = db.query(Therapist).filter(
                 Therapist.vorname == f"Maria{unique_suffix}",
@@ -233,7 +260,7 @@ class TestTherapistImporter:
         assert "updated" in message.lower(), f"Should update existing: {message}"
         
         # Verify only one therapist exists
-        db = SessionLocal()
+        db = TestSessionLocal()
         try:
             therapists = db.query(Therapist).filter(
                 Therapist.vorname == "Thomas",
@@ -276,7 +303,7 @@ class TestTherapistImporter:
         assert "created" in message.lower(), f"Should create new: {message}"
         
         # Verify two therapists exist
-        db = SessionLocal()
+        db = TestSessionLocal()
         try:
             therapists = db.query(Therapist).filter(
                 Therapist.vorname == f"Julia{unique_suffix}",
@@ -331,7 +358,7 @@ class TestTherapistImporter:
         assert "updated" in message.lower(), f"Should update existing: {message}"
         
         # Verify only one therapist exists with updated name
-        db = SessionLocal()
+        db = TestSessionLocal()
         try:
             therapists = db.query(Therapist).filter(
                 Therapist.vorname == f"Sarah{unique_suffix}",
@@ -379,7 +406,7 @@ class TestTherapistImporter:
         assert "updated" in message.lower(), f"Should update existing: {message}"
         
         # Verify only one therapist exists
-        db = SessionLocal()
+        db = TestSessionLocal()
         try:
             therapists = db.query(Therapist).filter(
                 Therapist.vorname == "Lisa",
@@ -432,7 +459,7 @@ class TestTherapistImporter:
         assert "created" in message.lower(), f"Should create new therapist, not update: {message}"
         
         # Verify two separate therapists exist
-        db = SessionLocal()
+        db = TestSessionLocal()
         try:
             therapists = db.query(Therapist).filter(
                 Therapist.vorname == f"Anna{unique_suffix}",
@@ -492,7 +519,7 @@ class TestTherapistImporter:
         assert "created" in message.lower(), f"Should create new: {message}"
         
         # Verify two therapists exist
-        db = SessionLocal()
+        db = TestSessionLocal()
         try:
             therapists = db.query(Therapist).filter(
                 Therapist.vorname == f"Claudia{unique_suffix}",
@@ -544,7 +571,7 @@ class TestTherapistImporter:
         assert "created" in message.lower(), f"Should create new: {message}"
         
         # Verify two therapists exist
-        db = SessionLocal()
+        db = TestSessionLocal()
         try:
             therapists = db.query(Therapist).filter(
                 Therapist.vorname == f"Nina{unique_suffix}",
@@ -591,7 +618,7 @@ class TestTherapistImporter:
         assert success, f"Import failed: {message}"
         
         # Verify operational fields are preserved
-        db = SessionLocal()
+        db = TestSessionLocal()
         try:
             therapist = db.query(Therapist).filter(Therapist.id == existing.id).first()
             
@@ -631,7 +658,7 @@ class TestTherapistImporter:
         assert success, f"Import failed: {message}"
         
         # Verify email is preserved
-        db = SessionLocal()
+        db = TestSessionLocal()
         try:
             therapist = db.query(Therapist).filter(Therapist.id == existing.id).first()
             assert therapist.email == "sandra.richter@example.com", "Email should be preserved"
@@ -670,7 +697,7 @@ class TestTherapistImporter:
         assert success, f"Import failed: {message}"
         
         # Verify updates
-        db = SessionLocal()
+        db = TestSessionLocal()
         try:
             therapist = db.query(Therapist).filter(Therapist.id == existing.id).first()
             assert therapist.telefon == "+49 241 222222", "Phone should be updated"
@@ -741,7 +768,7 @@ class TestTherapistImporter:
             assert success, f"Import failed: {message}"
             
             # Verify mapping
-            db = SessionLocal()
+            db = TestSessionLocal()
             try:
                 therapist = db.query(Therapist).filter(
                     Therapist.vorname.like(f"%Method_Test_{expected_value}%")
