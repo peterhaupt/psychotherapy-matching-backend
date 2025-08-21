@@ -54,6 +54,13 @@ def pytest_configure(config):
     os.environ['PGBOUNCER_HOST'] = 'localhost'
     print(f"🔧 Overridden DB_HOST and PGBOUNCER_HOST to 'localhost' for local testing")
 
+    # Also override internal ports to use external ports for local testing
+    # This ensures connections from host use the correct mapped ports
+    os.environ['PGBOUNCER_PORT'] = os.environ['PGBOUNCER_EXTERNAL_PORT']
+    os.environ['DB_PORT'] = os.environ['DB_EXTERNAL_PORT']
+    print(f"🔧 Overridden PGBOUNCER_PORT to {os.environ['PGBOUNCER_EXTERNAL_PORT']} for local testing")
+    print(f"🔧 Overridden DB_PORT to {os.environ['DB_EXTERNAL_PORT']} for local testing")
+
 
 def pytest_report_header(config):
     """Add environment info to pytest header."""

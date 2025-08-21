@@ -184,7 +184,7 @@ class TestTherapistImporter:
         import therapist_service.imports.therapist_importer as importer_module
         
         # Replace SessionLocal with TestSessionLocal
-        monkeypatch.setattr(importer_module, 'SessionLocal', TestSessionLocal)
+        monkeypatch.setattr(importer_module, 'SessionLocal', TestSessionLocal) 
     
     # ========== PRIMARY MATCH TESTS ==========
     
