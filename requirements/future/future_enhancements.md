@@ -821,7 +821,7 @@ Create customizable phone call templates for various patient interaction scenari
 No systematic way to document whether patients have paid for services, causing billing confusion and follow-up difficulties.
 
 ### Requirement
-Implement comprehensive payment tracking functionality integrated with patient records.
+Implement comprehensive payment tracking functionality integrated with patient records. Futhermore, implement that patients get an email after the payment is confirmed. So they now that the search is starting now for them.
 
 ### Payment Information to Track
 - **Payment Status:**
