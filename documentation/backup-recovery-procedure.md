@@ -86,6 +86,8 @@ make deploy-test
 
 #### Perform Database Restore
 ```bash
+cd ~/curavani_backend
+
 # get list of backups
 make list-backups
 
@@ -145,6 +147,6 @@ docker restart patient_service-prod
 
 ---
 
-**Document Version**: 1.0  
+**Document Version**: 1.1  
 **Last Review**: August 2025  
 **Next Review**: September 2025
