@@ -10,15 +10,25 @@ Sie haben sich erfolgreich für die Suche nach einem Psychotherapieplatz registr
 
 ### 2. Zahlung
 
-Bitte überweisen Sie den Betrag von **95,00 Euro** an folgendes Konto:
+{% if patient.offen_fuer_gruppentherapie -%}
+Sie haben sich für die Vermittlung eines **Gruppentherapieplatzes** entschieden.
+{%- else -%}
+Sie haben sich für die Vermittlung eines **Einzeltherapieplatzes** entschieden.
+{%- endif %}
+
+Bitte überweisen Sie den Betrag von **{{ price }}** an folgendes Konto:
 
 **Kontoinhaber:** Curavani GmbH  
 **IBAN:** DE16 3905 0000 1077 6583 65  
 **BIC:** AACSDE33  
 **Verwendungszweck:** {{ patient.zahlungsreferenz }}  
-**Betrag:** 95,00 EUR
+**Betrag:** {{ price }}
 
 Nach Zahlungseingang werden wir innerhalb von 24 Stunden mit der Suche nach einem passenden Therapieplatz beginnen.
+
+{% if patient.offen_fuer_gruppentherapie %}
+**Hinweis:** Falls Sie später doch einen Einzeltherapieplatz wünschen, ist ein Upgrade für zusätzlich {{ upgrade_price }} möglich.
+{% endif %}
 
 ### 3. Notfall und akute Hilfe
 

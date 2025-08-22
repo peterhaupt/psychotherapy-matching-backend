@@ -250,6 +250,32 @@ class PatientImporter:
                 logger.warning(f"No email address for patient {patient_id}, skipping confirmation email")
                 return
             
+            # Fetch current prices from web
+            try:
+                response = requests.get('https://www.curavani.com/prices.json', timeout=10)
+                response.raise_for_status()
+                prices = response.json()
+                
+                # Determine price based on therapy type
+                offen_fuer_gruppentherapie = patient_data.get('offen_fuer_gruppentherapie', False)
+                if offen_fuer_gruppentherapie:
+                    price = prices['gruppentherapie']
+                    service_type = 'Gruppentherapie'
+                else:
+                    price = prices['einzeltherapie']
+                    service_type = 'Einzeltherapie'
+                
+                # Format price in German format (e.g., "95,00 Euro")
+                formatted_price = f"{price:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.') + " Euro"
+                
+                # Calculate upgrade price difference
+                upgrade_diff = prices['einzeltherapie'] - prices['gruppentherapie']
+                formatted_upgrade_price = f"{upgrade_diff:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.') + " Euro"
+                
+            except Exception as e:
+                logger.error(f"Failed to fetch prices from web: {str(e)}")
+                raise  # Fail the import to retry later
+            
             # Set up Jinja2 environment pointing to shared templates
             # In Docker container, shared is mounted at /app/shared
             if os.path.exists('/app/shared'):
@@ -271,9 +297,13 @@ class PatientImporter:
             
             env = Environment(loader=FileSystemLoader(template_dir))
             
-            # Prepare template context with patient data
+            # Prepare template context with patient data AND price info
             context = {
-                'patient': patient_data
+                'patient': patient_data,
+                'price': formatted_price,
+                'price_number': price,
+                'service_type': service_type,
+                'upgrade_price': formatted_upgrade_price
             }
             
             # Render template
@@ -322,7 +352,10 @@ class PatientImporter:
                 
         except Exception as e:
             logger.error(f"Error sending confirmation email for patient {patient_id}: {str(e)}")
-            # Don't fail the import if email fails
+            # Re-raise to fail the import if it's a price fetching error
+            if "Failed to fetch prices" in str(e):
+                raise
+            # Don't fail the import for other email errors
             self.send_error_notification(
                 "Exception sending patient confirmation email",
                 f"Patient ID: {patient_id}\nException: {str(e)}"
