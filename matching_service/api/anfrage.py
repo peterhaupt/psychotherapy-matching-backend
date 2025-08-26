@@ -1,6 +1,8 @@
 """Anfrage system API endpoints - FULLY IMPLEMENTED."""
 import logging
+import os
 from datetime import datetime
+from jinja2 import Environment, FileSystemLoader
 
 from flask import request, jsonify
 from flask_restful import Resource, reqparse
@@ -92,6 +94,209 @@ def validate_patient_data_for_platzsuche(patient_data: dict) -> tuple:
     return True, None
 
 
+def send_patient_success_email(db, search: Platzsuche) -> tuple:
+    """Send success email to patient with therapist details.
+    
+    Args:
+        db: Database session
+        search: The Platzsuche object with vermittelter_therapeut_id set
+        
+    Returns:
+        Tuple of (success: bool, email_id: Optional[int], error_message: Optional[str])
+    """
+    try:
+        # Get patient data
+        patient = PatientService.get_patient(search.patient_id)
+        if not patient:
+            logger.error(f"Cannot send success email - patient {search.patient_id} not found")
+            return False, None, "Patient not found"
+        
+        if not patient.get('email'):
+            logger.warning(f"Cannot send success email - patient {search.patient_id} has no email")
+            return False, None, "Patient has no email address"
+        
+        # Get therapist data
+        therapist = TherapistService.get_therapist(search.vermittelter_therapeut_id)
+        if not therapist:
+            logger.error(f"Cannot send success email - therapist {search.vermittelter_therapeut_id} not found")
+            return False, None, "Therapist not found"
+        
+        # Prepare template context
+        context = {
+            'patient': patient,
+            'therapist': therapist,
+            'is_group_therapy': therapist.get('bevorzugt_gruppentherapie', False),
+            'has_email': bool(therapist.get('email')),
+            'has_phone': bool(therapist.get('telefon'))
+        }
+        
+        # Format availability for email template
+        if patient.get('zeitliche_verfuegbarkeit'):
+            context['availability_formatted'] = format_availability_for_email(
+                patient['zeitliche_verfuegbarkeit']
+            )
+        
+        # Format phone availability if therapist has it
+        if therapist.get('telefonische_erreichbarkeit'):
+            context['phone_availability_formatted'] = format_phone_availability(
+                therapist['telefonische_erreichbarkeit']
+            )
+        
+        # Add email footer configuration
+        context['footer'] = {
+            'sender_name': config.COMPANY_NAME,
+            'sender_name_dative': 'Herrn Haupt',  # Can be made configurable
+            'contact_email': config.EMAIL_SENDER,
+            'phone': 'Telefon: +49 151 46359691',  # Can be made configurable
+            'email': f'E-Mail: {config.EMAIL_SENDER}',
+            'address': f'{config.COMPANY_STREET}\\n{config.COMPANY_PLZ} {config.COMPANY_CITY}\\n{config.COMPANY_COUNTRY}',
+            'company_info': f'Geschäftsführer: {config.COMPANY_CEO}\\nHandelsregister: {config.COMPANY_HRB}'
+        }
+        
+        # Set up Jinja2 environment
+        if os.path.exists('/app/shared'):
+            shared_path = '/app/shared'
+        else:
+            shared_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'shared')
+        
+        template_dir = os.path.join(shared_path, 'templates', 'emails')
+        
+        if not os.path.exists(template_dir):
+            logger.error(f"Template directory not found: {template_dir}")
+            return False, None, "Template directory not found"
+        
+        env = Environment(loader=FileSystemLoader(template_dir))
+        
+        # Check if template exists, if not use a default message
+        template_name = 'patient_success.md'
+        if not os.path.exists(os.path.join(template_dir, template_name)):
+            logger.warning(f"Template {template_name} not found, using default message")
+            # Create a simple default message
+            email_markdown = create_default_patient_success_message(context)
+        else:
+            # Render template
+            template = env.get_template(template_name)
+            email_markdown = template.render(context)
+        
+        # Send email via communication service
+        subject = "Therapieplatz gefunden!"
+        
+        import requests
+        comm_url = config.get_service_url('communication', internal=True)
+        email_data = {
+            'patient_id': patient['id'],
+            'betreff': subject,
+            'inhalt_markdown': email_markdown,
+            'empfaenger_email': patient.get('email'),
+            'empfaenger_name': f"{patient.get('vorname', '')} {patient.get('nachname', '')}".strip(),
+            'add_legal_footer': True,
+            'status': 'In_Warteschlange'  # Queue for sending
+        }
+        
+        response = requests.post(f"{comm_url}/api/emails", json=email_data, timeout=10)
+        
+        if response.status_code in [200, 201]:
+            email_result = response.json()
+            email_id = email_result.get('id')
+            logger.info(f"Created and queued success email {email_id} for patient {patient['id']}")
+            
+            # Update patient status to "in_Therapie"
+            patient_update_url = f"{config.get_service_url('patient', internal=True)}/api/patients/{patient['id']}"
+            patient_update_data = {'status': 'in_Therapie'}
+            
+            update_response = requests.put(patient_update_url, json=patient_update_data, timeout=5)
+            
+            if update_response.status_code == 200:
+                logger.info(f"Successfully updated patient {patient['id']} status to in_Therapie")
+            else:
+                logger.error(f"Failed to update patient status: {update_response.status_code}")
+                # Don't fail the whole operation if status update fails
+            
+            return True, email_id, None
+        else:
+            logger.error(f"Failed to create success email: {response.status_code} - {response.text}")
+            return False, None, f"Email service error: {response.status_code}"
+            
+    except Exception as e:
+        logger.error(f"Error sending patient success email: {str(e)}", exc_info=True)
+        return False, None, str(e)
+
+
+def format_availability_for_email(availability: dict) -> str:
+    """Format patient's time availability for email template."""
+    if not availability or not isinstance(availability, dict):
+        return "Meine Verfügbarkeit bespreche ich gerne persönlich mit Ihnen."
+    
+    weekday_mapping = {
+        'monday': 'Montag', 'montag': 'Montag',
+        'tuesday': 'Dienstag', 'dienstag': 'Dienstag',
+        'wednesday': 'Mittwoch', 'mittwoch': 'Mittwoch',
+        'thursday': 'Donnerstag', 'donnerstag': 'Donnerstag',
+        'friday': 'Freitag', 'freitag': 'Freitag',
+        'saturday': 'Samstag', 'samstag': 'Samstag',
+        'sunday': 'Sonntag', 'sonntag': 'Sonntag'
+    }
+    
+    formatted_days = []
+    for day, times in availability.items():
+        if times and isinstance(times, list):
+            german_day = weekday_mapping.get(day.lower(), day)
+            time_str = ', '.join(str(t) for t in times)
+            formatted_days.append(f"- {german_day}: {time_str}")
+    
+    return '\n'.join(formatted_days) if formatted_days else "Meine Verfügbarkeit bespreche ich gerne persönlich mit Ihnen."
+
+
+def format_phone_availability(phone_availability: dict) -> str:
+    """Format therapist's phone availability for display."""
+    if not phone_availability or not isinstance(phone_availability, dict):
+        return "Telefonische Erreichbarkeit nicht angegeben. Bitte versuchen Sie es zu üblichen Geschäftszeiten."
+    
+    formatted = []
+    day_order = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
+    
+    for day in day_order:
+        if day in phone_availability:
+            times = phone_availability[day]
+            if times and isinstance(times, list):
+                time_str = ', '.join(str(t) for t in times)
+                formatted.append(f"- {day}: {time_str}")
+    
+    return '\n'.join(formatted) if formatted else "Telefonische Erreichbarkeit nicht angegeben."
+
+
+def create_default_patient_success_message(context: dict) -> str:
+    """Create a default success message if template is not found."""
+    patient = context['patient']
+    therapist = context['therapist']
+    
+    message = f"""
+Sehr geehrte{'r Herr' if patient.get('geschlecht') == 'männlich' else ' Frau'} {patient.get('nachname', '')},
+
+ich habe einen Therapieplatz für Sie gefunden bei:
+
+**{therapist.get('titel', '')} {therapist.get('vorname', '')} {therapist.get('nachname', '')}**
+{therapist.get('strasse', '')}
+{therapist.get('plz', '')} {therapist.get('ort', '')}
+
+"""
+    
+    if therapist.get('telefon'):
+        message += f"Telefon: {therapist['telefon']}\n"
+    
+    if therapist.get('email'):
+        message += f"E-Mail: {therapist['email']}\n"
+    
+    message += """
+Bitte nehmen Sie Kontakt mit dem Therapeuten auf, um einen Termin für ein Erstgespräch zu vereinbaren.
+
+Mit freundlichen Grüßen
+Ihr Curavani Team
+"""
+    
+    return message
+
+
 class PlatzsucheResource(Resource):
     """REST resource for individual patient search operations."""
 
@@ -135,6 +340,7 @@ class PlatzsucheResource(Resource):
                     "updated_at": search.updated_at.isoformat() if search.updated_at else None,
                     "ausgeschlossene_therapeuten": search.ausgeschlossene_therapeuten,
                     "erfolgreiche_vermittlung_datum": search.erfolgreiche_vermittlung_datum.isoformat() if search.erfolgreiche_vermittlung_datum else None,
+                    "vermittelter_therapeut_id": search.vermittelter_therapeut_id,  # NEW field
                     "notizen": search.notizen,
                     "aktive_anfragen": search.get_active_anfrage_count(),
                     "gesamt_anfragen": search.get_total_anfrage_count(),
@@ -151,6 +357,7 @@ class PlatzsucheResource(Resource):
         parser.add_argument('status', type=str)
         parser.add_argument('notizen', type=str)
         parser.add_argument('ausgeschlossene_therapeuten', type=list, location='json')
+        parser.add_argument('vermittelter_therapeut_id', type=int)  # NEW field
         args = parser.parse_args()
         
         try:
@@ -162,13 +369,34 @@ class PlatzsucheResource(Resource):
                 
                 old_status = search.status
                 
+                # Handle vermittelter_therapeut_id update
+                if args.get('vermittelter_therapeut_id') is not None:
+                    try:
+                        search.set_vermittelter_therapeut(args['vermittelter_therapeut_id'])
+                    except ValueError as e:
+                        return {"message": str(e)}, 400
+                
                 # Update fields
                 if args.get('status'):
                     try:
                         new_status = SuchStatus[args['status']]
+                        
+                        # Check if we need vermittelter_therapeut_id for erfolgreich
+                        if new_status == SuchStatus.erfolgreich and not search.vermittelter_therapeut_id:
+                            return {"message": "Cannot mark as erfolgreich without vermittelter_therapeut_id"}, 400
+                        
                         search.status = new_status
                         
-                        # REMOVED: Kafka event publishing for status change
+                        # Send patient success email when marked successful
+                        if old_status != SuchStatus.erfolgreich and new_status == SuchStatus.erfolgreich and search.vermittelter_therapeut_id:
+                            success, email_id, error_msg = send_patient_success_email(db, search)
+                            if success:
+                                logger.info(f"Sent patient success email {email_id} for search {search_id}")
+                                search.add_note(f"Success email sent to patient (Email ID: {email_id})", author="System")
+                            else:
+                                logger.error(f"Failed to send patient success email: {error_msg}")
+                                # Don't fail the status update, but log it
+                                search.add_note(f"Failed to send success email: {error_msg}", author="System")
                         
                     except KeyError:
                         valid_values = [status.value for status in SuchStatus]
@@ -283,7 +511,8 @@ class PlatzsucheListResource(PaginatedListResource):
                         "aktive_anfragen": s.get_active_anfrage_count(),
                         "gesamt_anfragen": s.get_total_anfrage_count(),
                         "ausgeschlossene_therapeuten_anzahl": len(s.ausgeschlossene_therapeuten) if s.ausgeschlossene_therapeuten else 0,
-                        "offen_fuer_gruppentherapie": patients.get(s.patient_id, {}).get('offen_fuer_gruppentherapie', False)
+                        "offen_fuer_gruppentherapie": patients.get(s.patient_id, {}).get('offen_fuer_gruppentherapie', False),
+                        "vermittelter_therapeut_id": s.vermittelter_therapeut_id  # NEW field
                     } for s in searches],
                     "page": page,
                     "limit": limit,
@@ -827,11 +1056,17 @@ class AnfrageResponseResource(Resource):
                             "platzsuche_id": ap.platzsuche_id
                         })
                         
-                        # Mark search as successful if patient accepted
+                        # Mark search with the therapist and status (NEW)
                         search = db.query(Platzsuche).filter_by(id=ap.platzsuche_id).first()
                         if search and search.status == SuchStatus.aktiv:
-                            search.mark_successful()
-                            # REMOVED: Kafka event publishing for search status change
+                            # Set the vermittelter_therapeut_id
+                            search.set_vermittelter_therapeut(anfrage.therapist_id)
+                            search.add_note(
+                                f"Patient accepted by therapist {anfrage.therapist_id} via anfrage {anfrage.id}",
+                                author="System"
+                            )
+                            # Note: Not marking as successful yet - that's manual
+                            logger.info(f"Set vermittelter_therapeut_id for platzsuche {search.id} to {anfrage.therapist_id}")
                 
                 db.commit()
                 

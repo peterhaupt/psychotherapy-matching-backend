@@ -74,6 +74,13 @@ class Platzsuche(Base):
     # Success tracking (German field name)
     erfolgreiche_vermittlung_datum = Column(DateTime)
     
+    # NEW: Track the therapist who accepted the patient
+    vermittelter_therapeut_id = Column(
+        Integer,
+        nullable=True,
+        index=True
+    )  # References therapist_service.therapeuten.id
+    
     # Notes (German field name)
     notizen = Column(Text)
     
@@ -91,7 +98,8 @@ class Platzsuche(Base):
     
     def __repr__(self):
         """String representation."""
-        return f"<Platzsuche patient_id={self.patient_id} status={self.status}>"
+        therapeut_info = f" therapeut={self.vermittelter_therapeut_id}" if self.vermittelter_therapeut_id else ""
+        return f"<Platzsuche patient_id={self.patient_id} status={self.status}{therapeut_info}>"
     
     # Business Logic Methods
     
@@ -154,15 +162,60 @@ class Platzsuche(Base):
         self.gesamt_angeforderte_kontakte += additional_contacts
         self.updated_at = datetime.utcnow()
     
-    def mark_successful(self, vermittlung_datum: Optional[datetime] = None) -> None:
+    def mark_successful(self, vermittlung_datum: Optional[datetime] = None, 
+                       therapist_id: Optional[int] = None) -> None:
         """Mark the search as successful.
         
         Args:
             vermittlung_datum: Date of successful placement (defaults to now)
+            therapist_id: ID of the therapist who accepted the patient
+        
+        Raises:
+            ValueError: If therapist_id is not provided when vermittelter_therapeut_id is not set
         """
+        # Check if therapist_id needs to be set
+        if not self.vermittelter_therapeut_id and not therapist_id:
+            raise ValueError("Cannot mark as successful without therapist_id")
+        
+        # Set therapist if provided
+        if therapist_id:
+            self.set_vermittelter_therapeut(therapist_id)
+        
         self.status = SuchStatus.erfolgreich
         self.erfolgreiche_vermittlung_datum = vermittlung_datum or datetime.utcnow()
         self.updated_at = datetime.utcnow()
+    
+    def set_vermittelter_therapeut(self, therapist_id: int) -> None:
+        """Set the therapist who will treat the patient.
+        
+        Args:
+            therapist_id: ID of the therapist
+            
+        Raises:
+            ValueError: If trying to change therapist when status is already erfolgreich
+        """
+        if self.status == SuchStatus.erfolgreich and self.vermittelter_therapeut_id and \
+           self.vermittelter_therapeut_id != therapist_id:
+            raise ValueError("Cannot change vermittelter_therapeut_id after successful placement")
+        
+        self.vermittelter_therapeut_id = therapist_id
+        self.updated_at = datetime.utcnow()
+    
+    def can_change_therapeut(self) -> bool:
+        """Check if the therapist can be changed.
+        
+        Returns:
+            True if therapist can be changed, False if status is already erfolgreich
+        """
+        return self.status != SuchStatus.erfolgreich or self.vermittelter_therapeut_id is None
+    
+    def get_vermittelter_therapeut_id(self) -> Optional[int]:
+        """Get the ID of the assigned therapist.
+        
+        Returns:
+            Therapist ID or None if not assigned
+        """
+        return self.vermittelter_therapeut_id
     
     def pause_search(self, reason: Optional[str] = None) -> None:
         """Pause the search.
@@ -247,8 +300,44 @@ class Platzsuche(Base):
                 raise ValueError(
                     f"Invalid status transition from {current} to {new_status}"
                 )
+            
+            # Additional validation: require therapist when marking as successful
+            if new_status == SuchStatus.erfolgreich and not self.vermittelter_therapeut_id:
+                raise ValueError(
+                    "Cannot mark as erfolgreich without vermittelter_therapeut_id"
+                )
         
         return new_status
+    
+    @validates('vermittelter_therapeut_id')
+    def validate_therapist_change(self, key, new_therapist_id):
+        """Validate changes to vermittelter_therapeut_id.
+        
+        Args:
+            key: The attribute key ('vermittelter_therapeut_id')
+            new_therapist_id: The new therapist ID
+            
+        Returns:
+            The new therapist ID if valid
+            
+        Raises:
+            ValueError: If trying to change after successful placement
+        """
+        # Allow setting if not yet set
+        if not hasattr(self, 'vermittelter_therapeut_id') or self.vermittelter_therapeut_id is None:
+            return new_therapist_id
+        
+        # Allow if status is not erfolgreich
+        if hasattr(self, 'status') and self.status != SuchStatus.erfolgreich:
+            return new_therapist_id
+        
+        # If status is erfolgreich and trying to change to a different value
+        if self.vermittelter_therapeut_id != new_therapist_id:
+            raise ValueError(
+                "Cannot change vermittelter_therapeut_id after successful placement"
+            )
+        
+        return new_therapist_id
     
     def add_note(self, note: str, author: Optional[str] = None) -> None:
         """Add a timestamped note to the search.
