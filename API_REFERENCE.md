@@ -2,7 +2,7 @@
 
 **Single Source of Truth for All API Integration**
 
-Last Updated: August 2025
+Last Updated: January 2025 - Updated with Step 3 Implementation
 
 ## Overview
 
@@ -89,6 +89,13 @@ The following fields are managed automatically by the backend and **cannot be se
   - An email is sent to the patient (status = "Gesendet")
   - The patient responds to an email (antwort_erhalten = true)
   - A phone call with the patient is completed (status = "abgeschlossen")
+
+### Matching Service (STEP 3 - NEW)
+- **Automatic behaviors when platzsuche status changes to "erfolgreich"**:
+  - Must have `vermittelter_therapeut_id` set (validation enforced)
+  - Automatically sends success email to patient with therapist contact details
+  - Automatically updates patient status to "in_Therapie" if email sends successfully
+  - If patient has no email, status still changes but no email is sent
 
 **Note:** Any attempt to set these fields via POST or PUT requests will be silently ignored.
 
@@ -855,6 +862,34 @@ All German enums follow proper grammar rules with noun capitalization:
 
 ---
 
+# Key Changes in Step 3 (January 28, 2025)
+
+## 🆕 Platzsuche Model Updates
+
+### New Field:
+- **`vermittelter_therapeut_id`** (Integer, nullable) - Tracks the therapist assigned to the patient
+  - Set automatically when therapist accepts patient via anfrage response
+  - Can be set manually via PUT `/api/platzsuchen/{id}`
+  - Required before marking platzsuche as "erfolgreich"
+
+### Validation Rules:
+- **Cannot mark as "erfolgreich" without `vermittelter_therapeut_id`**
+  - Returns 400 error: "Cannot mark as erfolgreich without vermittelter_therapeut_id"
+- **Cannot change `vermittelter_therapeut_id` after status is "erfolgreich"**
+  - Returns 400 error: "Cannot change vermittelter_therapeut_id after successful placement"
+
+### Automatic Behaviors:
+When platzsuche status changes to "erfolgreich" (with `vermittelter_therapeut_id` set):
+1. **Success email sent to patient** containing:
+   - Therapist contact details (name, address, phone, email)
+   - Instructions for contacting the therapist
+   - Pre-written email template for patient to use
+   - Important reminders (insurance card, etc.)
+2. **Patient status automatically updated to "in_Therapie"** (if email sends successfully)
+3. **System note added** documenting the successful placement
+
+---
+
 # Implementation Notes
 
 - All date fields use simple format: "YYYY-MM-DD"
@@ -1344,18 +1379,6 @@ curl -X DELETE "http://localhost:8001/api/patients/1"
 }
 ```
 
-**Example Request:**
-```bash
-curl -X DELETE "http://localhost:8001/api/patients/1"
-```
-
-**Example Response:**
-```json
-{
-  "message": "Patient deleted successfully"
-}
-```
-
 ---
 
 # Therapist Service API
@@ -1709,7 +1732,7 @@ curl -X DELETE "http://localhost:8002/api/therapists/1"
 curl "http://localhost:8003/api/platzsuchen?status=aktiv"
 ```
 
-**Example Response:**
+**Example Response (STEP 3 - UPDATED):**
 ```json
 {
   "data": [
@@ -1723,7 +1746,21 @@ curl "http://localhost:8003/api/platzsuchen?status=aktiv"
       "aktive_anfragen": 3,
       "gesamt_anfragen": 8,
       "ausgeschlossene_therapeuten_anzahl": 2,
-      "offen_fuer_gruppentherapie": false
+      "offen_fuer_gruppentherapie": false,
+      "vermittelter_therapeut_id": null
+    },
+    {
+      "id": 2,
+      "patient_id": 124,
+      "patienten_name": "Max Schmidt",
+      "status": "erfolgreich",
+      "created_at": "2025-06-01",
+      "updated_at": "2025-06-20",
+      "aktive_anfragen": 0,
+      "gesamt_anfragen": 5,
+      "ausgeschlossene_therapeuten_anzahl": 1,
+      "offen_fuer_gruppentherapie": false,
+      "vermittelter_therapeut_id": 234
     }
   ],
   "page": 1,
@@ -1741,7 +1778,7 @@ curl "http://localhost:8003/api/platzsuchen?status=aktiv"
 curl "http://localhost:8003/api/platzsuchen/1"
 ```
 
-**Example Response:**
+**Example Response (STEP 3 - UPDATED):**
 ```json
 {
   "id": 1,
@@ -1757,6 +1794,7 @@ curl "http://localhost:8003/api/platzsuchen/1"
   "updated_at": "2025-06-08",
   "ausgeschlossene_therapeuten": [45, 67],
   "erfolgreiche_vermittlung_datum": null,
+  "vermittelter_therapeut_id": null,
   "notizen": "Patient urgently needs therapy",
   "aktive_anfragen": 3,
   "gesamt_anfragen": 8,
@@ -1841,6 +1879,7 @@ curl -X POST "http://localhost:8003/api/platzsuchen" \
 - `status` (string) - New status ("aktiv", "pausiert", "erfolgreich", "abgebrochen")
 - `notizen` (string) - Notes to add or update
 - `ausgeschlossene_therapeuten` (array of integers) - List of excluded therapist IDs
+- `vermittelter_therapeut_id` (integer) - ID of therapist assigned to patient **(STEP 3 NEW)**
 
 **Status Transition Rules:**
 - `aktiv` → `pausiert`, `erfolgreich`, `abgebrochen`
@@ -1848,19 +1887,51 @@ curl -X POST "http://localhost:8003/api/platzsuchen" \
 - `erfolgreich` → (no transitions allowed - terminal state)
 - `abgebrochen` → (no transitions allowed - terminal state)
 
-**Example Request:**
+**Special Validation (STEP 3):**
+- Cannot set status to "erfolgreich" without `vermittelter_therapeut_id`
+- Cannot change `vermittelter_therapeut_id` once status is "erfolgreich"
+
+**Automatic Actions (STEP 3):**
+When status changes to "erfolgreich" (with `vermittelter_therapeut_id` set):
+- Success email automatically sent to patient with therapist contact details
+- Patient status automatically updated to "in_Therapie" if email sends successfully
+
+**Example Request - Set Therapist:**
 ```bash
 curl -X PUT "http://localhost:8003/api/platzsuchen/1" \
   -H "Content-Type: application/json" \
   -d '{
-    "status": "pausiert",
-    "notizen": "Patient temporarily unavailable"
+    "vermittelter_therapeut_id": 234,
+    "notizen": "Therapist accepted patient"
   }'
+```
+
+**Example Request - Mark Successful (triggers email):**
+```bash
+curl -X PUT "http://localhost:8003/api/platzsuchen/1" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status": "erfolgreich"
+  }'
+```
+
+**Validation Error Response (no therapist set):**
+```json
+{
+  "message": "Cannot mark as erfolgreich without vermittelter_therapeut_id"
+}
+```
+
+**Validation Error Response (trying to change therapist after success):**
+```json
+{
+  "message": "Cannot change vermittelter_therapeut_id after successful placement"
+}
 ```
 
 ## POST /platzsuchen/{id}/kontaktanfrage
 
-**Description:** Request additional contacts for a patient search. Updates the total requested contact count.
+**Description:** Request additional contacts for a patient search.
 
 **Request Body:**
 ```json
@@ -2082,6 +2153,11 @@ curl -X POST "http://localhost:8003/api/therapeutenanfragen/101/senden"
 ## PUT /therapeutenanfragen/{id}/antwort
 
 **Description:** Record therapist response.
+
+**STEP 3 Behavior:**
+When a therapist accepts a patient (outcome = "angenommen"):
+- The platzsuche's `vermittelter_therapeut_id` is automatically set to the therapist ID
+- A system note is added to the platzsuche documenting the acceptance
 
 **Example Request:**
 ```bash
