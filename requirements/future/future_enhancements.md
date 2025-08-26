@@ -1,8 +1,8 @@
 # Future Enhancements - Priority Items
 
-**Document Version:** 5.0  
+**Document Version:** 5.1  
 **Date:** August 2025  
-**Status:** Requirements Gathering (Updated)
+**Status:** Requirements Gathering (Updated - 3 items completed)
 
 ---
 
@@ -10,62 +10,58 @@
 
 | Priority | Enhancement | Complexity | Impact |
 |----------|-------------|------------|--------|
-| **CRITICAL** | Backup and Restore Testing & Monitoring (#27) | Medium-High | Critical |
+| **CRITICAL** | Backup and Restore Testing & Monitoring (#24) | Medium-High | Critical |
 | **CRITICAL** | Handle Duplicate Patient Registrations (#12) | Medium-High | Critical |
 | **CRITICAL** | PostgreSQL Database Stability (#4) | High | Critical |
-| **CRITICAL** | Protection from Injection Attacks (#24) | High | Critical |
-| **CRITICAL** | Patient Excluded Therapists Removal Bug (#28) | Medium | Critical |
-| **High** | Cancel Scheduled Phone Calls on Rejection (#30) | Medium | High |
-| **High** | Handle "Null" Last Name in Imports (#26) | Medium | High |
+| **CRITICAL** | Protection from Injection Attacks (#21) | High | Critical |
+| **CRITICAL** | Patient Excluded Therapists Removal Bug (#25) | Medium | Critical |
+| **High** | Cancel Scheduled Phone Calls on Rejection (#27) | Medium | High |
+| **High** | Handle "Null" Last Name in Imports (#23) | Medium | High |
 | **High** | Comprehensive Email Automation System (#1) | High | Very High |
-| **High** | Fix ICD10 Diagnostic Matching Logic (#19) | Medium-High | High |
+| **High** | Fix ICD10 Diagnostic Matching Logic (#18) | Medium-High | High |
 | **High** | Fix Therapeutenanfrage Frontend Exit Issue (#7) | Low | High |
 | **High** | Automatic Removal of Successful Platzsuchen (#5) | Medium | High |
-| **High** | Track Successful Match Details (#6) | Low-Medium | High |
-| **High** | Patient Payment Tracking System (#17) | Medium-High | High |
-| **High** | Temporarily Pause Vermittlung/Platzsuche (#21) | Medium | High |
-| **High** | Validate Last Psychotherapy Date (#22) | Low-Medium | High |
-| **High** | Production Container Log Management (#25) | Medium | High |
-| **High** | Automatic Patient Status Update (#29) | Low-Medium | High |
-| **High** | Replace SendGrid with European Provider (#31) | Medium-High | High |
-| **High** | Email Template for Found Therapy Spot (#32) | Medium | High |
-| **Medium** | Enhanced Support for Multi-Location Practices (#14) | High | Medium |
-| **Medium** | Grammar Correction for Singular Patient (#15) | Low | Medium |
-| **Medium** | Phone Call Templates (#16) | Medium | Medium |
+| **High** | Patient Payment Tracking System (#16) | Medium-High | High |
+| **High** | Temporarily Pause Vermittlung/Platzsuche (#19) | Medium | High |
+| **High** | Validate Last Psychotherapy Date (#20) | Low-Medium | High |
+| **High** | Production Container Log Management (#22) | Medium | High |
+| **High** | Replace SendGrid with European Provider (#28) | Medium-High | High |
+| **Medium** | Enhanced Support for Multi-Location Practices (#13) | High | Medium |
+| **Medium** | Grammar Correction for Singular Patient (#14) | Low | Medium |
+| **Medium** | Phone Call Templates (#15) | Medium | Medium |
 | **Medium** | Track Incoming Emails (#9) | High | Medium |
 | **Medium** | Add Pagination for Therapist Selection (#10) | Medium | Medium |
 | **Medium** | GCS Deletion Logic (#2) | Medium | Medium |
 | **Medium** | Therapist Import Reporting Fix (#3) | Low-Medium | Medium |
-| **Medium** | Replace Google Cloud Storage (#23) | High | Medium |
-| **Medium** | Proton Drive Backup Alternative (#33) | Low-Medium | Medium |
+| **Medium** | Replace Google Cloud Storage (#21) | High | Medium |
+| **Medium** | Proton Drive Backup Alternative (#29) | Low-Medium | Medium |
 | **Medium** | Fix Area Code Formatting (#8) | Medium | Medium |
 | **Medium** | Matching Service Cleanup (#11) | High | Medium |
-| **Medium** | Phone Call Templates (#18) | Medium | Medium |
+| **Medium** | Phone Call Templates (#17) | Medium | Medium |
 
 ---
 
 ## Next Steps
 
-1. **IMMEDIATE - Data Protection:** Implement backup testing and monitoring (#27) to ensure data recoverability
-2. **CRITICAL - Bug Fix:** Fix excluded therapists removal bug (#28) affecting patient data integrity
-3. **URGENT - Communication:** Implement email template for therapy spot notifications (#32)
-4. **URGENT - Import Fix:** Handle "Null" last name issue (#26) affecting therapist imports and scraper
-5. **URGENT - Security:** Implement injection attack protection (#24) across all forms
-6. **URGENT:** Fix non-functional automatic reminders and follow-up systems
-7. **URGENT:** Implement duplicate handling for patients (#12) to ensure data integrity
-8. **URGENT:** Fix ICD10 diagnostic matching logic (#19) - review Angela Fath-Volk case
-9. **Infrastructure:** Set up production log management (#25)
-10. **Quick Wins:** Implement frontend fixes (#7) and validation improvements (#22)
-11. **User Experience:** Implement pause functionality (#21)
-12. **Email System:** Design and implement comprehensive email automation (#1)
-13. **Payment System:** Design and implement patient payment tracking (#17)
-14. **Communication:** Implement phone call templates (#16) and cancellation logic (#30)
-15. **Data Quality:** Design and implement multi-location support (#14)
-16. **European Compliance:** Plan migration from Google Cloud Storage (#23) and SendGrid (#31) to European solutions
-17. **Backup Strategy:** Evaluate Proton Drive as iCloud alternative (#33)
-18. **Requirements Clarification:** Schedule discussion sessions for items #2-3 and #9
-19. **Implementation Planning:** Create detailed technical specifications for high-priority items
-20. **Audit Current Systems:** Review therapist import reporting logic
+1. **IMMEDIATE - Data Protection:** Implement backup testing and monitoring (#24) to ensure data recoverability
+2. **CRITICAL - Bug Fix:** Fix excluded therapists removal bug (#25) affecting patient data integrity
+3. **URGENT - Import Fix:** Handle "Null" last name issue (#23) affecting therapist imports and scraper
+4. **URGENT - Security:** Implement injection attack protection (#21) across all forms
+5. **URGENT:** Fix non-functional automatic reminders and follow-up systems
+6. **URGENT:** Implement duplicate handling for patients (#12) to ensure data integrity
+7. **URGENT:** Fix ICD10 diagnostic matching logic (#18) - review Angela Fath-Volk case
+8. **Infrastructure:** Set up production log management (#22)
+9. **Quick Wins:** Implement frontend fixes (#7) and validation improvements (#20)
+10. **User Experience:** Implement pause functionality (#19)
+11. **Email System:** Design and implement comprehensive email automation (#1)
+12. **Payment System:** Design and implement patient payment tracking (#16)
+13. **Communication:** Implement phone call templates (#15) and cancellation logic (#27)
+14. **Data Quality:** Design and implement multi-location support (#13)
+15. **European Compliance:** Plan migration from Google Cloud Storage (#21) and SendGrid (#28) to European solutions
+16. **Backup Strategy:** Evaluate Proton Drive as iCloud alternative (#29)
+17. **Requirements Clarification:** Schedule discussion sessions for items #2-3 and #9
+18. **Implementation Planning:** Create detailed technical specifications for high-priority items
+19. **Audit Current Systems:** Review therapist import reporting logic
 
 ---
 
@@ -333,41 +329,7 @@ Implement automatic cleanup: when a patient's platzsuche becomes "erfolgreich", 
 
 ---
 
-## 6. Track Successful Match Details in Platzsuche - **NEW**
-
-### Current Issue
-When viewing a successful (erfolgreich) platzsuche, there's no direct way to see which therapist accepted the patient or which therapeutenanfrage led to the successful match.
-
-### Requirement
-Enhance the platzsuche model to track successful match details for better visibility and reporting.
-
-### Implementation Details
-- **New Fields in Platzsuche:**
-  - `erfolgreicher_therapeut_id` - ID of the therapist who accepted the patient
-  - `erfolgreiche_anfrage_id` - ID of the therapeutenanfrage that led to success
-  - Additional metadata (acceptance date, trial session dates, etc.)
-
-- **Display Enhancements:**
-  - Show therapist name and contact info in successful platzsuche details
-  - Link to the successful therapeutenanfrage
-  - Show timeline of the successful match process
-
-### Technical Considerations
-- Database migration to add new fields
-- Update the acceptance workflow to populate these fields
-- Enhance API responses to include therapist details
-- Update frontend to display match information
-- Consider data privacy for therapist information
-
-### Benefits
-- Better tracking for reporting and analytics
-- Easier follow-up and communication
-- Clear audit trail of successful matches
-- Improved user experience for administrators
-
----
-
-## 7. Fix Therapeutenanfrage Frontend Exit Issue - **NEW**
+## 6. Fix Therapeutenanfrage Frontend Exit Issue - **NEW**
 
 ### Current Issue
 When a therapeutenanfrage is created but contains 0 patients, the frontend provides no proper way to exit or quit the process.
@@ -396,7 +358,7 @@ Implement proper navigation controls for empty therapeutenanfragen.
 
 ---
 
-## 8. Fix Area Code Formatting Issue - **NEW**
+## 7. Fix Area Code Formatting Issue - **NEW**
 
 ### Current Issue
 Frontend always formats area codes as 4 digits, but some German cities have 5-digit area codes (e.g., Berlin 030 vs. smaller cities with 5 digits), causing incorrect phone number display and potential calling issues.
@@ -464,7 +426,7 @@ Frontend always formats area codes as 4 digits, but some German cities have 5-di
 
 ---
 
-## 9. Track Incoming Emails - **NEW**
+## 8. Track Incoming Emails - **NEW**
 
 ### Requirement
 Implement comprehensive incoming email tracking system to monitor and integrate email communications with patient records.
@@ -504,7 +466,7 @@ Implement comprehensive incoming email tracking system to monitor and integrate 
 
 ---
 
-## 10. Add Pagination for Therapist Selection in Vermittlung - **NEW**
+## 9. Add Pagination for Therapist Selection in Vermittlung - **NEW**
 
 ### Requirement
 Implement pagination for therapist selection in the vermittlung process of therapeutenanfragen to improve performance and user experience.
@@ -540,7 +502,7 @@ Large therapist lists in the therapeutenanfrage form cause performance issues an
 
 ---
 
-## 11. Matching Service Cleanup - **NEW**
+## 10. Matching Service Cleanup - **NEW**
 
 ### Current Issue
 The matching service requires cleanup and optimization as described in the separate matching service document.
@@ -600,7 +562,7 @@ Implement comprehensive cleanup of the matching service to improve performance, 
 
 ---
 
-## 12. Handle Duplicate Patient Registrations During Import - **NEW**
+## 11. Handle Duplicate Patient Registrations During Import - **NEW**
 
 ### Current Issue
 Patients can register multiple times on the website, creating duplicate records in the system. This leads to data integrity issues, inefficient resource usage, and confusion in patient management.
@@ -649,7 +611,7 @@ Implement robust duplicate detection and handling mechanism for patient imports 
 
 ---
 
-## 13. Enhanced Support for Multi-Location Practices - **NEW**
+## 12. Enhanced Support for Multi-Location Practices - **NEW**
 
 ### Current Issue
 Practices with two or more locations are currently treated as independent duplicates in the system, causing confusion and inefficient management of therapist data.
@@ -707,7 +669,7 @@ Implement proper support for practices with multiple locations while maintaining
 
 ---
 
-## 14. Grammar Correction for Singular Patient in Therapeutenanfrage - **NEW**
+## 13. Grammar Correction for Singular Patient in Therapeutenanfrage - **NEW**
 
 ### Current Issue
 When a therapeutenanfrage contains only 1 patient, the system uses plural grammar forms, creating unprofessional communications.
@@ -754,7 +716,7 @@ Implement dynamic text adjustment to use singular forms when exactly one patient
 
 ---
 
-## 15. Phone Call Templates for Patient Communication - **NEW**
+## 14. Phone Call Templates for Patient Communication - **NEW**
 
 ### Current Issue
 Staff members lack standardized scripts for phone calls with patients, leading to inconsistent communication and missed important topics.
@@ -815,7 +777,7 @@ Create customizable phone call templates for various patient interaction scenari
 
 ---
 
-## 16. Patient Payment Tracking System - **NEW**
+## 15. Patient Payment Tracking System - **NEW**
 
 ### Current Issue
 No systematic way to document whether patients have paid for services, causing billing confusion and follow-up difficulties.
@@ -883,7 +845,7 @@ Implement comprehensive payment tracking functionality integrated with patient r
 
 ---
 
-## 17. Phone Call Templates - **NEW**
+## 16. Phone Call Templates - **NEW**
 
 ### Current Issue
 Staff members lack standardized scripts for phone calls with patients, leading to inconsistent communication and missed important topics.
@@ -944,7 +906,7 @@ Create customizable phone call templates for various patient interaction scenari
 
 ---
 
-## 18. Fix ICD10 Diagnostic Matching Logic - **HIGH PRIORITY NEW**
+## 17. Fix ICD10 Diagnostic Matching Logic - **HIGH PRIORITY NEW**
 
 ### Current Issue
 The logic for matching patient ICD10 diagnoses with therapist preferences needs to be reviewed and fixed. Specifically, single/parent diagnoses from patients are not properly matching with therapist group preferences (subcategories).
@@ -1016,7 +978,7 @@ Implement proper hierarchical matching logic for ICD10 codes where:
 
 ---
 
-## 19. Temporarily Pause Vermittlung/Platzsuche for Patient Holidays - **NEW**
+## 18. Temporarily Pause Vermittlung/Platzsuche for Patient Holidays - **NEW**
 
 ### Current Issue
 When patients go on holiday or are temporarily unavailable, there's no way to pause their vermittlung/platzsuche activities, leading to wasted efforts contacting therapists on their behalf.
@@ -1074,7 +1036,7 @@ Implement functionality to temporarily pause and resume platzsuche activities wi
 
 ---
 
-## 20. Validate Last Psychotherapy Date in Registration Process - **NEW**
+## 19. Validate Last Psychotherapy Date in Registration Process - **NEW**
 
 ### Current Issue
 Invalid or implausible dates for last psychotherapy are being entered during patient registration, causing data quality issues and affecting eligibility assessments.
@@ -1133,7 +1095,7 @@ Implement comprehensive validation for the "date of last psychotherapy" field du
 
 ---
 
-## 21. Replace Google Cloud Storage with European Solution - **NEW**
+## 20. Replace Google Cloud Storage with European Solution - **NEW**
 
 ### Current Issue
 Google Cloud Storage may not meet European data sovereignty requirements and could be unnecessarily complex for the application's needs.
@@ -1186,7 +1148,7 @@ Replace GCS with a simpler, GDPR-compliant European storage solution.
 
 ---
 
-## 22. Protection from Injection Attacks in Forms - **CRITICAL NEW**
+## 21. Protection from Injection Attacks in Forms - **CRITICAL NEW**
 
 ### Current Issue
 Forms throughout the application need protection against injection attacks (SQL injection, XSS, etc.) to ensure system security.
@@ -1258,7 +1220,7 @@ Forms throughout the application need protection against injection attacks (SQL 
 
 ---
 
-## 23. Production Container Log Management - **NEW**
+## 22. Production Container Log Management - **NEW**
 
 ### Current Issue
 Production logs need better management - currently showing too many INFO level logs and missing proper monitoring for WARNING level events.
@@ -1320,7 +1282,7 @@ Production logs need better management - currently showing too many INFO level l
 
 ---
 
-## 24. Handle "Null" Last Name in Therapist Imports and Scraper - **HIGH PRIORITY NEW**
+## 23. Handle "Null" Last Name in Therapist Imports and Scraper - **HIGH PRIORITY NEW**
 
 ### Current Issue
 Therapists with the literal last name "Null" (e.g., Anne-Kathrin Null) are causing import failures and scraper issues. The system is interpreting the string "Null" as a null value, leading to data processing errors.
@@ -1457,7 +1419,7 @@ Therapists with the literal last name "Null" (e.g., Anne-Kathrin Null) are causi
 
 ---
 
-## 25. Backup and Restore Testing & Monitoring - **CRITICAL NEW**
+## 24. Backup and Restore Testing & Monitoring - **CRITICAL NEW**
 
 ### Current Issue
 There is no regular verification that database backups are working correctly and can be successfully restored, creating a critical risk of data loss in case of system failure.
@@ -1626,7 +1588,7 @@ send_test_report $TEST_DB
 
 ---
 
-## 26. Patient Excluded Therapists Removal Bug - **CRITICAL NEW**
+## 25. Patient Excluded Therapists Removal Bug - **CRITICAL NEW**
 
 ### Current Issue
 In some patients, the excluded therapists list is being unexpectedly removed. This appears to be related to partial updates from the frontend that may be overwriting the excluded therapists field with an empty value.
@@ -1737,62 +1699,7 @@ In some patients, the excluded therapists list is being unexpectedly removed. Th
 
 ---
 
-## 27. Automatic Patient Status Update to "In Therapie" - **NEW**
-
-### Current Issue
-When a platzsuche becomes successful (erfolgreich), the patient's status is not automatically updated to "In Therapie", requiring manual updates and potentially causing confusion about patient's current treatment status.
-
-### Requirement
-Implement automatic status transition when a patient is successfully matched with a therapist.
-
-### Implementation Details
-- **Trigger Event:** When platzsuche status changes to "erfolgreich"
-- **Action:** Automatically update patient status from "Sucht Therapie" to "In Therapie"
-- **Additional Updates:**
-  - Record therapy start date
-  - Link patient to assigned therapist
-  - Update patient timeline
-  - Send confirmation notifications
-
-### Technical Implementation
-- **Event Handler:**
-  ```javascript
-  // When platzsuche becomes successful
-  onPlatzSucheSuccess(platzsuche) {
-    const patient = getPatient(platzsuche.patient_id);
-    
-    updatePatient({
-      id: patient.id,
-      status: 'In Therapie',
-      therapy_start_date: new Date(),
-      therapist_id: platzsuche.erfolgreicher_therapeut_id
-    });
-    
-    sendStatusChangeNotification(patient);
-    updatePatientTimeline(patient, 'therapy_started');
-  }
-  ```
-
-- **Database Changes:**
-  - Add trigger or event listener for platzsuche status changes
-  - Ensure transactional consistency
-  - Add audit trail for status changes
-
-### Business Rules
-- Only transition from "Sucht Therapie" to "In Therapie"
-- Preserve history of status changes
-- Allow manual override if needed
-- Handle edge cases (multiple successful matches)
-
-### Benefits
-- Accurate patient status tracking
-- Reduced manual work
-- Better reporting accuracy
-- Clearer patient journey visualization
-
----
-
-## 28. Cancel Scheduled Phone Calls on Therapeutenanfrage Rejection - **NEW**
+## 26. Cancel Scheduled Phone Calls on Therapeutenanfrage Rejection - **NEW**
 
 ### Current Issue
 When a therapeutenanfrage is rejected or cancelled, any scheduled phone calls related to that anfrage remain in the system and may still be executed, causing unnecessary work and confusion.
@@ -1924,7 +1831,7 @@ Implement automatic cancellation of scheduled phone calls when the associated th
 
 ---
 
-## 29. Replace SendGrid with European Email Provider - **NEW**
+## 27. Replace SendGrid with European Email Provider - **NEW**
 
 ### Current Issue
 SendGrid, while functional, may not meet European data sovereignty requirements. Need to migrate to a GDPR-compliant European email service provider.
@@ -2013,136 +1920,7 @@ Replace SendGrid with a European-based email service provider that ensures data 
 
 ---
 
-## 30. Email Template for Found Therapy Spot - **HIGH PRIORITY NEW**
-
-### Current Issue
-There is no standardized email template to inform patients when a therapy spot has been found for them, including all necessary therapist information and contact templates for the patient to reach out.
-
-### Requirement
-Create comprehensive email templates for notifying patients about successful therapy spot matches, including therapist details and ready-to-use contact templates.
-
-### Email Components
-
-#### A. Main Notification Email
-- **Subject Line:** "Gute Nachrichten: Wir haben einen Therapieplatz für Sie gefunden!"
-- **Content Sections:**
-  1. Congratulations message
-  2. Therapist information (name, specializations, address)
-  3. Next steps explanation
-  4. Contact template links
-  5. Support contact information
-
-#### B. Therapist Information Package
-- **Included Details:**
-  - Full name and title
-  - Practice address and directions
-  - Phone number and email
-  - Specializations and treatment methods
-  - Available appointment times (if known)
-  - Insurance acceptance information
-  - Practice website (if available)
-
-#### C. Patient Contact Templates
-- **Template 1: Initial Contact Email**
-  ```
-  Subject: Therapieanfrage über Curavani - [Patient Name]
-  
-  Sehr geehrte/r [Therapist Title and Name],
-  
-  mein Name ist [Patient Name] und ich wurde Ihnen über Curavani 
-  für einen Therapieplatz vermittelt. 
-  
-  [Optional: Brief description of situation]
-  
-  Ich würde mich sehr über einen Termin für ein Erstgespräch freuen.
-  Folgende Zeiten würden mir gut passen:
-  - [Time option 1]
-  - [Time option 2]
-  - [Time option 3]
-  
-  Meine Kontaktdaten:
-  Telefon: [Phone]
-  Email: [Email]
-  
-  Mit freundlichen Grüßen,
-  [Patient Name]
-  ```
-
-- **Template 2: Phone Call Script**
-  ```
-  Introduction:
-  "Guten Tag, mein Name ist [Name]. 
-  Ich wurde Ihnen über Curavani für einen Therapieplatz vermittelt 
-  und würde gerne einen Termin für ein Erstgespräch vereinbaren."
-  
-  Key Points to Cover:
-  - Mention Curavani referral
-  - Ask about availability
-  - Confirm insurance coverage
-  - Ask about required documents
-  - Confirm practice address
-  ```
-
-- **Template 3: Follow-up Email**
-  ```
-  Subject: Re: Therapieanfrage - [Patient Name]
-  
-  Sehr geehrte/r [Therapist Name],
-  
-  vielen Dank für Ihre Rückmeldung.
-  
-  [Response to therapist's availability/questions]
-  
-  Der Termin am [Date] um [Time] passt mir sehr gut.
-  
-  Soll ich noch etwas Bestimmtes zum Erstgespräch mitbringen?
-  
-  Mit freundlichen Grüßen,
-  [Patient Name]
-  ```
-
-### Implementation Details
-
-#### Technical Architecture
-- **Template Management:**
-  - Store templates in database with versioning
-  - Variable substitution for personalization
-  - Multi-format support (HTML and plain text)
-  - Language variants (German primary, English optional)
-
-- **Delivery System:**
-  - Triggered automatically on successful match
-  - Include templates as attachments or inline
-  - Track email opens and clicks
-  - Follow-up reminders if no action taken
-
-#### Database Schema
-```sql
-therapy_spot_notifications (
-  id, patient_id, therapist_id,
-  sent_at, opened_at, 
-  templates_accessed,
-  contact_made, contact_date
-)
-```
-
-### Success Metrics
-- Email open rate > 95%
-- Template usage rate > 70%
-- Successful first contact rate > 80%
-- Time to first contact < 48 hours
-- Patient satisfaction score > 4.5/5
-
-### Additional Features
-- **SMS Notification:** Optional SMS alert about email
-- **Template Customization:** Allow staff to adjust templates
-- **Tracking:** Monitor which templates are most effective
-- **A/B Testing:** Test different template versions
-- **Feedback Loop:** Survey patients about template helpfulness
-
----
-
-## 31. Proton Drive as Alternative to iCloud Backup - **MEDIUM PRIORITY NEW**
+## 28. Proton Drive as Alternative to iCloud Backup - **MEDIUM PRIORITY NEW**
 
 ### Current Issue
 Currently using iCloud for data backups, which may not provide sufficient privacy guarantees and GDPR compliance for sensitive patient data.
@@ -2257,5 +2035,6 @@ Evaluate and potentially implement Proton Drive as a more privacy-focused, Europ
 ---
 
 **Document Owner:** Development Team  
-**Last Updated:** August 2025  
+**Last Updated:** August 2025 (v5.1)  
 **Next Review:** After critical issue resolution and implementation of high-priority items
+**Changes:** Removed 3 completed items (#6, #29, #32) that were implemented in Step 3 of implementation plan
