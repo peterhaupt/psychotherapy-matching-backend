@@ -6,9 +6,7 @@ Sehr geehrter Herr
 Sehr geehrte Damen und Herren
 {%- endif %} {% if therapist.titel %}{{ therapist.titel }} {% endif %}{{ therapist.nachname }},
 
-wir sind auf der Suche nach Psychotherapieplätzen für {{ patient_count }} Patienten. Können Sie hierfür ein oder mehrere Erstgespräche innerhalb der nächsten drei Wochen anbieten? Außerdem ist uns wichtig, dass bei entsprechender Passung die Therapie innerhalb von weiteren sechs Wochen nach dem Erstgespräch beginnen kann.
-
-Vielen Dank für eine kurze Rückmeldung.
+wir haben Ihnen vor {{ days_since_sent }} Tagen eine E-Mail geschickt, weil wir für {{ patient_count }} Patienten auf der Suche nach Psychotherapieplätzen sind.
 
 {% if not therapist.ueber_curavani_informiert %}
 Curavani ist eine Vermittlungsplattform, die Patienten bei der Suche nach Psychotherapieplätzen unterstützt. Für Sie bedeutet dies:
@@ -19,6 +17,10 @@ Curavani ist eine Vermittlungsplattform, die Patienten bei der Suche nach Psycho
 
 Mehr Informationen finden Sie unter [www.curavani.com/therapeuten.html](https://www.curavani.com/therapeuten.html).
 {% endif %}
+
+Können Sie für einen oder mehrere dieser Patienten innerhalb der nächsten drei Wochen ein Erstgespräch anbieten? Außerdem ist uns wichtig, dass bei entsprechender Passung die Therapie innerhalb von weiteren sechs Wochen nach dem Erstgespräch beginnen kann.
+
+Vielen Dank für eine kurze Rückmeldung.
 
 Hier die wichtigsten Infos zu den Patienten, aus Datenschutzgründen hier ohne Namen. Wenn Sie einen Platz anbieten können, stellen wir Ihnen für diese Patienten selbstverständlich auch den vollen Namen zur Verfügung.
 

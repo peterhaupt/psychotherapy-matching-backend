@@ -492,6 +492,121 @@ class CommunicationService:
             return None
     
     @staticmethod
+    def send_reminder_email(
+        anfrage: Therapeutenanfrage,
+        therapist: Dict[str, Any]
+    ) -> Optional[int]:
+        """Send a reminder email for an unanswered anfrage.
+        
+        Args:
+            anfrage: The Therapeutenanfrage object
+            therapist: Therapist data dictionary
+            
+        Returns:
+            Email ID if successful, None otherwise
+        """
+        try:
+            # Get patient data for anfrage
+            patient_ids = [ap.patient_id for ap in anfrage.anfrage_patients]
+            patients = PatientService.get_patients(patient_ids)
+            
+            if len(patients) != anfrage.anfragegroesse:
+                logger.error(f"Could not fetch all patients for reminder email anfrage {anfrage.id}")
+                return None
+            
+            # Create patient data list in anfrage order
+            patient_data = []
+            for ap in anfrage.anfrage_patients:
+                if ap.patient_id in patients:
+                    patient = patients[ap.patient_id].copy()
+                    # Calculate age
+                    patient['age'] = CommunicationService._calculate_age(
+                        patient.get('geburtsdatum')
+                    )
+                    # Format zeitliche verfuegbarkeit
+                    verfuegbarkeit = patient.get('zeitliche_verfuegbarkeit', {})
+                    patient['zeitliche_verfuegbarkeit_formatted'] = \
+                        CommunicationService._format_zeitliche_verfuegbarkeit(verfuegbarkeit)
+                    # Format German date for letzte_sitzung_vorherige_psychotherapie
+                    if patient.get('letzte_sitzung_vorherige_psychotherapie'):
+                        patient['letzte_sitzung_vorherige_psychotherapie'] = \
+                            CommunicationService._format_german_date(patient['letzte_sitzung_vorherige_psychotherapie'])
+                    patient_data.append(patient)
+            
+            # Calculate days since sent
+            days_since_sent = anfrage.days_since_sent()
+            
+            # Set up Jinja2 environment
+            if os.path.exists('/app/shared'):
+                shared_path = '/app/shared'
+            else:
+                shared_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'shared')
+            
+            template_dir = os.path.join(shared_path, 'templates', 'emails')
+            
+            if not os.path.exists(template_dir):
+                logger.error(f"Template directory not found: {template_dir}")
+                return None
+            
+            env = Environment(loader=FileSystemLoader(template_dir))
+            
+            # Prepare template context
+            context = {
+                'therapist': therapist,
+                'patients': patient_data,
+                'patient_count': len(patient_data),
+                'anfrage_id': anfrage.id,
+                'days_since_sent': days_since_sent
+            }
+            
+            # Render reminder template
+            template = env.get_template('anfrage_reminder.md')
+            email_markdown = template.render(context)
+            
+            # Prepare email data
+            subject = f"Erinnerung: Therapieanfrage - Ref: A{anfrage.id}"
+            
+            url = f"{config.get_service_url('communication', internal=True)}/api/emails"
+            email_data = {
+                'therapist_id': therapist['id'],
+                'betreff': subject,
+                'inhalt_markdown': email_markdown,
+                'empfaenger_email': therapist.get('email'),
+                'empfaenger_name': f"{therapist.get('titel', '')} {therapist.get('vorname', '')} {therapist.get('nachname', '')}".strip(),
+                'add_legal_footer': True
+            }
+            
+            # Create email via Communication Service
+            response = requests.post(url, json=email_data, timeout=10)
+            
+            if response.status_code in [200, 201]:
+                email_result = response.json()
+                email_id = email_result.get('id')
+                logger.info(f"Created reminder email {email_id} for anfrage {anfrage.id}")
+                
+                # Queue the email for sending
+                update_url = f"{config.get_service_url('communication', internal=True)}/api/emails/{email_id}"
+                queue_response = requests.put(
+                    update_url, 
+                    json={'status': 'In_Warteschlange'},
+                    timeout=5
+                )
+                
+                if queue_response.status_code == 200:
+                    logger.info(f"Queued reminder email {email_id} for sending")
+                else:
+                    logger.error(f"Created reminder email {email_id} but failed to queue it: {queue_response.status_code}")
+                
+                return email_id
+            else:
+                logger.error(f"Failed to create reminder email: {response.status_code} - {response.text}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Failed to send reminder email for anfrage {anfrage.id}: {str(e)}", exc_info=True)
+            return None
+    
+    @staticmethod
     def schedule_follow_up_call(
         therapist_id: int, 
         anfrage_id: int,
@@ -982,17 +1097,17 @@ class AnfrageService:
         return conflicts
     
     @staticmethod
-    def schedule_follow_up_calls(db: Session) -> int:
-        """Schedule follow-up phone calls for anfragen that need them.
+    def schedule_follow_up_reminders(db: Session) -> int:
+        """Schedule follow-up reminders (emails or phone calls) for anfragen that need them.
         
         This function checks all sent anfragen that haven't received responses
-        and schedules phone calls if they exceed the threshold.
+        and schedules reminder emails if therapist has email, or phone calls otherwise.
         
         Args:
             db: Database session
             
         Returns:
-            Number of phone calls scheduled
+            Number of reminders scheduled
         """
         # Get follow-up configuration
         follow_up_config = config.get_follow_up_config()
@@ -1001,41 +1116,62 @@ class AnfrageService:
         # Find anfragen needing follow-up
         anfragen_needing_followup = []
         
-        # Query for sent anfragen without responses that don't already have phone calls
+        # Query for sent anfragen without responses that don't already have reminders
         anfragen = db.query(Therapeutenanfrage).filter(
             Therapeutenanfrage.gesendet_datum.isnot(None),
             Therapeutenanfrage.antwort_datum.is_(None),
-            Therapeutenanfrage.phone_call_id.is_(None)
+            Therapeutenanfrage.phone_call_id.is_(None),
+            Therapeutenanfrage.reminder_email_id.is_(None)  # Check no reminder sent
         ).all()
         
         for anfrage in anfragen:
             if anfrage.needs_follow_up(threshold_days):
                 anfragen_needing_followup.append(anfrage)
         
-        logger.info(f"Found {len(anfragen_needing_followup)} anfragen needing follow-up calls")
+        logger.info(f"Found {len(anfragen_needing_followup)} anfragen needing follow-up reminders")
         
-        # Schedule calls for each anfrage
+        # Schedule reminders for each anfrage
         scheduled_count = 0
         for anfrage in anfragen_needing_followup:
             try:
-                # Schedule the call
-                call_id = CommunicationService.schedule_follow_up_call(
-                    anfrage.therapist_id,
-                    anfrage.id
-                )
+                # Get therapist data
+                therapist = TherapistService.get_therapist(anfrage.therapist_id)
+                if not therapist:
+                    logger.error(f"Could not fetch therapist {anfrage.therapist_id} for reminder")
+                    continue
                 
-                if call_id:
-                    # Update anfrage with phone call ID
-                    anfrage.phone_call_id = call_id
-                    db.commit()
-                    scheduled_count += 1
-                    logger.info(f"Scheduled follow-up call {call_id} for anfrage {anfrage.id}")
+                # Check if therapist has email
+                if therapist.get('email'):
+                    # Send reminder email
+                    email_id = CommunicationService.send_reminder_email(anfrage, therapist)
+                    
+                    if email_id:
+                        # Update anfrage with reminder email ID
+                        anfrage.reminder_email_id = email_id
+                        db.commit()
+                        scheduled_count += 1
+                        logger.info(f"Sent reminder email {email_id} for anfrage {anfrage.id}")
+                    else:
+                        logger.error(f"Failed to send reminder email for anfrage {anfrage.id}")
                 else:
-                    logger.error(f"Failed to schedule follow-up call for anfrage {anfrage.id}")
+                    # No email - schedule phone call as fallback
+                    call_id = CommunicationService.schedule_follow_up_call(
+                        anfrage.therapist_id,
+                        anfrage.id
+                    )
+                    
+                    if call_id:
+                        # Update anfrage with phone call ID
+                        anfrage.phone_call_id = call_id
+                        db.commit()
+                        scheduled_count += 1
+                        logger.info(f"Scheduled follow-up call {call_id} for anfrage {anfrage.id} (no email)")
+                    else:
+                        logger.error(f"Failed to schedule follow-up call for anfrage {anfrage.id}")
                     
             except Exception as e:
-                logger.error(f"Error scheduling follow-up call for anfrage {anfrage.id}: {str(e)}")
+                logger.error(f"Error scheduling reminder for anfrage {anfrage.id}: {str(e)}")
                 continue
         
-        logger.info(f"Successfully scheduled {scheduled_count} follow-up calls")
+        logger.info(f"Successfully scheduled {scheduled_count} reminders")
         return scheduled_count

@@ -6,7 +6,7 @@ their key columns.
 
 IMPORTANT: All field names use German terminology for consistency.
 
-Current State (after migration 003_phase2_patient_updates):
+Current State (after migration 004_add_reminder_email_to_anfrage):
 - All database table names use German names (patienten, therapeuten, telefonanrufe)
 - All database fields use German names
 - All enum types use German names
@@ -28,6 +28,9 @@ Current State (after migration 003_phase2_patient_updates):
   - symptome changed from TEXT to JSONB
   - zahlungsreferenz field added to patienten table
   - zahlung_eingegangen field added to patienten table
+- Migration 004 changes:
+  - reminder_email_id field added to therapeutenanfrage table
+  - Index added on reminder_email_id
 """
 import os
 import sys
@@ -198,7 +201,7 @@ def test_therapist_service_tables(db_inspector):
 
 
 def test_matching_service_tables(db_inspector):
-    """Test that matching service tables exist with correct columns including Phase 2 renames."""
+    """Test that matching service tables exist with correct columns including Phase 2 renames and Migration 004 addition."""
     tables = db_inspector.get_table_names(schema='matching_service')
     
     # Check that placement_requests table does NOT exist (removed in migration)
@@ -219,7 +222,7 @@ def test_matching_service_tables(db_inspector):
     missing = ps_required - ps_columns
     assert not missing, f"Missing columns in platzsuche: {missing}"
     
-    # Check therapeutenanfrage columns (with German names and Phase 2 rename)
+    # Check therapeutenanfrage columns (with German names and Phase 2 rename and Migration 004 addition)
     ta_columns = {col['name'] for col in db_inspector.get_columns('therapeutenanfrage', schema='matching_service')}
     ta_required = {
         'id', 'therapist_id', 'erstellt_datum', 'gesendet_datum', 'antwort_datum',  # German column names
@@ -228,7 +231,8 @@ def test_matching_service_tables(db_inspector):
         'angenommen_anzahl', 'abgelehnt_anzahl',
         'keine_antwort_anzahl', 'notizen',
         # Communication references
-        'email_id', 'phone_call_id'
+        'email_id', 'phone_call_id',
+        'reminder_email_id'  # NEW in Migration 004
     }
     missing = ta_required - ta_columns
     assert not missing, f"Missing columns in therapeutenanfrage: {missing}"
@@ -433,7 +437,7 @@ def test_enum_types(db_engine):
 
 
 def test_indexes_exist(db_inspector):
-    """Test that important indexes exist with updated names."""
+    """Test that important indexes exist with updated names including Migration 004."""
     # Check therapeuten indexes (German table and field names)
     therapeuten_indexes = db_inspector.get_indexes('therapeuten', schema='therapist_service')
     therapeuten_index_names = {idx['name'] for idx in therapeuten_indexes}
@@ -452,6 +456,8 @@ def test_indexes_exist(db_inspector):
     assert 'idx_therapeutenanfrage_therapist_id' in ta_index_names, "Missing index on therapeutenanfrage.therapist_id"
     assert 'idx_therapeutenanfrage_email_id' in ta_index_names, "Missing index on therapeutenanfrage.email_id"
     assert 'idx_therapeutenanfrage_phone_call_id' in ta_index_names, "Missing index on therapeutenanfrage.phone_call_id"
+    assert 'ix_matching_service_therapeutenanfrage_reminder_email_id' in ta_index_names, \
+        "Missing index on therapeutenanfrage.reminder_email_id (Migration 004)"
     
     # Check telefonanrufe indexes (German table name) including Migration 002 addition
     pc_indexes = db_inspector.get_indexes('telefonanrufe', schema='communication_service')
@@ -745,6 +751,20 @@ def test_migration_003_changes(db_inspector):
         f"symptome should be JSONB type, got: {symptome_col['type']}"
     assert 'TEXT' not in str(symptome_col['type']).upper(), \
         f"symptome should NOT be TEXT type anymore, got: {symptome_col['type']}"
+
+
+def test_migration_004_addition(db_inspector):
+    """Test that Migration 004 added reminder_email_id to therapeutenanfrage table."""
+    # Check that reminder_email_id column exists in therapeutenanfrage
+    ta_columns = {col['name'] for col in db_inspector.get_columns('therapeutenanfrage', schema='matching_service')}
+    assert 'reminder_email_id' in ta_columns, \
+        "Column 'reminder_email_id' not found in therapeutenanfrage table (Migration 004)"
+    
+    # Check that index exists for this column
+    ta_indexes = db_inspector.get_indexes('therapeutenanfrage', schema='matching_service')
+    ta_index_names = {idx['name'] for idx in ta_indexes}
+    assert 'ix_matching_service_therapeutenanfrage_reminder_email_id' in ta_index_names, \
+        "Missing index on therapeutenanfrage.reminder_email_id (Migration 004)"
 
 
 if __name__ == "__main__":

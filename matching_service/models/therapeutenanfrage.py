@@ -81,6 +81,11 @@ class Therapeutenanfrage(Base):
         Integer,
         index=True
     )  # References communication_service.telefonanrufe.id
+
+    reminder_email_id = Column(
+        Integer,
+        index=True
+    )  # References communication_service.emails.id
     
     # Relationships
     # Note: Using string references to avoid cross-service imports

@@ -44,12 +44,12 @@ class HealthCheckResource(Resource):
         }
 
 
-def schedule_follow_up_calls():
-    """Background task to schedule follow-up phone calls for unanswered anfragen."""
+def schedule_follow_up_reminders():
+    """Background task to schedule follow-up reminders (emails or phone calls) for unanswered anfragen."""
     logger = logging.getLogger(__name__)
     config = get_config()
     
-    logger.info("Starting follow-up call scheduler thread")
+    logger.info("Starting reminder scheduler thread")
     
     while not shutdown_flag.is_set():
         try:
@@ -64,26 +64,26 @@ def schedule_follow_up_calls():
             # Calculate seconds until 9 AM
             seconds_until_target = (target_time - now).total_seconds()
             
-            logger.info(f"Next follow-up check scheduled for {target_time} ({seconds_until_target/3600:.1f} hours from now)")
+            logger.info(f"Next reminder check scheduled for {target_time} ({seconds_until_target/3600:.1f} hours from now)")
             
             # Wait until target time or shutdown
             if shutdown_flag.wait(timeout=seconds_until_target):
                 # Shutdown requested
                 break
             
-            # Perform the follow-up scheduling
-            logger.info("Running daily follow-up call scheduling...")
+            # Perform the reminder scheduling
+            logger.info("Running daily reminder scheduling...")
             
             with get_db_context() as db:
-                scheduled_count = AnfrageService.schedule_follow_up_calls(db)
-                logger.info(f"Daily follow-up scheduling complete: {scheduled_count} calls scheduled")
+                scheduled_count = AnfrageService.schedule_follow_up_reminders(db)
+                logger.info(f"Daily reminder scheduling complete: {scheduled_count} reminders scheduled")
                 
         except Exception as e:
-            logger.error(f"Error in follow-up scheduler: {str(e)}", exc_info=True)
+            logger.error(f"Error in reminder scheduler: {str(e)}", exc_info=True)
             # Wait 5 minutes before retrying on error
             shutdown_flag.wait(timeout=300)
     
-    logger.info("Follow-up call scheduler thread stopped")
+    logger.info("Reminder scheduler thread stopped")
 
 
 def create_app():
@@ -133,11 +133,11 @@ def create_app():
     api.add_resource(AnfrageResponseResource, '/api/therapeutenanfragen/<int:anfrage_id>/antwort')
     api.add_resource(AnfrageSendResource, '/api/therapeutenanfragen/<int:anfrage_id>/senden')
     
-    # Start follow-up scheduler thread
+    # Start reminder scheduler thread
     scheduler_thread = threading.Thread(
-        target=schedule_follow_up_calls,
+        target=schedule_follow_up_reminders,
         daemon=True,
-        name="follow-up-scheduler"
+        name="reminder-scheduler"
     )
     scheduler_thread.start()
     
@@ -149,7 +149,7 @@ def signal_handler(sig, frame):
     logger = logging.getLogger(__name__)
     logger.info('Shutting down Matching Service...')
     
-    # Signal the follow-up scheduler to stop
+    # Signal the reminder scheduler to stop
     shutdown_flag.set()
     
     # Close database connections
