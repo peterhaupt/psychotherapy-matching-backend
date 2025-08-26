@@ -327,7 +327,7 @@ class TestMatchingServiceAPI:
         self.safe_delete_platzsuche(search['id'])
         self.safe_delete_patient(patient['id'])
 
-        def test_update_platzsuche_with_vermittelter_therapeut(self):
+    def test_update_platzsuche_with_vermittelter_therapeut(self):
         """Test manually setting vermittelter_therapeut_id via PUT."""
         patient = self.create_test_patient()
         therapist = self.create_test_therapist()
