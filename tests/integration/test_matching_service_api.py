@@ -1241,7 +1241,12 @@ class TestMatchingServiceAPI:
         )
         assert search_response.status_code == 201
         search = search_response.json()
-        assert search["vermittelter_therapeut_id"] is None  # Initially null
+
+        # GET the full details to check vermittelter_therapeut_id
+        get_response = requests.get(f"{BASE_URL}/platzsuchen/{search['id']}")
+        assert get_response.status_code == 200
+        full_search = get_response.json()
+        assert full_search["vermittelter_therapeut_id"] is None  # Initially null
         
         # Step 2: Create anfrage
         anfrage_response = requests.post(
