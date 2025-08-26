@@ -781,6 +781,77 @@ class TestTherapistImporter:
             finally:
                 db.close()
 
+    def test_import_therapist_missing_salutation_defaults_to_frau(self, importer, test_data_factory, test_session):
+        """Test that therapist with missing salutation field defaults to Frau."""
+        print(f"\n{'='*60}")
+        print(f"TEST: Import with missing salutation defaults to Frau")
+        print(f"{'='*60}")
+        
+        # Create data without salutation field
+        import_data = test_data_factory(
+            first_name=f"NoSalutation_{test_session['session_id']}",
+            last_name="TestDefault",
+            postal_code="99008"
+        )
+        # Remove salutation completely from basic_info
+        del import_data["basic_info"]["salutation"]
+        
+        success, message = importer.import_therapist(import_data)
+        assert success, f"Import should succeed with missing salutation: {message}"
+        assert "created" in message.lower(), f"Should create new therapist: {message}"
+        
+        # Verify therapist was created with Frau as default
+        db = TestSessionLocal()
+        try:
+            therapist = db.query(Therapist).filter(
+                Therapist.vorname == f"NoSalutation_{test_session['session_id']}"
+            ).first()
+            
+            assert therapist is not None, "Therapist should be created"
+            assert therapist.anrede.value == "Frau", f"Anrede should default to Frau, got {therapist.anrede.value}"
+            assert therapist.geschlecht.value == "weiblich", f"Gender should be weiblich, got {therapist.geschlecht.value}"
+            print(f"  ✓ Missing salutation correctly defaulted to Frau")
+            
+            # Track for cleanup
+            test_session["created_therapist_ids"].append(therapist.id)
+        finally:
+            db.close()
+
+    def test_import_therapist_empty_salutation_defaults_to_frau(self, importer, test_data_factory, test_session):
+        """Test that therapist with empty salutation field defaults to Frau."""
+        print(f"\n{'='*60}")
+        print(f"TEST: Import with empty salutation defaults to Frau")
+        print(f"{'='*60}")
+        
+        # Create data with empty salutation
+        import_data = test_data_factory(
+            first_name=f"EmptySalutation_{test_session['session_id']}",
+            last_name="TestEmptyDefault",
+            postal_code="99009",
+            salutation=""  # Empty string
+        )
+        
+        success, message = importer.import_therapist(import_data)
+        assert success, f"Import should succeed with empty salutation: {message}"
+        assert "created" in message.lower(), f"Should create new therapist: {message}"
+        
+        # Verify therapist was created with Frau as default
+        db = TestSessionLocal()
+        try:
+            therapist = db.query(Therapist).filter(
+                Therapist.vorname == f"EmptySalutation_{test_session['session_id']}"
+            ).first()
+            
+            assert therapist is not None, "Therapist should be created"
+            assert therapist.anrede.value == "Frau", f"Anrede should default to Frau, got {therapist.anrede.value}"
+            assert therapist.geschlecht.value == "weiblich", f"Gender should be weiblich, got {therapist.geschlecht.value}"
+            print(f"  ✓ Empty salutation correctly defaulted to Frau")
+            
+            # Track for cleanup
+            test_session["created_therapist_ids"].append(therapist.id)
+        finally:
+            db.close()
+
 
 # Pytest entry point - can be run with: pytest test_therapist_service_importer.py -v
 if __name__ == "__main__":

@@ -77,7 +77,6 @@ class TherapistImporter:
             if not all([
                 basic_info.get('first_name'),
                 basic_info.get('last_name'),
-                basic_info.get('salutation'),
                 location.get('postal_code')
             ]):
                 logger.warning("Missing required fields in therapist data")
@@ -91,11 +90,14 @@ class TherapistImporter:
             # Map therapy methods to our single enum
             therapy_methods = data.get('therapy_methods', [])
             psychotherapieverfahren = self._map_therapy_methods(therapy_methods)
+
+            # Default salutation to 'Frau' if missing or empty
+            salutation = basic_info.get('salutation') or 'Frau'
             
             mapped = {
                 # Basic info
-                'anrede': basic_info.get('salutation'),
-                'geschlecht': self._map_gender_from_salutation(basic_info.get('salutation')),
+                'anrede': salutation,
+                'geschlecht': self._map_gender_from_salutation(salutation),
                 'titel': basic_info.get('title', ''),
                 'vorname': basic_info.get('first_name'),
                 'nachname': basic_info.get('last_name'),
