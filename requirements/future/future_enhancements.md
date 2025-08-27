@@ -1,8 +1,8 @@
 # Future Enhancements - Priority Items
 
-**Document Version:** 5.2  
+**Document Version:** 5.3  
 **Date:** January 2025  
-**Status:** Requirements Gathering (Updated - 3 items completed, 1 critical bug discovered)
+**Status:** Requirements Gathering (Updated - 3 items completed, 1 critical bug discovered, 1 low priority item added)
 
 ---
 
@@ -39,6 +39,7 @@
 | **Medium** | Fix Area Code Formatting (#8) | Medium | Medium |
 | **Medium** | Matching Service Cleanup (#11) | High | Medium |
 | **Medium** | Phone Call Templates (#17) | Medium | Medium |
+| **Low** | Fix Hyphenated Name Parsing in Scraper (#31) | Low | Low |
 
 ---
 
@@ -64,6 +65,7 @@
 18. **Requirements Clarification:** Schedule discussion sessions for items #2-3 and #9
 19. **Implementation Planning:** Create detailed technical specifications for high-priority items
 20. **Audit Current Systems:** Review therapist import reporting logic
+21. **Minor Fixes:** Clean up data quality issues like hyphenated name parsing (#31) as time permits
 
 ---
 
@@ -458,7 +460,7 @@ Implement automatic cleanup: when a patient's platzsuche becomes "erfolgreich", 
 
 ---
 
-## 6. Fix Therapeutenanfrage Frontend Exit Issue - **NEW**
+## 7. Fix Therapeutenanfrage Frontend Exit Issue - **NEW**
 
 ### Current Issue
 When a therapeutenanfrage is created but contains 0 patients, the frontend provides no proper way to exit or quit the process.
@@ -487,7 +489,7 @@ Implement proper navigation controls for empty therapeutenanfragen.
 
 ---
 
-## 7. Fix Area Code Formatting Issue - **NEW**
+## 8. Fix Area Code Formatting Issue - **NEW**
 
 ### Current Issue
 Frontend always formats area codes as 4 digits, but some German cities have 5-digit area codes (e.g., Berlin 030 vs. smaller cities with 5 digits), causing incorrect phone number display and potential calling issues.
@@ -555,7 +557,7 @@ Frontend always formats area codes as 4 digits, but some German cities have 5-di
 
 ---
 
-## 8. Track Incoming Emails - **NEW**
+## 9. Track Incoming Emails - **NEW**
 
 ### Requirement
 Implement comprehensive incoming email tracking system to monitor and integrate email communications with patient records.
@@ -595,7 +597,7 @@ Implement comprehensive incoming email tracking system to monitor and integrate 
 
 ---
 
-## 9. Add Pagination for Therapist Selection in Vermittlung - **NEW**
+## 10. Add Pagination for Therapist Selection in Vermittlung - **NEW**
 
 ### Requirement
 Implement pagination for therapist selection in the vermittlung process of therapeutenanfragen to improve performance and user experience.
@@ -631,7 +633,7 @@ Large therapist lists in the therapeutenanfrage form cause performance issues an
 
 ---
 
-## 10. Matching Service Cleanup - **NEW**
+## 11. Matching Service Cleanup - **NEW**
 
 ### Current Issue
 The matching service requires cleanup and optimization as described in the separate matching service document.
@@ -691,7 +693,7 @@ Implement comprehensive cleanup of the matching service to improve performance, 
 
 ---
 
-## 11. Handle Duplicate Patient Registrations During Import - **NEW**
+## 12. Handle Duplicate Patient Registrations During Import - **NEW**
 
 ### Current Issue
 Patients can register multiple times on the website, creating duplicate records in the system. This leads to data integrity issues, inefficient resource usage, and confusion in patient management.
@@ -740,7 +742,7 @@ Implement robust duplicate detection and handling mechanism for patient imports 
 
 ---
 
-## 12. Enhanced Support for Multi-Location Practices - **NEW**
+## 13. Enhanced Support for Multi-Location Practices - **NEW**
 
 ### Current Issue
 Practices with two or more locations are currently treated as independent duplicates in the system, causing confusion and inefficient management of therapist data.
@@ -798,7 +800,7 @@ Implement proper support for practices with multiple locations while maintaining
 
 ---
 
-## 13. Grammar Correction for Singular Patient in Therapeutenanfrage - **NEW**
+## 14. Grammar Correction for Singular Patient in Therapeutenanfrage - **NEW**
 
 ### Current Issue
 When a therapeutenanfrage contains only 1 patient, the system uses plural grammar forms, creating unprofessional communications.
@@ -845,7 +847,7 @@ Implement dynamic text adjustment to use singular forms when exactly one patient
 
 ---
 
-## 14. Phone Call Templates for Patient Communication - **NEW**
+## 15. Phone Call Templates for Patient Communication - **NEW**
 
 ### Current Issue
 Staff members lack standardized scripts for phone calls with patients, leading to inconsistent communication and missed important topics.
@@ -906,7 +908,7 @@ Create customizable phone call templates for various patient interaction scenari
 
 ---
 
-## 15. Patient Payment Tracking System - **NEW**
+## 16. Patient Payment Tracking System - **NEW**
 
 ### Current Issue
 No systematic way to document whether patients have paid for services, causing billing confusion and follow-up difficulties.
@@ -975,7 +977,7 @@ Implement comprehensive payment tracking functionality integrated with patient r
 
 ---
 
-## 16. Phone Call Templates - **NEW**
+## 17. Phone Call Templates - **NEW**
 
 ### Current Issue
 Staff members lack standardized scripts for phone calls with patients, leading to inconsistent communication and missed important topics.
@@ -1036,7 +1038,7 @@ Create customizable phone call templates for various patient interaction scenari
 
 ---
 
-## 17. Fix ICD10 Diagnostic Matching Logic - **HIGH PRIORITY NEW**
+## 18. Fix ICD10 Diagnostic Matching Logic - **HIGH PRIORITY NEW**
 
 ### Current Issue
 The logic for matching patient ICD10 diagnoses with therapist preferences needs to be reviewed and fixed. Specifically, single/parent diagnoses from patients are not properly matching with therapist group preferences (subcategories).
@@ -1108,7 +1110,7 @@ Implement proper hierarchical matching logic for ICD10 codes where:
 
 ---
 
-## 18. Temporarily Pause Vermittlung/Platzsuche for Patient Holidays - **NEW**
+## 19. Temporarily Pause Vermittlung/Platzsuche for Patient Holidays - **NEW**
 
 ### Current Issue
 When patients go on holiday or are temporarily unavailable, there's no way to pause their vermittlung/platzsuche activities, leading to wasted efforts contacting therapists on their behalf.
@@ -1166,7 +1168,7 @@ Implement functionality to temporarily pause and resume platzsuche activities wi
 
 ---
 
-## 19. Validate Last Psychotherapy Date in Registration Process - **NEW**
+## 20. Validate Last Psychotherapy Date in Registration Process - **NEW**
 
 ### Current Issue
 Invalid or implausible dates for last psychotherapy are being entered during patient registration, causing data quality issues and affecting eligibility assessments.
@@ -1225,7 +1227,7 @@ Implement comprehensive validation for the "date of last psychotherapy" field du
 
 ---
 
-## 20. Replace Google Cloud Storage with European Solution - **NEW**
+## 21. Replace Google Cloud Storage with European Solution - **NEW**
 
 ### Current Issue
 Google Cloud Storage may not meet European data sovereignty requirements and could be unnecessarily complex for the application's needs.
@@ -1829,7 +1831,7 @@ In some patients, the excluded therapists list is being unexpectedly removed. Th
 
 ---
 
-## 26. Cancel Scheduled Phone Calls on Therapeutenanfrage Rejection - **NEW**
+## 27. Cancel Scheduled Phone Calls on Therapeutenanfrage Rejection - **NEW**
 
 ### Current Issue
 When a therapeutenanfrage is rejected or cancelled, any scheduled phone calls related to that anfrage remain in the system and may still be executed, causing unnecessary work and confusion.
@@ -1961,7 +1963,7 @@ Implement automatic cancellation of scheduled phone calls when the associated th
 
 ---
 
-## 27. Replace SendGrid with European Email Provider - **NEW**
+## 28. Replace SendGrid with European Email Provider - **NEW**
 
 ### Current Issue
 SendGrid, while functional, may not meet European data sovereignty requirements. Need to migrate to a GDPR-compliant European email service provider.
@@ -2050,7 +2052,7 @@ Replace SendGrid with a European-based email service provider that ensures data 
 
 ---
 
-## 28. Proton Drive as Alternative to iCloud Backup - **MEDIUM PRIORITY NEW**
+## 29. Proton Drive as Alternative to iCloud Backup - **MEDIUM PRIORITY NEW**
 
 ### Current Issue
 Currently using iCloud for data backups, which may not provide sufficient privacy guarantees and GDPR compliance for sensitive patient data.
@@ -2164,9 +2166,83 @@ Evaluate and potentially implement Proton Drive as a more privacy-focused, Europ
 
 ---
 
+## 31. Fix Hyphenated Name Parsing in Scraper - **LOW PRIORITY NEW**
+
+### Current Issue
+The scraper incorrectly handles therapist names with malformed hyphens (e.g., "Tietz -Roder" instead of "Tietz-Roder"), causing incorrect name splitting where the hyphenated last name is split incorrectly.
+
+### Example Case
+- **Raw Data:** "Bettina Tietz -Roder" (with space before hyphen)
+- **Current (Wrong) Split:** First name: "Bettina Tietz", Last name: "-Roder"
+- **Expected Result:** First name: "Bettina", Last name: "Tietz-Roder"
+
+### Root Cause
+The raw data from the 116117.de website sometimes contains inconsistent formatting with spaces before hyphens in compound last names. The current name parsing logic doesn't handle this edge case properly.
+
+### Implementation Requirements
+
+#### A. Data Preprocessing
+- **Clean Malformed Hyphens:**
+  ```python
+  def clean_hyphenated_names(full_name: str) -> str:
+      """
+      Fix malformed hyphens in names (e.g., "Tietz -Roder" -> "Tietz-Roder")
+      """
+      # Remove spaces before hyphens
+      cleaned = re.sub(r'\s+-', '-', full_name)
+      # Remove spaces after hyphens (if any)
+      cleaned = re.sub(r'-\s+', '-', cleaned)
+      return cleaned
+  ```
+
+#### B. Update Name Splitting Logic
+- **Enhance `_split_name` Method:**
+  - Add preprocessing step before name splitting
+  - Handle edge cases with hyphens at the beginning of words
+  - Improve classification of hyphenated name parts
+
+- **Code Update:**
+  ```python
+  def _split_name(self, full_name: str) -> Tuple[str, str]:
+      if not full_name:
+          return ("", "")
+      
+      # Remove titles
+      name_without_titles = re.sub(r'(Dr\.|Prof\.|PD|Dipl\.-Psych\.) ', '', full_name)
+      
+      # FIX: Clean up malformed hyphens
+      name_without_titles = re.sub(r'\s+-', '-', name_without_titles)
+      
+      # Continue with existing logic...
+  ```
+
+### Testing Requirements
+- **Test Cases:**
+  - "Bettina Tietz -Roder" → ("Bettina", "Tietz-Roder")
+  - "Hans -Peter Müller" → ("Hans-Peter", "Müller")
+  - "Marie - Claire Schmidt" → ("Marie-Claire", "Schmidt")
+  - Regular hyphenated names should still work correctly
+
+### Data Quality Improvements
+- Log occurrences of malformed hyphens for monitoring
+- Consider adding data quality warnings during import
+- Regular audit of name formatting issues
+
+### Priority Justification
+**LOW** - This is a minor data quality issue that doesn't break functionality. Names are still imported, just with slightly incorrect splitting. The fix is simple but not critical for system operation.
+
+### Success Metrics
+- Correct parsing of all hyphenated names
+- No regression in normal name parsing
+- Improved data quality scores
+- Reduced manual corrections needed
+
+---
+
 **Document Owner:** Development Team  
-**Last Updated:** January 2025 (v5.2)  
+**Last Updated:** January 2025 (v5.3)  
 **Next Review:** After critical issue resolution and implementation of high-priority items
 **Changes:** 
 - v5.1: Removed 3 completed items (#6, #29, #32) that were implemented in Step 3
 - v5.2: Added critical distance constraint bypass bug (#30) discovered during PLZ 52159 investigation
+- v5.3: Added low priority hyphenated name parsing fix (#31) for scraper data quality improvement
