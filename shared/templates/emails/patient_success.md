@@ -4,12 +4,12 @@ wir haben einen freien {% if is_group_therapy %}Psychotherapieplatz in einer Gru
 
 Bitte führen Sie folgende Schritte durch:
 
-1. {% if has_email %}Schicken Sie die unten von uns bereits vorformulierte E-Mail an den Therapeuten{% else %}Rufen Sie den Therapeuten an{% endif %}, um einen Termin für ein persönliches Erstgespräch zu vereinbaren.
+1. {% if has_email %}Schicken Sie die unten von uns bereits vorformulierte E-Mail an {% if therapist.geschlecht == 'weiblich' %}die Therapeutin{% else %}den Therapeuten{% endif %}{% else %}Rufen Sie {% if therapist.geschlecht == 'weiblich' %}die Therapeutin{% else %}den Therapeuten{% endif %} an{% endif %}, um einen Termin für ein persönliches Erstgespräch zu vereinbaren.
 2. {% if has_email %}Setzen Sie uns mit der E-Mail info@curavani.com dabei in Kopie.{% else %}Informieren Sie uns bitte nach dem Telefonat über das Ergebnis.{% endif %}
-3. Teilen Sie uns nach dem Erstgespräch mit, ob Sie mit dem Therapeuten einverstanden sind. Ohne eine Rückmeldung von Ihnen gehen wir davon aus, dass Sie mit dem Therapeuten einverstanden sind.
-4. Der Therapeut gibt uns keine Informationen über den Therapieverlauf mit Ihnen. Wenn also irgendetwas nicht passt und Sie sich Unterstützung von uns wünschen, müssen Sie sich aktiv bei uns melden.
+3. Teilen Sie uns nach dem Erstgespräch mit, ob Sie mit {% if therapist.geschlecht == 'weiblich' %}der Therapeutin{% else %}dem Therapeuten{% endif %} einverstanden sind. Ohne eine Rückmeldung von Ihnen gehen wir davon aus, dass Sie mit {% if therapist.geschlecht == 'weiblich' %}der Therapeutin{% else %}dem Therapeuten{% endif %} einverstanden sind.
+4. {% if therapist.geschlecht == 'weiblich' %}Die Therapeutin{% else %}Der Therapeut{% endif %} gibt uns keine Informationen über den Therapieverlauf mit Ihnen. Wenn also irgendetwas nicht passt und Sie sich Unterstützung von uns wünschen, müssen Sie sich aktiv bei uns melden.
 
-## Kontaktdaten des Therapeuten:
+#### Kontaktdaten {% if therapist.geschlecht == 'weiblich' %}der Therapeutin{% else %}des Therapeuten{% endif %}:
 
 **{{ therapist.titel }} {{ therapist.vorname }} {{ therapist.nachname }}**  
 {{ therapist.strasse }}  
@@ -21,7 +21,7 @@ Bitte führen Sie folgende Schritte durch:
 {% if has_email %}
 ---
 
-## Bitte schicken Sie folgende E-Mail:
+#### Bitte schicken Sie folgende E-Mail:
 
 **An:** {{ therapist.email }}  
 **CC:** info@curavani.com  
@@ -42,19 +42,20 @@ Ich freue mich darauf, Sie kennenzulernen.
 Mit freundlichen Grüßen
 
 {{ patient.vorname }} {{ patient.nachname }}  
+
 {% if patient.telefon %}Telefon: {{ patient.telefon }}{% endif %}  
 {% if patient.email %}E-Mail: {{ patient.email }}{% endif %}
 
 ---
 {% else %}
-## Telefonische Kontaktaufnahme:
+#### Telefonische Kontaktaufnahme:
 
 Bitte rufen Sie {{ therapist.titel }} {{ therapist.nachname }} unter der Nummer **{{ therapist.telefon }}** an.
 
-### Telefonische Erreichbarkeit:
+##### Telefonische Erreichbarkeit:
 {{ phone_availability_formatted }}
 
-### Was Sie am Telefon sagen sollten:
+##### Was Sie am Telefon sagen sollten:
 - Dass Sie von Curavani vermittelt wurden
 - Dass Sie gerne {% if is_group_therapy %}an der Gruppentherapie teilnehmen{% else %}einen Therapieplatz in Anspruch nehmen{% endif %} möchten
 - Dass Sie einen Termin für ein Erstgespräch vereinbaren möchten
@@ -62,15 +63,15 @@ Bitte rufen Sie {{ therapist.titel }} {{ therapist.nachname }} unter der Nummer 
 
 {% endif %}
 
-## Wichtige Hinweise:
+#### Wichtige Hinweise:
 
 - Bringen Sie zum Erstgespräch unbedingt Ihr **Versicherungskärtchen** mit.
-- Das Erstgespräch dient dem gegenseitigen Kennenlernen. Sie können danach entscheiden, ob Sie die Therapie bei diesem Therapeuten beginnen möchten.
-- Falls Sie mit dem Therapeuten nicht zurechtkommen oder das Erstgespräch nicht zustande kommt, melden Sie sich bitte umgehend bei uns.
+- Das Erstgespräch dient dem gegenseitigen Kennenlernen. Sie können danach entscheiden, ob Sie die Therapie bei {% if therapist.geschlecht == 'weiblich' %}dieser Therapeutin{% else %}diesem Therapeuten{% endif %} beginnen möchten.
+- Falls Sie mit {% if therapist.geschlecht == 'weiblich' %}der Therapeutin{% else %}dem Therapeuten{% endif %} nicht zurechtkommen oder das Erstgespräch nicht zustande kommt, melden Sie sich bitte umgehend bei uns.
 
-## Ihre nächsten Schritte zusammengefasst:
+#### Ihre nächsten Schritte zusammengefasst:
 
-1. **Sofort:** {% if has_email %}E-Mail an Therapeuten senden (mit CC an uns){% else %}Therapeuten anrufen{% endif %}
+1. **Sofort:** {% if has_email %}E-Mail an {% if therapist.geschlecht == 'weiblich' %}Therapeutin{% else %}Therapeuten{% endif %} senden (mit CC an uns){% else %}{% if therapist.geschlecht == 'weiblich' %}Therapeutin{% else %}Therapeuten{% endif %} anrufen{% endif %}
 2. **Nach Terminvereinbarung:** Termin in Ihren Kalender eintragen
 3. **Am Tag des Erstgesprächs:** Versicherungskärtchen mitnehmen
 4. **Nach dem Erstgespräch:** Rückmeldung an uns

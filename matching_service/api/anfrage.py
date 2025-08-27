@@ -179,7 +179,7 @@ def send_patient_success_email(db, search: Platzsuche) -> tuple:
             email_markdown = template.render(context)
         
         # Send email via communication service
-        subject = "Therapieplatz gefunden!"
+        subject = "Therapieplatz gefunden - bitte zeitnah bearbeiten"
         
         import requests
         comm_url = config.get_service_url('communication', internal=True)
@@ -237,10 +237,27 @@ def format_availability_for_email(availability: dict) -> str:
         'sunday': 'Sonntag', 'sonntag': 'Sonntag'
     }
     
+    # Define weekday order (Monday to Friday only)
+    weekday_order = ['montag', 'dienstag', 'mittwoch', 'donnerstag', 'freitag']
+    
     formatted_days = []
-    for day, times in availability.items():
+    
+    # Process days in correct weekday order
+    for day_key in weekday_order:
+        # Check both German and English keys
+        english_key = {
+            'montag': 'monday',
+            'dienstag': 'tuesday',
+            'mittwoch': 'wednesday',
+            'donnerstag': 'thursday',
+            'freitag': 'friday'
+        }.get(day_key, day_key)
+        
+        # Try to get time for this day (check both German and English keys)
+        times = availability.get(day_key) or availability.get(english_key)
+        
         if times and isinstance(times, list):
-            german_day = weekday_mapping.get(day.lower(), day)
+            german_day = weekday_mapping.get(day_key, day_key.capitalize())
             time_str = ', '.join(str(t) for t in times)
             formatted_days.append(f"- {german_day}: {time_str}")
     
