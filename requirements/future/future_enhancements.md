@@ -1,8 +1,8 @@
 # Future Enhancements - Priority Items
 
-**Document Version:** 5.1  
-**Date:** August 2025  
-**Status:** Requirements Gathering (Updated - 3 items completed)
+**Document Version:** 5.2  
+**Date:** January 2025  
+**Status:** Requirements Gathering (Updated - 3 items completed, 1 critical bug discovered)
 
 ---
 
@@ -10,6 +10,7 @@
 
 | Priority | Enhancement | Complexity | Impact |
 |----------|-------------|------------|--------|
+| **CRITICAL** | Fix Distance Constraint Bypass Bug (#30) | Medium | Critical |
 | **CRITICAL** | Backup and Restore Testing & Monitoring (#24) | Medium-High | Critical |
 | **CRITICAL** | Handle Duplicate Patient Registrations (#12) | Medium-High | Critical |
 | **CRITICAL** | PostgreSQL Database Stability (#4) | High | Critical |
@@ -43,25 +44,153 @@
 
 ## Next Steps
 
-1. **IMMEDIATE - Data Protection:** Implement backup testing and monitoring (#24) to ensure data recoverability
-2. **CRITICAL - Bug Fix:** Fix excluded therapists removal bug (#25) affecting patient data integrity
-3. **URGENT - Import Fix:** Handle "Null" last name issue (#23) affecting therapist imports and scraper
-4. **URGENT - Security:** Implement injection attack protection (#21) across all forms
-5. **URGENT:** Fix non-functional automatic reminders and follow-up systems
-6. **URGENT:** Implement duplicate handling for patients (#12) to ensure data integrity
-7. **URGENT:** Fix ICD10 diagnostic matching logic (#18) - review Angela Fath-Volk case
-8. **Infrastructure:** Set up production log management (#22)
-9. **Quick Wins:** Implement frontend fixes (#7) and validation improvements (#20)
-10. **User Experience:** Implement pause functionality (#19)
-11. **Email System:** Design and implement comprehensive email automation (#1)
-12. **Payment System:** Design and implement patient payment tracking (#16)
-13. **Communication:** Implement phone call templates (#15) and cancellation logic (#27)
-14. **Data Quality:** Design and implement multi-location support (#13)
-15. **European Compliance:** Plan migration from Google Cloud Storage (#21) and SendGrid (#28) to European solutions
-16. **Backup Strategy:** Evaluate Proton Drive as iCloud alternative (#29)
-17. **Requirements Clarification:** Schedule discussion sessions for items #2-3 and #9
-18. **Implementation Planning:** Create detailed technical specifications for high-priority items
-19. **Audit Current Systems:** Review therapist import reporting logic
+1. **IMMEDIATE - Critical Bug:** Fix distance constraint bypass bug (#30) that allows invalid matches when therapist city is missing
+2. **IMMEDIATE - Data Protection:** Implement backup testing and monitoring (#24) to ensure data recoverability
+3. **CRITICAL - Bug Fix:** Fix excluded therapists removal bug (#25) affecting patient data integrity
+4. **URGENT - Import Fix:** Handle "Null" last name issue (#23) affecting therapist imports and scraper
+5. **URGENT - Security:** Implement injection attack protection (#21) across all forms
+6. **URGENT:** Fix non-functional automatic reminders and follow-up systems
+7. **URGENT:** Implement duplicate handling for patients (#12) to ensure data integrity
+8. **URGENT:** Fix ICD10 diagnostic matching logic (#18) - review Angela Fath-Volk case
+9. **Infrastructure:** Set up production log management (#22)
+10. **Quick Wins:** Implement frontend fixes (#7) and validation improvements (#20)
+11. **User Experience:** Implement pause functionality (#19)
+12. **Email System:** Design and implement comprehensive email automation (#1)
+13. **Payment System:** Design and implement patient payment tracking (#16)
+14. **Communication:** Implement phone call templates (#15) and cancellation logic (#27)
+15. **Data Quality:** Design and implement multi-location support (#13)
+16. **European Compliance:** Plan migration from Google Cloud Storage (#21) and SendGrid (#28) to European solutions
+17. **Backup Strategy:** Evaluate Proton Drive as iCloud alternative (#29)
+18. **Requirements Clarification:** Schedule discussion sessions for items #2-3 and #9
+19. **Implementation Planning:** Create detailed technical specifications for high-priority items
+20. **Audit Current Systems:** Review therapist import reporting logic
+
+---
+
+## 30. Fix Distance Constraint Bypass Bug - **CRITICAL NEW**
+
+### Current Issue
+The distance constraint in the matching algorithm is being bypassed when therapists have missing city (`ort`) data, causing incorrect patient-therapist matches. When the `build_address` function cannot construct a valid address (due to missing city), it returns `None`, and the distance check **allows the match by default** instead of rejecting it.
+
+### Discovery Context
+This bug was discovered when PLZ 52159 therapists had no city data:
+- **Before fix:** Therapists with missing city matched with ALL patients regardless of distance
+- **After adding city:** Only patients within proper travel distance were matched
+- **Impact:** Patients 50km away were incorrectly matched with therapists they couldn't reach
+
+### Code Analysis
+```python
+# The problematic code in anfrage_creator.py:
+
+def build_address(entity: Dict[str, Any]) -> Optional[str]:
+    if not city:  # If city is missing
+        return None  # Returns None!
+
+def check_distance_constraint(patient, therapist):
+    if not patient_address or not therapist_address:
+        return True  # ALLOWS match when address is invalid!
+```
+
+### Implementation Requirements
+
+#### A. Fix the Distance Check Logic
+- **Option 1: Reject Invalid Addresses**
+  ```python
+  def check_distance_constraint(patient, therapist):
+      patient_address = build_address(patient)
+      therapist_address = build_address(therapist)
+      
+      if not patient_address or not therapist_address:
+          # REJECT if we cannot verify distance
+          logger.warning(f"Cannot verify distance - missing address data")
+          return False  # Changed from True to False
+  ```
+
+- **Option 2: Use PLZ-Only Fallback**
+  ```python
+  def check_distance_constraint(patient, therapist):
+      # Try full address first
+      patient_address = build_address(patient)
+      therapist_address = build_address(therapist)
+      
+      if not patient_address or not therapist_address:
+          # Fallback to PLZ-based distance
+          patient_plz = patient.get('plz')
+          therapist_plz = therapist.get('plz')
+          
+          if patient_plz and therapist_plz:
+              return check_plz_distance(patient_plz, therapist_plz, max_distance)
+          
+          # If still cannot calculate, reject
+          return False
+  ```
+
+#### B. Data Quality Audit
+- **Identify Affected Therapists:**
+  ```sql
+  -- Find all therapists with missing city data
+  SELECT id, vorname, nachname, plz, strasse
+  FROM therapist_service.therapeuten
+  WHERE ort IS NULL OR ort = ''
+  ORDER BY plz;
+  ```
+
+- **Review Historical Matches:**
+  ```sql
+  -- Find anfragen that may have incorrect matches
+  SELECT DISTINCT ta.id, ta.therapist_id, t.plz, t.ort
+  FROM matching_service.therapeutenanfrage ta
+  JOIN therapist_service.therapeuten t ON t.id = ta.therapist_id
+  WHERE t.ort IS NULL OR t.ort = ''
+  AND ta.gesendet_datum IS NOT NULL;
+  ```
+
+#### C. Preventive Measures
+- **Add Data Validation:**
+  - Require city field for all therapist imports
+  - Warn during import if city is missing
+  - Add database constraint (after cleanup)
+
+- **Monitoring:**
+  - Alert when therapists have incomplete address data
+  - Regular audit of address completeness
+  - Track distance calculation failures
+
+### Testing Requirements
+- **Unit Tests:**
+  ```python
+  def test_distance_check_with_missing_city():
+      patient = {'plz': '52074', 'ort': 'Aachen'}
+      therapist = {'plz': '52159', 'ort': ''}  # Missing city
+      
+      # Should REJECT the match
+      assert check_distance_constraint(patient, therapist) == False
+  ```
+
+- **Integration Tests:**
+  - Test with various missing address components
+  - Verify PLZ fallback behavior
+  - Test with real distance calculations
+
+### Impact Analysis
+- **Affected Systems:**
+  - All active platzsuchen
+  - Historical anfragen with incomplete therapist data
+  - Future matching accuracy
+
+- **Potential Corrections Needed:**
+  - Review past matches for validity
+  - Notify affected patients/therapists if needed
+  - Update existing anfragen if incorrect
+
+### Success Metrics
+- Zero matches with uncalculable distances
+- 100% of therapists have complete address data
+- Improved matching accuracy
+- Reduced patient complaints about distance
+
+### Priority Justification
+**CRITICAL** - This bug fundamentally breaks the matching algorithm's core constraint, potentially sending patients to unreachable therapists and wasting resources on invalid matches.
 
 ---
 
@@ -783,7 +912,7 @@ Create customizable phone call templates for various patient interaction scenari
 No systematic way to document whether patients have paid for services, causing billing confusion and follow-up difficulties.
 
 ### Requirement
-Implement comprehensive payment tracking functionality integrated with patient records. Futhermore, implement that patients get an email after the payment is confirmed. So they now that the search is starting now for them.
+Implement comprehensive payment tracking functionality integrated with patient records. Furthermore, implement that patients get an email after the payment is confirmed. So they know that the search is starting now for them.
 
 ### Payment Information to Track
 - **Payment Status:**
@@ -830,6 +959,7 @@ Implement comprehensive payment tracking functionality integrated with patient r
   - Payment reminder emails
   - Receipt generation
   - Monthly billing reports
+  - **Payment confirmation email to patient**
 
 ### Integration Points
 - Patient management system
@@ -2035,6 +2165,8 @@ Evaluate and potentially implement Proton Drive as a more privacy-focused, Europ
 ---
 
 **Document Owner:** Development Team  
-**Last Updated:** August 2025 (v5.1)  
+**Last Updated:** January 2025 (v5.2)  
 **Next Review:** After critical issue resolution and implementation of high-priority items
-**Changes:** Removed 3 completed items (#6, #29, #32) that were implemented in Step 3 of implementation plan
+**Changes:** 
+- v5.1: Removed 3 completed items (#6, #29, #32) that were implemented in Step 3
+- v5.2: Added critical distance constraint bypass bug (#30) discovered during PLZ 52159 investigation
