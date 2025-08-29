@@ -166,6 +166,33 @@ User Request → PHP → JSON file on SFTP → Communication-service → Local S
 - Check before creating JSON files
 - Monitor all endpoints
 
+### 5.5 Duplicate Form Submission Prevention (Simple Solution)
+
+**Problem**: Patients can submit registration form multiple times with same token
+
+**Root Cause**: 
+- Token is only validated when showing form (GET request)
+- Token is NOT re-validated when submitting form (POST request)
+- Same URL can be bookmarked and form resubmitted days later
+
+**Solution**: Add separate tracking for form submission
+```sql
+ALTER TABLE verification_tokens 
+ADD COLUMN form_submitted BOOLEAN DEFAULT FALSE;
+```
+
+**Implementation**:
+1. **Current `used` column**: Tracks email verification only
+2. **New `form_submitted` column**: Tracks registration completion
+3. **On POST request**: Check `form_submitted = FALSE` before processing
+4. **After successful GCS/SFTP upload**: Set `form_submitted = TRUE`
+
+**Benefits**:
+- Prevents duplicate registrations with same token
+- Allows retries if upload fails
+- Clean separation of email verification vs. form submission
+- Minimal code changes required
+
 ## 6. Migration Plan
 
 ### 6.1 Phase 0: Infomaniak Capability Testing (NEW - Do First)
@@ -276,6 +303,7 @@ User Request → PHP → JSON file on SFTP → Communication-service → Local S
 - [ ] No SQL injection vulnerabilities
 - [ ] HMAC signatures on all JSON files
 - [ ] Global rate limiting in place
+- [ ] No duplicate form submissions with same token
 - [ ] Successfully handling 100+ registrations/hour
 - [ ] 99.9% uptime after migration
 - [ ] File monitoring alerts for > 30 minute old files
@@ -296,6 +324,8 @@ User Request → PHP → JSON file on SFTP → Communication-service → Local S
 - [ ] Add prepared statements to all PHP files
 - [ ] Implement comprehensive validation
 - [ ] Add global rate limiting
+- [ ] Add form_submitted column to verification_tokens table
+- [ ] Implement duplicate submission check in verify_token.php
 - [ ] Security testing and verification
 
 ### Service Updates
