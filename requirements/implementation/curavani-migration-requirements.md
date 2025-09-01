@@ -45,18 +45,18 @@ User Request → PHP → JSON file in Object Storage → Communication-service �
 - **Database**: MariaDB at Infomaniak
 - **Object Storage Structure**:
   ```
-  Buckets (Containers):
-    dev/                    # Development environment bucket
+  Containers (Buckets):
+    dev/                    # Development environment container
       verifications/        # Email verification requests
       contacts/            # Contact form submissions  
       registrations/       # Patient registrations
     
-    test/                   # Test environment bucket
+    test/                   # Test environment container
       verifications/      
       contacts/          
       registrations/     
     
-    prod/                   # Production environment bucket
+    prod/                   # Production environment container
       verifications/      
       contacts/          
       registrations/
@@ -65,27 +65,43 @@ User Request → PHP → JSON file in Object Storage → Communication-service �
 ### 3.3 Environment Configuration
 - **PHP Scripts**: Single codebase for all environments
 - **Environment Selection**: Via configuration file (`config.php`)
-- **Backend Services**: Each connects only to its corresponding bucket
-  - Dev backend → `dev` bucket
-  - Test backend → `test` bucket
-  - Prod backend → `prod` bucket
+- **Backend Services**: Each connects only to its corresponding container
+  - Dev backend → `dev` container
+  - Test backend → `test` container
+  - Prod backend → `prod` container
 
 ### 3.4 Single Provider
 - **Everything at Infomaniak**: PHP hosting, MariaDB, Object Storage, Domain (after migration)
 - **Local infrastructure**: Communication-service with local SMTP relay (already configured)
 
-## 4. Technical Stack
+## 4. Technical Stack - VERIFIED ✅
 
-### 4.1 Object Storage Details
+### 4.1 Object Storage Details (Tested & Working)
 - **Provider**: Infomaniak OpenStack Swift
 - **Access Method**: Native Swift API (not S3-compatible)
-- **PHP Library**: `php-opencloud/openstack`
-- **Python Library**: `python-swiftclient` or `python-openstacksdk`
+- **PHP Library**: `php-opencloud/openstack` ✅ Tested
+- **Python Library**: `python-swiftclient` with `keystoneauth1` ✅ Tested
 - **Authentication**: Application Credentials (ID + Secret)
-- **Endpoint**: `https://api.pub1.infomaniak.cloud/identity/v3`
+- **Auth Endpoint**: `https://api.pub1.infomaniak.cloud/identity/v3`
+- **Storage Endpoint**: `***REMOVED***`
 - **Region**: `dc4-a`
+- **Performance**: 62ms write, 42ms read average ✅
 
-### 4.2 Configuration File Structure
+### 4.2 PHP Environment (Tested & Working)
+- **PHP Version**: 8.1.33 ✅
+- **Memory Limit**: 640M ✅
+- **Max Execution Time**: 60 seconds ✅
+- **Required Extensions**: All present (mysqli, pdo, json, curl, mbstring, openssl, hash) ✅
+- **Performance**: Excellent (0.14ms INSERT, 0.08ms SELECT) ✅
+
+### 4.3 MariaDB (Tested & Working)
+- **Version**: 10.11.13-MariaDB-deb11-log ✅
+- **Host Pattern**: `[database].myd.infomaniak.com` ✅
+- **Connection Methods**: MySQLi and PDO both working ✅
+- **Features Tested**: Transactions, JSON columns, UTF8MB4, Prepared statements ✅
+- **Performance**: < 1ms for most operations ✅
+
+### 4.4 Configuration File Structure
 ```php
 // config.php
 <?php
@@ -94,6 +110,7 @@ return [
     
     'object_storage' => [
         'authUrl' => 'https://api.pub1.infomaniak.cloud/identity/v3',
+        'storageUrl' => '***REMOVED***',
         'region' => 'dc4-a',
         'credentials' => [
             'id' => getenv('SWIFT_APP_CREDENTIAL_ID'),
@@ -101,28 +118,28 @@ return [
         ]
     ],
     
-    'buckets' => [
+    'containers' => [
         'dev' => 'dev',
-        'test' => 'test',
+        'test' => 'test', 
         'prod' => 'prod'
     ],
     
     'database' => [
         'dev' => [
-            'host' => 'dev.db.infomaniak.com',
-            'name' => 'curavani_dev',
+            'host' => '[dbname].myd.infomaniak.com',
+            'name' => 'dev_database',
             'user' => getenv('DB_USER_DEV'),
             'pass' => getenv('DB_PASS_DEV')
         ],
         'test' => [
-            'host' => 'test.db.infomaniak.com',
-            'name' => 'curavani_test',
+            'host' => '[dbname].myd.infomaniak.com',
+            'name' => 'test_database',
             'user' => getenv('DB_USER_TEST'),
             'pass' => getenv('DB_PASS_TEST')
         ],
         'prod' => [
-            'host' => 'prod.db.infomaniak.com',
-            'name' => 'curavani_prod',
+            'host' => '[dbname].myd.infomaniak.com',
+            'name' => 'prod_database',
             'user' => getenv('DB_USER_PROD'),
             'pass' => getenv('DB_PASS_PROD')
         ]
@@ -156,7 +173,7 @@ return [
 - Patient-service imports from Object Storage
 
 ### 5.4 File Processing
-- Backend services poll their respective buckets
+- Backend services poll their respective containers
 - Download and process files immediately
 - Delete files from Object Storage after processing (both success and failure)
 - Files older than 30 minutes indicate backend processing problems
@@ -169,6 +186,7 @@ return [
   - < 100 registrations/hour
   - < 1,000 emails/hour
 - **File monitoring**: Alert if files older than 30 minutes exist
+- **Measured performance**: 62ms write, 42ms read (well within requirements) ✅
 
 ## 6. Security Improvements (Priority 1 - Do After Phase 0)
 
@@ -238,7 +256,7 @@ return [
 - Check before creating JSON files
 - Monitor all endpoints
 
-### 6.5 Duplicate Form Submission Prevention (Simple Solution)
+### 6.5 Duplicate Form Submission Prevention
 
 **Problem**: Patients can submit registration form multiple times with same token
 
@@ -256,22 +274,25 @@ ADD COLUMN form_submitted BOOLEAN DEFAULT FALSE;
 
 ## 7. Migration Plan
 
-### 7.1 Phase 0: Infomaniak Capability Testing ✅ COMPLETED
-- ✅ PHP hosting capabilities verified
-- ✅ MariaDB features tested
-- ✅ Object Storage access validated
-- ✅ Swift API authentication working
-- ✅ Performance acceptable
+### 7.1 Phase 0: Infrastructure Testing ✅ COMPLETED
+- ✅ PHP hosting capabilities verified (8.1.33, 640M memory)
+- ✅ MariaDB features tested (10.11.13, transactions, JSON support)
+- ✅ Object Storage access validated (Swift API working)
+- ✅ PHP to Swift authentication working
+- ✅ Python to Swift authentication working (with endpoint override)
+- ✅ Performance acceptable (62ms write, 42ms read)
+- ✅ Folder operations tested
+- ✅ All critical features confirmed
 
 ### 7.2 Phase 1: Infomaniak Setup
-1. Create three buckets/containers (`dev`, `test`, `prod`)
-2. Set up folder structure within each bucket
+1. Create three containers (`dev`, `test`, `prod`)
+2. Set up folder structure within each container
 3. Configure Application Credentials for each environment
-4. Install PHP application at Infomaniak
-5. Configure MariaDB instances for each environment
-6. Set up environment-specific credentials
+4. Set up three databases (dev, test, prod)
+5. Configure environment-specific credentials
+6. Deploy PHP application to Infomaniak
 
-### 7.3 Phase 2: Code Changes
+### 7.3 Phase 2: Code Implementation
 
 #### PHP Updates
 1. Create `config.php` for environment management
@@ -290,11 +311,13 @@ ADD COLUMN form_submitted BOOLEAN DEFAULT FALSE;
    - Poll `/verifications` folder for email verification requests
    - Poll `/contacts` folder for contact form submissions
    - Delete processed files
+   - Use storage URL override for connection
 
 2. **Patient-service**:
    - Replace GCS client with Swift client
    - Poll `/registrations` folder
    - Delete processed files
+   - Use storage URL override for connection
 
 3. **All services**:
    - Add HMAC signature verification
@@ -328,9 +351,9 @@ ADD COLUMN form_submitted BOOLEAN DEFAULT FALSE;
 6. Keep domainfactory as backup for 1 week
 7. Decommission old infrastructure
 
-## 8. Object Storage Implementation Details
+## 8. Implementation Code Examples
 
-### 8.1 PHP Swift Client Usage
+### 8.1 PHP Swift Client (Tested & Working)
 ```php
 use OpenStack\OpenStack;
 
@@ -350,8 +373,9 @@ class ObjectStorageClient {
             ]
         ]);
         
-        $bucketName = $this->config['buckets'][$environment];
-        $this->container = $openstack->objectStoreV1()->getContainer($bucketName);
+        $containerName = $this->config['containers'][$environment];
+        $objectStore = $openstack->objectStoreV1();
+        $this->container = $objectStore->getContainer($containerName);
     }
     
     public function uploadJson($folder, $filename, $data) {
@@ -382,9 +406,11 @@ class ObjectStorageClient {
 }
 ```
 
-### 8.2 Python Swift Client Usage
+### 8.2 Python Swift Client (Tested & Working)
 ```python
 from swiftclient import client
+from keystoneauth1 import session
+from keystoneauth1.identity import v3
 import json
 import hmac
 import hashlib
@@ -396,14 +422,21 @@ class ObjectStorageClient:
         self.environment = environment
         self.container = environment  # 'dev', 'test', or 'prod'
         
+        # Create auth
+        auth = v3.ApplicationCredential(
+            auth_url='https://api.pub1.infomaniak.cloud/identity/v3',
+            application_credential_id=os.getenv('SWIFT_APP_CREDENTIAL_ID'),
+            application_credential_secret=os.getenv('SWIFT_APP_CREDENTIAL_SECRET')
+        )
+        
+        # Create session and get token
+        sess = session.Session(auth=auth)
+        token = sess.get_token()
+        
+        # Create connection with explicit storage URL (important!)
         self.conn = client.Connection(
-            authurl='https://api.pub1.infomaniak.cloud/identity/v3',
-            auth_version='3',
-            os_options={
-                'application_credential_id': os.getenv('SWIFT_APP_CREDENTIAL_ID'),
-                'application_credential_secret': os.getenv('SWIFT_APP_CREDENTIAL_SECRET'),
-                'region_name': 'dc4-a'
-            }
+            preauthurl='***REMOVED***',
+            preauthtoken=token
         )
     
     def poll_and_process(self, folder, process_function):
@@ -422,6 +455,9 @@ class ObjectStorageClient:
                 self.container,
                 obj['name']
             )
+            
+            if isinstance(content, bytes):
+                content = content.decode('utf-8')
             
             data = json.loads(content)
             
@@ -451,6 +487,29 @@ class ObjectStorageClient:
         return signature == calculated
 ```
 
+### 8.3 Email Verification Request (PHP)
+```php
+// send_verification.php
+require_once 'config.php';
+require_once 'ObjectStorageClient.php';
+
+$config = require 'config.php';
+$environment = $config['environment'];
+
+// After generating verification token
+$verificationData = [
+    'type' => 'email_verification',
+    'email' => $email,
+    'token' => $token,
+    'verification_url' => "https://curavani.de/verify?token=$token",
+    'created_at' => date('c')
+];
+
+$storage = new ObjectStorageClient($environment);
+$filename = 'verification_' . time() . '_' . uniqid() . '.json';
+$storage->uploadJson('verifications', $filename, $verificationData);
+```
+
 ## 9. Configuration Details
 
 ### 9.1 Confirmed Settings
@@ -458,8 +517,10 @@ class ObjectStorageClient:
 - **SMTP relay**: Already configured in communication-service
 - **File age threshold**: 30 minutes for monitoring alerts
 - **Environments**: dev, test, prod
-- **Object Storage**: OpenStack Swift at Infomaniak
-- **Authentication**: Application Credentials
+- **Object Storage**: OpenStack Swift at Infomaniak ✅
+- **Authentication**: Application Credentials ✅
+- **PHP Environment**: 8.1.33, 640M memory ✅
+- **MariaDB**: 10.11.13 ✅
 
 ### 9.2 Environment Variables Required
 ```bash
@@ -481,11 +542,17 @@ HMAC_KEY_TEST=xxxxx
 HMAC_KEY_PROD=xxxxx
 ```
 
+### 9.3 Important Notes for Implementation
+1. **Python Swift Connection**: Must use explicit storage URL (`preauthurl`) due to endpoint discovery issue
+2. **Container Names**: Case-sensitive (use exact names as created)
+3. **Database Host Pattern**: `[dbname].myd.infomaniak.com`
+4. **Performance**: Object Storage operations average 50ms (acceptable for use case)
+
 ## 10. Risk Assessment
 
 ### Acceptable Risks
 - **Single provider dependency**: Similar to current domainfactory situation
-- **Object Storage performance**: Adequate for expected load (< 1000 files/hour)
+- **Object Storage performance**: 50ms average operations (well within requirements)
 - **10-30 second delays**: Acceptable for email delivery
 - **Simple folder structure**: Backend services handle their own error tracking
 
@@ -497,11 +564,12 @@ HMAC_KEY_PROD=xxxxx
 
 ## 11. Success Criteria
 
-### Phase 0 Success ✅ COMPLETED
+### Phase 0 Success ✅ FULLY COMPLETED
 - ✅ All required PHP features available at Infomaniak
-- ✅ MariaDB meets all requirements
+- ✅ MariaDB meets all requirements  
 - ✅ Object Storage performance acceptable for expected load
-- ✅ Swift API authentication working
+- ✅ Swift API authentication working from both PHP and Python
+- ✅ All infrastructure components tested and verified
 
 ### Overall Migration Success
 - [ ] All emails sent through communication-service
@@ -519,21 +587,21 @@ HMAC_KEY_PROD=xxxxx
 
 ## 12. Implementation Checklist
 
-### Phase 0 - Capability Testing ✅ COMPLETED
+### Phase 0 - Infrastructure Testing ✅ COMPLETED
 - ✅ Create Infomaniak test account
-- ✅ Test PHP hosting features
-- ✅ Test MariaDB capabilities
-- ✅ Test Object Storage access and performance
-- ✅ Document findings and limitations
-- ✅ Go/No-Go decision: **GO**
+- ✅ Test PHP hosting features (8.1.33, 640M memory, all extensions)
+- ✅ Test MariaDB capabilities (10.11.13, transactions, JSON, performance)
+- ✅ Test Object Storage access and performance (Swift API, 50ms avg operations)
+- ✅ Document findings and limitations (endpoint discovery issue noted)
+- ✅ Go/No-Go decision: **GO - All systems tested and approved**
 
-### Phase 1 - Infrastructure Setup
-- [ ] Create three buckets/containers (dev, test, prod)
-- [ ] Set up folder structure in each bucket
-- [ ] Configure Application Credentials
-- [ ] Set up MariaDB instances (dev, test, prod)
-- [ ] Configure PHP hosting at Infomaniak
-- [ ] Set up environment variables
+### Phase 1 - Infrastructure Setup (READY TO START)
+- [ ] Create three containers (dev, test, prod)
+- [ ] Set up folder structure in each container
+- [ ] Configure Application Credentials for each environment
+- [ ] Set up MariaDB databases (dev, test, prod)
+- [ ] Deploy PHP application to Infomaniak
+- [ ] Configure environment variables
 
 ### Security Implementation
 - [ ] Implement HMAC signatures
@@ -559,6 +627,7 @@ HMAC_KEY_PROD=xxxxx
 - [ ] Update patient-service to use Object Storage instead of GCS
 - [ ] Add HMAC verification to all services
 - [ ] Add file age monitoring to all services
+- [ ] Configure storage URL override for Python services
 - [ ] Environment-specific configuration for each service
 
 ### Testing & Migration
@@ -570,75 +639,21 @@ HMAC_KEY_PROD=xxxxx
 - [ ] DNS migration
 - [ ] Post-migration monitoring
 
-## 13. Code Examples
+## 13. Monitoring & Alerting
 
-### 13.1 Email Verification Request (PHP)
-```php
-// send_verification.php
-require_once 'config.php';
-require_once 'ObjectStorageClient.php';
-
-$config = require 'config.php';
-$environment = $config['environment'];
-
-// After generating verification token
-$verificationData = [
-    'type' => 'email_verification',
-    'email' => $email,
-    'token' => $token,
-    'verification_url' => "https://curavani.de/verify?token=$token",
-    'created_at' => date('c')
-];
-
-$storage = new ObjectStorageClient($environment);
-$filename = 'verification_' . time() . '_' . uniqid() . '.json';
-$storage->uploadJson('verifications', $filename, $verificationData);
-```
-
-### 13.2 Communication Service Polling (Python)
-```python
-# communication_service.py
-import time
-from object_storage_client import ObjectStorageClient
-
-def process_verification(data):
-    """Send verification email"""
-    send_email(
-        to=data['email'],
-        subject='Email Verification',
-        template='verification',
-        context={
-            'verification_url': data['verification_url']
-        }
-    )
-    return True
-
-def main():
-    environment = os.getenv('ENVIRONMENT', 'dev')
-    storage = ObjectStorageClient(environment)
-    
-    while True:
-        # Poll for verification requests
-        storage.poll_and_process('verifications', process_verification)
-        
-        # Poll for contact form submissions
-        storage.poll_and_process('contacts', process_contact)
-        
-        time.sleep(10)  # Poll every 10 seconds
-```
-
-## 14. Monitoring & Alerting
-
-### 14.1 Key Metrics
+### 13.1 Key Metrics
 - **File Age**: Alert if any file > 30 minutes old
 - **Processing Rate**: Files processed per minute
 - **Error Rate**: Failed processing attempts
-- **Storage Usage**: Total files and size per bucket
+- **Storage Usage**: Total files and size per container
 - **API Response Times**: Swift API latency
 
-### 14.2 Monitoring Implementation
+### 13.2 Monitoring Implementation
 ```python
 # monitoring.py
+from datetime import datetime, timezone
+import swiftclient
+
 def check_old_files(storage_client, max_age_minutes=30):
     """Check for files older than threshold"""
     old_files = []
@@ -650,7 +665,10 @@ def check_old_files(storage_client, max_age_minutes=30):
         )
         
         for obj in objects:
-            age = datetime.now() - datetime.fromisoformat(obj['last_modified'])
+            # Parse the last_modified timestamp
+            last_modified = datetime.fromisoformat(obj['last_modified'].replace('+00:00', '+00:00'))
+            age = datetime.now(timezone.utc) - last_modified
+            
             if age.total_seconds() > max_age_minutes * 60:
                 old_files.append({
                     'name': obj['name'],
@@ -663,35 +681,44 @@ def check_old_files(storage_client, max_age_minutes=30):
     return old_files
 ```
 
-## 15. Next Steps
+## 14. Next Steps (IMMEDIATE ACTIONS)
 
-1. **Set up Object Storage buckets** at Infomaniak (dev, test, prod)
-2. **Create Application Credentials** for each environment
-3. **Implement ObjectStorageClient** classes in PHP and Python
-4. **Security implementation** (HMAC, prepared statements, validation, rate limiting)
-5. **Update communication-service** to poll Object Storage
-6. **Set up monitoring** for file age and processing
-7. **Test in dev environment** thoroughly
-8. **Plan production migration window**
+1. **Create three containers** at Infomaniak (`dev`, `test`, `prod`)
+2. **Generate Application Credentials** for each environment
+3. **Set up databases** for each environment
+4. **Implement ObjectStorageClient** classes in PHP and Python (templates provided)
+5. **Start with dev environment** implementation
+6. **Security implementation** (HMAC, prepared statements, validation)
+7. **Update communication-service** to poll Object Storage
+8. **Test thoroughly** in dev before proceeding to test/prod
 
-## 16. Cost Analysis
+## 15. Cost Analysis
 
-### 16.1 Object Storage Costs
+### 15.1 Object Storage Costs
 - **Storage**: 0.000013 € / GB / hour
 - **Expected usage**: ~2.4 GB/day = ~72 GB/month
 - **Monthly cost**: ~0.68 € (negligible)
 - **Outgoing traffic**: Free (first 10TB/month)
 
-### 16.2 Total Infrastructure at Infomaniak
+### 15.2 Total Infrastructure at Infomaniak
 - PHP hosting
-- MariaDB (3 instances)
+- MariaDB (3 databases)
 - Object Storage
 - Domain hosting
 - **Estimated total**: Significantly less than current multi-provider setup
 
+## 16. Technical Decisions Summary
+
+1. **Object Storage over SFTP**: Better access control and API support
+2. **Swift native client**: Better compatibility than S3 emulation
+3. **Environment isolation**: Separate containers for dev/test/prod
+4. **HMAC signatures**: Security between PHP and services
+5. **Single PHP codebase**: Environment switching via config
+6. **Polling architecture**: Simple and reliable for expected load
+
 ---
 
-*Document Version: 3.0*  
-*Date: January 2025*  
-*Status: Ready for Phase 1 - Infrastructure Setup*  
-*Major Change: Migrated from SFTP to Object Storage (Swift)*
+*Document Version: 4.0*  
+*Date: September 2025*  
+*Status: Phase 0 Complete - Ready for Phase 1 Implementation*  
+*Major Updates: All infrastructure testing completed and verified*
