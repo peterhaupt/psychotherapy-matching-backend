@@ -2,13 +2,13 @@
 
 ## Executive Summary
 
-Migration of the Curavani patient registration system from multiple providers (domainfactory, GoDaddy, SendGrid, Google Cloud) to a single provider (Infomaniak) with enhanced security and maintained decoupled architecture.
+Migration of the Curavani patient registration system from multiple providers (domainfactory, GoDaddy, SendGrid, Google Cloud) to a single provider (Infomaniak) with enhanced security and maintained decoupled architecture using Object Storage.
 
 ## 1. Core Migration Goals
 
 1. **Get rid of SendGrid** - Move all email sending to communication-service with local SMTP relay
-2. **Get rid of Google Cloud Storage** - Replace with Infomaniak SFTP
-3. **Consolidate on Infomaniak** - Use their PHP hosting, MariaDB, and SFTP
+2. **Get rid of Google Cloud Storage** - Replace with Infomaniak Object Storage (Swift)
+3. **Consolidate on Infomaniak** - Use their PHP hosting, MariaDB, and Object Storage
 4. **Maintain decoupled architecture** - Continue using JSON files as interface
 5. **Increase security level** - Address critical vulnerabilities
 6. **Support three environments** - Dev, Test, and Production
@@ -37,60 +37,132 @@ Migration of the Curavani patient registration system from multiple providers (d
 ### 3.1 Unified Email Flow
 All emails go through communication-service:
 ```
-User Request → PHP → JSON file on SFTP → Communication-service → Local SMTP relay → Send
+User Request → PHP → JSON file in Object Storage → Communication-service → Local SMTP relay → Send
 ```
 
 ### 3.2 Data Storage
-- **All JSON files**: Infomaniak SFTP
+- **All JSON files**: Infomaniak Object Storage (Swift)
 - **Database**: MariaDB at Infomaniak
-- **File structure** (simplified):
+- **Object Storage Structure**:
   ```
-  /curavani/
-    /dev/
-      /verifications/      # Email verification requests
-      /contacts/          # Contact form submissions  
-      /registrations/     # Patient registrations
-    /test/
-      /verifications/      
-      /contacts/          
-      /registrations/     
-    /prod/
-      /verifications/      
-      /contacts/          
-      /registrations/
+  Buckets (Containers):
+    dev/                    # Development environment bucket
+      verifications/        # Email verification requests
+      contacts/            # Contact form submissions  
+      registrations/       # Patient registrations
+    
+    test/                   # Test environment bucket
+      verifications/      
+      contacts/          
+      registrations/     
+    
+    prod/                   # Production environment bucket
+      verifications/      
+      contacts/          
+      registrations/
   ```
 
-### 3.3 Single Provider
-- **Everything at Infomaniak**: PHP hosting, MariaDB, SFTP, Domain (after migration)
+### 3.3 Environment Configuration
+- **PHP Scripts**: Single codebase for all environments
+- **Environment Selection**: Via configuration file (`config.php`)
+- **Backend Services**: Each connects only to its corresponding bucket
+  - Dev backend → `dev` bucket
+  - Test backend → `test` bucket
+  - Prod backend → `prod` bucket
+
+### 3.4 Single Provider
+- **Everything at Infomaniak**: PHP hosting, MariaDB, Object Storage, Domain (after migration)
 - **Local infrastructure**: Communication-service with local SMTP relay (already configured)
 
-## 4. Specific Requirements
+## 4. Technical Stack
 
-### 4.1 Email Verification Migration
+### 4.1 Object Storage Details
+- **Provider**: Infomaniak OpenStack Swift
+- **Access Method**: Native Swift API (not S3-compatible)
+- **PHP Library**: `php-opencloud/openstack`
+- **Python Library**: `python-swiftclient` or `python-openstacksdk`
+- **Authentication**: Application Credentials (ID + Secret)
+- **Endpoint**: `https://api.pub1.infomaniak.cloud/identity/v3`
+- **Region**: `dc4-a`
+
+### 4.2 Configuration File Structure
+```php
+// config.php
+<?php
+return [
+    'environment' => 'dev',  // 'dev', 'test', or 'prod'
+    
+    'object_storage' => [
+        'authUrl' => 'https://api.pub1.infomaniak.cloud/identity/v3',
+        'region' => 'dc4-a',
+        'credentials' => [
+            'id' => getenv('SWIFT_APP_CREDENTIAL_ID'),
+            'secret' => getenv('SWIFT_APP_CREDENTIAL_SECRET')
+        ]
+    ],
+    
+    'buckets' => [
+        'dev' => 'dev',
+        'test' => 'test',
+        'prod' => 'prod'
+    ],
+    
+    'database' => [
+        'dev' => [
+            'host' => 'dev.db.infomaniak.com',
+            'name' => 'curavani_dev',
+            'user' => getenv('DB_USER_DEV'),
+            'pass' => getenv('DB_PASS_DEV')
+        ],
+        'test' => [
+            'host' => 'test.db.infomaniak.com',
+            'name' => 'curavani_test',
+            'user' => getenv('DB_USER_TEST'),
+            'pass' => getenv('DB_PASS_TEST')
+        ],
+        'prod' => [
+            'host' => 'prod.db.infomaniak.com',
+            'name' => 'curavani_prod',
+            'user' => getenv('DB_USER_PROD'),
+            'pass' => getenv('DB_PASS_PROD')
+        ]
+    ],
+    
+    'hmac_keys' => [
+        'dev' => getenv('HMAC_KEY_DEV'),
+        'test' => getenv('HMAC_KEY_TEST'),
+        'prod' => getenv('HMAC_KEY_PROD')
+    ]
+];
+```
+
+## 5. Specific Requirements
+
+### 5.1 Email Verification Migration
 - Move email sending from `send_verification.php` to communication-service
-- PHP creates `verification_request.json` file in SFTP
+- PHP creates `verification_request.json` file in Object Storage
 - Communication-service polls and sends verification email
 - Keep token storage in MariaDB for rate limiting
 
-### 4.2 Contact Form Enhancement
+### 5.2 Contact Form Enhancement
 - Modify `patienten.html` contact form
-- Create `contact_form.json` file via PHP
+- Create `contact_form.json` file via PHP in Object Storage
 - Communication-service sends to support email
 - **Support email address**: `patienten@curavani.com`
 
-### 4.3 Patient Registration
-- Continue current flow but with SFTP instead of GCS
-- PHP (`verify_token.php`) → JSON file → SFTP
-- Patient-service imports from SFTP
+### 5.3 Patient Registration
+- Continue current flow but with Object Storage instead of GCS
+- PHP (`verify_token.php`) → JSON file → Object Storage
+- Patient-service imports from Object Storage
 
-### 4.4 File Processing
-- Backend services poll their respective folders
+### 5.4 File Processing
+- Backend services poll their respective buckets
 - Download and process files immediately
-- Delete files from SFTP after processing (both success and failure)
+- Delete files from Object Storage after processing (both success and failure)
 - Files older than 30 minutes indicate backend processing problems
-- No complex folder structure needed - services handle their own error tracking
+- Services handle their own error tracking
 
-### 4.5 Performance Requirements
+### 5.5 Performance Requirements
 - **Email delay**: 10-30 seconds acceptable
 - **Polling frequency**: Every 10-30 seconds
 - **Expected load**: 
@@ -98,9 +170,9 @@ User Request → PHP → JSON file on SFTP → Communication-service → Local S
   - < 1,000 emails/hour
 - **File monitoring**: Alert if files older than 30 minutes exist
 
-## 5. Security Improvements (Priority 1 - Do After Phase 0)
+## 6. Security Improvements (Priority 1 - Do After Phase 0)
 
-### 5.1 HMAC Signatures for JSON Files
+### 6.1 HMAC Signatures for JSON Files
 
 **Problem**: No authentication between PHP and services
 
@@ -122,7 +194,7 @@ User Request → PHP → JSON file on SFTP → Communication-service → Local S
 - Include type to prevent cross-purpose use
 - Include environment to prevent cross-environment attacks
 
-### 5.2 Strict Input Validation
+### 6.2 Strict Input Validation
 
 **Problem**: Inconsistent validation between layers
 
@@ -137,7 +209,7 @@ User Request → PHP → JSON file on SFTP → Communication-service → Local S
 - Phone number format
 - Date validations
 
-### 5.3 Prepared Statements Everywhere
+### 6.3 Prepared Statements Everywhere
 
 **Problem**: SQL injection vulnerabilities
 
@@ -151,7 +223,7 @@ User Request → PHP → JSON file on SFTP → Communication-service → Local S
 - Use parameterized queries exclusively
 - Validate data types before queries
 
-### 5.4 Global Rate Limiting
+### 6.4 Global Rate Limiting
 
 **Problem**: Only per-email rate limiting exists
 
@@ -166,14 +238,9 @@ User Request → PHP → JSON file on SFTP → Communication-service → Local S
 - Check before creating JSON files
 - Monitor all endpoints
 
-### 5.5 Duplicate Form Submission Prevention (Simple Solution)
+### 6.5 Duplicate Form Submission Prevention (Simple Solution)
 
 **Problem**: Patients can submit registration form multiple times with same token
-
-**Root Cause**: 
-- Token is only validated when showing form (GET request)
-- Token is NOT re-validated when submitting form (POST request)
-- Same URL can be bookmarked and form resubmitted days later
 
 **Solution**: Add separate tracking for form submission
 ```sql
@@ -185,115 +252,256 @@ ADD COLUMN form_submitted BOOLEAN DEFAULT FALSE;
 1. **Current `used` column**: Tracks email verification only
 2. **New `form_submitted` column**: Tracks registration completion
 3. **On POST request**: Check `form_submitted = FALSE` before processing
-4. **After successful GCS/SFTP upload**: Set `form_submitted = TRUE`
+4. **After successful Object Storage upload**: Set `form_submitted = TRUE`
 
-**Benefits**:
-- Prevents duplicate registrations with same token
-- Allows retries if upload fails
-- Clean separation of email verification vs. form submission
-- Minimal code changes required
+## 7. Migration Plan
 
-## 6. Migration Plan
+### 7.1 Phase 0: Infomaniak Capability Testing ✅ COMPLETED
+- ✅ PHP hosting capabilities verified
+- ✅ MariaDB features tested
+- ✅ Object Storage access validated
+- ✅ Swift API authentication working
+- ✅ Performance acceptable
 
-### 6.1 Phase 0: Infomaniak Capability Testing (NEW - Do First)
-1. **Verify PHP hosting capabilities**
-   - PHP version compatibility (8.0+)
-   - Required extensions available
-   - Memory and execution time limits adequate
-2. **Test MariaDB features**
-   - Version compatibility
-   - Connection pooling support
-   - Backup/restore procedures
-3. **Validate SFTP access**
-   - Multi-user access with different permissions
-   - API access from backend services
-   - File size and count limits
-   - Performance with expected load
-4. **Check monitoring capabilities**
-   - Log access
-   - Alert configuration options
-   - Performance metrics availability
-5. **Document any limitations or required workarounds**
+### 7.2 Phase 1: Infomaniak Setup
+1. Create three buckets/containers (`dev`, `test`, `prod`)
+2. Set up folder structure within each bucket
+3. Configure Application Credentials for each environment
+4. Install PHP application at Infomaniak
+5. Configure MariaDB instances for each environment
+6. Set up environment-specific credentials
 
-### 6.2 Phase 1: Infomaniak Setup
-1. Set up three environments (dev/test/prod)
-2. Install PHP application in each environment
-3. Configure MariaDB instances
-4. Set up SFTP structure for all environments
-5. Configure environment-specific credentials
+### 7.3 Phase 2: Code Changes
 
-### 6.3 Phase 2: Code Changes
-1. Add JSON file import functionality to communication-service
-2. Implement HMAC signatures with environment awareness
-3. Add prepared statements everywhere
-4. Implement validation layer
-5. Add rate limiting
-6. Modify PHP to write to SFTP instead of GCS/SendGrid
-7. Modify patient-service to poll SFTP instead of GCS
-8. Add monitoring for files older than 30 minutes
+#### PHP Updates
+1. Create `config.php` for environment management
+2. Implement Swift client wrapper class
+3. Add HMAC signing to all JSON outputs
+4. Modify `send_verification.php` to write to Object Storage
+5. Modify `verify_token.php` to write to Object Storage
+6. Create `process_contact.php` for contact form handling
+7. Add prepared statements to all database queries
+8. Implement rate limiting checks
+9. Add duplicate submission prevention
 
-### 6.4 Phase 3: Testing
-1. Test all workflows in dev environment
-2. Security testing
-3. Performance testing
-4. Test environment validation
-5. Backup/recovery testing
+#### Backend Service Updates
+1. **Communication-service**:
+   - Add Swift client for Object Storage polling
+   - Poll `/verifications` folder for email verification requests
+   - Poll `/contacts` folder for contact form submissions
+   - Delete processed files
 
-### 6.5 Phase 4: Production Migration
-1. DNS preparation
-2. Data migration
-3. Switch DNS to Infomaniak
-4. Monitor for 48-72 hours
-5. Keep domainfactory as backup
-6. Decommission old infrastructure
+2. **Patient-service**:
+   - Replace GCS client with Swift client
+   - Poll `/registrations` folder
+   - Delete processed files
 
-## 7. Technical Decisions Made
+3. **All services**:
+   - Add HMAC signature verification
+   - Add file age monitoring
+   - Environment-specific configuration
 
-1. **Email service**: Local SMTP relay via communication-service (already configured)
-2. **Database**: MariaDB (already in use)
-3. **File structure**: Simplified three-folder structure per environment
-4. **Monitoring**: File age monitoring (> 30 minutes = problem)
-5. **Performance**: 10-30 second delays acceptable
-6. **Migration strategy**: Full setup on Infomaniak, then DNS switch
-7. **File handling**: Backend services delete files after processing
+### 7.4 Phase 3: Testing
+1. **Dev Environment**:
+   - Test all workflows
+   - Verify HMAC signatures
+   - Test rate limiting
+   - Performance testing
 
-## 8. Configuration Details
+2. **Test Environment**:
+   - Full integration testing
+   - Security testing
+   - Load testing
+   - Backup/recovery testing
 
-### 8.1 Confirmed Settings
+3. **Pre-Production Validation**:
+   - DNS preparation
+   - Final security audit
+   - Performance benchmarking
+
+### 7.5 Phase 4: Production Migration
+1. DNS preparation (reduce TTL 48 hours before)
+2. Data migration from domainfactory to Infomaniak
+3. Final sync of databases
+4. Switch DNS to Infomaniak
+5. Monitor for 48-72 hours
+6. Keep domainfactory as backup for 1 week
+7. Decommission old infrastructure
+
+## 8. Object Storage Implementation Details
+
+### 8.1 PHP Swift Client Usage
+```php
+use OpenStack\OpenStack;
+
+class ObjectStorageClient {
+    private $container;
+    private $config;
+    
+    public function __construct($environment) {
+        $this->config = require 'config.php';
+        
+        $openstack = new OpenStack([
+            'authUrl' => $this->config['object_storage']['authUrl'],
+            'region' => $this->config['object_storage']['region'],
+            'application_credential' => [
+                'id' => $this->config['object_storage']['credentials']['id'],
+                'secret' => $this->config['object_storage']['credentials']['secret']
+            ]
+        ]);
+        
+        $bucketName = $this->config['buckets'][$environment];
+        $this->container = $openstack->objectStoreV1()->getContainer($bucketName);
+    }
+    
+    public function uploadJson($folder, $filename, $data) {
+        $jsonContent = json_encode($this->addHmacSignature($data));
+        $objectName = $folder . '/' . $filename;
+        
+        $this->container->createObject([
+            'name' => $objectName,
+            'content' => $jsonContent
+        ]);
+    }
+    
+    private function addHmacSignature($data) {
+        $environment = $this->config['environment'];
+        $key = $this->config['hmac_keys'][$environment];
+        
+        $payload = [
+            'timestamp' => date('c'),
+            'environment' => $environment,
+            'data' => $data
+        ];
+        
+        $signature = hash_hmac('sha256', json_encode($payload), $key);
+        $payload['signature'] = $signature;
+        
+        return $payload;
+    }
+}
+```
+
+### 8.2 Python Swift Client Usage
+```python
+from swiftclient import client
+import json
+import hmac
+import hashlib
+from datetime import datetime
+import os
+
+class ObjectStorageClient:
+    def __init__(self, environment):
+        self.environment = environment
+        self.container = environment  # 'dev', 'test', or 'prod'
+        
+        self.conn = client.Connection(
+            authurl='https://api.pub1.infomaniak.cloud/identity/v3',
+            auth_version='3',
+            os_options={
+                'application_credential_id': os.getenv('SWIFT_APP_CREDENTIAL_ID'),
+                'application_credential_secret': os.getenv('SWIFT_APP_CREDENTIAL_SECRET'),
+                'region_name': 'dc4-a'
+            }
+        )
+    
+    def poll_and_process(self, folder, process_function):
+        """Poll for new files in a folder and process them"""
+        prefix = f"{folder}/"
+        
+        # List objects in folder
+        headers, objects = self.conn.get_container(
+            self.container,
+            prefix=prefix
+        )
+        
+        for obj in objects:
+            # Download and process
+            headers, content = self.conn.get_object(
+                self.container,
+                obj['name']
+            )
+            
+            data = json.loads(content)
+            
+            # Verify HMAC
+            if self.verify_hmac(data):
+                # Process the file
+                success = process_function(data['data'])
+                
+                # Delete after processing (regardless of success)
+                self.conn.delete_object(self.container, obj['name'])
+            else:
+                # Log security error and delete
+                print(f"HMAC verification failed for {obj['name']}")
+                self.conn.delete_object(self.container, obj['name'])
+    
+    def verify_hmac(self, payload):
+        """Verify HMAC signature"""
+        key = os.getenv(f'HMAC_KEY_{self.environment.upper()}')
+        
+        signature = payload.pop('signature', None)
+        calculated = hmac.new(
+            key.encode(),
+            json.dumps(payload, sort_keys=True).encode(),
+            hashlib.sha256
+        ).hexdigest()
+        
+        return signature == calculated
+```
+
+## 9. Configuration Details
+
+### 9.1 Confirmed Settings
 - **Support email**: `patienten@curavani.com`
 - **SMTP relay**: Already configured in communication-service
 - **File age threshold**: 30 minutes for monitoring alerts
 - **Environments**: dev, test, prod
+- **Object Storage**: OpenStack Swift at Infomaniak
+- **Authentication**: Application Credentials
 
-### 8.2 Open Questions
-- [ ] Infomaniak SFTP credentials and limits per environment?
-- [ ] Specific rate limits for each operation?
-- [ ] How to manage/rotate HMAC secret keys?
-- [ ] IP whitelist for SFTP access?
-- [ ] Alerting thresholds and recipients?
-- [ ] Log retention policy?
+### 9.2 Environment Variables Required
+```bash
+# Object Storage
+SWIFT_APP_CREDENTIAL_ID=xxxxx
+SWIFT_APP_CREDENTIAL_SECRET=xxxxx
 
-## 9. Risk Assessment
+# Database credentials per environment
+DB_USER_DEV=xxxxx
+DB_PASS_DEV=xxxxx
+DB_USER_TEST=xxxxx
+DB_PASS_TEST=xxxxx
+DB_USER_PROD=xxxxx
+DB_PASS_PROD=xxxxx
+
+# HMAC keys per environment
+HMAC_KEY_DEV=xxxxx
+HMAC_KEY_TEST=xxxxx
+HMAC_KEY_PROD=xxxxx
+```
+
+## 10. Risk Assessment
 
 ### Acceptable Risks
 - **Single provider dependency**: Similar to current domainfactory situation
-- **SFTP performance**: Adequate for expected load (< 1000 registrations/hour)
+- **Object Storage performance**: Adequate for expected load (< 1000 files/hour)
 - **10-30 second delays**: Acceptable for email delivery
-- **Simple file structure**: Backend services handle their own error tracking
+- **Simple folder structure**: Backend services handle their own error tracking
 
 ### Risks to Monitor
 - **Migration errors**: Require thorough testing in all environments
-- **SFTP credential security**: Use strong passwords, IP restrictions
+- **Application Credential security**: Rotate regularly, use environment variables
 - **File accumulation**: Monitor for files > 30 minutes old
 - **DNS propagation**: Keep old system for 48-72 hours
 
-## 10. Success Criteria
+## 11. Success Criteria
 
-### Phase 0 Success
-- [ ] All required PHP features available at Infomaniak
-- [ ] MariaDB meets all requirements
-- [ ] SFTP performance acceptable for expected load
-- [ ] Monitoring capabilities sufficient
+### Phase 0 Success ✅ COMPLETED
+- ✅ All required PHP features available at Infomaniak
+- ✅ MariaDB meets all requirements
+- ✅ Object Storage performance acceptable for expected load
+- ✅ Swift API authentication working
 
 ### Overall Migration Success
 - [ ] All emails sent through communication-service
@@ -309,15 +517,23 @@ ADD COLUMN form_submitted BOOLEAN DEFAULT FALSE;
 - [ ] File monitoring alerts for > 30 minute old files
 - [ ] All three environments operational
 
-## 11. Implementation Checklist
+## 12. Implementation Checklist
 
-### Phase 0 - Capability Testing
-- [ ] Create Infomaniak test account
-- [ ] Test PHP hosting features
-- [ ] Test MariaDB capabilities
-- [ ] Test SFTP access and performance
-- [ ] Document findings and limitations
-- [ ] Go/No-Go decision
+### Phase 0 - Capability Testing ✅ COMPLETED
+- ✅ Create Infomaniak test account
+- ✅ Test PHP hosting features
+- ✅ Test MariaDB capabilities
+- ✅ Test Object Storage access and performance
+- ✅ Document findings and limitations
+- ✅ Go/No-Go decision: **GO**
+
+### Phase 1 - Infrastructure Setup
+- [ ] Create three buckets/containers (dev, test, prod)
+- [ ] Set up folder structure in each bucket
+- [ ] Configure Application Credentials
+- [ ] Set up MariaDB instances (dev, test, prod)
+- [ ] Configure PHP hosting at Infomaniak
+- [ ] Set up environment variables
 
 ### Security Implementation
 - [ ] Implement HMAC signatures
@@ -328,40 +544,154 @@ ADD COLUMN form_submitted BOOLEAN DEFAULT FALSE;
 - [ ] Implement duplicate submission check in verify_token.php
 - [ ] Security testing and verification
 
-### Service Updates
-- [ ] Update communication-service to poll SFTP for verifications
-- [ ] Update communication-service to poll SFTP for contacts
-- [ ] Update patient-service to poll SFTP instead of GCS
-- [ ] Add file age monitoring to all services
-- [ ] Environment-specific configuration
-
 ### PHP Updates
-- [ ] Modify send_verification.php to write to SFTP
-- [ ] Modify verify_token.php to write to SFTP
-- [ ] Modify process_contact.php to write to SFTP
+- [ ] Create config.php for environment management
+- [ ] Implement ObjectStorageClient class
+- [ ] Modify send_verification.php to use Object Storage
+- [ ] Modify verify_token.php to use Object Storage
+- [ ] Create process_contact.php for contact forms
 - [ ] Add HMAC signing to all JSON outputs
-- [ ] Environment detection and routing
+- [ ] Add prepared statements everywhere
+- [ ] Implement rate limiting
+
+### Service Updates
+- [ ] Update communication-service to poll Object Storage
+- [ ] Update patient-service to use Object Storage instead of GCS
+- [ ] Add HMAC verification to all services
+- [ ] Add file age monitoring to all services
+- [ ] Environment-specific configuration for each service
 
 ### Testing & Migration
 - [ ] Complete dev environment testing
 - [ ] Complete test environment validation
+- [ ] Security audit
+- [ ] Performance testing
 - [ ] Production migration planning
 - [ ] DNS migration
 - [ ] Post-migration monitoring
 
-## 12. Next Steps
+## 13. Code Examples
 
-1. **Phase 0 execution** - Test all Infomaniak capabilities
-2. **Review Phase 0 results** and make go/no-go decision
-3. **Security implementation** (HMAC, prepared statements, validation, rate limiting)
-4. **Add JSON file import to communication-service** for verification/contact emails
-5. **Set up three-environment structure** at Infomaniak
-6. **Develop and test changes** in dev environment
-7. **Validate in test environment**
+### 13.1 Email Verification Request (PHP)
+```php
+// send_verification.php
+require_once 'config.php';
+require_once 'ObjectStorageClient.php';
+
+$config = require 'config.php';
+$environment = $config['environment'];
+
+// After generating verification token
+$verificationData = [
+    'type' => 'email_verification',
+    'email' => $email,
+    'token' => $token,
+    'verification_url' => "https://curavani.de/verify?token=$token",
+    'created_at' => date('c')
+];
+
+$storage = new ObjectStorageClient($environment);
+$filename = 'verification_' . time() . '_' . uniqid() . '.json';
+$storage->uploadJson('verifications', $filename, $verificationData);
+```
+
+### 13.2 Communication Service Polling (Python)
+```python
+# communication_service.py
+import time
+from object_storage_client import ObjectStorageClient
+
+def process_verification(data):
+    """Send verification email"""
+    send_email(
+        to=data['email'],
+        subject='Email Verification',
+        template='verification',
+        context={
+            'verification_url': data['verification_url']
+        }
+    )
+    return True
+
+def main():
+    environment = os.getenv('ENVIRONMENT', 'dev')
+    storage = ObjectStorageClient(environment)
+    
+    while True:
+        # Poll for verification requests
+        storage.poll_and_process('verifications', process_verification)
+        
+        # Poll for contact form submissions
+        storage.poll_and_process('contacts', process_contact)
+        
+        time.sleep(10)  # Poll every 10 seconds
+```
+
+## 14. Monitoring & Alerting
+
+### 14.1 Key Metrics
+- **File Age**: Alert if any file > 30 minutes old
+- **Processing Rate**: Files processed per minute
+- **Error Rate**: Failed processing attempts
+- **Storage Usage**: Total files and size per bucket
+- **API Response Times**: Swift API latency
+
+### 14.2 Monitoring Implementation
+```python
+# monitoring.py
+def check_old_files(storage_client, max_age_minutes=30):
+    """Check for files older than threshold"""
+    old_files = []
+    
+    for folder in ['verifications', 'contacts', 'registrations']:
+        headers, objects = storage_client.conn.get_container(
+            storage_client.container,
+            prefix=f"{folder}/"
+        )
+        
+        for obj in objects:
+            age = datetime.now() - datetime.fromisoformat(obj['last_modified'])
+            if age.total_seconds() > max_age_minutes * 60:
+                old_files.append({
+                    'name': obj['name'],
+                    'age_minutes': age.total_seconds() / 60
+                })
+    
+    if old_files:
+        send_alert(f"Found {len(old_files)} files older than {max_age_minutes} minutes")
+    
+    return old_files
+```
+
+## 15. Next Steps
+
+1. **Set up Object Storage buckets** at Infomaniak (dev, test, prod)
+2. **Create Application Credentials** for each environment
+3. **Implement ObjectStorageClient** classes in PHP and Python
+4. **Security implementation** (HMAC, prepared statements, validation, rate limiting)
+5. **Update communication-service** to poll Object Storage
+6. **Set up monitoring** for file age and processing
+7. **Test in dev environment** thoroughly
 8. **Plan production migration window**
+
+## 16. Cost Analysis
+
+### 16.1 Object Storage Costs
+- **Storage**: 0.000013 € / GB / hour
+- **Expected usage**: ~2.4 GB/day = ~72 GB/month
+- **Monthly cost**: ~0.68 € (negligible)
+- **Outgoing traffic**: Free (first 10TB/month)
+
+### 16.2 Total Infrastructure at Infomaniak
+- PHP hosting
+- MariaDB (3 instances)
+- Object Storage
+- Domain hosting
+- **Estimated total**: Significantly less than current multi-provider setup
 
 ---
 
-*Document Version: 2.0*  
+*Document Version: 3.0*  
 *Date: January 2025*  
-*Status: Ready for Phase 0 - Infomaniak Capability Testing*
+*Status: Ready for Phase 1 - Infrastructure Setup*  
+*Major Change: Migrated from SFTP to Object Storage (Swift)*
