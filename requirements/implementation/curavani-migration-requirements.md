@@ -10,7 +10,7 @@ Migration of the Curavani patient registration system from multiple providers (d
 2. **Get rid of Google Cloud Storage** - Replace with Infomaniak Object Storage (Swift)
 3. **Consolidate on Infomaniak** - Use their PHP hosting, MariaDB, and Object Storage
 4. **Maintain decoupled architecture** - Continue using JSON files as interface
-5. **Increase security level** - Address critical vulnerabilities
+5. **Increase security level** - Implement security enhancements inline with migration
 6. **Support three test environments** - Dev, Test, and Production containers for backend testing
 
 ## 2. Current Architecture
@@ -145,17 +145,20 @@ return [
 - PHP creates `verification_request.json` file in Object Storage
 - Communication-service polls and sends verification email
 - Keep token storage in MariaDB for rate limiting
+- **Security built-in**: HMAC signatures, prepared statements, rate limiting
 
 ### 5.2 Contact Form Enhancement
 - Modify `patienten.html` contact form
 - Create `contact_form.json` file via PHP in Object Storage
 - Communication-service sends to support email
 - **Support email address**: `patienten@curavani.com`
+- **Security built-in**: Input validation, XSS prevention, HMAC signatures
 
 ### 5.3 Patient Registration
 - Continue current flow but with Object Storage instead of GCS
 - PHP (`verify_token.php`) → JSON file → Object Storage
 - Patient-service imports from Object Storage
+- **Security built-in**: Duplicate prevention, validation, HMAC signatures
 
 ### 5.4 File Processing
 - Backend services poll their respective containers
@@ -163,6 +166,7 @@ return [
 - Delete files from Object Storage after processing (both success and failure)
 - Files older than 30 minutes indicate backend processing problems
 - Services handle their own error tracking
+- **Security built-in**: HMAC verification on all files
 
 ### 5.5 Performance Requirements
 - **Email delay**: 10-30 seconds acceptable
@@ -173,13 +177,42 @@ return [
 - **File monitoring**: Alert if files older than 30 minutes exist
 - **Measured performance**: 62ms write, 42ms read (well within requirements) ✅
 
-## 6. Security Improvements (Priority 1 - Do After Phase 0)
+## 6. Security Implementation (INLINE WITH DEVELOPMENT)
 
-### 6.1 HMAC Signatures for JSON Files
+### 6.1 Security Features by Component
 
-**Problem**: No authentication between PHP and services
+#### PHP Files (Week 2 Implementation)
+Each PHP file will be updated ONCE with all security features:
 
-**Solution**: Sign all JSON files with HMAC
+**send_verification.php**:
+- Prepared statements for all database queries
+- Rate limiting (enhance existing)
+- HMAC signature on JSON output
+- Input validation and sanitization
+
+**verify_token.php**:
+- Prepared statements for all queries
+- Duplicate submission prevention (`form_submitted` column)
+- HMAC signature on JSON output
+- Comprehensive input validation
+- XSS prevention
+
+**process_contact.php** (new file):
+- Input validation and sanitization
+- HMAC signature on JSON output
+- XSS prevention
+- Rate limiting
+
+#### Backend Services (Week 3 Implementation)
+Each service updated ONCE with all security features:
+
+**Communication-service & Patient-service**:
+- HMAC verification on all incoming files
+- File age monitoring
+- Secure error handling
+- Environment isolation verification
+
+### 6.2 HMAC Signature Structure
 ```json
 {
   "signature": "hmac_sha256_hash",
@@ -190,127 +223,120 @@ return [
 }
 ```
 
-**Implementation**:
-- Single shared secret key between PHP and all backend services
-- Store in environment variables
-- Include timestamp to prevent replay attacks
-- Include type to prevent cross-purpose use
-- Include environment to prevent cross-environment attacks
-
-### 6.2 Strict Input Validation
-
-**Problem**: Inconsistent validation between layers
-
-**Solution**: Validate at both layers with clear responsibilities
-- **PHP**: Format validation, XSS prevention, file system safety
-- **Services**: Business logic, database constraints
-
-**Critical validations**:
-- Symptom array (1-3 items from approved list)
-- Email format and header injection prevention
-- PLZ format (exactly 5 digits)
-- Phone number format
-- Date validations
-
-### 6.3 Prepared Statements Everywhere
-
-**Problem**: SQL injection vulnerabilities
-
-**Required changes**:
-- `send_verification.php`: Token queries, rate limit checks
-- `verify_token.php`: Token validation, updates
-- Services: Ensure all SQLAlchemy queries are parameterized
-
-### 6.4 Global Rate Limiting
-
-**Problem**: Only per-email rate limiting exists
-
-**Solution layers**:
-1. **Per IP**: Limit requests from single IP
-2. **Global**: System-wide limits (100 verifications/minute)
-3. **Per action**: Different limits for different operations
-4. **Progressive penalties**: Increasing block durations
-
-### 6.5 Duplicate Form Submission Prevention
-
-**Problem**: Patients can submit registration form multiple times with same token
-
-**Solution**: Add separate tracking for form submission
+### 6.3 Database Schema Updates
 ```sql
+-- Add to verification_tokens table during Week 1 setup
 ALTER TABLE verification_tokens 
-ADD COLUMN form_submitted BOOLEAN DEFAULT FALSE;
+ADD COLUMN form_submitted BOOLEAN DEFAULT FALSE,
+ADD INDEX idx_email_hash (email_hash),
+ADD INDEX idx_created_at (created_at);
 ```
 
-## 7. Migration Plan
+## 7. Implementation Plan (REVISED)
 
-### 7.1 Phase 0: Infrastructure Testing ✅ COMPLETED
-- ✅ All infrastructure components tested and verified
-- ✅ Ready for implementation
+### 7.1 Week 1: Infrastructure Setup
+**Day 1-2: Object Storage Setup**
+- Create three containers (`dev`, `test`, `prod`)
+- Create folder structure in each container
+- Generate and test Application Credentials
 
-### 7.2 Phase 1: Infomaniak Setup
-1. Create three containers (`dev`, `test`, `prod`)
-2. Set up folder structure within each container
-3. Configure Application Credentials
-4. Set up single MariaDB database
-5. Configure environment variables on PHP hosting
-6. Deploy PHP application to Infomaniak
+**Day 3: Database Setup**
+- Set up single MariaDB database
+- Create verification_tokens table WITH all columns including `form_submitted`
+- Create verification_requests table for rate limiting
+- Test database connection
 
-### 7.3 Phase 2: Code Implementation
+**Day 4-5: PHP Hosting Setup**
+- Deploy PHP application to Infomaniak
+- Configure environment variables
+- Create and test `config.php`
+- Verify Swift connection works
 
-#### PHP Updates
-1. Create `config.php` for environment management
-2. Implement Swift client wrapper class
-3. Add HMAC signing to all JSON outputs
-4. Modify `send_verification.php` to write to Object Storage
-5. Modify `verify_token.php` to write to Object Storage
-6. Create `process_contact.php` for contact form handling
-7. Add prepared statements to all database queries
-8. Implement rate limiting checks
-9. Add duplicate submission prevention
+### 7.2 Week 2: PHP Implementation WITH Security
 
-#### Backend Service Updates
-1. **Communication-service** (each environment):
-   - Add Swift client for Object Storage polling
-   - Configure to read from specific container (dev/test/prod)
-   - Poll `/verifications` folder for email verification requests
-   - Poll `/contacts` folder for contact form submissions
-   - Delete processed files
-   - Use storage URL override for connection
+**Day 1: ObjectStorageClient Implementation**
+```php
+class ObjectStorageClient {
+    // Implement with:
+    // - HMAC signature generation built-in
+    // - Proper error handling
+    // - Environment-based container selection
+    // - Connection testing methods
+}
+```
 
-2. **Patient-service** (each environment):
-   - Replace GCS client with Swift client
-   - Configure to read from specific container (dev/test/prod)
-   - Poll `/registrations` folder
-   - Delete processed files
-   - Use storage URL override for connection
+**Day 2-3: send_verification.php Update**
+- Replace SendGrid with Object Storage
+- Implement all prepared statements
+- Enhance rate limiting
+- Add HMAC signatures
+- Complete testing
 
-3. **All services**:
-   - Add HMAC signature verification
-   - Add file age monitoring
-   - Environment-specific configuration
+**Day 4: verify_token.php Update**
+- Replace GCS upload with Object Storage
+- Add duplicate submission prevention
+- Implement all prepared statements
+- Add HMAC signatures
+- Secure all validation functions
+- Complete testing
 
-### 7.4 Phase 3: Testing
-1. **Dev Environment Testing**:
-   - Set PHP config to `environment: 'dev'`
-   - Test all workflows with dev backend
-   - Verify HMAC signatures
-   - Test rate limiting
-   - Performance testing
+**Day 5: process_contact.php Creation**
+- Create new file for contact form handling
+- Implement Object Storage upload
+- Add comprehensive input validation
+- Add HMAC signatures
+- Complete testing
 
-2. **Test Environment Validation**:
-   - Set PHP config to `environment: 'test'`
-   - Full integration testing
-   - Security testing
-   - Load testing
-   - Backup/recovery testing
+### 7.3 Week 3: Backend Updates WITH Security
 
-3. **Pre-Production Validation**:
-   - Set PHP config to `environment: 'prod'`
-   - Final security audit
-   - Performance benchmarking
-   - Rollback procedures
+**Day 1-2: Communication-service Update**
+- Implement Swift client with storage URL override
+- Add HMAC verification in polling logic
+- Implement file age monitoring
+- Add email verification processing
+- Add contact form processing
+- Environment-specific configuration
+- Test in dev environment
 
-### 7.5 Phase 4: Production Migration
+**Day 3-4: Patient-service Update**
+- Replace GCS with Swift client
+- Add HMAC verification in import logic
+- Implement file age monitoring
+- Environment-specific configuration
+- Test in dev environment
+
+**Day 5: Integration Testing**
+- Complete end-to-end test in dev environment
+- Verify environment isolation
+- Test all workflows
+
+### 7.4 Week 4: Testing & Validation
+
+**Day 1-2: Development Environment**
+- Complete functional testing
+- Security validation
+- Performance testing
+- Fix any issues
+
+**Day 3: Test Environment**
+- Switch config to 'test'
+- Complete functional testing
+- Load testing
+- Security audit
+
+**Day 4: Production Environment**
+- Switch config to 'prod'
+- Final validation
+- Performance benchmarks
+- Rollback procedure testing
+
+**Day 5: Documentation & Monitoring**
+- Complete documentation
+- Set up monitoring
+- Create operational runbooks
+- Final security review
+
+### 7.5 Week 5: Production Migration
 1. DNS preparation (reduce TTL 48 hours before)
 2. Data migration from domainfactory to Infomaniak
 3. Final database migration
@@ -319,9 +345,9 @@ ADD COLUMN form_submitted BOOLEAN DEFAULT FALSE;
 6. Keep domainfactory as backup for 1 week
 7. Decommission old infrastructure
 
-## 8. Implementation Code Examples
+## 8. Implementation Code Templates
 
-### 8.1 PHP Swift Client (Tested & Working)
+### 8.1 Secure PHP Swift Client
 ```php
 use OpenStack\OpenStack;
 
@@ -332,353 +358,418 @@ class ObjectStorageClient {
     
     public function __construct() {
         $this->config = require 'config.php';
+        $this->containerName = $this->config['environment'];
         
-        // Use the environment setting from config
-        $this->containerName = $this->config['environment']; // 'dev', 'test', or 'prod'
-        
-        $openstack = new OpenStack([
-            'authUrl' => $this->config['object_storage']['authUrl'],
-            'region' => $this->config['object_storage']['region'],
-            'application_credential' => [
-                'id' => $this->config['object_storage']['credentials']['id'],
-                'secret' => $this->config['object_storage']['credentials']['secret']
-            ]
-        ]);
-        
-        $objectStore = $openstack->objectStoreV1();
-        $this->container = $objectStore->getContainer($this->containerName);
+        try {
+            $openstack = new OpenStack([
+                'authUrl' => $this->config['object_storage']['authUrl'],
+                'region' => $this->config['object_storage']['region'],
+                'application_credential' => [
+                    'id' => $this->config['object_storage']['credentials']['id'],
+                    'secret' => $this->config['object_storage']['credentials']['secret']
+                ]
+            ]);
+            
+            $objectStore = $openstack->objectStoreV1();
+            $this->container = $objectStore->getContainer($this->containerName);
+        } catch (Exception $e) {
+            error_log("Failed to initialize Object Storage: " . $e->getMessage());
+            throw new Exception("Storage initialization failed");
+        }
     }
     
-    public function uploadJson($folder, $filename, $data) {
-        $jsonContent = json_encode($this->addHmacSignature($data));
+    public function uploadJson($folder, $filename, $data, $type = 'generic') {
+        // Add metadata
+        $payload = $this->addSecurityMetadata($data, $type);
+        
+        // Sign with HMAC
+        $signedPayload = $this->addHmacSignature($payload);
+        
+        // Upload
+        $jsonContent = json_encode($signedPayload);
         $objectName = $folder . '/' . $filename;
         
-        $this->container->createObject([
-            'name' => $objectName,
-            'content' => $jsonContent
-        ]);
+        try {
+            $this->container->createObject([
+                'name' => $objectName,
+                'content' => $jsonContent
+            ]);
+            return true;
+        } catch (Exception $e) {
+            error_log("Failed to upload to Object Storage: " . $e->getMessage());
+            return false;
+        }
     }
     
-    private function addHmacSignature($data) {
-        $environment = $this->config['environment'];
-        $key = $this->config['hmac_key'];
-        
-        $payload = [
+    private function addSecurityMetadata($data, $type) {
+        return [
+            'type' => $type,
             'timestamp' => date('c'),
-            'environment' => $environment,
+            'environment' => $this->config['environment'],
             'data' => $data
         ];
-        
+    }
+    
+    private function addHmacSignature($payload) {
+        $key = $this->config['hmac_key'];
         $signature = hash_hmac('sha256', json_encode($payload), $key);
         $payload['signature'] = $signature;
-        
         return $payload;
     }
 }
 ```
 
-### 8.2 Python Swift Client for Backend Services
+### 8.2 Secure Database Connection
+```php
+class SecureDatabase {
+    private static $instance = null;
+    private $connection;
+    
+    private function __construct() {
+        $config = require 'config.php';
+        
+        try {
+            $dsn = "mysql:host={$config['database']['host']};dbname={$config['database']['name']};charset=utf8mb4";
+            $this->connection = new PDO($dsn, 
+                $config['database']['user'], 
+                $config['database']['pass'],
+                [
+                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                    PDO::ATTR_EMULATE_PREPARES => false
+                ]
+            );
+        } catch (PDOException $e) {
+            error_log("Database connection failed: " . $e->getMessage());
+            throw new Exception("Database connection failed");
+        }
+    }
+    
+    public static function getInstance() {
+        if (self::$instance === null) {
+            self::$instance = new self();
+        }
+        return self::$instance;
+    }
+    
+    public function getConnection() {
+        return $this->connection;
+    }
+}
+```
+
+### 8.3 Python Backend with Security
 ```python
-from swiftclient import client
-from keystoneauth1 import session
-from keystoneauth1.identity import v3
+import os
 import json
 import hmac
 import hashlib
-from datetime import datetime
-import os
+from datetime import datetime, timedelta
+from swiftclient import client
+from keystoneauth1 import session
+from keystoneauth1.identity import v3
+import logging
 
-class ObjectStorageClient:
+logger = logging.getLogger(__name__)
+
+class SecureObjectStorageClient:
     def __init__(self):
-        # Each backend knows its own environment
-        self.environment = os.getenv('ENVIRONMENT', 'dev')  # 'dev', 'test', or 'prod'
+        self.environment = os.getenv('ENVIRONMENT', 'dev')
         self.container = self.environment
+        self.hmac_key = os.getenv('HMAC_KEY')
         
-        # Create auth
+        if not self.hmac_key:
+            raise ValueError("HMAC_KEY environment variable is required")
+        
+        # Initialize Swift connection
         auth = v3.ApplicationCredential(
             auth_url='https://api.pub1.infomaniak.cloud/identity/v3',
             application_credential_id=os.getenv('SWIFT_APP_CREDENTIAL_ID'),
             application_credential_secret=os.getenv('SWIFT_APP_CREDENTIAL_SECRET')
         )
         
-        # Create session and get token
         sess = session.Session(auth=auth)
         token = sess.get_token()
         
-        # Create connection with explicit storage URL
         self.conn = client.Connection(
             preauthurl='***REMOVED***',
             preauthtoken=token
         )
+        
+        logger.info(f"Initialized storage client for environment: {self.environment}")
     
-    def poll_and_process(self, folder, process_function):
-        """Poll for new files in a folder and process them"""
+    def poll_and_process(self, folder, process_function, max_age_minutes=30):
+        """Poll folder with security checks"""
         prefix = f"{folder}/"
         
-        # List objects in folder
-        headers, objects = self.conn.get_container(
-            self.container,
-            prefix=prefix
-        )
-        
-        for obj in objects:
-            # Download and process
-            headers, content = self.conn.get_object(
+        try:
+            headers, objects = self.conn.get_container(
                 self.container,
-                obj['name']
+                prefix=prefix
             )
             
-            if isinstance(content, bytes):
-                content = content.decode('utf-8')
-            
-            data = json.loads(content)
-            
-            # Verify HMAC
-            if self.verify_hmac(data):
-                # Process the file
-                success = process_function(data['data'])
+            for obj in objects:
+                # Check file age
+                last_modified = datetime.fromisoformat(
+                    obj['last_modified'].replace('+00:00', 'Z').replace('Z', '+00:00')
+                )
+                age = datetime.now(timezone.utc) - last_modified
                 
-                # Delete after processing (regardless of success)
+                if age > timedelta(minutes=max_age_minutes):
+                    logger.warning(f"Old file detected: {obj['name']} ({age.total_seconds()/60:.1f} minutes)")
+                
+                # Download and process
+                headers, content = self.conn.get_object(
+                    self.container,
+                    obj['name']
+                )
+                
+                if isinstance(content, bytes):
+                    content = content.decode('utf-8')
+                
+                data = json.loads(content)
+                
+                # Verify HMAC
+                if not self.verify_hmac(data):
+                    logger.error(f"HMAC verification failed for {obj['name']}")
+                    self.conn.delete_object(self.container, obj['name'])
+                    continue
+                
+                # Verify environment matches
+                if data.get('environment') != self.environment:
+                    logger.error(f"Environment mismatch in {obj['name']}")
+                    self.conn.delete_object(self.container, obj['name'])
+                    continue
+                
+                # Process the file
+                try:
+                    success = process_function(data['data'])
+                    logger.info(f"Processed {obj['name']}: {'success' if success else 'failed'}")
+                except Exception as e:
+                    logger.error(f"Error processing {obj['name']}: {str(e)}")
+                
+                # Always delete after processing
                 self.conn.delete_object(self.container, obj['name'])
-            else:
-                # Log security error and delete
-                print(f"HMAC verification failed for {obj['name']}")
-                self.conn.delete_object(self.container, obj['name'])
+                
+        except Exception as e:
+            logger.error(f"Error polling {folder}: {str(e)}")
     
     def verify_hmac(self, payload):
-        """Verify HMAC signature"""
-        key = os.getenv('HMAC_KEY')
+        """Verify HMAC signature with timing attack protection"""
+        if 'signature' not in payload:
+            return False
         
-        signature = payload.pop('signature', None)
-        calculated = hmac.new(
-            key.encode(),
+        provided_signature = payload.pop('signature')
+        calculated_signature = hmac.new(
+            self.hmac_key.encode(),
             json.dumps(payload, sort_keys=True).encode(),
             hashlib.sha256
         ).hexdigest()
         
-        return signature == calculated
+        # Use compare_digest to prevent timing attacks
+        return hmac.compare_digest(provided_signature, calculated_signature)
 ```
 
-### 8.3 Backend Service Environment Configuration
-```python
-# Docker environment variables for each backend
-# Dev backend:
-ENVIRONMENT=dev
-SWIFT_APP_CREDENTIAL_ID=xxxxx
-SWIFT_APP_CREDENTIAL_SECRET=xxxxx
-HMAC_KEY=shared-secret-key
+## 9. Testing Strategy
 
-# Test backend:
-ENVIRONMENT=test
-SWIFT_APP_CREDENTIAL_ID=xxxxx
-SWIFT_APP_CREDENTIAL_SECRET=xxxxx
-HMAC_KEY=shared-secret-key
+### 9.1 Security Testing Checklist
+**Week 2 - PHP Testing**
+- [ ] SQL injection attempts on all forms
+- [ ] XSS attempts in all input fields
+- [ ] Rate limiting verification (3 requests/hour)
+- [ ] HMAC signature validation
+- [ ] Duplicate submission prevention
+- [ ] Invalid token handling
+- [ ] Expired token handling
 
-# Prod backend:
-ENVIRONMENT=prod
-SWIFT_APP_CREDENTIAL_ID=xxxxx
-SWIFT_APP_CREDENTIAL_SECRET=xxxxx
-HMAC_KEY=shared-secret-key
-```
+**Week 3 - Backend Testing**
+- [ ] HMAC signature verification
+- [ ] Environment isolation (no cross-reads)
+- [ ] File age monitoring alerts
+- [ ] Invalid JSON handling
+- [ ] Missing signature handling
+- [ ] Environment mismatch handling
 
-## 9. Configuration Details
+### 9.2 Functional Testing per Environment
+**Dev Environment**
+- [ ] Email verification flow
+- [ ] Patient registration flow
+- [ ] Contact form submission
+- [ ] File processing verification
+- [ ] Error handling
 
-### 9.1 Confirmed Settings
-- **Support email**: `patienten@curavani.com`
-- **SMTP relay**: Already configured in communication-service
-- **File age threshold**: 30 minutes for monitoring alerts
-- **Environments**: Single PHP, Three containers, Three backends
-- **Object Storage**: OpenStack Swift at Infomaniak ✅
-- **Authentication**: Application Credentials ✅
-- **PHP Environment**: 8.1.33, 640M memory ✅
-- **MariaDB**: 10.11.13 (single database) ✅
+**Test Environment**
+- [ ] Complete end-to-end flow
+- [ ] Load testing (100 registrations)
+- [ ] Concurrent user testing
+- [ ] Database transaction handling
 
-### 9.2 Environment Variables Required
+**Production Environment**
+- [ ] Smoke tests only
+- [ ] Monitoring verification
+- [ ] Rollback procedure test
 
-#### PHP Hosting (Infomaniak)
-```bash
-# Object Storage
-SWIFT_APP_CREDENTIAL_ID=xxxxx
-SWIFT_APP_CREDENTIAL_SECRET=xxxxx
+### 9.3 Performance Benchmarks
+- Object Storage write: < 100ms
+- Object Storage read: < 100ms
+- Email processing: < 30 seconds
+- Registration processing: < 60 seconds
+- Database queries: < 10ms
 
-# Database credentials (single database)
-DB_USER=xxxxx
-DB_PASS=xxxxx
+## 10. Monitoring & Alerting
 
-# HMAC key (shared with all backends)
-HMAC_KEY=xxxxx
-```
-
-#### Backend Services (Docker)
-```bash
-# Per environment
-ENVIRONMENT=dev|test|prod
-SWIFT_APP_CREDENTIAL_ID=xxxxx
-SWIFT_APP_CREDENTIAL_SECRET=xxxxx
-HMAC_KEY=xxxxx  # Same key as PHP
-```
-
-### 9.3 Important Notes for Implementation
-1. **Python Swift Connection**: Must use explicit storage URL (`preauthurl`) due to endpoint discovery issue
-2. **Container Names**: Case-sensitive (use exact names as created)
-3. **Database Host Pattern**: `[dbname].myd.infomaniak.com`
-4. **Performance**: Object Storage operations average 50ms (acceptable for use case)
-5. **Environment Switching**: Manual config.php change on PHP hosting
-
-## 10. Risk Assessment
-
-### Acceptable Risks
-- **Single provider dependency**: Simplified management worth the tradeoff
-- **Manual environment switching**: Infrequent operation, reduces complexity
-- **Single MariaDB**: Only transient data, no business data stored
-- **10-30 second email delays**: Within acceptable range
-
-### Risks to Monitor
-- **Config file management**: Ensure proper version control and change documentation
-- **Backend environment isolation**: Verify each backend only reads from its container
-- **File accumulation**: Monitor for files > 30 minutes old
-- **DNS propagation**: Keep old system for 48-72 hours during migration
-
-## 11. Success Criteria
-
-### Phase 0 Success ✅ FULLY COMPLETED
-- ✅ All infrastructure components tested and verified
-
-### Phase 1 Success (Infrastructure Setup)
-- [ ] Three Object Storage containers created
-- [ ] Single MariaDB database configured
-- [ ] PHP hosting configured with environment variables
-- [ ] Application Credentials working
-
-### Phase 2 Success (Code Implementation)
-- [ ] PHP writes to correct container based on config
-- [ ] All emails sent through communication-service
-- [ ] HMAC signatures on all JSON files
-- [ ] Backend services read from correct containers
-
-### Phase 3 Success (Testing)
-- [ ] All three environments tested independently
-- [ ] No cross-environment data leakage
-- [ ] Performance within requirements
-- [ ] Security measures validated
-
-### Overall Migration Success
-- [ ] Zero dependency on SendGrid
-- [ ] Zero dependency on Google Cloud
-- [ ] All infrastructure on Infomaniak (except local Docker backends)
-- [ ] No SQL injection vulnerabilities
-- [ ] Successfully handling 100+ registrations/hour
-- [ ] 99.9% uptime after migration
-
-## 12. Implementation Checklist
-
-### Phase 1 - Infrastructure Setup (READY TO START)
-- [ ] Create three containers at Infomaniak (dev, test, prod)
-- [ ] Set up folder structure in each container
-- [ ] Configure Application Credentials
-- [ ] Set up single MariaDB database
-- [ ] Configure PHP hosting environment variables
-- [ ] Deploy PHP application to Infomaniak
-
-### Phase 2 - PHP Updates
-- [ ] Create config.php with environment switching
-- [ ] Implement ObjectStorageClient class
-- [ ] Modify send_verification.php to use Object Storage
-- [ ] Modify verify_token.php to use Object Storage
-- [ ] Create process_contact.php for contact forms
-- [ ] Add HMAC signing to all JSON outputs
-- [ ] Add prepared statements everywhere
-- [ ] Implement rate limiting
-- [ ] Add duplicate submission prevention
-
-### Phase 2 - Backend Service Updates
-- [ ] Update communication-service for each environment
-- [ ] Update patient-service for each environment
-- [ ] Add HMAC verification to all services
-- [ ] Configure environment-specific containers
-- [ ] Add file age monitoring
-- [ ] Test storage URL override
-
-### Phase 3 - Testing
-- [ ] Test dev environment completely
-- [ ] Test test environment completely
-- [ ] Validate production environment
-- [ ] Security audit
-- [ ] Performance testing
-- [ ] Create rollback procedures
-
-### Phase 4 - Migration
-- [ ] DNS preparation
-- [ ] Data migration
-- [ ] Go live
-- [ ] Monitor
-- [ ] Decommission old infrastructure
-
-## 13. Monitoring & Alerting
-
-### 13.1 Key Metrics
+### 10.1 Key Metrics
 - **File Age**: Alert if any file > 30 minutes old
 - **Processing Rate**: Files processed per minute per environment
 - **Error Rate**: Failed processing attempts
 - **Storage Usage**: Total files and size per container
-- **Environment Isolation**: Verify no cross-reads
+- **Security Events**: Failed HMAC verifications, rate limit hits
 
-### 13.2 Monitoring Implementation
+### 10.2 Monitoring Implementation
 ```python
-# monitoring.py - Run separately for each environment
+# monitoring.py - Separate instance per environment
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
-def check_environment_isolation():
-    """Ensure backend only reads from its designated container"""
-    environment = os.getenv('ENVIRONMENT')
-    storage_client = ObjectStorageClient()
+class EnvironmentMonitor:
+    def __init__(self):
+        self.environment = os.getenv('ENVIRONMENT')
+        self.storage_client = SecureObjectStorageClient()
+        
+    def check_isolation(self):
+        """Verify environment isolation"""
+        assert self.storage_client.container == self.environment
+        return True
     
-    assert storage_client.container == environment, \
-        f"Environment mismatch: {storage_client.container} != {environment}"
+    def check_old_files(self, max_age_minutes=30):
+        """Check for stuck files"""
+        old_files = []
+        for folder in ['verifications', 'contacts', 'registrations']:
+            # Implementation
+            pass
+        return old_files
     
-    print(f"✓ Backend {environment} correctly reading from {storage_client.container}")
-
-def monitor_file_age(storage_client, max_age_minutes=30):
-    """Check for old files in current environment"""
-    # Implementation as before, but only checks current container
-    pass
+    def check_security_events(self):
+        """Monitor security-related events"""
+        # Check logs for HMAC failures
+        # Check rate limiting hits
+        # Check SQL injection attempts
+        pass
 ```
 
-## 14. Next Steps (IMMEDIATE ACTIONS)
+## 11. Rollback Plan
 
-1. **Create three containers** at Infomaniak (`dev`, `test`, `prod`)
-2. **Generate Application Credentials** (single set for all)
-3. **Set up single MariaDB** database
-4. **Create config.php** on PHP hosting
-5. **Start with dev environment** - Set config to 'dev' and test
-6. **Implement ObjectStorageClient** in PHP
-7. **Update one backend service** for dev environment testing
-8. **Validate environment isolation**
+### 11.1 Rollback Triggers
+- Critical security breach detected
+- Data loss or corruption
+- Performance degradation > 50%
+- Error rate > 10%
 
-## 15. Testing Methodology
+### 11.2 Rollback Procedure
+1. **Immediate**: Switch config.php back to previous working environment
+2. **Within 5 minutes**: Restore DNS if changed
+3. **Within 15 minutes**: Restore database from backup
+4. **Within 30 minutes**: Full service restoration
 
-### 15.1 Environment Isolation Test
-1. Set PHP config to `environment: 'dev'`
-2. Submit test registration
-3. Verify file appears ONLY in `dev` container
-4. Verify ONLY dev backend processes the file
-5. Repeat for test and prod
+### 11.3 Rollback Testing
+- Test rollback procedure in dev environment
+- Document exact steps and timings
+- Verify data integrity after rollback
 
-### 15.2 End-to-End Test per Environment
-1. **Dev**: Complete registration flow with dev backend
-2. **Test**: Complete registration flow with test backend
-3. **Prod**: Complete registration flow with prod backend
+## 12. Success Criteria
 
-### 15.3 Security Validation
-- Verify HMAC signatures
-- Test rate limiting
-- Attempt SQL injection
-- Verify prepared statements
+### Week 1 Success (Infrastructure)
+- [ ] Three Object Storage containers accessible
+- [ ] MariaDB database operational
+- [ ] PHP hosting configured
+- [ ] Swift connection tested
+
+### Week 2 Success (PHP)
+- [ ] All PHP files updated with security
+- [ ] Object Storage uploads working
+- [ ] HMAC signatures validated
+- [ ] Rate limiting functional
+- [ ] No SQL injection vulnerabilities
+
+### Week 3 Success (Backend)
+- [ ] Backend services updated
+- [ ] HMAC verification working
+- [ ] Environment isolation confirmed
+- [ ] File processing functional
+
+### Week 4 Success (Testing)
+- [ ] All environments tested
+- [ ] Security audit passed
+- [ ] Performance benchmarks met
+- [ ] Documentation complete
+
+### Overall Migration Success
+- [ ] Zero dependency on SendGrid
+- [ ] Zero dependency on Google Cloud
+- [ ] All infrastructure on Infomaniak
+- [ ] All security measures implemented
+- [ ] 99.9% uptime maintained
+
+## 13. Documentation Requirements
+
+### 13.1 Technical Documentation
+- API documentation for all endpoints
+- Database schema documentation
+- Environment configuration guide
+- Security measures documentation
+
+### 13.2 Operational Documentation
+- Deployment procedures
+- Environment switching guide
+- Monitoring setup
+- Incident response procedures
+
+### 13.3 User Documentation
+- Migration announcement
+- Service status page
+- Support contact information
+
+## 14. Risk Mitigation
+
+### 14.1 High-Risk Areas
+**Data Loss**
+- Mitigation: Backup before processing, soft delete initially
+- Recovery: Restore from Object Storage archive
+
+**Security Breach**
+- Mitigation: HMAC signatures, environment isolation
+- Recovery: Rotate keys, audit logs
+
+**Performance Issues**
+- Mitigation: Load testing, gradual rollout
+- Recovery: Scale resources, optimize code
+
+### 14.2 Communication Plan
+- Weekly status updates during migration
+- Immediate notification for issues
+- Post-migration report
+
+## 15. Next Steps (IMMEDIATE ACTIONS)
+
+### This Week
+1. **Create three containers** at Infomaniak
+2. **Generate Application Credentials**
+3. **Set up MariaDB** with complete schema
+4. **Prepare development environment**
+
+### Next Week
+1. **Start PHP implementation** with security
+2. **Test each component** thoroughly
+3. **Document findings**
+
+### Following Weeks
+1. **Complete backend updates**
+2. **Full testing cycle**
+3. **Production migration**
 
 ---
 
-*Document Version: 5.0*  
+*Document Version: 6.0*  
 *Date: September 2025*  
-*Status: Simplified Architecture - Ready for Implementation*  
-*Major Updates: Single PHP environment, single MariaDB, three Object Storage containers for backend testing*
+*Status: Ready for Implementation with Inline Security*  
+*Major Updates: Security implementation integrated into development phases, not separate*
