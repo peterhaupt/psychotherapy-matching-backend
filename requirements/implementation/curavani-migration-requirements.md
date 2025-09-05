@@ -1,17 +1,17 @@
 # Curavani System Migration - Requirements & Implementation Plan
-## UPDATED September 5, 2025 - Patient Service Integration COMPLETED
+## UPDATED September 5, 2025 - Week 3 COMPLETED
 
 ## Executive Summary
 
 Migration of the Curavani patient registration system from multiple providers (domainfactory, GoDaddy, SendGrid, Google Cloud) to a single provider (Infomaniak) with enhanced security and simplified architecture using Object Storage with three environments for testing.
 
-**Current Status**: Week 2 FULLY COMPLETED, Week 3 PARTIALLY COMPLETED (Patient service done, Communication service pending)
+**Current Status**: Week 1-3 FULLY COMPLETED ✅, Week 4 (Testing) STARTING
 
 ## 1. Core Migration Goals
 
-1. **Get rid of SendGrid** - Move all email sending to communication-service with local SMTP relay ✅ **PHP SIDE COMPLETE**
-2. **Get rid of Google Cloud Storage** - Replace with Infomaniak Object Storage (Swift) ✅ **BOTH PHP AND PYTHON COMPLETE**
-3. **Consolidate on Infomaniak** - Use their PHP hosting, MariaDB, and Object Storage ✅ **INFRASTRUCTURE COMPLETED**
+1. **Get rid of SendGrid** - Move all email sending to communication-service with local SMTP relay ✅ **COMPLETE**
+2. **Get rid of Google Cloud Storage** - Replace with Infomaniak Object Storage (Swift) ✅ **COMPLETE**
+3. **Consolidate on Infomaniak** - Use their PHP hosting, MariaDB, and Object Storage ✅ **COMPLETED**
 4. **Maintain decoupled architecture** - Continue using JSON files as interface ✅ **IMPLEMENTED & TESTED**
 5. **Increase security level** - Implement security enhancements inline with migration ✅ **IMPLEMENTED**
 6. **Support three test environments** - Dev, Test, and Production containers for backend testing ✅ **INFRASTRUCTURE READY**
@@ -19,9 +19,9 @@ Migration of the Curavani patient registration system from multiple providers (d
 ## 2. Current Architecture
 
 ### 2.1 Email Flow
-- **Verification emails**: PHP → Object Storage → Communication service (pending backend)
+- **Verification emails**: PHP → Object Storage → Communication service ✅ **WORKING**
 - **Confirmation emails**: Patient-service → Communication service → Local SMTP relay ✅ **WORKING**
-- **Contact form**: PHP → Object Storage → Communication service (pending backend)
+- **Contact form**: PHP → Object Storage → Communication service ✅ **WORKING**
 
 ### 2.2 Data Storage
 - **Registration data**: PHP → Object Storage → Patient-service import ✅ **FULLY WORKING**
@@ -35,29 +35,28 @@ Migration of the Curavani patient registration system from multiple providers (d
 - **Cloud storage**: Infomaniak Object Storage ✅
 - **Backend services**: Self-hosted Docker containers ✅
 
-## 3. Target Architecture ✅ **ACHIEVED FOR PATIENT SERVICE**
+## 3. Target Architecture ✅ **ACHIEVED**
 
 ### 3.1 Unified Email Flow
 All emails go through communication-service:
 ```
 User Request → PHP → JSON file in Object Storage → Backend Service → Communication-service → Local SMTP relay → Send
 ```
-✅ **Working for patient registration emails**
-🔄 **Pending for verification and contact emails**
+✅ **Working for all email types**
 
 ### 3.2 Infrastructure Overview ✅ **FULLY DEPLOYED**
 - **ONE PHP hosting environment** at Infomaniak ✅ **DEPLOYED**
 - **ONE MariaDB** at Infomaniak ✅ **CONFIGURED & WORKING**
 - **THREE Object Storage containers** at Infomaniak (dev, test, prod) ✅ **CREATED & IN USE**
-- **Backend services** running locally in Docker containers ✅ **PATIENT SERVICE INTEGRATED**
+- **Backend services** running locally in Docker containers ✅ **ALL SERVICES INTEGRATED**
 
 ### 3.3 Data Storage Structure ✅ **FULLY OPERATIONAL**
 ```
 Object Storage (Infomaniak Swift):
   Containers:
     dev/                    # Development container ✅ ACTIVELY USED
-      verifications/        # Email verification requests ✅ PHP UPLOADS WORKING
-      contacts/            # Contact form submissions ✅ PHP UPLOADS WORKING  
+      verifications/        # Email verification requests ✅ WORKING
+      contacts/            # Contact form submissions ✅ WORKING
       registrations/       # Patient registrations ✅ FULL PIPELINE WORKING
     
     test/                   # Test container ✅ READY
@@ -68,7 +67,7 @@ Object Storage (Infomaniak Swift):
 - **PHP Environment**: Single production hosting at Infomaniak ✅
 - **Environment Selection**: Manual config file change ✅
 - **Backend Services**: 
-  - Dev backend → `dev` container ✅ **PATIENT SERVICE CONNECTED**
+  - Dev backend → `dev` container ✅ **ALL SERVICES CONNECTED**
   - Test backend → `test` container ✅ **READY**
   - Prod backend → `prod` container ✅ **READY**
 
@@ -95,21 +94,22 @@ Object Storage (Infomaniak Swift):
 - **Tables**: All created and in use ✅
 - **Purpose**: Token storage, rate limiting only ✅
 
-### 4.4 Python Backend ✅ **PATIENT SERVICE FIXED**
+### 4.4 Python Backend ✅ **ALL SERVICES FIXED**
 - **ObjectStorageClient**: Fixed indentation bug, using pub2 URL ✅
 - **HMAC Verification**: Updated to match PHP's method ✅
 - **Data Structure**: Handling nested JSON correctly ✅
 - **Import Pipeline**: Fully functional ✅
+- **Communication Service**: Processors working ✅
 
 ## 5. Specific Requirements
 
-### 5.1 Email Verification Migration ✅ **PHP COMPLETE, BACKEND PENDING**
+### 5.1 Email Verification Migration ✅ **COMPLETED SEPTEMBER 5**
 - ✅ PHP creates `verification_request.json` in Object Storage
-- 🔄 Communication-service needs to poll and send **PENDING**
+- ✅ Communication-service polls and sends via system-messages endpoint
 
-### 5.2 Contact Form Enhancement ✅ **PHP COMPLETE, BACKEND PENDING**
+### 5.2 Contact Form Enhancement ✅ **COMPLETED SEPTEMBER 5**
 - ✅ PHP creates `contact_form.json` in Object Storage
-- 🔄 Communication-service needs to process **PENDING**
+- ✅ Communication-service processes and forwards to support
 
 ### 5.3 Patient Registration ✅ **FULLY COMPLETED SEPTEMBER 5, 2025**
 - ✅ PHP uploads to Object Storage with HMAC
@@ -119,15 +119,15 @@ Object Storage (Infomaniak Swift):
 - ✅ Deletes file after processing
 - ✅ **Full end-to-end pipeline tested and working**
 
-### 5.4 File Processing ✅ **COMPLETED FOR PATIENT SERVICE**
+### 5.4 File Processing ✅ **COMPLETED FOR ALL SERVICES**
 - ✅ Patient service polls its container successfully
+- ✅ Communication service polls for verifications and contacts
 - ✅ Downloads and verifies HMAC signatures
 - ✅ Processes files and deletes after completion
 - ✅ Error handling and notifications working
-- 🔄 Communication service implementation **PENDING**
 
 ### 5.5 Performance Requirements ✅ **MEETS REQUIREMENTS**
-- **Email delay**: < 30 seconds (patient registration emails working)
+- **Email delay**: < 30 seconds (all email types working)
 - **Processing time**: < 1 second for file processing
 - **Object Storage operations**: < 500ms typical
 
@@ -141,7 +141,7 @@ Object Storage (Infomaniak Swift):
 - ✅ Rate limiting active
 - ✅ Input validation comprehensive
 
-#### Python Backend (Patient Service) ✅ **COMPLETED SEPTEMBER 5**
+#### Python Backend ✅ **COMPLETED SEPTEMBER 5**
 - ✅ HMAC verification working (fixed to match PHP format)
 - ✅ Secure error handling
 - ✅ Environment isolation verified
@@ -184,14 +184,14 @@ expected_signature = hmac.new(hmac_key.encode('utf-8'), payload_string.encode('u
 - ✅ Fixed nested JSON data structure handling
 - ✅ Full end-to-end testing successful
 
-### 7.3 Week 3: Backend Updates 🔄 **IN PROGRESS**
+### 7.3 Week 3: Backend Updates ✅ **COMPLETED SEPTEMBER 5**
 
-**Day 1-2: Communication-service Update** 🔄 **PENDING - NEXT PRIORITY**
-- Implement Swift client with pub2 URL
-- Add HMAC verification matching PHP format
-- Implement polling for verifications/ and contacts/
-- Add email sending for both types
-- Test in dev environment
+**Day 1-2: Communication-service Update** ✅ **COMPLETED SEPTEMBER 5**
+- ✅ Implement Swift client with pub2 URL
+- ✅ Add HMAC verification matching PHP format
+- ✅ Implement polling for verifications/ and contacts/
+- ✅ Enhanced system-messages endpoint for both types
+- ✅ Tested in dev environment
 
 **Day 3-4: Patient-service Update** ✅ **COMPLETED SEPTEMBER 5**
 - ✅ Replaced GCS with Swift client
@@ -201,12 +201,12 @@ expected_signature = hmac.new(hmac_key.encode('utf-8'), payload_string.encode('u
 - ✅ Email notifications working
 - ✅ Full integration tested
 
-**Day 5: Integration Testing** 🔄 **PARTIALLY COMPLETE**
+**Day 5: Integration Testing** ✅ **COMPLETED SEPTEMBER 5**
 - ✅ Patient registration end-to-end tested
-- 🔄 Verification emails pending
-- 🔄 Contact forms pending
+- ✅ Verification emails tested and working
+- ✅ Contact forms tested and working
 
-### 7.4 Week 4: Testing & Validation 🔄 **UPCOMING**
+### 7.4 Week 4: Testing & Validation 🔄 **STARTING**
 - Development environment testing
 - Test environment validation
 - Production environment preparation
@@ -229,20 +229,18 @@ expected_signature = hmac.new(hmac_key.encode('utf-8'), payload_string.encode('u
   - Indentation bug in environment selection
   - Explicit pub2 URL requirement
   - HMAC verification matching PHP format
-- **Status**: Fully functional in patient service
+- **Status**: Fully functional in all services
 
 ### 8.3 Patient Import Pipeline ✅ **FULLY FUNCTIONAL**
 - **Status**: Complete end-to-end working
 - **Performance**: < 1 second per file
 - **Features**: HMAC verification, email sending, error handling
 
-### 8.4 Communication Service 🔄 **TO BE IMPLEMENTED**
-```python
-# Needs Swift client with:
-# - pub2 URL configuration
-# - HMAC verification (full JSON payload)
-# - Polling for verifications/ and contacts/
-```
+### 8.4 Communication Service ✅ **FULLY IMPLEMENTED**
+- Swift client with pub2 URL configuration
+- HMAC verification (full JSON payload)
+- Polling for verifications/ and contacts/
+- System-messages endpoint enhanced for direct sending
 
 ## 9. Testing Strategy
 
@@ -255,21 +253,21 @@ expected_signature = hmac.new(hmac_key.encode('utf-8'), payload_string.encode('u
 - ✅ SQL injection prevention verified
 - ✅ XSS prevention tested
 
-**Week 3 - Backend Testing** 
+**Week 3 - Backend Testing** ✅ **COMPLETED**
 - ✅ Patient Service: HMAC verification working
 - ✅ Patient Service: Environment isolation verified
 - ✅ Patient Service: File processing complete
-- 🔄 Communication Service: Pending implementation
+- ✅ Communication Service: All processors working
 
 ### 9.2 Functional Testing
 
-**Dev Environment** 
+**Dev Environment** ✅ **COMPLETED**
 - ✅ Object Storage upload/download working
 - ✅ HMAC signatures verified
 - ✅ Patient registration complete pipeline
 - ✅ Confirmation emails sent
-- 🔄 Verification emails pending
-- 🔄 Contact form emails pending
+- ✅ Verification emails working
+- ✅ Contact form emails working
 
 ### 9.3 Performance Benchmarks ✅ **VERIFIED**
 - ✅ Object Storage write: < 100ms
@@ -288,29 +286,31 @@ expected_signature = hmac.new(hmac_key.encode('utf-8'), payload_string.encode('u
 3. **Python Fixes** - ObjectStorageClient fixed and working
 4. **Testing** - Patient registration fully tested end-to-end
 
-### 🔄 WEEK 3 IN PROGRESS - Backend Services
+### ✅ WEEK 3 COMPLETED - Backend Services
 1. **Patient Service** ✅ COMPLETED September 5
-2. **Communication Service** 🔄 PENDING - Next priority
+2. **Communication Service** ✅ COMPLETED September 5 (with system-messages enhancement)
+
+### 🔄 WEEK 4 STARTING - Testing & Validation
+1. Full system testing in dev environment
+2. Test environment validation
+3. Performance testing
+4. Security audit
 
 ### ❌ NOT STARTED
-1. Week 4: Full system testing
-2. Week 5: Production migration
+1. Week 5: Production migration
 
-## 11. Next Steps - Immediate Priority
-
-### Communication Service Integration (URGENT)
-1. **Implement Swift client** with pub2 URL requirement
-2. **Add HMAC verification** using full JSON payload method
-3. **Poll for files**:
-   - `verifications/` - Send verification emails
-   - `contacts/` - Forward to support email
-4. **Process and delete** files after sending
-5. **Monitor file age** and alert if > 30 minutes
+## 11. Next Steps - Week 4 Testing
 
 ### Testing Requirements
-1. **Verification emails** - Test with actual registration flow
-2. **Contact forms** - Test submission and forwarding
-3. **Error scenarios** - Invalid HMAC, missing data, etc.
+1. **Full end-to-end tests** in development environment
+2. **Load testing** - Multiple concurrent registrations
+3. **Error scenarios** - Invalid data, network issues
+4. **Environment switching** - Test with test container
+
+### Documentation Updates
+1. Update deployment procedures
+2. Document the system-messages vs emails distinction
+3. Create troubleshooting guide
 
 ## 12. Critical Implementation Notes
 
@@ -329,25 +329,27 @@ expected_signature = hmac.new(hmac_key.encode('utf-8'), payload_string.encode('u
 - **Python expects**: Same nested structure
 - **Handle carefully**: Double nesting from HMAC wrapper
 
+### Email Endpoints
+- **Database-tracked emails**: Use `/api/emails` (requires patient_id or therapist_id)
+- **System notifications**: Use `/api/system-messages` (no IDs required)
+
 ## 13. Success Metrics Achieved
 
-### Patient Registration Pipeline ✅
-- **File upload**: Working with HMAC
-- **Download & verify**: Successful
-- **Import to database**: Creating patients
-- **Email sending**: Confirmations sent
-- **File cleanup**: Automatic deletion
+### All Pipelines Working ✅
+- **Patient registration**: File upload → Import → Email → Complete
+- **Email verification**: Request → Process → Send → Complete
+- **Contact forms**: Submit → Forward → Complete
 - **Error handling**: Notifications working
 
-### Remaining Goals
-- Verification email automation
-- Contact form email automation
-- Full production deployment
+### Performance Targets Met ✅
+- File processing: < 1 second
+- Email sending: < 30 seconds
+- Object Storage operations: < 500ms
 
 ---
 
-*Document Version: 11.0*  
+*Document Version: 12.0*  
 *Date: September 5, 2025*  
-*Status: Week 2 COMPLETED, Patient Service INTEGRATED*  
-*Last Updated: September 5, 2025 - 15:00 CET*  
-*Next Task: Communication Service Swift Integration*
+*Status: Week 3 COMPLETED, Week 4 Starting*  
+*Last Updated: September 5, 2025 - 16:45 CET*  
+*Next Task: Week 4 Testing & Validation*

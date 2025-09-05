@@ -58,6 +58,7 @@ def mock_patient_dependencies():
         'shared',
         'shared.utils',
         'shared.utils.database',
+        'shared.utils.object_storage',
         'shared.config',
         'shared.api',
         'shared.api.base_resource',
@@ -95,6 +96,7 @@ def mock_patient_dependencies():
     sys.modules['shared'] = MagicMock()
     sys.modules['shared.utils'] = MagicMock()
     sys.modules['shared.utils.database'] = MagicMock()
+    sys.modules['shared.utils.object_storage'] = MagicMock()
     sys.modules['shared.config'] = MagicMock()
     sys.modules['shared.api'] = MagicMock()
     sys.modules['shared.api.base_resource'] = MagicMock()
