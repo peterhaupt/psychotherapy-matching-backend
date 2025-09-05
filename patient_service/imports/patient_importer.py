@@ -33,12 +33,18 @@ class PatientImporter:
         - Send confirmation email with contract link
         
         Args:
-            data: Patient data from JSON file
+            data: Patient data from JSON file (may include HMAC wrapper)
             
         Returns:
             Tuple of (success: bool, message: str)
         """
         try:
+            # Handle HMAC wrapper if present
+            if 'signature' in data and 'data' in data:
+                # Extract actual data from HMAC wrapper
+                logger.debug("Extracting data from HMAC wrapper")
+                data = data['data']
+            
             # Extract patient data (ignore metadata and contract texts)
             if 'patient_data' not in data:
                 return False, "Missing patient_data section in JSON"

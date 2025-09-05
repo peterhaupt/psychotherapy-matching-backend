@@ -241,3 +241,9 @@ backup/
 # Deployment logs
 deploy.log
 rollback.log
+
+# ignore dev folder
+dev/
+
+# ignore OpenStack application credentials
+app-cred-curavani_backend-openrc.sh

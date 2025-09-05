@@ -5,6 +5,7 @@ across the microservices architecture. It reads from environment variables
 with NO defaults - all required values must be explicitly set.
 
 Phase 3.1: Removed all default values and added validation.
+Updated: Added Object Storage (Swift) configuration, removed GCS
 """
 import os
 import logging
@@ -122,11 +123,15 @@ class Config:
     SYSTEM_NOTIFICATION_EMAIL: Optional[str] = os.environ.get("SYSTEM_NOTIFICATION_EMAIL")
     
     # Patient Service Configuration
-    GCS_IMPORT_BUCKET: Optional[str] = os.environ.get("GCS_IMPORT_BUCKET")
-    GCS_READER_CREDENTIALS_PATH: Optional[str] = os.environ.get("GCS_READER_CREDENTIALS_PATH")
-    GCS_DELETER_CREDENTIALS_PATH: Optional[str] = os.environ.get("GCS_DELETER_CREDENTIALS_PATH")
     PATIENT_IMPORT_LOCAL_PATH: Optional[str] = os.environ.get("PATIENT_IMPORT_LOCAL_PATH")
     PATIENT_IMPORT_CHECK_INTERVAL_SECONDS: Optional[int] = _get_env_int("PATIENT_IMPORT_CHECK_INTERVAL_SECONDS")
+    
+    # Object Storage Configuration (Swift/OpenStack for Infomaniak)
+    SWIFT_APPLICATION_ID: Optional[str] = os.environ.get("SWIFT_APPLICATION_ID")
+    SWIFT_APPLICATION_SECRET: Optional[str] = os.environ.get("SWIFT_APPLICATION_SECRET")
+    SWIFT_PROJECT_ID: Optional[str] = os.environ.get("SWIFT_PROJECT_ID")
+    SWIFT_REGION: Optional[str] = os.environ.get("SWIFT_REGION")
+    HMAC_SECRET_KEY: Optional[str] = os.environ.get("HMAC_SECRET_KEY")
     
     # Therapist Service Configuration
     THERAPIST_IMPORT_FOLDER_PATH: Optional[str] = os.environ.get("THERAPIST_IMPORT_FOLDER_PATH")
@@ -150,6 +155,8 @@ class Config:
     COMMUNICATION_EMAIL_BATCH_LIMIT: Optional[int] = _get_env_int("COMMUNICATION_EMAIL_BATCH_LIMIT")
     COMMUNICATION_TIMEOUT_SHORT: Optional[int] = _get_env_int("COMMUNICATION_TIMEOUT_SHORT")
     COMMUNICATION_TIMEOUT_LONG: Optional[int] = _get_env_int("COMMUNICATION_TIMEOUT_LONG")
+    EMAIL_QUEUE_CHECK_INTERVAL_SECONDS: Optional[int] = _get_env_int("EMAIL_QUEUE_CHECK_INTERVAL_SECONDS")
+    EMAIL_QUEUE_BATCH_SIZE: Optional[int] = _get_env_int("EMAIL_QUEUE_BATCH_SIZE")
     
     # Geocoding Service Configuration
     OSM_API_URL: Optional[str] = os.environ.get("OSM_API_URL")
@@ -209,8 +216,13 @@ class Config:
     REQUIRED_BY_SERVICE: Dict[str, Set[str]] = {
         "patient": {
             "PATIENT_SERVICE_PORT",
-            "GCS_IMPORT_BUCKET", "PATIENT_IMPORT_LOCAL_PATH",
-            "PATIENT_IMPORT_CHECK_INTERVAL_SECONDS"
+            "PATIENT_IMPORT_LOCAL_PATH",
+            "PATIENT_IMPORT_CHECK_INTERVAL_SECONDS",
+            # Object Storage credentials required
+            "SWIFT_APPLICATION_ID",
+            "SWIFT_APPLICATION_SECRET",
+            "SWIFT_PROJECT_ID",
+            "HMAC_SECRET_KEY"
         },
         "therapist": {
             "THERAPIST_SERVICE_PORT",
@@ -224,7 +236,12 @@ class Config:
         "communication": {
             "COMMUNICATION_SERVICE_PORT",
             "SMTP_HOST", "SMTP_PORT", "SMTP_USERNAME", "SMTP_PASSWORD",
-            "EMAIL_SENDER", "EMAIL_SENDER_NAME", "SYSTEM_NOTIFICATION_EMAIL"
+            "EMAIL_SENDER", "EMAIL_SENDER_NAME", "SYSTEM_NOTIFICATION_EMAIL",
+            # Object Storage credentials required for processing emails
+            "SWIFT_APPLICATION_ID",
+            "SWIFT_APPLICATION_SECRET",
+            "SWIFT_PROJECT_ID",
+            "HMAC_SECRET_KEY"
         },
         "geocoding": {
             "GEOCODING_SERVICE_PORT",
