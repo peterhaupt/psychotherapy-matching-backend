@@ -95,7 +95,8 @@ class ContactProcessor:
                 'source': source,
                 'ip_address': ip_address,
                 'request_id': request_id,
-                'environment': environment
+                'environment': environment,
+                'timestamp': form_submitted_at  # Add timestamp for template compatibility
             }
             
             # Render template
@@ -125,33 +126,28 @@ Umgebung: {environment}
             # Create email subject with sender name
             subject = f"[Kontaktformular] Anfrage von {vorname} {nachname}"
             
-            # Create email via communication service API
-            email_data = {
-                'patient_id': None,  # Contact forms don't have patient IDs
-                'betreff': subject,
-                'inhalt_markdown': email_content,
-                'empfaenger_email': support_email,
-                'empfaenger_name': 'Curavani Support',
-                'absender_email': self.config.EMAIL_SENDER or 'info@curavani.com',
-                'absender_name': f"{vorname} {nachname} (via Kontaktformular)",
-                'add_legal_footer': False,  # No legal footer for internal emails
-                'status': 'In_Warteschlange'  # Queue for immediate sending
-            }
-            
-            # Send request to internal email API
+            # Send via system-messages endpoint (no database storage)
             try:
                 response = requests.post(
-                    f"{self.comm_service_url}/api/emails",
-                    json=email_data,
+                    f"{self.comm_service_url}/api/system-messages",
+                    json={
+                        'subject': subject,
+                        'message': email_content,
+                        'recipient_email': support_email,
+                        'recipient_name': 'Curavani Support',
+                        'sender_name': f"{vorname} {nachname} (via Kontaktformular)",
+                        'process_markdown': True,  # Process markdown to HTML
+                        'add_legal_footer': False  # No legal footer for internal emails
+                    },
                     timeout=10
                 )
                 
                 if response.ok:
                     result = response.json()
                     logger.info(f"Contact form forwarded successfully from {email} to {support_email}")
-                    return True, f"Contact form email created with ID: {result.get('id')}"
+                    return True, f"Contact form email sent to: {result.get('recipient')}"
                 else:
-                    error_msg = f"Failed to create email: {response.status_code} - {response.text}"
+                    error_msg = f"Failed to send email: {response.status_code} - {response.text}"
                     logger.error(error_msg)
                     return False, error_msg
                     

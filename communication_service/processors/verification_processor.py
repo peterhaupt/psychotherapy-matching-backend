@@ -90,33 +90,28 @@ Mit freundlichen Grüßen
 Ihr Curavani Team
                 """.strip()
             
-            # Create email via communication service API
-            email_data = {
-                'patient_id': None,  # No patient exists yet
-                'betreff': subject,
-                'inhalt_markdown': email_content,
-                'empfaenger_email': email,
-                'empfaenger_name': '',  # No name available at this stage
-                'absender_email': self.config.EMAIL_SENDER or 'info@curavani.com',
-                'absender_name': self.config.EMAIL_SENDER_NAME or 'Curavani',
-                'add_legal_footer': True,
-                'status': 'In_Warteschlange'  # Queue for immediate sending
-            }
-            
-            # Send request to internal email API
+            # Send via system-messages endpoint (no database storage)
             try:
                 response = requests.post(
-                    f"{self.comm_service_url}/api/emails",
-                    json=email_data,
+                    f"{self.comm_service_url}/api/system-messages",
+                    json={
+                        'subject': subject,
+                        'message': email_content,
+                        'recipient_email': email,
+                        'recipient_name': '',  # No name available at this stage
+                        'sender_name': self.config.EMAIL_SENDER_NAME or 'Curavani',
+                        'process_markdown': True,  # Process markdown to HTML
+                        'add_legal_footer': True   # Add legal footer
+                    },
                     timeout=10
                 )
                 
                 if response.ok:
                     result = response.json()
-                    logger.info(f"Verification email queued successfully for {email}")
-                    return True, f"Verification email created with ID: {result.get('id')}"
+                    logger.info(f"Verification email sent successfully to {email}")
+                    return True, f"Verification email sent to: {result.get('recipient')}"
                 else:
-                    error_msg = f"Failed to create email: {response.status_code} - {response.text}"
+                    error_msg = f"Failed to send email: {response.status_code} - {response.text}"
                     logger.error(error_msg)
                     return False, error_msg
                     
