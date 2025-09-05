@@ -129,8 +129,6 @@ class Config:
     # Object Storage Configuration (Swift/OpenStack for Infomaniak)
     SWIFT_APPLICATION_ID: Optional[str] = os.environ.get("SWIFT_APPLICATION_ID")
     SWIFT_APPLICATION_SECRET: Optional[str] = os.environ.get("SWIFT_APPLICATION_SECRET")
-    SWIFT_PROJECT_ID: Optional[str] = os.environ.get("SWIFT_PROJECT_ID")
-    SWIFT_REGION: Optional[str] = os.environ.get("SWIFT_REGION")
     HMAC_SECRET_KEY: Optional[str] = os.environ.get("HMAC_SECRET_KEY")
     
     # Therapist Service Configuration
@@ -221,7 +219,6 @@ class Config:
             # Object Storage credentials required
             "SWIFT_APPLICATION_ID",
             "SWIFT_APPLICATION_SECRET",
-            "SWIFT_PROJECT_ID",
             "HMAC_SECRET_KEY"
         },
         "therapist": {
@@ -240,7 +237,6 @@ class Config:
             # Object Storage credentials required for processing emails
             "SWIFT_APPLICATION_ID",
             "SWIFT_APPLICATION_SECRET",
-            "SWIFT_PROJECT_ID",
             "HMAC_SECRET_KEY"
         },
         "geocoding": {

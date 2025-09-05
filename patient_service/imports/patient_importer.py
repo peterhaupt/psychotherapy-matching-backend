@@ -44,6 +44,10 @@ class PatientImporter:
                 # Extract actual data from HMAC wrapper
                 logger.debug("Extracting data from HMAC wrapper")
                 data = data['data']
+
+                # PHP has another nested 'data' level
+                if 'data' in data and 'patient_data' in data['data']:
+                    data = data['data']
             
             # Extract patient data (ignore metadata and contract texts)
             if 'patient_data' not in data:

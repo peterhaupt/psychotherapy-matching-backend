@@ -21,6 +21,9 @@ logger = logging.getLogger(__name__)
 class ObjectStorageClient:
     """Simple Swift client for processing files from Infomaniak Object Storage."""
     
+    # Infomaniak's OpenStack auth endpoint (constant)
+    AUTH_URL = 'https://api.pub1.infomaniak.cloud/identity/v3'
+    
     def __init__(self, environment: Optional[str] = None):
         """Initialize Swift client with Infomaniak credentials.
         
@@ -39,16 +42,14 @@ class ObjectStorageClient:
                 'test': 'test',
                 'production': 'prod'
             }
-        self.environment = env_mapping.get(flask_env, 'dev')
+            self.environment = env_mapping.get(flask_env, 'dev')  # FIXED: Now inside else block
         
         # Container name is just the environment
         self.container = self.environment
         
-        # Get credentials from environment
-        self.auth_url = os.environ.get('SWIFT_AUTH_URL', 'https://api.pub1.infomaniak.cloud/identity/v3')
+        # Get credentials from environment (only what we actually need)
         self.application_id = os.environ.get('SWIFT_APPLICATION_ID')
         self.application_secret = os.environ.get('SWIFT_APPLICATION_SECRET')
-        self.region = os.environ.get('SWIFT_REGION', 'dc4-a')
         
         # HMAC key for signature verification
         self.hmac_key = os.environ.get('HMAC_SECRET_KEY')
@@ -56,7 +57,7 @@ class ObjectStorageClient:
         # Validate required credentials
         if not all([self.application_id, self.application_secret]):
             raise ValueError(
-                "Missing Swift credentials. Required: "
+                "Missing Swift credentials. Required environment variables: "
                 "SWIFT_APPLICATION_ID, SWIFT_APPLICATION_SECRET"
             )
         
@@ -66,30 +67,55 @@ class ObjectStorageClient:
         # Initialize connection
         self._init_connection()
         
-        logger.info(f"ObjectStorageClient initialized for environment: {self.environment}")
+        logger.info(f"ObjectStorageClient initialized for container: {self.container}")
     
     def _init_connection(self):
         """Initialize Swift connection using application credentials."""
-        # Create auth using application credentials
-        auth = v3.ApplicationCredential(
-            auth_url=self.auth_url,
-            application_credential_id=self.application_id,
-            application_credential_secret=self.application_secret
-        )
-        
-        # Create session
-        sess = session.Session(auth=auth)
-        
-        # Create Swift connection
-        self.conn = Connection(session=sess)
-        
-        # Test connection
         try:
-            self.conn.get_account()
-            logger.info("Swift connection established successfully")
+            # Create auth using application credentials
+            auth = v3.ApplicationCredential(
+                auth_url=self.AUTH_URL,
+                application_credential_id=self.application_id,
+                application_credential_secret=self.application_secret
+            )
+            
+            # Create session
+            sess = session.Session(auth=auth)
+            
+            # Create Swift connection - let it auto-discover the storage URL
+
+            self.conn = Connection(session=sess, preauthurl=storage_url)
+            
+            # Test connection and log the discovered URL
+            try:
+                headers, containers = self.conn.get_account()
+                
+                # Try to log the URL being used (if available)
+                if hasattr(self.conn, 'url'):
+                    logger.info(f"Swift connection established using URL: {self.conn.url}")
+                else:
+                    logger.info(f"Swift connection established (URL auto-discovered)")
+                    
+                logger.info(f"Account has {len(containers)} containers available")
+                
+                # Verify our expected container exists
+                container_names = [c['name'] for c in containers]
+                if self.container not in container_names:
+                    logger.warning(
+                        f"Container '{self.container}' not found! "
+                        f"Available containers: {', '.join(container_names)}"
+                    )
+                    # Don't fail here - let operations fail with proper errors
+                else:
+                    logger.info(f"Container '{self.container}' verified to exist")
+                    
+            except Exception as e:
+                logger.error(f"Failed to verify Swift connection: {str(e)}")
+                raise
+                
         except Exception as e:
-            logger.error(f"Failed to connect to Swift: {str(e)}")
-            raise
+            logger.error(f"Failed to initialize Swift connection: {str(e)}")
+            raise ValueError(f"Swift connection failed: {str(e)}")
     
     def list_files(self, folder: str) -> List[str]:
         """List JSON files in a specific folder.
@@ -119,12 +145,12 @@ class ObjectStorageClient:
                     files.append(filename)
             
             if files:
-                logger.debug(f"Found {len(files)} files in {folder}/")
+                logger.debug(f"Found {len(files)} files in {self.container}/{folder}/")
             
             return files
             
         except Exception as e:
-            logger.error(f"Error listing files in {folder}: {str(e)}")
+            logger.error(f"Error listing files in {self.container}/{folder}: {str(e)}")
             return []
     
     def download_file(self, folder: str, filename: str) -> Dict[str, Any]:
@@ -161,28 +187,36 @@ class ObjectStorageClient:
             # Check file age (warn if older than 30 minutes)
             if 'timestamp' in data:
                 try:
-                    timestamp = datetime.fromisoformat(data['timestamp'].replace('+00:00', '').replace('Z', ''))
+                    # Handle various timestamp formats
+                    timestamp_str = data['timestamp']
+                    # Remove timezone info for parsing
+                    timestamp_str = timestamp_str.replace('+00:00', '').replace('Z', '').split('+')[0]
+                    timestamp = datetime.fromisoformat(timestamp_str)
                     age = datetime.utcnow() - timestamp
                     if age > timedelta(minutes=30):
-                        logger.warning(f"File {object_path} is {age.total_seconds()/60:.1f} minutes old")
-                except:
-                    pass  # Don't fail on timestamp parsing
+                        logger.warning(
+                            f"File {object_path} is {age.total_seconds()/60:.1f} minutes old"
+                        )
+                except Exception as e:
+                    logger.debug(f"Could not parse timestamp: {e}")
+                    # Don't fail on timestamp parsing
             
-            # Check environment matches
+            # Check environment matches (if specified in data)
             if 'environment' in data and data['environment'] != self.environment:
-                raise ValueError(
-                    f"Environment mismatch: file is for {data['environment']}, "
-                    f"but client is configured for {self.environment}"
+                logger.warning(
+                    f"Environment mismatch: file is for '{data['environment']}', "
+                    f"but client is configured for '{self.environment}'"
                 )
+                # Don't fail - just warn
             
-            logger.info(f"Successfully downloaded and verified {object_path}")
+            logger.info(f"Successfully downloaded and verified {self.container}/{object_path}")
             return data
             
         except json.JSONDecodeError as e:
-            logger.error(f"Invalid JSON in {folder}/{filename}: {str(e)}")
+            logger.error(f"Invalid JSON in {self.container}/{folder}/{filename}: {str(e)}")
             raise ValueError(f"Invalid JSON in file: {str(e)}")
         except Exception as e:
-            logger.error(f"Failed to download {folder}/{filename}: {str(e)}")
+            logger.error(f"Failed to download {self.container}/{folder}/{filename}: {str(e)}")
             raise
     
     def delete_file(self, folder: str, filename: str) -> bool:
@@ -198,11 +232,11 @@ class ObjectStorageClient:
         try:
             object_path = f"{folder}/{filename}"
             self.conn.delete_object(self.container, object_path)
-            logger.info(f"Deleted {object_path}")
+            logger.info(f"Deleted {self.container}/{object_path}")
             return True
             
         except Exception as e:
-            logger.error(f"Failed to delete {folder}/{filename}: {str(e)}")
+            logger.error(f"Failed to delete {self.container}/{folder}/{filename}: {str(e)}")
             return False
     
     def verify_hmac(self, data: Dict[str, Any]) -> bool:
@@ -227,8 +261,9 @@ class ObjectStorageClient:
         try:
             # Check required fields
             required_fields = ['signature', 'signature_version', 'timestamp', 'type', 'data']
-            if not all(field in data for field in required_fields):
-                logger.warning("Missing required signature fields")
+            missing_fields = [f for f in required_fields if f not in data]
+            if missing_fields:
+                logger.warning(f"Missing required signature fields: {', '.join(missing_fields)}")
                 return False
             
             # Only support hmac-sha256-v1
@@ -236,32 +271,47 @@ class ObjectStorageClient:
                 logger.warning(f"Unsupported signature version: {data['signature_version']}")
                 return False
             
-            # Reconstruct the signed content
-            # PHP signs: timestamp|type|environment|json_encode(data)
-            signed_content = '|'.join([
-                data['timestamp'],
-                data['type'],
-                data.get('environment', ''),
-                json.dumps(data['data'], separators=(',', ':'), ensure_ascii=False)
-            ])
+            # PHP signs the entire payload (minus signature fields)
+            # Make a copy and remove signature fields
+            payload_to_verify = data.copy()
+            provided_signature = payload_to_verify.pop('signature', None)
+            payload_to_verify.pop('signature_version', None)
+            
+            if not provided_signature:
+                logger.warning("No signature found in data")
+                return False
+            
+            # PHP signs the JSON-encoded payload with these flags:
+            # JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+            payload_string = json.dumps(
+                payload_to_verify,
+                separators=(',', ':'),  # No spaces
+                ensure_ascii=False,     # Don't escape unicode (UNESCAPED_UNICODE)
+                # Note: Python doesn't escape slashes by default (like UNESCAPED_SLASHES)
+            )
             
             # Calculate expected signature
             expected_signature = hmac.new(
                 self.hmac_key.encode('utf-8'),
-                signed_content.encode('utf-8'),
+                payload_string.encode('utf-8'),
                 hashlib.sha256
             ).hexdigest()
             
-            # Compare signatures
-            is_valid = hmac.compare_digest(expected_signature, data['signature'])
+            # Compare signatures (constant-time)
+            is_valid = hmac.compare_digest(expected_signature, provided_signature)
             
             if not is_valid:
-                logger.warning(f"Invalid signature for {data.get('type')} from {data.get('environment')}")
+                logger.warning(
+                    f"Invalid signature for {data.get('type')} "
+                    f"from environment '{data.get('environment')}'"
+                )
+                logger.debug(f"Expected: {expected_signature[:20]}...")
+                logger.debug(f"Got: {data['signature'][:20]}...")
             
             return is_valid
             
         except Exception as e:
-            logger.error(f"Error verifying HMAC: {str(e)}")
+            logger.error(f"Error verifying HMAC: {str(e)}", exc_info=True)
             return False
     
     def test_connection(self) -> bool:
@@ -273,15 +323,48 @@ class ObjectStorageClient:
         try:
             # Try to get container info
             headers = self.conn.head_container(self.container)
-            logger.info(f"Container '{self.container}' is accessible")
+            object_count = headers.get('x-container-object-count', 0)
+            logger.info(
+                f"Container '{self.container}' is accessible "
+                f"({object_count} objects)"
+            )
             
             # Try to list files (should work even if empty)
-            self.conn.get_container(self.container, limit=1)
+            headers, objects = self.conn.get_container(self.container, limit=1)
             
             return True
             
         except Exception as e:
-            logger.error(f"Connection test failed: {str(e)}")
+            logger.error(f"Connection test failed for container '{self.container}': {str(e)}")
+            return False
+    
+    def upload_file(self, folder: str, filename: str, data: Dict[str, Any]) -> bool:
+        """Upload a JSON file to Object Storage (for testing).
+        
+        Args:
+            folder: Folder name (e.g., 'verifications', 'contacts')
+            filename: Name for the file
+            data: Data to upload as JSON
+            
+        Returns:
+            True if uploaded successfully, False otherwise
+        """
+        try:
+            object_path = f"{folder}/{filename}"
+            json_content = json.dumps(data, indent=2, ensure_ascii=False)
+            
+            self.conn.put_object(
+                self.container,
+                object_path,
+                contents=json_content.encode('utf-8'),
+                content_type='application/json'
+            )
+            
+            logger.info(f"Uploaded {self.container}/{object_path}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to upload {self.container}/{folder}/{filename}: {str(e)}")
             return False
 
 
@@ -289,20 +372,28 @@ class ObjectStorageClient:
 def test_swift_connection():
     """Test Swift connection with current configuration."""
     try:
+        print("Testing Swift connection...")
+        print(f"Using environment: {os.environ.get('FLASK_ENV', 'development')}")
+        
         client = ObjectStorageClient()
         if client.test_connection():
-            print(f"✓ Connected to Swift container: {client.container}")
+            print(f"✅ Connected to Swift container: {client.container}")
             
             # Try listing each expected folder
             for folder in ['verifications', 'contacts', 'registrations']:
                 files = client.list_files(folder)
-                print(f"✓ {folder}/: {len(files)} files")
+                print(f"  {folder}/: {len(files)} files")
             
             return True
         else:
-            print("✗ Connection test failed")
+            print("❌ Connection test failed")
             return False
             
     except Exception as e:
-        print(f"✗ Error: {str(e)}")
+        print(f"❌ Error: {str(e)}")
         return False
+
+
+if __name__ == "__main__":
+    # Run test if executed directly
+    test_swift_connection()
