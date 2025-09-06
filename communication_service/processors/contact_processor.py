@@ -135,7 +135,7 @@ Umgebung: {environment}
                         'message': email_content,
                         'recipient_email': support_email,
                         'recipient_name': 'Curavani Support',
-                        'sender_name': f"{vorname} {nachname} (via Kontaktformular)",
+                        'sender_name': "Curavani Kontaktformular",
                         'process_markdown': True,  # Process markdown to HTML
                         'add_legal_footer': False  # No legal footer for internal emails
                     },
