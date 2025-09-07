@@ -93,7 +93,7 @@ Professional therapist communication:
 ## Configuration Management
 
 All settings managed via `shared.config`:
-- **SMTP settings**: Host, port, authentication, TLS configuration
+- **SMTP settings**: Host, port, authentication, TLS configuration via local SMTP relay
 - **Default sender**: Company email and branding (`info@curavani.de`)
 - **Company information**: Curavani Therapievermittlung GmbH branding
 - **Legal footer control**: `EMAIL_ADD_LEGAL_FOOTER` configuration flag
@@ -119,7 +119,7 @@ When communication events occur:
 ## Technical Features
 
 ### Robust Email Delivery
-- **Queue processing**: Background workers handle email delivery
+- **Queue processing**: Background workers handle email delivery via local SMTP relay
 - **Retry logic**: Automatic retry for failed deliveries
 - **Status tracking**: Real-time delivery status monitoring
 - **Error handling**: Comprehensive error logging and recovery

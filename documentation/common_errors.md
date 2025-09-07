@@ -112,6 +112,103 @@ SELECT * FROM pg_locks WHERE NOT granted;
 
 ---
 
+## Object Storage Connection Issues
+
+### Error
+```
+Container 'dev' not found
+SwiftService error: Authentication failed
+ConnectionError: Unable to connect to Swift storage
+```
+
+### Cause
+Issues connecting to Infomaniak Object Storage containers, usually due to authentication problems or incorrect environment configuration.
+
+### Solution
+1. **Verify Swift configuration**:
+```bash
+# Check environment variables
+echo $SWIFT_AUTH_URL
+echo $SWIFT_USERNAME
+echo $SWIFT_PASSWORD
+echo $SWIFT_CONTAINER_NAME
+```
+
+2. **Test Swift connection**:
+```python
+from swiftclient import service
+swift_service = service.SwiftService(options={
+    'auth_version': '3',
+    'auth': auth_url,
+    'user': username,
+    'key': password,
+    'tenant_name': tenant_name
+})
+containers = list(swift_service.list())
+```
+
+3. **Verify container exists and FLASK_ENV setting**:
+```bash
+# Ensure container name matches environment
+# dev/test/prod containers should exist
+```
+
+### Prevention
+- Regular authentication token refresh
+- Monitor Swift service availability
+- Implement proper error handling with retries
+- Use health checks for Swift connectivity
+
+---
+
+## HMAC Verification Failures
+
+### Error
+```
+HMAC verification failed: Invalid signature
+Signature mismatch between PHP and Python
+HMAC authentication error: Expected signature does not match
+```
+
+### Cause
+HMAC signature verification fails when the secret keys don't match between PHP scraper and Python services, or when the signature generation algorithm differs.
+
+### Solution
+1. **Check HMAC_SECRET_KEY environment variable consistency**:
+```bash
+# Verify same secret in both PHP and Python environments
+echo $HMAC_SECRET_KEY
+```
+
+2. **Verify signature generation algorithm**:
+```python
+# Python side - ensure same algorithm as PHP
+import hmac
+import hashlib
+
+def verify_signature(data, signature, secret):
+    expected = hmac.new(
+        secret.encode('utf-8'),
+        data.encode('utf-8'),
+        hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(expected, signature)
+```
+
+3. **Debug signature generation**:
+```bash
+# Log the data being signed and generated signature
+# Compare with PHP output
+```
+
+### Prevention
+- Use consistent HMAC algorithms across all services
+- Store HMAC secrets in secure environment variables
+- Implement signature verification in all data import endpoints
+- Add comprehensive logging for signature verification
+
+---
+
 ## Test Contamination from Module-Level Mocking
 
 ### Error
@@ -416,6 +513,58 @@ with gzip.open(backup_file, 'rt') as f:
 - Always use `gunzip -c` in scripts that need to be cross-platform
 - Test on both macOS and Linux environments
 - Consider using Python's gzip module for maximum portability
+
+---
+
+## Therapist Import Monitor Issues
+
+### Error
+```
+ImportError: Failed to start therapist import monitor: THERAPIST_IMPORT_FOLDER_PATH environment variable is required
+Monitor inactive for too long
+High failure rate: 75.0%
+```
+
+### Cause
+Issues with the local file monitoring system for therapist imports, including missing configuration, file system problems, or processing failures.
+
+### Solution
+1. **Check environment variables**:
+```bash
+echo $THERAPIST_IMPORT_FOLDER_PATH
+echo $THERAPIST_IMPORT_CHECK_INTERVAL_SECONDS
+```
+
+2. **Verify file system permissions**:
+```bash
+# Check directory exists and is readable
+ls -la $THERAPIST_IMPORT_FOLDER_PATH
+# Check for recent files
+find $THERAPIST_IMPORT_FOLDER_PATH -name "*.json" -mtime -1
+```
+
+3. **Check import status**:
+```bash
+curl http://localhost:8002/api/therapists/import-status
+curl http://localhost:8002/health/import
+```
+
+4. **Review import logs**:
+```bash
+docker-compose logs therapist_service-dev | grep -i import
+```
+
+### Common Issues
+- **Missing environment variables**: Set required `THERAPIST_IMPORT_FOLDER_PATH` and `THERAPIST_IMPORT_CHECK_INTERVAL_SECONDS`
+- **File permission issues**: Ensure read permissions on import directory
+- **Invalid JSON files**: Check file format matches expected schema
+- **High failure rates**: Review error notifications for common validation issues
+
+### Prevention
+- Monitor import health endpoint regularly
+- Set up alerts for import failures
+- Validate JSON files before placing in import directory
+- Ensure proper file system permissions
 
 ---
 

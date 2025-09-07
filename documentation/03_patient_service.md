@@ -55,6 +55,7 @@ Pre-built communication functions:
 - **Phone scheduling**: Automatic and manual call scheduling
 - **History tracking**: Combined view of all patient communications
 - **Response tracking**: Monitors email responses and call outcomes
+- **Object Storage import system**: Integration with local file monitoring for data imports
 
 ### With Matching Service (Synchronous API)
 - **Search creation**: Patient data used for anfrage composition

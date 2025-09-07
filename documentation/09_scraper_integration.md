@@ -1,7 +1,7 @@
 # Scraper Integration
 
 ## Summary
-This document details the implementation of the data integration between the Web Scraping Service (developed in the separate [curavani_scraping](https://github.com/peterhaupt/curavani_scraping) repository) and the main Psychotherapy Matching Platform. The integration follows a file-based approach using cloud storage as the exchange mechanism, enabling decoupled operation while maintaining data consistency.
+This document details the implementation of the data integration between the Web Scraping Service (developed in the separate [curavani_scraping](https://github.com/peterhaupt/curavani_scraping) repository) and the main Psychotherapy Matching Platform. The integration follows a local file-based approach using the file system as the exchange mechanism, enabling decoupled operation while maintaining data consistency.
 
 ## Integration Architecture
 
@@ -10,25 +10,25 @@ This document details the implementation of the data integration between the Web
 ```
 ┌──────────────────────┐     ┌───────────────────────┐     ┌────────────────────────┐     ┌────────────────────┐
 │                      │     │                       │     │                        │     │                    │
-│  Scraping Service    │────▶│  Cloud Storage Bucket │────▶│  Import Process        │────▶│  Therapist Service │
-│  (curavani_scraping) │     │  (JSON Files)         │     │  (in main architecture)│     │  (Core System)     │
+│  Scraping Service    │────▶│  Local File System    │────▶│  Import Process        │────▶│  Therapist Service │
+│  (curavani_scraping) │     │  (JSON Files)         │     │  (file monitoring)     │     │  (Core System)     │
 │                      │     │                       │     │                        │     │                    │
 └──────────────────────┘     └───────────────────────┘     └────────────────────────┘     └────────────────────┘
 ```
 
 ### Design Rationale
 
-The file-based integration approach was chosen for several key reasons:
+The local file-based integration approach was chosen for several key reasons:
 
 1. **Operational Independence**: The scraper can operate independently of the main system, allowing for different deployment cycles and maintenance windows.
 
-2. **Resilience**: If either system experiences downtime, data is preserved in the storage layer for later processing.
+2. **Resilience**: If either system experiences downtime, data is preserved in the local file system for later processing.
 
-3. **Auditability**: The cloud storage bucket maintains a complete history of all imported data, providing an audit trail.
+3. **Auditability**: The local file system maintains a complete history of all imported data, providing an audit trail.
 
 4. **Simplicity**: No complex API integration or real-time communications required, reducing coupling between systems.
 
-5. **Security**: Clear boundaries with well-defined authentication and authorization between components.
+5. **Security**: Clear boundaries with well-defined file permissions between components.
 
 ## Technical Implementation
 
@@ -37,7 +37,7 @@ The file-based integration approach was chosen for several key reasons:
 The integration uses JSON files with a standardized schema that includes:
 
 1. **Metadata**: File-level information including timestamp, scrape ID, and format version
-2. **Changes**: Three categories of changes (additions, modifications, deletions)
+2. **Therapists**: Array of therapist data objects
 3. **Statistics**: Summary metrics about the data contained in the file
 
 Example JSON structure:
@@ -50,11 +50,30 @@ Example JSON structure:
     "source": "116117.de",
     "version": "1.0"
   },
-  "changes": {
-    "additions": [...],
-    "modifications": [...],
-    "deletions": [...]
-  },
+  "therapists": [
+    {
+      "basic_info": {
+        "salutation": "Frau",
+        "first_name": "Maria",
+        "last_name": "Schmidt",
+        "title": "Dr."
+      },
+      "location": {
+        "street": "Hauptstraße",
+        "house_number": "123",
+        "postal_code": "52062",
+        "city": "Aachen"
+      },
+      "contact": {
+        "phone": "0241-12345",
+        "email": "m.schmidt@praxis.de"
+      },
+      "therapy_methods": [
+        "Verhaltenstherapie für Erwachsene",
+        "Tiefenpsychologisch fundierte Psychotherapie für Erwachsene"
+      ]
+    }
+  ],
   "statistics": {
     "total_therapists_scraped": 1250,
     "new_therapists": 15,
@@ -65,144 +84,163 @@ Example JSON structure:
 }
 ```
 
-### Cloud Storage Implementation
+### Local File System Implementation
 
-The solution uses cloud storage with the following configuration:
+The solution uses local file system with the following configuration:
 
-1. **Bucket Structure**:
-   - Root directory contains all therapist data files
-   - Files are named with timestamp pattern: `therapists_YYYYMMDD_HHMMSS.json`
-   - Additional metadata is stored in cloud storage object attributes
+1. **Directory Structure**:
+   - Base directory configured via `THERAPIST_IMPORT_FOLDER_PATH` environment variable
+   - Date subdirectories in `YYYYMMDD` format
+   - Files are named by ZIP code: `{postal_code}.json`
+   - Example: `/data/therapist_imports/20250520/52062.json`
 
-2. **Authentication**:
-   - Scraper uses a service account with write-only permissions
-   - Main system uses a service account with read-only permissions
-   - Both are configured with least-privilege principles
+2. **File Permissions**:
+   - Scraper service has write permissions to the base directory
+   - Main system has read permissions to all files
+   - Both configured with appropriate file system permissions
 
 3. **Data Lifecycle**:
-   - Files are retained for 90 days by default
-   - A separate archival process moves older files to cold storage
-   - Processed files are marked with custom metadata for tracking
+   - Files are processed once per day by the import monitor
+   - For each ZIP code, only the latest file (newest date folder) is processed
+   - Processed files remain for audit purposes
+   - Manual cleanup process for old files
 
 ### Import Process
 
-The import process in the main system runs as a scheduled job with these steps:
+The import process in the main system runs as a scheduled background thread with these steps:
 
-1. **File Discovery**: Checks for new files in the storage bucket
-2. **File Selection**: Selects the latest unprocessed file based on timestamp
+1. **File Discovery**: Scans the base directory for date folders and JSON files
+2. **File Selection**: For each ZIP code, selects the latest file based on date folder
 3. **Validation**: Validates JSON structure and content
-4. **Differential Processing**:
-   - Processes additions of new therapists
-   - Applies modifications to existing therapists
-   - Handles deletions with appropriate business logic
-5. **Reconciliation**: Matches external IDs to internal database records
-6. **Commit**: Applies changes in a single transaction for consistency
-7. **Status Update**: Updates the file metadata to mark as processed
+4. **Filtering**: Only imports therapists with adult therapy methods
+5. **Deduplication**: Matches external data to existing therapists using:
+   - Primary match: Same first name, last name, and PLZ
+   - Secondary match: Same first name, PLZ, city, street, title, and email (for name changes)
+6. **Processing**:
+   - Creates new therapists for unmatched data
+   - Updates existing therapists with new information
+   - Preserves manually managed fields (status, availability, contact history)
+7. **Error Handling**: Individual record failures don't fail the entire import
+8. **Notification**: Sends email summary of import results and errors
 
 ### Data Mapping
 
-The mapping between external therapist data and internal database structure is defined in `TherapistMapper` class with these key transformations:
+The mapping between external therapist data and internal database structure is defined in `TherapistImporter` class with these key transformations:
 
-1. **ID Handling**: External IDs are stored alongside internal IDs for reference
-2. **Data Normalization**: Address information is standardized for geocoding
-3. **Availability Parsing**: Text-based availability is converted to structured JSON
-4. **Contact Enrichment**: Phone and email information is extracted and formatted
+1. **Personal Information**: Maps salutation, names, title from `basic_info`
+2. **Location**: Combines street and house number, maps postal code and city
+3. **Contact**: Maps phone, email, fax information
+4. **Therapy Methods**: Converts array to single enum using logic:
+   - Both VT and TP found → `egal`
+   - Only TP found → `tiefenpsychologisch_fundierte_Psychotherapie`
+   - Only VT found → `Verhaltenstherapie`
+   - Default → `egal`
+5. **Professional Data**: Maps telephone hours, languages, etc.
 
 ### Error Handling
 
 The integration implements a robust error handling strategy:
 
-1. **Transaction Management**: All database updates occur in a single transaction
-2. **Partial Failures**: Individual record failures don't fail the entire import
-3. **Error Categorization**:
-   - Schema validation errors
-   - Data format errors
-   - Business rule violations
-   - System errors
-4. **Retry Logic**: Automatic retry for transient errors
-5. **Manual Intervention**: Clear workflow for handling non-recoverable errors
+1. **File Level**: JSON parsing errors prevent file processing
+2. **Record Level**: Individual therapist errors are logged but don't stop processing
+3. **Validation Errors**: Enum validation failures are logged and skipped
+4. **Database Errors**: SQLAlchemy errors are caught and reported
+5. **Email Notifications**: Summary emails sent for all errors
+6. **Monitoring**: Import status tracked for health checks
 
 ## API Endpoints
 
 The integration exposes the following REST endpoints:
 
 ### Import Status API
-`GET /api/scraper-imports` - Returns information about previous imports
+`GET /api/therapists/import-status` - Returns information about import status and statistics
 
-### Manual Import Trigger
-`POST /api/scraper-imports/trigger` - Manually triggers an import process
+### Import Health Check
+`GET /health/import` - Returns health status of the import system
 
-### Import Details 
-`GET /api/scraper-imports/{import_id}` - Returns detailed information about a specific import
+## Configuration
 
-## Testing Strategy
+The import system is configured via environment variables:
 
-The integration is tested at multiple levels:
+### Required Variables
+- `THERAPIST_IMPORT_FOLDER_PATH`: Base directory for import files
+- `THERAPIST_IMPORT_CHECK_INTERVAL_SECONDS`: Interval between import runs (typically 86400 for daily)
 
-### Unit Tests
-- Schema validation tests
-- Data mapper tests
-- File processing logic tests
-
-### Integration Tests
-- Mock file generation and processing
-- Cloud storage interaction tests
-- Database update verification
-
-### End-to-End Tests
-- Full data flow from mock scraper to database
-- Validation of data consistency
-- Performance testing with large datasets
+### Optional Configuration
+- Managed via `shared.config` for database, communication service URLs
+- Email notification settings for error reporting
 
 ## Monitoring and Alerts
 
 The integration includes comprehensive monitoring:
 
 1. **Import Metrics**:
+   - Files processed per day
+   - Therapists processed and failed counts
    - Success/failure rates
    - Processing times
-   - Record counts by type
 
-2. **Data Quality Metrics**:
-   - Schema validation errors
-   - Data format issues
-   - Outlier detection
+2. **Health Checks**:
+   - Monitor running status
+   - Recent error detection
+   - Failure rate monitoring
+   - Inactive monitor detection (>25 hours)
 
-3. **Operational Alerts**:
-   - Failed imports
-   - Missing scheduled imports
-   - Unusual data volume changes
+3. **Error Notifications**:
+   - Failed imports with detailed error reports
+   - High failure rate alerts
+   - System errors and exceptions
 
-4. **Dashboard**: Centralized monitoring dashboard with all key metrics
+4. **Status API**: Real-time status via `/api/therapists/import-status`
+
+## Testing Strategy
+
+The integration is tested at multiple levels:
+
+### Unit Tests
+- Data mapping validation tests
+- File processing logic tests
+- Deduplication algorithm tests
+
+### Integration Tests
+- Mock file generation and processing
+- Database update verification
+- Error handling validation
+
+### End-to-End Tests
+- Full data flow from mock files to database
+- Validation of data consistency
+- Performance testing with large datasets
 
 ## Deployment Considerations
 
 The import process is deployed with these considerations:
 
-1. **Scaling**: Horizontally scalable to handle large import volumes
-2. **Resource Isolation**: Runs in a dedicated container to prevent resource contention
-3. **Maintenance Window**: Scheduled to run during off-peak hours
-4. **Rollback Capability**: Ability to revert to previous state if needed
+1. **Background Threading**: Runs as daemon thread in main application
+2. **Resource Isolation**: Separate logging and error handling
+3. **Maintenance Window**: Designed for continuous operation
+4. **Rollback Capability**: Database transactions ensure consistency
 
 ## Security Measures
 
 Security is implemented at multiple levels:
 
-1. **Transport Security**:
-   - TLS encryption for all data transfers
-   - Secure API endpoints with authentication
+1. **File System Security**:
+   - Proper file permissions for read/write access
+   - Directory access controls
 
-2. **Storage Security**:
-   - Encryption at rest for all data
-   - Access controls with fine-grained permissions
-
-3. **Data Protection**:
+2. **Data Protection**:
    - PII handling according to GDPR requirements
-   - Data minimization practices
+   - No sensitive data in logs
+
+3. **Input Validation**:
+   - JSON schema validation
+   - Field-level data validation
+   - Enum value verification
 
 4. **Audit Trail**:
    - Comprehensive logging of all operations
-   - Immutable audit records for compliance
+   - File processing history maintenance
 
 ## Future Enhancements
 
@@ -220,10 +258,10 @@ Common issues and their resolutions:
 
 | Issue | Resolution |
 |-------|------------|
-| Missing files | Check scraper logs and authentication permissions |
-| Schema validation errors | Compare file structure with expected schema |
-| ID reconciliation failures | Verify external ID mapping logic |
+| Missing files | Check scraper output and file permissions |
+| JSON parsing errors | Validate file structure with expected schema |
+| Deduplication failures | Review matching logic in both systems |
 | Performance degradation | Check file size and database indexes |
-| Duplicate records | Review identification logic in both systems |
+| Import monitor inactive | Check environment variables and thread status |
 
 For detailed troubleshooting procedures, refer to the operational runbook.
