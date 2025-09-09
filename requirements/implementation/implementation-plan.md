@@ -1,39 +1,45 @@
 # Complete Implementation Plan
 ## Email Templates, PDF Attachments, and Matching Service Cleanup
 
-**Version**: 2.0  
+**Version**: 2.1  
 **Date**: January 2025  
-**Scope**: Backend implementation for three features
+**Scope**: Backend implementation for three features  
+**Last Updated**: Feature 1 completed
 
 ---
 
 ## Overview
 
 This document provides a complete implementation plan for:
-1. Fixing email formatting issues when therapist has no title
+1. ✅ **COMPLETED** - Fixing email formatting issues when therapist has no title
 2. Removing legacy code from matching service
 3. Implementing enhanced patient success email system with 4 templates
 4. Adding PDF attachment functionality for therapist forms
 
 ---
 
-## Feature 1: Fix Email Formatting Error
+## Feature 1: Fix Email Formatting Error ✅ COMPLETED
 
 ### Problem
 Email templates show double asterisks (**) when therapist has no title due to hardcoded space.
 
-### Files to Modify
+### Implementation Notes (COMPLETED)
+- Fixed `patient_success.md` template with conditional checks in 4 places
+- Verified `psychotherapie_anfrage.md` and `anfrage_reminder.md` were already fixed
+- **REMOVED fallback behavior**: Instead of fixing the `create_default_patient_success_message` function, we removed it entirely along with the fallback behavior. If template is missing, the email will properly fail with an error.
+
+### Files Modified
 ```
 shared/templates/emails/
-├── psychotherapie_anfrage.md
-├── anfrage_reminder.md
-├── patient_success.md
-└── any other template using therapist names
+└── patient_success.md (4 fixes applied)
+
+matching_service/api/
+└── anfrage.py (removed fallback function and behavior)
 ```
 
-### Code Changes
+### Code Changes Applied
 
-#### In all email templates, change FROM:
+#### In patient_success.md, changed FROM:
 ```jinja2
 {{ therapist.titel }} {{ therapist.vorname }} {{ therapist.nachname }}
 ```
@@ -43,9 +49,9 @@ shared/templates/emails/
 {% if therapist.titel %}{{ therapist.titel }} {% endif %}{{ therapist.vorname }} {{ therapist.nachname }}
 ```
 
-### Testing
-- Test with therapist WITH title: "Dr. Max Mustermann"
-- Test with therapist WITHOUT title: "Max Mustermann" (no double asterisks)
+#### In anfrage.py:
+- Removed `create_default_patient_success_message()` function
+- Modified `send_patient_success_email()` to fail properly when template is missing
 
 ---
 
@@ -137,6 +143,8 @@ When marking a platzsuche as successful, staff selects one of 4 templates:
 4. **Phone Meeting Confirmation** - Confirms specific meeting time via phone
 
 ### 3.2 New Email Templates
+
+**⚠️ IMPORTANT NOTE**: The current `patient_success.md` template CANNOT be used as a base template for the new templates. The current template uses conditional logic based on whether the therapist has an email/phone (`if has_email`, `if has_phone`), but the new templates need to be explicitly selected based on the contact method chosen by staff, independent of what contact information is available for the therapist.
 
 Create three new templates in `shared/templates/emails/`:
 
@@ -510,7 +518,7 @@ if new_status == SuchStatus.erfolgreich and search.vermittelter_therapeut_id:
 
 ## Testing Plan
 
-### 1. Email Formatting
+### 1. Email Formatting ✅ COMPLETED
 - Create therapist with title: "Dr. Schmidt"
 - Create therapist without title: "Meyer"
 - Send test emails, verify no double asterisks
