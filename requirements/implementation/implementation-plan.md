@@ -1,10 +1,10 @@
 # Complete Implementation Plan
 ## Email Templates, PDF Attachments, and Matching Service Cleanup
 
-**Version**: 2.1  
+**Version**: 2.2  
 **Date**: January 2025  
 **Scope**: Backend implementation for three features  
-**Last Updated**: Feature 1 completed
+**Last Updated**: Features 1 & 2 completed
 
 ---
 
@@ -12,7 +12,7 @@
 
 This document provides a complete implementation plan for:
 1. ✅ **COMPLETED** - Fixing email formatting issues when therapist has no title
-2. Removing legacy code from matching service
+2. ✅ **COMPLETED** - Removing legacy code from matching service
 3. Implementing enhanced patient success email system with 4 templates
 4. Adding PDF attachment functionality for therapist forms
 
@@ -55,79 +55,54 @@ matching_service/api/
 
 ---
 
-## Feature 2: Matching Service Legacy Code Removal
+## Feature 2: Matching Service Legacy Code Removal ✅ COMPLETED
 
-### Components to Remove
+### Problem
+The system had a legacy "contact request" (Kontaktanfrage) feature that tracked how many contacts were requested for a patient search. This feature is no longer used and needed to be removed.
 
-#### 1. API Endpoint and Resource
+### Implementation Notes (COMPLETED - January 29, 2025)
+
+#### 1. **Removed API Endpoint and Resource**
 **File**: `matching_service/api/anfrage.py`
-- Remove entire `KontaktanfrageResource` class (approximately lines 200-300)
-- Remove import from the file's imports section
+- ✅ Removed entire `KontaktanfrageResource` class (lines 188-250)
+- ✅ Removed `ausgeschlossene_therapeuten_anzahl` from `PlatzsucheListResource.get()` return
 
 **File**: `matching_service/api/__init__.py`
-- Remove `KontaktanfrageResource` from imports and `__all__`
+- ✅ Removed `KontaktanfrageResource` from imports and `__all__`
 
 **File**: `matching_service/app.py`
-- Remove route registration:
-```python
-# DELETE THIS LINE:
-api.add_resource(KontaktanfrageResource, '/api/platzsuchen/<int:search_id>/kontaktanfrage')
-```
+- ✅ Removed route registration for `/api/platzsuchen/<int:search_id>/kontaktanfrage`
 
-#### 2. Database Field and Methods
+#### 2. **Removed Database Field and Methods**
 **File**: `matching_service/models/platzsuche.py`
-- Remove field:
-```python
-# DELETE THIS:
-gesamt_angeforderte_kontakte = Column(Integer, nullable=False, default=0)
-```
-- Remove method:
-```python
-# DELETE THIS ENTIRE METHOD:
-def update_contact_count(self, additional_contacts: int) -> None:
-    """Update the total requested contacts count."""
-    self.gesamt_angeforderte_kontakte += additional_contacts
-    self.updated_at = datetime.utcnow()
-```
+- ✅ Removed field `gesamt_angeforderte_kontakte`
+- ✅ Removed method `update_contact_count()`
 
-#### 3. API Response Fields
-**File**: `matching_service/api/anfrage.py`
+#### 3. **Database Migration**
+**File Created**: `migrations/alembic/versions/006_remove_kontaktanfrage.py`
+- ✅ Created migration to drop `gesamt_angeforderte_kontakte` column
+- ✅ Migration successfully executed
 
-In `PlatzsucheResource.get()` remove:
-```python
-# DELETE THIS LINE from the return statement:
-"gesamt_angeforderte_kontakte": search.gesamt_angeforderte_kontakte,
+### Files Modified
 ```
+matching_service/api/
+├── __init__.py (removed KontaktanfrageResource import)
+└── anfrage.py (removed KontaktanfrageResource class and related field)
 
-In `PlatzsucheListResource.get()` remove from the data array return:
-```python
-# DELETE THIS LINE:
-"ausgeschlossene_therapeuten_anzahl": len(s.ausgeschlossene_therapeuten) if s.ausgeschlossene_therapeuten else 0,
+matching_service/
+├── app.py (removed route registration)
+└── models/
+    └── platzsuche.py (removed field and method)
+
+migrations/alembic/versions/
+└── 006_remove_kontaktanfrage.py (new migration file)
 ```
 
-#### 4. Database Migration
-Create migration file: `migration_remove_kontaktanfrage.sql`
-```sql
--- Migration: Remove legacy contact request field
-ALTER TABLE matching_service.platzsuche 
-DROP COLUMN IF EXISTS gesamt_angeforderte_kontakte;
-```
-
-Run during deployment:
-```bash
-psql -U $DB_USER -d $DB_NAME -f migration_remove_kontaktanfrage.sql
-```
-
-#### 5. Clean Up Bundle Terminology in Comments
-Files to update (search and replace in comments only):
-- `matching_service/algorithms/anfrage_creator.py`
-- `matching_service/models/therapeut_anfrage_patient.py`
-- `matching_service/models/therapeutenanfrage.py`
-
-Replace in comments:
-- "bundle" → "anfrage"
-- "Bundle" → "Anfrage"
-- "Bündel" → "Anfrage"
+### Testing Performed
+- Verified `/api/platzsuchen/{id}/kontaktanfrage` returns 404
+- Confirmed database column removed successfully
+- Verified API responses no longer include removed fields
+- All existing functionality continues to work
 
 ---
 
@@ -523,10 +498,10 @@ if new_status == SuchStatus.erfolgreich and search.vermittelter_therapeut_id:
 - Create therapist without title: "Meyer"
 - Send test emails, verify no double asterisks
 
-### 2. Legacy Code Removal
-- Verify `/api/platzsuchen/{id}/kontaktanfrage` returns 404
-- Check database column removed
-- Verify no errors in API responses
+### 2. Legacy Code Removal ✅ COMPLETED
+- Verified `/api/platzsuchen/{id}/kontaktanfrage` returns 404
+- Checked database column removed
+- Verified no errors in API responses
 
 ### 3. PDF System
 - Upload PDFs with German characters: "Übergabe-Formular.pdf"
