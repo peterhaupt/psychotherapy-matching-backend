@@ -14,7 +14,6 @@ from flask_sqlalchemy import SQLAlchemy
 from api.anfrage import (
     PlatzsucheResource,
     PlatzsucheListResource,
-    KontaktanfrageResource,
     TherapeutenZurAuswahlResource,
     TherapeutenanfrageResource,
     TherapeutenanfrageListResource,
@@ -121,7 +120,6 @@ def create_app():
     # Register anfrage system API endpoints
     api.add_resource(PlatzsucheListResource, '/api/platzsuchen')
     api.add_resource(PlatzsucheResource, '/api/platzsuchen/<int:search_id>')
-    api.add_resource(KontaktanfrageResource, '/api/platzsuchen/<int:search_id>/kontaktanfrage')
     
     # Therapist selection endpoint
     api.add_resource(TherapeutenZurAuswahlResource, '/api/therapeuten-zur-auswahl')

@@ -2,7 +2,6 @@
 from .anfrage import (
     PlatzsucheResource,
     PlatzsucheListResource,
-    KontaktanfrageResource,
     TherapeutenZurAuswahlResource,
     TherapeutenanfrageResource,
     TherapeutenanfrageListResource,

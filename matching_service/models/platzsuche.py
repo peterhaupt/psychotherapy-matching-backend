@@ -26,7 +26,7 @@ class Platzsuche(Base):
     """Patient search tracking model.
     
     Represents an ongoing search for therapy placement for a patient.
-    Tracks excluded therapists, contact attempts, and search status.
+    Tracks excluded therapists and search status.
     """
     
     __tablename__ = "platzsuche"
@@ -62,13 +62,6 @@ class Platzsuche(Base):
         JSONB,
         nullable=False,
         default=list
-    )
-    
-    # Contact tracking (German field names)
-    gesamt_angeforderte_kontakte = Column(
-        Integer,
-        nullable=False,
-        default=0
     )
     
     # Success tracking (German field name)
@@ -152,15 +145,6 @@ class Platzsuche(Base):
         
         return {entry if isinstance(entry, int) else entry.get('id') 
                 for entry in self.ausgeschlossene_therapeuten}
-    
-    def update_contact_count(self, additional_contacts: int) -> None:
-        """Update the total requested contacts count.
-        
-        Args:
-            additional_contacts: Number of additional contacts requested
-        """
-        self.gesamt_angeforderte_kontakte += additional_contacts
-        self.updated_at = datetime.utcnow()
     
     def mark_successful(self, vermittlung_datum: Optional[datetime] = None, 
                        therapist_id: Optional[int] = None) -> None:

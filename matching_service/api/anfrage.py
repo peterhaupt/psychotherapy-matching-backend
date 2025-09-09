@@ -493,7 +493,6 @@ class PlatzsucheListResource(PaginatedListResource):
                         "updated_at": s.updated_at.isoformat() if s.updated_at else None,
                         "aktive_anfragen": s.get_active_anfrage_count(),
                         "gesamt_anfragen": s.get_total_anfrage_count(),
-                        "ausgeschlossene_therapeuten_anzahl": len(s.ausgeschlossene_therapeuten) if s.ausgeschlossene_therapeuten else 0,
                         "offen_fuer_gruppentherapie": patients.get(s.patient_id, {}).get('offen_fuer_gruppentherapie', False),
                         "vermittelter_therapeut_id": s.vermittelter_therapeut_id  # NEW field
                     } for s in searches],
@@ -567,64 +566,6 @@ class PlatzsucheListResource(PaginatedListResource):
             return {"message": "Patient search already exists"}, 400
         except Exception as e:
             logger.error(f"Error creating patient search: {str(e)}")
-            return {"message": "Internal server error"}, 500
-
-
-class KontaktanfrageResource(Resource):
-    """REST resource for requesting additional contacts for a patient search."""
-
-    def post(self, search_id):
-        """Request additional contacts for a patient search."""
-        parser = reqparse.RequestParser()
-        parser.add_argument('requested_count', type=int, required=True)
-        parser.add_argument('notizen', type=str)
-        args = parser.parse_args()
-        
-        if args['requested_count'] <= 0:
-            return {"message": "Requested count must be positive"}, 400
-        
-        if args['requested_count'] > 100:
-            return {"message": "Requested count too high (max: 100)"}, 400
-        
-        try:
-            with get_db_context() as db:
-                search = db.query(Platzsuche).filter_by(id=search_id).first()
-                
-                if not search:
-                    return {"message": f"Patient search {search_id} not found"}, 404
-                
-                if search.status != SuchStatus.aktiv:
-                    return {
-                        "message": f"Can only request contacts for active searches. Current status: {search.status.value}"
-                    }, 400
-                
-                # Update contact count
-                old_count = search.gesamt_angeforderte_kontakte
-                search.update_contact_count(args['requested_count'])
-                
-                # Add note
-                note = f"Requested {args['requested_count']} additional contacts (total: {search.gesamt_angeforderte_kontakte})"
-                if args.get('notizen'):
-                    note += f" - {args['notizen']}"
-                search.add_note(note, author="API")
-                
-                db.commit()
-                
-                logger.info(
-                    f"Contact request for search {search_id}: "
-                    f"requested {args['requested_count']}, "
-                    f"total now {search.gesamt_angeforderte_kontakte}"
-                )
-                
-                return {
-                    "message": f"Requested {args['requested_count']} additional contacts",
-                    "previous_total": old_count,
-                    "new_total": search.gesamt_angeforderte_kontakte,
-                    "search_id": search.id
-                }, 200
-                
-        except Exception as e:
-            logger.error(f"Error updating contact request: {str(e)}")
             return {"message": "Internal server error"}, 500
 
 
