@@ -1,6 +1,6 @@
 Sehr geehrte{{ 'r Herr' if patient.geschlecht == 'männlich' else ' Frau' }} {{ patient.nachname }},
 
-wir haben einen freien {% if is_group_therapy %}Psychotherapieplatz in einer Gruppe{% else %}Psychotherapieplatz{% endif %} für Sie gefunden bei {{ therapist.titel }} {{ therapist.vorname }} {{ therapist.nachname }}.
+wir haben einen freien {% if is_group_therapy %}Psychotherapieplatz in einer Gruppe{% else %}Psychotherapieplatz{% endif %} für Sie gefunden bei {% if therapist.titel %}{{ therapist.titel }} {% endif %}{{ therapist.vorname }} {{ therapist.nachname }}.
 
 Bitte führen Sie folgende Schritte durch:
 
@@ -11,7 +11,7 @@ Bitte führen Sie folgende Schritte durch:
 
 #### Kontaktdaten {% if therapist.geschlecht == 'weiblich' %}der Therapeutin{% else %}des Therapeuten{% endif %}:
 
-**{{ therapist.titel }} {{ therapist.vorname }} {{ therapist.nachname }}**  
+**{% if therapist.titel %}{{ therapist.titel }} {% endif %}{{ therapist.vorname }} {{ therapist.nachname }}**  
 {{ therapist.strasse }}  
 {{ therapist.plz }} {{ therapist.ort }}  
 {% if has_phone %}Telefon: {{ therapist.telefon }}  
@@ -27,7 +27,7 @@ Bitte führen Sie folgende Schritte durch:
 **CC:** info@curavani.com  
 **Betreff:** {% if is_group_therapy %}Gruppentherapieplatz{% else %}Therapieplatz{% endif %} gemäß Absprache mit Curavani
 
-Sehr geehrte{{ 'r Herr' if therapist.geschlecht == 'männlich' else ' Frau' }} {{ therapist.titel }} {{ therapist.nachname }},
+Sehr geehrte{{ 'r Herr' if therapist.geschlecht == 'männlich' else ' Frau' }} {% if therapist.titel %}{{ therapist.titel }} {% endif %}{{ therapist.nachname }},
 
 wie mit Curavani besprochen, möchte ich gerne {% if is_group_therapy %}an der Gruppentherapie bei Ihnen teilnehmen{% else %}einen Therapieplatz bei Ihnen in Anspruch nehmen{% endif %}. 
 
@@ -50,7 +50,7 @@ Mit freundlichen Grüßen
 {% else %}
 #### Telefonische Kontaktaufnahme:
 
-Bitte rufen Sie {{ therapist.titel }} {{ therapist.nachname }} unter der Nummer **{{ therapist.telefon }}** an.
+Bitte rufen Sie {% if therapist.titel %}{{ therapist.titel }} {% endif %}{{ therapist.nachname }} unter der Nummer **{{ therapist.telefon }}** an.
 
 ##### Telefonische Erreichbarkeit:
 {{ phone_availability_formatted }}
