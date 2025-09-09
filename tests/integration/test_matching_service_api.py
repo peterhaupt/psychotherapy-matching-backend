@@ -519,37 +519,6 @@ class TestMatchingServiceAPI:
         self.safe_delete_therapist(therapist['id'])
         self.safe_delete_patient(patient['id'])
 
-
-    # ==================== KONTAKTANFRAGE TESTS ====================
-
-    def test_kontaktanfrage(self):
-        """Test requesting additional contacts for a search."""
-        patient = self.create_test_patient()
-        search_response = requests.post(
-            f"{BASE_URL}/platzsuchen",
-            json={"patient_id": patient['id']}
-        )
-        assert search_response.status_code == 201
-        search = search_response.json()
-        
-        # Request additional contacts
-        response = requests.post(
-            f"{BASE_URL}/platzsuchen/{search['id']}/kontaktanfrage",
-            json={
-                "requested_count": 10,
-                "notizen": "Patient sehr dringend"
-            }
-        )
-        assert response.status_code == 200
-        
-        result = response.json()
-        assert result['new_total'] == 10
-        assert result['search_id'] == search['id']
-        
-        # Cleanup
-        self.safe_delete_platzsuche(search['id'])
-        self.safe_delete_patient(patient['id'])
-
     # ==================== THERAPEUTEN SELECTION TESTS (ADAPTED FOR DEDUPLICATION) ====================
 
     def test_get_therapeuten_zur_auswahl_with_deduplication(self):

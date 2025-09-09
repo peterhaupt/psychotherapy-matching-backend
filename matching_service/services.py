@@ -840,8 +840,7 @@ class AnfrageService:
         search = Platzsuche(
             patient_id=patient_id,
             status=SuchStatus.aktiv,
-            ausgeschlossene_therapeuten=[],
-            gesamt_angeforderte_kontakte=0
+            ausgeschlossene_therapeuten=[]
         )
         db.add(search)
         db.commit()

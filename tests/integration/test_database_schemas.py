@@ -216,8 +216,7 @@ def test_matching_service_tables(db_inspector):
     ps_columns = {col['name'] for col in db_inspector.get_columns('platzsuche', schema='matching_service')}
     ps_required = {
         'id', 'patient_id', 'status', 'created_at', 'updated_at',
-        'ausgeschlossene_therapeuten', 'gesamt_angeforderte_kontakte',
-        'erfolgreiche_vermittlung_datum', 'notizen'
+        'ausgeschlossene_therapeuten', 'erfolgreiche_vermittlung_datum', 'notizen'
     }
     missing = ps_required - ps_columns
     assert not missing, f"Missing columns in platzsuche: {missing}"

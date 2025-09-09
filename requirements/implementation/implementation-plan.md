@@ -1,10 +1,10 @@
 # Complete Implementation Plan
 ## Email Templates, PDF Attachments, and Matching Service Cleanup
 
-**Version**: 2.2  
+**Version**: 2.3  
 **Date**: January 2025  
-**Scope**: Backend implementation for three features  
-**Last Updated**: Features 1 & 2 completed
+**Scope**: Backend implementation for five features  
+**Last Updated**: Features 1 & 2 completed, API breaking changes identified
 
 ---
 
@@ -15,6 +15,7 @@ This document provides a complete implementation plan for:
 2. ✅ **COMPLETED** - Removing legacy code from matching service
 3. Implementing enhanced patient success email system with 4 templates
 4. Adding PDF attachment functionality for therapist forms
+5. **NEW** - API documentation and frontend updates for breaking changes
 
 ---
 
@@ -78,10 +79,21 @@ The system had a legacy "contact request" (Kontaktanfrage) feature that tracked 
 - ✅ Removed field `gesamt_angeforderte_kontakte`
 - ✅ Removed method `update_contact_count()`
 
+**File**: `matching_service/services.py`
+- ✅ Removed `gesamt_angeforderte_kontakte=0` from Platzsuche creation
+
 #### 3. **Database Migration**
 **File Created**: `migrations/alembic/versions/006_remove_kontaktanfrage.py`
 - ✅ Created migration to drop `gesamt_angeforderte_kontakte` column
 - ✅ Migration successfully executed
+
+#### 4. **Test Updates**
+**File**: `tests/integration/test_database_schemas.py`
+- ✅ Removed `gesamt_angeforderte_kontakte` from required columns test
+- ✅ Test updated to reflect new database schema
+
+**File**: `tests/integration/test_matching_service_api.py`
+- ✅ Removed obsolete `test_kontaktanfrage` method
 
 ### Files Modified
 ```
@@ -91,8 +103,13 @@ matching_service/api/
 
 matching_service/
 ├── app.py (removed route registration)
-└── models/
-    └── platzsuche.py (removed field and method)
+├── models/
+│   └── platzsuche.py (removed field and method)
+└── services.py (removed field from model creation)
+
+tests/integration/
+├── test_database_schemas.py (updated required columns)
+└── test_matching_service_api.py (removed obsolete test)
 
 migrations/alembic/versions/
 └── 006_remove_kontaktanfrage.py (new migration file)
@@ -103,6 +120,9 @@ migrations/alembic/versions/
 - Confirmed database column removed successfully
 - Verified API responses no longer include removed fields
 - All existing functionality continues to work
+
+### **BREAKING CHANGES INTRODUCED**
+This feature removal introduces breaking changes that require frontend updates (see Feature 5).
 
 ---
 
@@ -491,6 +511,140 @@ if new_status == SuchStatus.erfolgreich and search.vermittelter_therapeut_id:
 
 ---
 
+## Feature 5: API Documentation and Frontend Updates for Breaking Changes
+
+### 5.1 Problem
+Feature 2 (Legacy Code Removal) introduced breaking changes to the API that require frontend updates and documentation.
+
+### 5.2 Breaking Changes Summary
+
+#### **Removed Endpoints:**
+- `POST /api/platzsuchen/{search_id}/kontaktanfrage` - Returns 404
+
+#### **Removed Response Fields:**
+- `gesamt_angeforderte_kontakte` - Removed from platzsuche GET responses
+- `ausgeschlossene_therapeuten_anzahl` - Removed from platzsuche list responses
+
+#### **Database Schema Changes:**
+- `gesamt_angeforderte_kontakte` column dropped from platzsuche table
+
+### 5.3 Required Updates
+
+#### **API Documentation Updates**
+**File**: `docs/API_REFERENCE.md`
+
+1. **Remove kontaktanfrage endpoint documentation:**
+   - Delete section for `POST /api/platzsuchen/{search_id}/kontaktanfrage`
+   - Remove any references to "contact requests" or "additional contacts"
+   - Update any workflow diagrams that included kontaktanfrage steps
+
+2. **Update platzsuche response schemas:**
+   ```markdown
+   # REMOVE these fields from documentation:
+   - gesamt_angeforderte_kontakte (integer): Total requested contacts  
+   - ausgeschlossene_therapeuten_anzahl (integer): Count of excluded therapists
+   
+   # ADD breaking change notice:
+   ## Breaking Changes in v2.3
+   - Removed kontaktanfrage functionality (legacy feature)
+   - Removed contact counting fields from responses
+   ```
+
+3. **Add migration guide:**
+   ```markdown
+   ## Migration Guide v2.2 → v2.3
+   ### Removed Features
+   - Contact request functionality has been removed
+   - Remove any UI for requesting additional therapist contacts
+   - Remove error handling for kontaktanfrage endpoints
+   
+   ### API Response Changes  
+   - `gesamt_angeforderte_kontakte` field removed from platzsuche responses
+   - `ausgeschlossene_therapeuten_anzahl` field removed from platzsuche list responses
+   ```
+
+#### **Frontend Code Updates Required**
+
+1. **Remove kontaktanfrage UI components:**
+   - Delete any buttons/forms for "Request Additional Contacts" 
+   - Remove kontaktanfrage API service methods
+   - Delete kontaktanfrage-related error handling
+   - Remove any routing for kontaktanfrage pages
+
+2. **Update platzsuche displays:**
+   - Remove display of `gesamt_angeforderte_kontakte` from detail views
+   - Remove display of `ausgeschlossene_therapeuten_anzahl` from list views  
+   - Update any filtering/sorting that used these fields
+   - Remove any charts/statistics based on contact counts
+
+3. **Update TypeScript interfaces:**
+   ```typescript
+   // REMOVE these fields from interfaces:
+   interface Platzsuche {
+     // gesamt_angeforderte_kontakte?: number;  // DELETE
+     // ... other fields remain
+   }
+   
+   interface PlatzsucheListItem {
+     // ausgeschlossene_therapeuten_anzahl?: number;  // DELETE  
+     // ... other fields remain
+   }
+   ```
+
+4. **Error handling updates:**
+   - Remove 404 error handling specific to kontaktanfrage endpoints
+   - Update any error messages that mentioned contact requests
+
+### 5.4 Implementation Steps
+
+#### **Step 5.1: Update API Documentation**
+1. Edit `docs/API_REFERENCE.md`
+2. Remove kontaktanfrage endpoint documentation
+3. Update platzsuche response schemas  
+4. Add breaking changes section
+5. Add migration guide
+
+#### **Step 5.2: Frontend Audit and Update**  
+1. Search codebase for `kontaktanfrage` references
+2. Search for `gesamt_angeforderte_kontakte` usage
+3. Search for `ausgeschlossene_therapeuten_anzahl` usage
+4. Update UI components to remove related functionality
+5. Update TypeScript interfaces
+6. Test frontend with updated API
+
+#### **Step 5.3: QA Testing**
+1. Verify kontaktanfrage endpoints return 404
+2. Verify removed fields are not in API responses
+3. Verify frontend doesn't break with missing fields
+4. Verify no UI references to removed functionality
+
+### 5.5 Files to Update
+
+```
+docs/
+└── API_REFERENCE.md (remove endpoint, update schemas, add migration guide)
+
+frontend/ (exact paths depend on frontend structure)
+├── src/types/
+│   └── platzsuche.ts (remove fields from interfaces)
+├── src/services/
+│   └── matching.service.ts (remove kontaktanfrage methods)  
+├── src/components/
+│   ├── platzsuche/ (remove contact request UI)
+│   └── platzsuche-list/ (remove contact count displays)
+└── src/pages/
+    └── platzsuche/ (remove kontaktanfrage routing/pages)
+```
+
+### 5.6 Communication Plan
+
+1. **Notify frontend team** of breaking changes before deployment
+2. **Coordinate deployment** - backend and frontend must be updated together
+3. **Version the API** - this is a major version change (v2.3)
+4. **Update changelog** with breaking changes notice
+
+---
+
 ## Testing Plan
 
 ### 1. Email Formatting ✅ COMPLETED
@@ -516,6 +670,12 @@ if new_status == SuchStatus.erfolgreich and search.vermittelter_therapeut_id:
 - Verify conditional text appears correctly
 - Check PDF attachments in sent emails
 
+### 5. API Documentation and Frontend Updates
+- Verify API documentation is updated
+- Test frontend with missing fields
+- Verify kontaktanfrage UI is removed
+- Test full platzsuche workflow without kontaktanfrage functionality
+
 ---
 
 ## Environment Variables Required
@@ -532,8 +692,10 @@ No new environment variables needed. Uses existing:
 1. Deploy code changes
 2. Run database migration
 3. Create `/app/storage/therapist_forms/` directory with proper permissions
-4. Test with single therapist
-5. Roll out to production
+4. Update API documentation
+5. Deploy frontend updates (must be coordinated with backend)
+6. Test with single therapist
+7. Roll out to production
 
 ---
 
@@ -543,10 +705,17 @@ No new environment variables needed. Uses existing:
 2. **Legacy removal**: Restore code, add column back via migration
 3. **PDF system**: Remove PDF endpoints, delete storage directory
 4. **Templates**: Revert to single template
+5. **API/Frontend**: Revert API docs, restore kontaktanfrage functionality in frontend
 
 ---
 
 ## Notes for Frontend Team
+
+### Breaking Changes in v2.3:
+- `POST /api/platzsuchen/{search_id}/kontaktanfrage` endpoint removed
+- `gesamt_angeforderte_kontakte` field removed from responses  
+- `ausgeschlossene_therapeuten_anzahl` field removed from responses
+- All kontaktanfrage UI must be removed
 
 ### Platzsuche Success Modal Needs:
 ```javascript
