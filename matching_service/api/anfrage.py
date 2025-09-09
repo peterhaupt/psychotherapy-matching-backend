@@ -167,16 +167,14 @@ def send_patient_success_email(db, search: Platzsuche) -> tuple:
         
         env = Environment(loader=FileSystemLoader(template_dir))
         
-        # Check if template exists, if not use a default message
-        template_name = 'patient_success.md'
-        if not os.path.exists(os.path.join(template_dir, template_name)):
-            logger.warning(f"Template {template_name} not found, using default message")
-            # Create a simple default message
-            email_markdown = create_default_patient_success_message(context)
-        else:
-            # Render template
+        # Render template - will raise TemplateNotFound if missing
+        try:
+            template_name = 'patient_success.md'
             template = env.get_template(template_name)
             email_markdown = template.render(context)
+        except Exception as e:
+            logger.error(f"Failed to render email template {template_name}: {str(e)}")
+            return False, None, f"Email template error: {str(e)}"
         
         # Send email via communication service
         subject = "Therapieplatz gefunden - bitte zeitnah bearbeiten"
@@ -280,38 +278,6 @@ def format_phone_availability(phone_availability: dict) -> str:
                 formatted.append(f"- {day}: {time_str}")
     
     return '\n'.join(formatted) if formatted else "Telefonische Erreichbarkeit nicht angegeben."
-
-
-def create_default_patient_success_message(context: dict) -> str:
-    """Create a default success message if template is not found."""
-    patient = context['patient']
-    therapist = context['therapist']
-    
-    message = f"""
-Sehr geehrte{'r Herr' if patient.get('geschlecht') == 'männlich' else ' Frau'} {patient.get('nachname', '')},
-
-ich habe einen Therapieplatz für Sie gefunden bei:
-
-**{therapist.get('titel', '')} {therapist.get('vorname', '')} {therapist.get('nachname', '')}**
-{therapist.get('strasse', '')}
-{therapist.get('plz', '')} {therapist.get('ort', '')}
-
-"""
-    
-    if therapist.get('telefon'):
-        message += f"Telefon: {therapist['telefon']}\n"
-    
-    if therapist.get('email'):
-        message += f"E-Mail: {therapist['email']}\n"
-    
-    message += """
-Bitte nehmen Sie Kontakt mit dem Therapeuten auf, um einen Termin für ein Erstgespräch zu vereinbaren.
-
-Mit freundlichen Grüßen
-Ihr Curavani Team
-"""
-    
-    return message
 
 
 class PlatzsucheResource(Resource):
