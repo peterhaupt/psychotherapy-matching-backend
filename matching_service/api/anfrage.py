@@ -1,6 +1,7 @@
 """Anfrage system API endpoints - FULLY IMPLEMENTED."""
 import logging
 import os
+import requests
 from datetime import datetime
 from jinja2 import Environment, FileSystemLoader
 
@@ -94,12 +95,27 @@ def validate_patient_data_for_platzsuche(patient_data: dict) -> tuple:
     return True, None
 
 
-def send_patient_success_email(db, search: Platzsuche) -> tuple:
+def send_patient_success_email(
+    db, 
+    search: Platzsuche,
+    template_type: str = 'email_contact',  # New parameter
+    meeting_details: dict = None  # New parameter
+) -> tuple:
     """Send success email to patient with therapist details.
     
     Args:
         db: Database session
         search: The Platzsuche object with vermittelter_therapeut_id set
+        template_type: Template type to use:
+            - 'email_contact': Patient contacts via email (default)
+            - 'phone_contact': Patient contacts via phone
+            - 'meeting_confirmation_email': Meeting arranged, confirm via email
+            - 'meeting_confirmation_phone': Meeting arranged, confirm via phone
+        meeting_details: Meeting details (only for confirmation templates):
+            {
+                'date': '20. Januar 2025',  # Formatted date
+                'time': '14:00 Uhr'         # Formatted time
+            }
         
     Returns:
         Tuple of (success: bool, email_id: Optional[int], error_message: Optional[str])
@@ -142,6 +158,12 @@ def send_patient_success_email(db, search: Platzsuche) -> tuple:
                 therapist['telefonische_erreichbarkeit']
             )
         
+        # Add meeting details to context if provided (for confirmation templates)
+        if meeting_details and template_type.startswith('meeting_confirmation'):
+            context['meeting_date'] = meeting_details.get('date')
+            context['meeting_time'] = meeting_details.get('time')
+            # Note: meeting_location is auto-generated in template from therapist address
+        
         # Add email footer configuration
         context['footer'] = {
             'sender_name': config.COMPANY_NAME,
@@ -167,9 +189,19 @@ def send_patient_success_email(db, search: Platzsuche) -> tuple:
         
         env = Environment(loader=FileSystemLoader(template_dir))
         
+        # Map template types to template files
+        template_map = {
+            'email_contact': 'patient_success_email_contact.md',
+            'phone_contact': 'patient_success_phone_contact.md',
+            'meeting_confirmation_email': 'patient_success_meeting_confirmation_email.md',
+            'meeting_confirmation_phone': 'patient_success_meeting_confirmation_phone.md'
+        }
+        
+        # Get the template name based on type (default to email_contact if invalid type)
+        template_name = template_map.get(template_type, 'patient_success_email_contact.md')
+        
         # Render template - will raise TemplateNotFound if missing
         try:
-            template_name = 'patient_success.md'
             template = env.get_template(template_name)
             email_markdown = template.render(context)
         except Exception as e:
@@ -196,7 +228,7 @@ def send_patient_success_email(db, search: Platzsuche) -> tuple:
         if response.status_code in [200, 201]:
             email_result = response.json()
             email_id = email_result.get('id')
-            logger.info(f"Created and queued success email {email_id} for patient {patient['id']}")
+            logger.info(f"Created and queued success email {email_id} for patient {patient['id']} using template {template_name}")
             
             # Update patient status to "in_Therapie"
             patient_update_url = f"{config.get_service_url('patient', internal=True)}/api/patients/{patient['id']}"
@@ -341,6 +373,8 @@ class PlatzsucheResource(Resource):
         parser.add_argument('notizen', type=str)
         parser.add_argument('ausgeschlossene_therapeuten', type=list, location='json')
         parser.add_argument('vermittelter_therapeut_id', type=int)  # NEW field
+        parser.add_argument('email_template_type', type=str)  # NEW: Template selection
+        parser.add_argument('meeting_details', type=dict, location='json')  # NEW: Meeting info
         args = parser.parse_args()
         
         try:
@@ -372,10 +406,18 @@ class PlatzsucheResource(Resource):
                         
                         # Send patient success email when marked successful
                         if old_status != SuchStatus.erfolgreich and new_status == SuchStatus.erfolgreich and search.vermittelter_therapeut_id:
-                            success, email_id, error_msg = send_patient_success_email(db, search)
+                            # Get template type and meeting details from request
+                            template_type = args.get('email_template_type', 'email_contact')
+                            meeting_details = args.get('meeting_details')
+                            
+                            # Send email with selected template
+                            success, email_id, error_msg = send_patient_success_email(
+                                db, search, template_type, meeting_details
+                            )
+                            
                             if success:
-                                logger.info(f"Sent patient success email {email_id} for search {search_id}")
-                                search.add_note(f"Success email sent to patient (Email ID: {email_id})", author="System")
+                                logger.info(f"Sent patient success email {email_id} for search {search_id} using template {template_type}")
+                                search.add_note(f"Success email sent to patient (Email ID: {email_id}, Template: {template_type})", author="System")
                             else:
                                 logger.error(f"Failed to send patient success email: {error_msg}")
                                 # Don't fail the status update, but log it
