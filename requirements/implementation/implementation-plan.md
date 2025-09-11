@@ -1,10 +1,10 @@
 # Complete Implementation Plan - UPDATED
 ## Email Templates, PDF Attachments, and Matching Service Cleanup
 
-**Version**: 4.0  
+**Version**: 5.0  
 **Date**: January 2025  
 **Scope**: Backend implementation for five features  
-**Last Updated**: January 29, 2025 - Features 1, 2, and 3 (except old template deletion) completed
+**Last Updated**: January 30, 2025 - Feature 4 partially completed (Therapist Service done)
 
 ---
 
@@ -14,7 +14,7 @@ This document provides a complete implementation plan for:
 1. ✅ **COMPLETED** - Fixing email formatting issues when therapist has no title
 2. ✅ **COMPLETED** - Removing legacy code from matching service
 3. ✅ **COMPLETED** - Implementing enhanced patient success email system with 4 templates
-4. **PENDING** - Adding PDF attachment functionality for therapist forms
+4. 🔄 **IN PROGRESS** - Adding PDF attachment functionality for therapist forms
 5. **PENDING** - API documentation and frontend updates for breaking changes
 6. **PENDING** - Delete old patient_success.md template (moved to end for safe deployment)
 
@@ -28,46 +28,16 @@ This document provides a complete implementation plan for:
 - Removed fallback function `create_default_patient_success_message()` from `anfrage.py`
 - System now properly fails if template is missing instead of using fallback
 
-### Files Modified
-```
-shared/templates/emails/
-└── patient_success.md (4 fixes applied)
-
-matching_service/api/
-└── anfrage.py (removed fallback function)
-```
-
 ---
 
 ## Feature 2: Matching Service Legacy Code Removal ✅ COMPLETED
 
 ### Implementation (COMPLETED - January 29, 2025)
-
-#### Changes Made:
-1. **Removed API endpoint** `/api/platzsuchen/{id}/kontaktanfrage`
-2. **Removed database field** `gesamt_angeforderte_kontakte`
-3. **Removed method** `update_contact_count()`
-4. **Created and executed migration** `006_remove_kontaktanfrage.py`
-5. **Updated tests** to reflect new schema
-
-### Files Modified
-```
-matching_service/
-├── api/
-│   ├── __init__.py
-│   └── anfrage.py
-├── app.py
-├── models/
-│   └── platzsuche.py
-└── services.py
-
-tests/integration/
-├── test_database_schemas.py
-└── test_matching_service_api.py
-
-migrations/alembic/versions/
-└── 006_remove_kontaktanfrage.py
-```
+- Removed API endpoint `/api/platzsuchen/{id}/kontaktanfrage`
+- Removed database field `gesamt_angeforderte_kontakte`
+- Removed method `update_contact_count()`
+- Created and executed migration `006_remove_kontaktanfrage.py`
+- Updated tests to reflect new schema
 
 ### ⚠️ BREAKING CHANGES INTRODUCED
 - Endpoint `/api/platzsuchen/{id}/kontaktanfrage` returns 404
@@ -77,138 +47,134 @@ migrations/alembic/versions/
 
 ## Feature 3: Enhanced Patient Success Email System ✅ COMPLETED
 
-### 3.1 Email Templates ✅ COMPLETED (January 29, 2025)
-
-#### Created 4 New Templates:
-
-1. **patient_success_email_contact.md**
-   - Patient arranges meeting via email
-   - Pre-written email template included
-   - PDF forms as email attachments
-   - Instructions to CC Curavani
-
-2. **patient_success_phone_contact.md**
-   - Patient arranges meeting via phone
-   - Phone script in bullet points
-   - PDF forms brought to meeting
-   - Call during telefonische Erreichbarkeit
-
-3. **patient_success_meeting_confirmation_email.md**
-   - Meeting already arranged by Curavani
-   - Pre-written confirmation email
-   - PDF forms as email attachments
-   - Meeting location auto-generated from therapist address
-
-4. **patient_success_meeting_confirmation_phone.md**
-   - Meeting already arranged by Curavani
-   - Phone confirmation script in bullet points
-   - PDF forms brought to meeting
-   - Call during telefonische Erreichbarkeit
-
-### 3.2 Matching Service Code Updates ✅ COMPLETED (January 29, 2025)
-
-#### Updated `matching_service/api/anfrage.py`:
-
-**Modified `send_patient_success_email()` function:**
-- Added `template_type` parameter (default: 'email_contact')
-- Added `meeting_details` parameter for confirmation templates
-- Added template mapping to select correct template file
-- Added meeting details to context for confirmation templates
-
-**Updated `PlatzsucheResource.put()` method:**
-- Added new parameters to parser: `email_template_type` and `meeting_details`
-- Pass template type and meeting details when sending success email
-
-### 3.3 Template Management
-
-⚠️ **IMPORTANT**: The old `patient_success.md` template is still in use by production. 
-**DO NOT DELETE YET** - See Feature 6 for safe deletion after production deployment.
+### Implementation (COMPLETED - January 29, 2025)
+- Created 4 new email templates (email_contact, phone_contact, meeting_confirmation_email, meeting_confirmation_phone)
+- Updated matching service to support template selection
+- Added meeting_details parameter for confirmation templates
+- Templates ready to work with PDF attachments once Feature 4 is complete
 
 ---
 
-## Feature 4: PDF Attachment System 🔄 PENDING
+## Feature 4: PDF Attachment System 🔄 IN PROGRESS
 
-### 4.1 Filesystem Structure
+### 4.1 Environment Configuration ✅ COMPLETED (January 30, 2025)
+
+#### Files Modified:
+- `.env.example` - Added `THERAPIST_PDF_STORAGE_PATH` variable
+- `.env.dev` - Added environment-specific path
+- `docker-compose.dev.yml` - Added volume mount and environment variable
+
+#### Storage Structure Created:
 ```
-/app/storage/therapist_forms/
-├── {therapist_id}/
-│   ├── Anamnesebogen.pdf
-│   ├── Einverstaendniserklaerung.pdf
-│   └── Fragebogen_Erwachsene.pdf
+data/
+├── patient_imports/
+│   ├── development/
+│   ├── test/
+│   └── production/
+└── therapist_pdfs/        # NEW
+    ├── development/       # NEW
+    ├── test/             # NEW
+    └── production/       # NEW
 ```
 
-### 4.2 Therapist Service - PDF Management
+### 4.2 Therapist Service - PDF Management ✅ COMPLETED (January 30, 2025)
 
-#### New File: `therapist_service/utils/pdf_manager.py`
+#### Files Created/Modified:
+1. **NEW: `therapist_service/utils/pdf_manager.py`**
+   - Complete PDF management class
+   - Handles upload, list, delete operations
+   - German filename support with proper sanitization
+   - File size validation (10MB max)
+   - Automatic directory management
+
+2. **MODIFIED: `therapist_service/api/therapists.py`**
+   - Added `TherapistPDFResource` class
+   - Endpoints: GET (list), POST (upload), DELETE
+   - Full error handling and validation
+
+3. **MODIFIED: `therapist_service/app.py`**
+   - Registered endpoint: `/api/therapists/<int:therapist_id>/pdfs`
+
+4. **MODIFIED: `therapist_service/requirements.txt`**
+   - Added `werkzeug==3.0.1` for secure filename handling
+
+5. **MODIFIED: `therapist_service/utils/__init__.py`**
+   - Added PDFManager import
+
+### 4.3 Communication Service - Email Attachments 🔄 PENDING
+
+#### Files to Modify:
+
+**1. `communication_service/utils/email_sender.py`:**
 ```python
-import os
-import re
-from typing import List, Tuple
-from werkzeug.utils import secure_filename
+# Changes needed:
+# - Change MIMEMultipart from 'alternative' to 'mixed'
+# - Add attachment handling in create_email_message()
+# - Add method to attach PDF files:
 
-class PDFManager:
-    """Manage PDF forms for therapists."""
-    
-    BASE_DIR = "/app/storage/therapist_forms"
-    
-    @staticmethod
-    def sanitize_filename(filename: str, therapist_id: int) -> str:
-        """Sanitize filename while keeping it recognizable."""
-        # Implementation as per original plan
+def _attach_pdf(self, msg: MIMEMultipart, file_path: str):
+    """Attach a PDF file to the email."""
+    try:
+        with open(file_path, 'rb') as f:
+            pdf_data = f.read()
         
-    @staticmethod
-    def get_therapist_forms(therapist_id: int) -> List[str]:
-        """Get list of PDF forms for a therapist."""
-        # Implementation as per original plan
-    
-    @staticmethod
-    def upload_form(therapist_id: int, file) -> Tuple[bool, str]:
-        """Upload a PDF form for a therapist."""
-        # Implementation as per original plan
-    
-    @staticmethod
-    def delete_form(therapist_id: int, filename: str) -> bool:
-        """Delete a PDF form."""
-        # Implementation as per original plan
+        pdf_attachment = MIMEBase('application', 'pdf')
+        pdf_attachment.set_payload(pdf_data)
+        encoders.encode_base64(pdf_attachment)
+        
+        filename = os.path.basename(file_path)
+        pdf_attachment.add_header(
+            'Content-Disposition',
+            f'attachment; filename="{filename}"'
+        )
+        
+        msg.attach(pdf_attachment)
+    except Exception as e:
+        logger.error(f"Failed to attach PDF {file_path}: {str(e)}")
 ```
 
-#### Add API Endpoints in `therapist_service/api/therapists.py`:
+**2. `communication_service/api/emails.py`:**
 ```python
-class TherapistPDFResource(Resource):
-    """Manage PDF forms for therapists."""
-    # Implementation as per original plan
+# In EmailListResource.post():
+# Add to parser:
+parser.add_argument('attachments', type=list, location='json')
 
-# Register in app.py:
-api.add_resource(TherapistPDFResource, '/api/therapists/<int:therapist_id>/pdfs')
+# Pass to email creation:
+if args.get('attachments'):
+    # Store attachment paths or pass to sender
+    email.attachments = args['attachments']
 ```
 
-### 4.3 Communication Service - Email Attachments
+### 4.4 Matching Service - Success Email Enhancement 🔄 PENDING
 
-#### Modify `communication_service/api/emails.py`:
-- Add `attachments` parameter to email creation
-- Store attachment paths in database or pass to sender
+#### File to Modify:
 
-#### Modify `communication_service/utils/email_sender.py`:
-- Change MIMEMultipart from 'alternative' to 'mixed'
-- Add PDF attachment handling code
-
-### 4.4 Matching Service - Success Email Enhancement
-
-#### Update `send_patient_success_email()` in `matching_service/api/anfrage.py`:
+**`matching_service/api/anfrage.py` in `send_patient_success_email()`:**
 ```python
+# After getting therapist data:
 # Get therapist PDF forms
-from therapist_service.utils.pdf_manager import PDFManager
-pdf_files = PDFManager.get_therapist_forms(search.vermittelter_therapeut_id)
-pdf_names = [os.path.basename(f) for f in pdf_files]
+therapist_service_url = config.get_service_url('therapist', internal=True)
+pdf_response = requests.get(
+    f"{therapist_service_url}/api/therapists/{search.vermittelter_therapeut_id}/pdfs",
+    timeout=5
+)
 
-# Add to context
+pdf_files = []
+pdf_names = []
+if pdf_response.status_code == 200:
+    pdf_data = pdf_response.json()
+    for pdf_info in pdf_data.get('pdfs', []):
+        pdf_files.append(pdf_info['path'])
+        pdf_names.append(pdf_info['filename'])
+
+# Add to context:
 context = {
     # ... existing context ...
     'has_pdf_forms': len(pdf_files) > 0,
     'pdf_forms': pdf_names,
 }
 
-# Add attachments to email request
+# Add attachments to email request:
 email_data = {
     # ... existing fields ...
     'attachments': pdf_files if len(pdf_files) > 0 else None
@@ -219,215 +185,131 @@ email_data = {
 
 ## Feature 5: API Documentation and Frontend Updates 🔄 PENDING
 
-### 5.1 Breaking Changes from Feature 2
+### 5.1 Breaking Changes Documentation
+Document all breaking changes from Feature 2 for frontend team.
 
-#### Removed:
-- **Endpoint:** `POST /api/platzsuchen/{search_id}/kontaktanfrage`
-- **Response fields:**
-  - `gesamt_angeforderte_kontakte`
-  - `ausgeschlossene_therapeuten_anzahl`
+### 5.2 New PDF Endpoints Documentation
 
-### 5.2 New Features from Feature 3
+#### Therapist Service:
+**`GET /api/therapists/{therapist_id}/pdfs`**
+- Returns list of PDF files with metadata
 
-#### Updated Endpoint:
-**`PUT /api/platzsuchen/{search_id}`**
+**`POST /api/therapists/{therapist_id}/pdfs`**
+- Upload new PDF (multipart/form-data)
+- Max file size: 10MB
 
-New optional parameters:
-```json
-{
-  "status": "erfolgreich",
-  "vermittelter_therapeut_id": 12345,
-  "email_template_type": "meeting_confirmation_email",
-  "meeting_details": {
-    "date": "20. Januar 2025",
-    "time": "14:00 Uhr"
-  }
-}
-```
+**`DELETE /api/therapists/{therapist_id}/pdfs?filename={filename}`**
+- Delete specific file or all files if no filename provided
 
-Template types:
-- `email_contact` - Patient arranges via email (default)
-- `phone_contact` - Patient arranges via phone
-- `meeting_confirmation_email` - Meeting arranged, confirm via email
-- `meeting_confirmation_phone` - Meeting arranged, confirm via phone
-
-### 5.3 Required Frontend Updates
-
-1. **Remove kontaktanfrage UI:**
-   - Delete "Request Additional Contacts" buttons
-   - Remove kontaktanfrage API calls
-   - Update TypeScript interfaces
-
-2. **Add template selection UI:**
-   - Modal/form for selecting email template type when marking as successful
-   - Conditional fields for meeting details (date/time) when confirmation templates selected
-   - Help text explaining each template type
-
-3. **Update TypeScript interfaces:**
-```typescript
-interface PlatzsucheUpdateRequest {
-  status?: string;
-  vermittelter_therapeut_id?: number;
-  email_template_type?: 'email_contact' | 'phone_contact' | 
-                       'meeting_confirmation_email' | 'meeting_confirmation_phone';
-  meeting_details?: {
-    date: string;  // Formatted date
-    time: string;  // Formatted time
-  };
-}
-```
-
-### 5.4 Documentation Updates
-
-Update `docs/API_REFERENCE.md`:
-- Remove kontaktanfrage endpoint documentation
-- Update platzsuche PUT endpoint with new parameters
-- Add migration guide for v2.3
-- Document PDF upload endpoints (once implemented)
+### 5.3 Frontend Requirements
+1. Add PDF upload interface in therapist management
+2. Display PDF list for each therapist
+3. Delete functionality for PDFs
+4. Update success email preview to show attached PDFs
 
 ---
 
 ## Feature 6: Safe Deletion of Old Template 🔄 PENDING
 
-### ⚠️ CRITICAL: Production Safety
-
-The old `patient_success.md` template is still being used by production. Deleting it now would break production email sending.
-
-### Safe Deletion Process:
-
-1. **Deploy new code to production** (Features 1-3)
-2. **Verify production deployment:**
-   - Check logs for successful template loading
-   - Send at least one test email using new templates
-   - Monitor for any template-related errors
-3. **Confirm old template is no longer referenced:**
-   - Search codebase for any remaining references to `patient_success.md`
-   - Check production logs for any attempts to load old template
-4. **Create backup of old template** (just in case)
-5. **Delete `shared/templates/emails/patient_success.md`**
-6. **Monitor production** for 24 hours after deletion
-
-### File to Delete:
-```
-shared/templates/emails/
-└── patient_success.md  # DELETE only after production verification
-```
-
----
-
-## Testing Plan
-
-### 3. Email Templates ✅ TESTED
-- All 4 templates created and validated
-- PDF conditional sections work correctly
-- Gender-specific language works
-- No formatting issues (double asterisks)
-
-### 4. Matching Service Integration ✅ COMPLETED
-- Template selection implemented
-- Meeting details passing implemented
-- Ready for testing with PDF attachments once Feature 4 is complete
-
-### 5. PDF System 🔄 TODO
-- Upload PDFs with German characters
-- Test duplicate handling
-- Test size limits
-- Test deletion
-- Test attachment in emails
-
-### 6. End-to-End Testing 🔄 TODO
-- Complete workflow for each template type
-- Verify emails received correctly
-- Test PDF attachments
-- Frontend integration testing
-
----
-
-## Deployment Order
-
-### Phase 1: Backend Updates (Current)
-1. ✅ Deploy Features 1 & 2 (completed)
-2. ✅ Deploy Feature 3 code and templates (completed)
-3. ✅ Test in dev/staging environment
-
-### Phase 2: Production Deployment
-4. 🔄 Deploy updated matching service to production
-5. 🔄 Verify new templates work in production
-6. 🔄 Monitor for 24-48 hours
-
-### Phase 3: PDF System
-7. 🔄 Create PDF storage directory with permissions
-8. 🔄 Deploy PDF management system (Feature 4)
-9. 🔄 Update communication service for attachments
-10. 🔄 Test PDF attachments in staging
-
-### Phase 4: Frontend & Documentation
-11. 🔄 Update API documentation (Feature 5)
-12. 🔄 Deploy frontend updates
-13. 🔄 Test frontend integration
-
-### Phase 5: Cleanup
-14. 🔄 Delete old template (Feature 6) - ONLY after production verification
-15. 🔄 Final testing and verification
+### Process:
+1. Deploy all changes to production
+2. Verify new templates work
+3. Monitor for 24-48 hours
+4. Delete `shared/templates/emails/patient_success.md`
 
 ---
 
 ## Current Status Summary
 
-### ✅ Completed:
-- Feature 1: Email formatting fixes
-- Feature 2: Legacy code removal
-- Feature 3: Enhanced email templates (except old template deletion)
-- 4 new email templates created and deployed
-- Matching service code updated to support template selection
+### ✅ Completed (January 30, 2025):
+- All email template fixes
+- Legacy code removal from matching service
+- Enhanced email template system
+- PDF storage infrastructure
+- Therapist service PDF management (full CRUD operations)
 
-### 🔄 In Progress:
-- Testing new template selection in dev/staging
+### 🔄 Next Steps (In Order):
+1. **Communication Service Updates** (2 files)
+   - `utils/email_sender.py` - Add attachment support
+   - `api/emails.py` - Accept attachments parameter
 
-### 📋 Next Steps:
-1. Test template selection functionality thoroughly
-2. Begin Feature 4 (PDF attachment system)
-3. Prepare for production deployment
-4. DO NOT delete old template until after production verification
+2. **Matching Service Integration** (1 file)
+   - `api/anfrage.py` - Fetch and attach PDFs
 
----
+3. **Testing**
+   - Upload PDFs with German filenames
+   - Send test emails with attachments
+   - Verify PDFs are readable
 
-## Environment Variables Required
+4. **Documentation**
+   - Update API docs
+   - Create frontend integration guide
 
-No new environment variables needed for Features 1-3.
-
-Feature 4 will use existing storage paths.
-
----
-
-## Rollback Plan
-
-### For Features 1-3:
-1. **Templates**: Old `patient_success.md` remains as automatic fallback
-2. **Code**: Git revert matching service changes if needed
-3. **Database**: No schema changes, so no rollback needed
-
-### For Feature 4 (when implemented):
-1. **PDFs**: Remove PDF endpoints and storage
-2. **Code**: Revert communication service changes
-
-### For Feature 5:
-1. **Frontend**: Revert to previous version without template selection
+5. **Production Deployment**
+   - Deploy to staging first
+   - Test thoroughly
+   - Deploy to production
+   - Delete old template after verification
 
 ---
 
-## Risk Assessment
+## Testing Checklist
 
-### Low Risk:
-- Features 1-3: Code is backward compatible with old template still present
+### PDF Upload Testing:
+- [ ] Upload PDF with German characters (ä, ö, ü, ß)
+- [ ] Upload PDF with spaces in filename
+- [ ] Upload PDF > 10MB (should fail)
+- [ ] Upload non-PDF file (should fail)
+- [ ] Upload duplicate filename (should rename)
 
-### Medium Risk:
-- Feature 4: New functionality, but isolated to specific services
-- Feature 5: Frontend changes require coordination
+### Email Attachment Testing:
+- [ ] Email with single PDF attachment
+- [ ] Email with multiple PDF attachments
+- [ ] Email with no attachments
+- [ ] Large PDF attachment (5-10MB)
 
-### High Risk:
-- Feature 6: Deleting old template too early could break production
-  - **Mitigation**: Strict verification process before deletion
+### Integration Testing:
+- [ ] Complete flow: Upload PDF → Match patient → Send email with attachment
+- [ ] Verify PDF is readable when received
+- [ ] Test all 4 email templates with attachments
+
+---
+
+## Commands Reference
+
+### Restart Services:
+```bash
+# After code changes
+docker-compose -f docker-compose.dev.yml restart therapist_service
+docker-compose -f docker-compose.dev.yml restart communication_service
+docker-compose -f docker-compose.dev.yml restart matching_service
+```
+
+### Check Logs:
+```bash
+docker-compose -f docker-compose.dev.yml logs -f therapist_service
+docker-compose -f docker-compose.dev.yml logs -f communication_service
+docker-compose -f docker-compose.dev.yml logs -f matching_service
+```
+
+### Test PDF Upload (using curl):
+```bash
+curl -X POST -F "file=@test.pdf" \
+  http://localhost:8002/api/therapists/123/pdfs
+```
+
+---
+
+## Notes for Next Session
+
+**Starting Point:** Implement Communication Service changes (Section 4.3)
+
+**Files to modify:**
+1. `communication_service/utils/email_sender.py`
+2. `communication_service/api/emails.py`
+3. `matching_service/api/anfrage.py`
+
+**Environment is ready:** Storage paths configured, volumes mounted, therapist service complete.
 
 ---
 
@@ -439,9 +321,10 @@ For questions about this implementation, contact the backend team.
 
 ## Change Log
 
-- **v4.0 (Jan 29, 2025)**: 
-  - Completed Feature 3 implementation
-  - Moved old template deletion to Feature 6 for production safety
-  - Added detailed deployment phases and risk assessment
+- **v5.0 (Jan 30, 2025)**: 
+  - Completed therapist service PDF management
+  - Set up storage infrastructure
+  - Ready for communication service updates
+- **v4.0 (Jan 29, 2025)**: Completed Features 1-3
 - **v3.0 (Jan 29, 2025)**: Feature 1, 2, and 3.1 completed
 - **v2.0 (Jan 28, 2025)**: Initial comprehensive plan
