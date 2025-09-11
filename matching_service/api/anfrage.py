@@ -238,7 +238,6 @@ def send_patient_success_email(
         # Send email via communication service
         subject = "Therapieplatz gefunden - bitte zeitnah bearbeiten"
         
-        import requests
         comm_url = config.get_service_url('communication', internal=True)
         email_data = {
             'patient_id': patient['id'],
