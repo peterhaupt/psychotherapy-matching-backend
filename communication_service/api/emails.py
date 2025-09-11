@@ -68,7 +68,7 @@ email_fields = {
     'wiederholungsanzahl': fields.Integer,
     'created_at': DateTimeField,
     'updated_at': DateTimeField,
-    'attachments': fields.List(fields.String),  # Added for PDF attachments
+    'attachments': fields.Raw  # Added for PDF attachments
 }
 
 

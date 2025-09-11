@@ -336,6 +336,7 @@ services:
     volumes:
       - ./communication_service:/app
       - ./shared:/app/shared
+      - ./data/therapist_pdfs:/data/therapist_pdfs # For email attachments
     depends_on:
       pgbouncer:
         condition: service_healthy

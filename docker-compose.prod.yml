@@ -344,6 +344,8 @@ services:
       EMAIL_QUEUE_BATCH_SIZE: ${EMAIL_QUEUE_BATCH_SIZE}
     ports:
       - "${COMMUNICATION_SERVICE_PORT}:${COMMUNICATION_SERVICE_INTERNAL_PORT}"
+    volumes:
+      - ./data/therapist_pdfs:/data/therapist_pdfs
     depends_on:
       pgbouncer-prod:
         condition: service_healthy
