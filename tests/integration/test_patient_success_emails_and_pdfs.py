@@ -3,6 +3,8 @@
 Tests the complete implementation of:
 - Feature 3: Enhanced patient success email system with 4 templates
 - Feature 4: PDF attachment functionality for therapist forms
+
+FIXED: Added proper cleanup for therapeutenanfragen to prevent test interference
 """
 import pytest
 import requests
@@ -101,10 +103,47 @@ class TestPatientSuccessEmailsAndPDFs:
         self.cleanup_platzsuchen = []
         self.cleanup_emails = []
         self.cleanup_pdfs = []  # Track (therapist_id, filename) tuples
+        self.cleanup_anfragen = []  # Track anfrage IDs for cleanup
 
     def teardown_method(self, method):
         """Cleanup after each test - remove all created resources."""
-        # Clean up PDFs first (before deleting therapists)
+        # CRITICAL: Clean up anfragen FIRST (before platzsuchen and therapists)
+        # This prevents leftover anfragen from interfering with other tests
+        
+        # Method 1: Clean up tracked anfragen
+        for anfrage_id in self.cleanup_anfragen:
+            try:
+                response = requests.delete(f"{BASE_URL}/therapeutenanfragen/{anfrage_id}")
+                if response.status_code not in [200, 404]:
+                    print(f"Warning: Failed to delete anfrage {anfrage_id}: {response.status_code}")
+            except Exception as e:
+                print(f"Warning: Exception deleting anfrage {anfrage_id}: {e}")
+        
+        # Method 2: Clean up any anfragen for our test therapists
+        # This catches anfragen that might be created indirectly
+        for therapist_id in self.cleanup_therapists:
+            try:
+                # Query for all anfragen for this therapist
+                response = requests.get(
+                    f"{BASE_URL}/therapeutenanfragen",
+                    params={"therapist_id": therapist_id}
+                )
+                if response.status_code == 200:
+                    anfragen_data = response.json()
+                    anfragen = anfragen_data.get('data', [])
+                    for anfrage in anfragen:
+                        try:
+                            delete_response = requests.delete(
+                                f"{BASE_URL}/therapeutenanfragen/{anfrage['id']}"
+                            )
+                            if delete_response.status_code == 200:
+                                print(f"Cleaned up anfrage {anfrage['id']} for therapist {therapist_id}")
+                        except Exception as e:
+                            print(f"Warning: Failed to delete anfrage {anfrage['id']}: {e}")
+            except Exception as e:
+                print(f"Warning: Exception querying anfragen for therapist {therapist_id}: {e}")
+        
+        # Clean up PDFs (before deleting therapists)
         for therapist_id, filename in self.cleanup_pdfs:
             try:
                 if filename:
@@ -149,7 +188,7 @@ class TestPatientSuccessEmailsAndPDFs:
             except Exception as e:
                 print(f"Warning: Exception deleting patient {patient_id}: {e}")
         
-        # Clean up therapists
+        # Clean up therapists (last, after everything else)
         for therapist_id in self.cleanup_therapists:
             try:
                 response = requests.delete(f"{THERAPIST_BASE_URL}/therapists/{therapist_id}")
@@ -259,6 +298,11 @@ class TestPatientSuccessEmailsAndPDFs:
         filename = result.get('filename')
         self.cleanup_pdfs.append((therapist_id, filename))
         return result
+
+    def track_anfrage(self, anfrage_id):
+        """Helper to track an anfrage for cleanup."""
+        if anfrage_id and anfrage_id not in self.cleanup_anfragen:
+            self.cleanup_anfragen.append(anfrage_id)
 
     # ==================== PDF MANAGEMENT TESTS ====================
 

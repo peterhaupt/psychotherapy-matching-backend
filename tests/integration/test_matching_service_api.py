@@ -4,6 +4,9 @@ This file represents the complete test suite after Phase 2 implementation with P
 All tests here should pass once Phase 2 and Phase 3 are complete.
 
 NOTE: Email sending tests are temporarily commented out to avoid bounce messages in test environment.
+
+UPDATED: Now uses unique email domains per test to avoid conflicts with existing test data.
+Each email gets its own unique domain (e.g., test-a1b2c3d4.local) to ensure complete isolation.
 """
 import pytest
 import requests
@@ -39,9 +42,14 @@ class TestMatchingServiceAPI:
             pytest.fail("Matching service did not start in time")
 
     def generate_unique_email(self, prefix="test"):
-        """Generate a unique email address for testing."""
+        """Generate a unique email address with its own domain for complete test isolation.
+        
+        Each email gets a unique domain to avoid any conflicts with existing test data.
+        Example: test@test-a1b2c3d4.local
+        """
         unique_id = str(uuid.uuid4())[:8]
-        return f"{prefix}.{unique_id}@example.com"
+        # Each email gets its own unique domain for complete isolation
+        return f"{prefix}@test-{unique_id}.local"
 
     def create_test_patient(self, **kwargs):
         """Helper to create a test patient with Phase 2 format."""
@@ -523,27 +531,22 @@ class TestMatchingServiceAPI:
 
     def test_get_therapeuten_zur_auswahl_with_deduplication(self):
         """Test getting therapists for selection with PLZ filter and deduplication."""
-        # Create therapists with unique emails to ensure they appear
-        unique_suffix = str(uuid.uuid4())[:8]
-        
+        # Create therapists with unique emails using unique domains
         therapist1 = self.create_test_therapist(
             plz="52064",
             potenziell_verfuegbar=True,
             ueber_curavani_informiert=True,
-            email=f"therapist1.{unique_suffix}@test.com",
-            nachname=f"TestTherapist1_{unique_suffix}"
+            nachname="TestTherapist1"
         )
         therapist2 = self.create_test_therapist(
             plz="52062",
             potenziell_verfuegbar=True,
             ueber_curavani_informiert=False,
-            email=f"therapist2.{unique_suffix}@test.com",
-            nachname=f"TestTherapist2_{unique_suffix}"
+            nachname="TestTherapist2"
         )
         therapist3 = self.create_test_therapist(
             plz="10115",  # Different PLZ prefix
-            email=f"therapist3.{unique_suffix}@test.com",
-            nachname=f"TestTherapist3_{unique_suffix}"
+            nachname="TestTherapist3"
         )
         
         # Get therapists with PLZ prefix 52
@@ -573,14 +576,11 @@ class TestMatchingServiceAPI:
 
     def test_therapeuten_zur_auswahl_email_priority(self):
         """Test that therapists with email are prioritized."""
-        unique_suffix = str(uuid.uuid4())[:8]
-        
         therapist_with_email = self.create_test_therapist(
             plz="52064",
             potenziell_verfuegbar=True,
             ueber_curavani_informiert=True,
-            email=f"with.email.{unique_suffix}@test.com",
-            nachname=f"WithEmail_{unique_suffix}"
+            nachname="WithEmail"
         )
         
         therapist_without_email = self.create_test_therapist(
@@ -588,7 +588,7 @@ class TestMatchingServiceAPI:
             potenziell_verfuegbar=True,
             ueber_curavani_informiert=True,
             email=None,  # Explicitly no email
-            nachname=f"WithoutEmail_{unique_suffix}"
+            nachname="WithoutEmail"
         )
         
         # Get therapists for selection
@@ -631,8 +631,8 @@ class TestMatchingServiceAPI:
 
     def test_email_deduplication_same_practice(self):
         """Test that multiple therapists with same email only return practice owner."""
+        # Use a single shared email with unique domain
         shared_email = self.generate_unique_email("practice")
-        unique_suffix = str(uuid.uuid4())[:8]
         
         # Create multiple therapists with same email (same practice)
         # Dr. should be selected as practice owner due to title
@@ -640,14 +640,14 @@ class TestMatchingServiceAPI:
             plz="52064",
             titel="Dr.",
             vorname="Hans",
-            nachname=f"Mueller_{unique_suffix}",
+            nachname="Mueller",
             email=shared_email
         )
         
         therapist_regular = self.create_test_therapist(
             plz="52064",
             vorname="Peter",
-            nachname=f"Schmidt_{unique_suffix}",
+            nachname="Schmidt",
             email=shared_email
         )
         
@@ -673,10 +673,11 @@ class TestMatchingServiceAPI:
 
     def test_practice_owner_selection_by_name_in_email(self):
         """Test that therapist whose last name appears in email is selected as practice owner."""
-        unique_suffix = str(uuid.uuid4())[:8]
+        # Create unique domain for this test
+        unique_domain = f"test-{str(uuid.uuid4())[:8]}.local"
         
         # Email contains "weber" - should select Weber as practice owner
-        shared_email = f"praxis.weber.{unique_suffix}@example.com"
+        shared_email = f"praxis.weber@{unique_domain}"
         
         therapist_weber = self.create_test_therapist(
             plz="52064",
@@ -713,10 +714,11 @@ class TestMatchingServiceAPI:
 
     def test_practice_owner_selection_with_umlauts(self):
         """Test that umlaut handling works in practice owner selection."""
-        unique_suffix = str(uuid.uuid4())[:8]
+        # Create unique domain for this test
+        unique_domain = f"test-{str(uuid.uuid4())[:8]}.local"
         
         # Email contains "mueller" (umlaut converted) - should select Müller
-        shared_email = f"praxis.mueller.{unique_suffix}@example.com"
+        shared_email = f"praxis.mueller@{unique_domain}"
         
         therapist_mueller = self.create_test_therapist(
             plz="52064",
@@ -753,20 +755,18 @@ class TestMatchingServiceAPI:
 
     def test_therapists_without_email_not_grouped(self):
         """Test that therapists without email are handled individually."""
-        unique_suffix = str(uuid.uuid4())[:8]
-        
         # Create multiple therapists without email
         therapist1_no_email = self.create_test_therapist(
             plz="52064",
             vorname="No",
-            nachname=f"Email1_{unique_suffix}",
+            nachname="Email1",
             email=None  # Explicitly no email
         )
         
         therapist2_no_email = self.create_test_therapist(
             plz="52065",
             vorname="No",
-            nachname=f"Email2_{unique_suffix}",
+            nachname="Email2",
             email=None  # Explicitly no email
         )
         
@@ -798,27 +798,26 @@ class TestMatchingServiceAPI:
 
     def test_practice_owner_title_priority(self):
         """Test that professional titles have priority in practice owner selection."""
-        unique_suffix = str(uuid.uuid4())[:8]
         shared_email = self.generate_unique_email("title-test")
         
         # Create therapists with different titles
         therapist_prof = self.create_test_therapist(
             plz="52064",
             titel="Prof.",
-            nachname=f"Professor_{unique_suffix}",
+            nachname="Professor",
             email=shared_email
         )
         
         therapist_dr = self.create_test_therapist(
             plz="52064",
             titel="Dr.",
-            nachname=f"Doctor_{unique_suffix}",
+            nachname="Doctor",
             email=shared_email
         )
         
         therapist_regular = self.create_test_therapist(
             plz="52064",
-            nachname=f"Regular_{unique_suffix}",
+            nachname="Regular",
             email=shared_email
         )
         
@@ -845,16 +844,9 @@ class TestMatchingServiceAPI:
 
     def test_create_therapeutenanfrage(self):
         """Test creating an anfrage for a manually selected therapist."""
-        unique_suffix = str(uuid.uuid4())[:8]
-        therapist = self.create_test_therapist(
-            plz="52064", 
-            email=f"unique.therapist.{unique_suffix}@test.com"
-        )
+        therapist = self.create_test_therapist(plz="52064")
         patient1 = self.create_test_patient(plz="52062")
-        patient2 = self.create_test_patient(
-            plz="52068", 
-            email=self.generate_unique_email("patient2")
-        )
+        patient2 = self.create_test_patient(plz="52068")
         
         # Create searches
         search1_response = requests.post(
@@ -905,11 +897,7 @@ class TestMatchingServiceAPI:
 
     def test_therapeutenanfrage_email_without_diagnosis(self):
         """Test that therapeutenanfrage emails don't contain diagnosis."""
-        unique_suffix = str(uuid.uuid4())[:8]
-        therapist = self.create_test_therapist(
-            plz="52064",
-            email=f"test.therapist.{unique_suffix}@test.com"
-        )
+        therapist = self.create_test_therapist(plz="52064")
         patient = self.create_test_patient(
             plz="52062",
             symptome=["Trauer / Verlust", "Sozialer Rückzug"]
@@ -965,14 +953,12 @@ class TestMatchingServiceAPI:
 
     def test_send_anfrage_to_therapist_without_email(self):
         """Test that sending anfrage to therapist without email creates phone call with correct availability time."""
-        unique_suffix = str(uuid.uuid4())[:8]
-        
         # Create therapist with PRODUCTION FORMAT availability - ONLY TUESDAY
         therapist = self.create_test_therapist(
             plz="52064",
             email=None,  # Explicitly no email
             telefon="+49 241 123456",
-            nachname=f"NoEmail_{unique_suffix}",
+            nachname="NoEmail",
             telefonische_erreichbarkeit={
                 "Di": ["8:00-9:00"]  # PRODUCTION FORMAT: Only Tuesday 8-9am
             }
@@ -1047,11 +1033,7 @@ class TestMatchingServiceAPI:
         
         NOTE: Email sending step temporarily disabled to avoid bounce messages.
         """
-        unique_suffix = str(uuid.uuid4())[:8]
-        therapist = self.create_test_therapist(
-            plz="52064",
-            email=f"test.email.{unique_suffix}@test.com"
-        )
+        therapist = self.create_test_therapist(plz="52064")
         
         patient = self.create_test_patient(plz="52062")
         search_response = requests.post(
@@ -1122,11 +1104,7 @@ class TestMatchingServiceAPI:
 
     def test_anfrage_response_sets_vermittelter_therapeut(self):
         """Test that when therapist accepts patient, vermittelter_therapeut_id is automatically set."""
-        unique_suffix = str(uuid.uuid4())[:8]
-        therapist = self.create_test_therapist(
-            plz="52064",
-            email=f"accepting.therapist.{unique_suffix}@test.com"
-        )
+        therapist = self.create_test_therapist(plz="52064")
         patient = self.create_test_patient(plz="52062")
         
         # Create search
@@ -1190,18 +1168,12 @@ class TestMatchingServiceAPI:
         
         NOTE: Email sending part commented out to avoid bounce messages.
         """
-        unique_suffix = str(uuid.uuid4())[:8]
-        
-        # Create therapist and patient
+        # Create therapist and patient with unique domains
         therapist = self.create_test_therapist(
             plz="52064",
-            email=f"workflow.test.{unique_suffix}@test.com",
             telefon="+49 241 123456"
         )
-        patient = self.create_test_patient(
-            plz="52062",
-            email=self.generate_unique_email("workflow-patient")
-        )
+        patient = self.create_test_patient(plz="52062")
         
         # Step 1: Create search
         search_response = requests.post(
@@ -1402,14 +1374,12 @@ class TestMatchingServiceAPI:
         """Test matching service with patients of diverse gender."""
         patient_diverse = self.create_test_patient(
             geschlecht="divers",
-            vorname="Alex",
-            email=self.generate_unique_email("alex.diverse")
+            vorname="Alex"
         )
         
         patient_keine_angabe = self.create_test_patient(
             geschlecht="keine_Angabe",
-            vorname="Chris",
-            email=self.generate_unique_email("chris.nogender")
+            vorname="Chris"
         )
         
         # Create searches
@@ -1439,22 +1409,18 @@ class TestMatchingServiceAPI:
 
     def test_matching_with_diverse_gender_therapists(self):
         """Test therapist selection with diverse gender therapists."""
-        unique_suffix = str(uuid.uuid4())[:8]
-        
         therapist_diverse = self.create_test_therapist(
             geschlecht="divers",
             vorname="Alex",
-            nachname=f"Diverse_{unique_suffix}",
-            plz="52064",
-            email=f"alex.diverse.{unique_suffix}@test.com"
+            nachname="Diverse",
+            plz="52064"
         )
         
         therapist_keine_angabe = self.create_test_therapist(
             geschlecht="keine_Angabe",
             vorname="Chris",
-            nachname=f"NoGender_{unique_suffix}",
-            plz="52065",
-            email=f"chris.nogender.{unique_suffix}@test.com"
+            nachname="NoGender",
+            plz="52065"
         )
         
         # Get therapists for selection
