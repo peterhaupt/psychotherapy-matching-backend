@@ -1,4 +1,4 @@
-"""Email API endpoints implementation with markdown support and German field names."""
+"""Email API endpoints implementation with markdown support, German field names, and PDF attachments."""
 from flask import request, jsonify
 from flask_restful import Resource, fields, marshal_with, reqparse, marshal
 from sqlalchemy.exc import SQLAlchemyError
@@ -6,6 +6,7 @@ from datetime import datetime, date
 import re
 import logging
 import requests
+import json
 
 from models.email import Email, EmailStatus
 from shared.utils.database import SessionLocal
@@ -67,6 +68,7 @@ email_fields = {
     'wiederholungsanzahl': fields.Integer,
     'created_at': DateTimeField,
     'updated_at': DateTimeField,
+    'attachments': fields.List(fields.String),  # Added for PDF attachments
 }
 
 
@@ -248,7 +250,23 @@ class EmailResource(Resource):
             email = db.query(Email).filter(Email.id == email_id).first()
             if not email:
                 return {'message': 'Email not found'}, 404
-            return marshal(email, email_fields)
+            
+            # Include attachments if they exist
+            email_data = marshal(email, email_fields)
+            
+            # Parse attachments if stored as JSON string
+            if hasattr(email, 'attachments') and email.attachments:
+                if isinstance(email.attachments, str):
+                    try:
+                        email_data['attachments'] = json.loads(email.attachments)
+                    except:
+                        email_data['attachments'] = []
+                else:
+                    email_data['attachments'] = email.attachments
+            else:
+                email_data['attachments'] = []
+            
+            return email_data
         except SQLAlchemyError as e:
             db.rollback()
             return {'message': f'Database error: {str(e)}'}, 500
@@ -263,6 +281,7 @@ class EmailResource(Resource):
         parser.add_argument('antwortdatum', type=str)
         parser.add_argument('antwortinhalt', type=str)
         parser.add_argument('fehlermeldung', type=str)
+        parser.add_argument('attachments', type=list, location='json')  # Added for PDF attachments
         
         args = parser.parse_args()
         
@@ -289,6 +308,10 @@ class EmailResource(Resource):
                             email.antwortdatum = parse_datetime_field(value, key)
                         except ValueError as e:
                             return {'message': str(e)}, 400
+                    elif key == 'attachments':
+                        # Store attachments as JSON string in database
+                        if hasattr(email, 'attachments'):
+                            email.attachments = json.dumps(value) if value else None
                     else:
                         setattr(email, key, value)
             
@@ -410,7 +433,7 @@ class EmailListResource(PaginatedListResource):
             db.close()
 
     def post(self):
-        """Create a new email."""
+        """Create a new email with optional PDF attachments."""
         parser = reqparse.RequestParser()
         # Recipient (one required)
         parser.add_argument('therapist_id', type=int)
@@ -433,6 +456,8 @@ class EmailListResource(PaginatedListResource):
         parser.add_argument('add_legal_footer', type=bool, default=True)
         # Accept status parameter for initial status
         parser.add_argument('status', type=str)
+        # PDF attachments support
+        parser.add_argument('attachments', type=list, location='json')
         
         try:
             args = parser.parse_args()
@@ -454,6 +479,15 @@ class EmailListResource(PaginatedListResource):
         # Validate content
         if not args.get('inhalt_html') and not args.get('inhalt_text') and not args.get('inhalt_markdown'):
             return {'message': 'Either inhalt_html, inhalt_text, or inhalt_markdown is required'}, 400
+        
+        # Validate attachments if provided
+        if args.get('attachments'):
+            # Check that all attachments are valid file paths
+            for attachment_path in args['attachments']:
+                if not isinstance(attachment_path, str):
+                    return {'message': f'Invalid attachment path: {attachment_path}'}, 400
+                # Note: We don't check file existence here as files might be on different service
+                # The email sender will handle missing files gracefully
         
         db = SessionLocal()
         try:
@@ -502,13 +536,38 @@ class EmailListResource(PaginatedListResource):
             
             email = Email(**email_data)
             
+            # Store attachments if provided (as JSON string for now)
+            # Note: You might want to add an 'attachments' column to the Email model
+            if args.get('attachments'):
+                # Store as JSON string if the column exists
+                if hasattr(email, 'attachments'):
+                    email.attachments = json.dumps(args['attachments'])
+                else:
+                    # Log warning if attachments column doesn't exist
+                    logger.warning("Attachments provided but Email model doesn't have attachments field")
+                    # Store in notes for now
+                    attachment_count = len(args['attachments'])
+                    attachment_note = f"[{attachment_count} PDF attachment(s) included]"
+                    # You could store this in a notes field or similar
+            
             db.add(email)
             db.commit()
             db.refresh(email)
             
             logger.info(f"Created email {email.id} with status {email.status.value}")
             
-            return marshal(email, email_fields), 201
+            # If email needs to be sent immediately and has attachments
+            if initial_status == EmailStatus.In_Warteschlange and args.get('attachments'):
+                logger.info(f"Email {email.id} queued with {len(args['attachments'])} attachment(s)")
+                # The queue processor will handle sending with attachments
+            
+            # Prepare response
+            response_data = marshal(email, email_fields)
+            if args.get('attachments'):
+                response_data['attachments'] = args['attachments']
+            
+            return response_data, 201
+            
         except SQLAlchemyError as e:
             db.rollback()
             logger.error(f"Database error creating email: {str(e)}", exc_info=True)

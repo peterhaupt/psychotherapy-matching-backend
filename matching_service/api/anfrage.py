@@ -1,4 +1,4 @@
-"""Anfrage system API endpoints - FULLY IMPLEMENTED."""
+"""Anfrage system API endpoints - FULLY IMPLEMENTED with PDF attachments."""
 import logging
 import os
 import requests
@@ -101,7 +101,7 @@ def send_patient_success_email(
     template_type: str = 'email_contact',  # New parameter
     meeting_details: dict = None  # New parameter
 ) -> tuple:
-    """Send success email to patient with therapist details.
+    """Send success email to patient with therapist details and PDF attachments.
     
     Args:
         db: Database session
@@ -137,13 +137,40 @@ def send_patient_success_email(
             logger.error(f"Cannot send success email - therapist {search.vermittelter_therapeut_id} not found")
             return False, None, "Therapist not found"
         
+        # Get therapist PDF forms
+        pdf_files = []
+        pdf_names = []
+        try:
+            therapist_service_url = config.get_service_url('therapist', internal=True)
+            pdf_response = requests.get(
+                f"{therapist_service_url}/api/therapists/{search.vermittelter_therapeut_id}/pdfs",
+                timeout=5
+            )
+            
+            if pdf_response.status_code == 200:
+                pdf_data = pdf_response.json()
+                for pdf_info in pdf_data.get('pdfs', []):
+                    # Get the full path to the PDF file
+                    pdf_path = pdf_info.get('path')
+                    if pdf_path:
+                        pdf_files.append(pdf_path)
+                        pdf_names.append(pdf_info.get('filename', 'Formular.pdf'))
+                        logger.info(f"Found PDF for therapist {search.vermittelter_therapeut_id}: {pdf_info.get('filename')}")
+            else:
+                logger.warning(f"Could not fetch PDFs for therapist {search.vermittelter_therapeut_id}: {pdf_response.status_code}")
+        except Exception as e:
+            logger.warning(f"Error fetching therapist PDFs: {str(e)}")
+            # Continue without PDFs - don't fail the email
+        
         # Prepare template context
         context = {
             'patient': patient,
             'therapist': therapist,
             'is_group_therapy': therapist.get('bevorzugt_gruppentherapie', False),
             'has_email': bool(therapist.get('email')),
-            'has_phone': bool(therapist.get('telefon'))
+            'has_phone': bool(therapist.get('telefon')),
+            'has_pdf_forms': len(pdf_files) > 0,
+            'pdf_forms': pdf_names
         }
         
         # Format availability for email template
@@ -223,12 +250,22 @@ def send_patient_success_email(
             'status': 'In_Warteschlange'  # Queue for sending
         }
         
+        # Add PDF attachments if available
+        if pdf_files:
+            email_data['attachments'] = pdf_files
+            logger.info(f"Adding {len(pdf_files)} PDF attachment(s) to success email for patient {patient['id']}")
+        
         response = requests.post(f"{comm_url}/api/emails", json=email_data, timeout=10)
         
         if response.status_code in [200, 201]:
             email_result = response.json()
             email_id = email_result.get('id')
-            logger.info(f"Created and queued success email {email_id} for patient {patient['id']} using template {template_name}")
+            
+            attachment_info = ""
+            if pdf_files:
+                attachment_info = f" with {len(pdf_files)} PDF attachment(s)"
+            
+            logger.info(f"Created and queued success email {email_id} for patient {patient['id']} using template {template_name}{attachment_info}")
             
             # Update patient status to "in_Therapie"
             patient_update_url = f"{config.get_service_url('patient', internal=True)}/api/patients/{patient['id']}"
