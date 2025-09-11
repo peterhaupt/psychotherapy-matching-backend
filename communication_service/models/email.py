@@ -7,6 +7,8 @@ from sqlalchemy import (
     Integer, String, Text
 )
 
+from sqlalchemy.dialects.postgresql import JSONB
+
 from shared.utils.database import Base
 
 
@@ -60,6 +62,9 @@ class Email(Base):
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, onupdate=datetime.utcnow)
+
+    # PDF attachments support
+    attachments = Column(JSONB)
 
     def __repr__(self):
         """Provide a string representation of the Email instance."""
