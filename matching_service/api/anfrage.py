@@ -333,8 +333,9 @@ def format_availability_for_email(availability: dict) -> str:
 
 def format_phone_availability(phone_availability: dict) -> str:
     """Format therapist's phone availability for display."""
+    fallback_message = "Es gibt keine telefonische Erreichbarkeit. Bitte sprechen Sie auf den Anrufbeantworter. Sie werden dann zurückgerufen."
     if not phone_availability or not isinstance(phone_availability, dict):
-        return "Telefonische Erreichbarkeit nicht angegeben. Bitte versuchen Sie es zu üblichen Geschäftszeiten."
+        return fallback_message
     
     formatted = []
     day_order = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
@@ -346,7 +347,7 @@ def format_phone_availability(phone_availability: dict) -> str:
                 time_str = ', '.join(str(t) for t in times)
                 formatted.append(f"- {day}: {time_str}")
     
-    return '\n'.join(formatted) if formatted else "Telefonische Erreichbarkeit nicht angegeben."
+    return '\n'.join(formatted) if formatted else fallback_message
 
 
 class PlatzsucheResource(Resource):
