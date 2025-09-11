@@ -191,12 +191,14 @@ services:
       THERAPIST_IMPORT_FOLDER_PATH: ${THERAPIST_IMPORT_FOLDER_PATH}
       THERAPIST_IMPORT_CHECK_INTERVAL_SECONDS: ${THERAPIST_IMPORT_CHECK_INTERVAL_SECONDS}
       THERAPIST_IMPORT_ENABLED: ${THERAPIST_IMPORT_ENABLED}
+      THERAPIST_PDF_STORAGE_PATH: ${THERAPIST_PDF_STORAGE_PATH}
     ports:
       - "${THERAPIST_SERVICE_PORT}:${THERAPIST_SERVICE_INTERNAL_PORT}"
     volumes:
       - ./therapist_service:/app
       - ./shared:/app/shared
       - ../curavani_scraping/data/processed:/scraping_data:ro
+      - ./data/therapist_pdfs:/data/therapist_pdfs
     depends_on:
       pgbouncer:
         condition: service_healthy
