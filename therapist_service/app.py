@@ -5,7 +5,13 @@ from flask import Flask, jsonify
 from flask_restful import Api, Resource
 from flask_cors import CORS
 
-from api.therapists import TherapistResource, TherapistListResource, TherapistCommunicationResource, TherapistImportStatusResource
+from api.therapists import (
+    TherapistResource, 
+    TherapistListResource, 
+    TherapistCommunicationResource, 
+    TherapistImportStatusResource,
+    TherapistPDFResource  # NEW: Import PDF resource
+)
 from shared.config import get_config, setup_logging
 # NEW: Import the therapist import monitor
 from imports import start_therapist_import_monitor, ImportStatus
@@ -71,6 +77,10 @@ def create_app():
     # Import status endpoint
     api.add_resource(TherapistImportStatusResource, 
                      '/api/therapists/import-status')
+    
+    # NEW: PDF management endpoint
+    api.add_resource(TherapistPDFResource, 
+                     '/api/therapists/<int:therapist_id>/pdfs')
     
     # Start therapist import monitoring thread
     # IMPORTANT: Only start in the main worker process, not in the reloader process

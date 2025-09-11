@@ -6,6 +6,7 @@ from sqlalchemy import or_, func
 from datetime import datetime
 import requests
 import logging
+import os
 
 from models.therapist import Therapist, TherapistStatus, Anrede, Geschlecht, Therapieverfahren
 from shared.utils.database import SessionLocal
@@ -13,6 +14,8 @@ from shared.api.base_resource import PaginatedListResource
 from shared.config import get_config
 # NEW: Import for import status
 from imports import ImportStatus
+# NEW: Import for PDF management
+from utils.pdf_manager import PDFManager
 
 # Get configuration
 config = get_config()
@@ -725,3 +728,150 @@ class TherapistImportStatusResource(Resource):
     def get(self):
         """Get the current import status."""
         return ImportStatus.get_status()
+
+
+class TherapistPDFResource(Resource):
+    """REST resource for managing PDF forms for therapists."""
+    
+    def __init__(self):
+        """Initialize the resource with PDFManager."""
+        super().__init__()
+        self.pdf_manager = PDFManager()
+    
+    def get(self, therapist_id):
+        """Get list of PDF forms for a therapist.
+        
+        Args:
+            therapist_id: ID of the therapist
+            
+        Returns:
+            List of PDF files with metadata
+        """
+        # Verify therapist exists
+        db = SessionLocal()
+        try:
+            therapist = db.query(Therapist).filter(Therapist.id == therapist_id).first()
+            if not therapist:
+                return {'message': 'Therapist not found'}, 404
+        finally:
+            db.close()
+        
+        # Get PDF information
+        try:
+            pdf_files = self.pdf_manager.get_therapist_forms_info(therapist_id)
+            
+            return {
+                'therapist_id': therapist_id,
+                'therapist_name': f"{therapist.titel or ''} {therapist.vorname} {therapist.nachname}".strip(),
+                'pdf_count': len(pdf_files),
+                'pdfs': pdf_files
+            }, 200
+            
+        except Exception as e:
+            logging.error(f"Error getting PDFs for therapist {therapist_id}: {str(e)}")
+            return {'message': f'Error retrieving PDF files: {str(e)}'}, 500
+    
+    def post(self, therapist_id):
+        """Upload a new PDF form for a therapist.
+        
+        Args:
+            therapist_id: ID of the therapist
+            
+        Returns:
+            Success message with uploaded filename
+        """
+        # Verify therapist exists
+        db = SessionLocal()
+        try:
+            therapist = db.query(Therapist).filter(Therapist.id == therapist_id).first()
+            if not therapist:
+                return {'message': 'Therapist not found'}, 404
+        finally:
+            db.close()
+        
+        # Check if file is in the request
+        if 'file' not in request.files:
+            return {'message': 'No file provided in request'}, 400
+        
+        file = request.files['file']
+        
+        # Check if file was selected
+        if file.filename == '':
+            return {'message': 'No file selected'}, 400
+        
+        # Upload the file
+        try:
+            success, message, filename = self.pdf_manager.upload_form(
+                therapist_id, 
+                file,
+                file.filename
+            )
+            
+            if success:
+                logging.info(f"PDF uploaded for therapist {therapist_id}: {filename}")
+                return {
+                    'message': message,
+                    'therapist_id': therapist_id,
+                    'filename': filename
+                }, 201
+            else:
+                return {'message': message}, 400
+                
+        except Exception as e:
+            logging.error(f"Error uploading PDF for therapist {therapist_id}: {str(e)}")
+            return {'message': f'Upload failed: {str(e)}'}, 500
+    
+    def delete(self, therapist_id):
+        """Delete PDF form(s) for a therapist.
+        
+        Args:
+            therapist_id: ID of the therapist
+            
+        Query Parameters:
+            filename: Specific file to delete (if not provided, deletes all)
+            
+        Returns:
+            Success message
+        """
+        # Verify therapist exists
+        db = SessionLocal()
+        try:
+            therapist = db.query(Therapist).filter(Therapist.id == therapist_id).first()
+            if not therapist:
+                return {'message': 'Therapist not found'}, 404
+        finally:
+            db.close()
+        
+        # Check if specific file or all files
+        filename = request.args.get('filename')
+        
+        try:
+            if filename:
+                # Delete specific file
+                success = self.pdf_manager.delete_form(therapist_id, filename)
+                
+                if success:
+                    logging.info(f"PDF deleted for therapist {therapist_id}: {filename}")
+                    return {
+                        'message': f'File {filename} deleted successfully',
+                        'therapist_id': therapist_id
+                    }, 200
+                else:
+                    return {'message': f'Failed to delete file {filename}'}, 400
+            else:
+                # Delete all files
+                success, count = self.pdf_manager.delete_all_forms(therapist_id)
+                
+                if success:
+                    logging.info(f"All PDFs deleted for therapist {therapist_id}: {count} files")
+                    return {
+                        'message': f'All {count} PDF files deleted successfully',
+                        'therapist_id': therapist_id,
+                        'files_deleted': count
+                    }, 200
+                else:
+                    return {'message': 'Failed to delete PDF files'}, 400
+                    
+        except Exception as e:
+            logging.error(f"Error deleting PDFs for therapist {therapist_id}: {str(e)}")
+            return {'message': f'Delete failed: {str(e)}'}, 500
