@@ -1,8 +1,8 @@
 # Future Enhancements - Priority Items
 
-**Document Version:** 5.4  
-**Date:** January 2025  
-**Status:** Requirements Gathering (Updated - removed 4 completed items, added 5 new items)
+**Document Version:** 5.5  
+**Date:** September 2025  
+**Status:** Requirements Gathering (Updated - documented partial completion of email system, removed formatting issue, consolidated matching service cleanup)
 
 ---
 
@@ -17,7 +17,7 @@
 | **High** | Analyse Duplicates of Therapists (#5) | Medium | High |
 | **High** | Cancel Scheduled Phone Calls on Rejection (#6) | Medium | High |
 | **High** | Handle "Null" Last Name in Imports (#7) | Medium | High |
-| **High** | Comprehensive Email Automation System (#8) | High | Very High |
+| **Medium** | Comprehensive Email Automation System (#8) **[PARTIALLY COMPLETE]** | High | Very High |
 | **High** | Fix ICD10 Diagnostic Matching Logic (#9) | Medium-High | High |
 | **High** | Fix Therapeutenanfrage Frontend Exit Issue (#10) | Low | High |
 | **High** | Automatic Removal of Successful Platzsuchen (#11) | Medium | High |
@@ -25,20 +25,19 @@
 | **High** | Temporarily Pause Vermittlung/Platzsuche (#13) | Medium | High |
 | **High** | Validate Last Psychotherapy Date (#14) | Low-Medium | High |
 | **High** | Production Container Log Management (#15) | Medium | High |
-| **Medium** | Formatting Error in Patient Emails (#16) | Low | Medium |
-| **Medium** | Remove Batching Logic from Communication Service (#17) | Medium | Medium |
-| **Medium** | Keep Copy of Contact Form JSON on Email Failure (#18) | Medium | Medium |
-| **Medium** | Enhanced Support for Multi-Location Practices (#19) | High | Medium |
-| **Medium** | Grammar Correction for Singular Patient (#20) | Low | Medium |
-| **Medium** | Phone Call Templates (#21) | Medium | Medium |
-| **Medium** | Track Incoming Emails (#22) | High | Medium |
-| **Medium** | Add Pagination for Therapist Selection (#23) | Medium | Medium |
-| **Medium** | Therapist Import Reporting Fix (#24) | Low-Medium | Medium |
-| **Medium** | Proton Drive Backup Alternative (#25) | Low-Medium | Medium |
-| **Medium** | Fix Area Code Formatting (#26) | Medium | Medium |
-| **Medium** | Matching Service Cleanup (#27) | High | Medium |
-| **Low** | Add Traumatherapie Questions to FAQ (#28) | Low | Low |
-| **Low** | Fix Hyphenated Name Parsing in Scraper (#29) | Low | Low |
+| **Medium** | Remove Batching Logic from Communication Service (#16) | Medium | Medium |
+| **Medium** | Keep Copy of Contact Form JSON on Email Failure (#17) | Medium | Medium |
+| **Medium** | Enhanced Support for Multi-Location Practices (#18) | High | Medium |
+| **Medium** | Grammar Correction for Singular Patient (#19) | Low | Medium |
+| **Medium** | Phone Call Templates (#20) | Medium | Medium |
+| **Medium** | Track Incoming Emails (#21) | High | Medium |
+| **Medium** | Add Pagination for Therapist Selection (#22) | Medium | Medium |
+| **Medium** | Therapist Import Reporting Fix (#23) | Low-Medium | Medium |
+| **Medium** | Proton Drive Backup Alternative (#24) | Low-Medium | Medium |
+| **Medium** | Fix Area Code Formatting (#25) | Medium | Medium |
+| **Medium** | Matching Service Cleanup (#26) | High | Medium |
+| **Low** | Add Traumatherapie Questions to FAQ (#27) | Low | Low |
+| **Low** | Fix Hyphenated Name Parsing in Scraper (#28) | Low | Low |
 
 ---
 
@@ -54,14 +53,13 @@
 8. **Infrastructure:** Set up production log management (#15)
 9. **Quick Wins:** Implement frontend fixes (#10) and validation improvements (#14)
 10. **User Experience:** Implement pause functionality (#13)
-11. **Email System:** Design and implement comprehensive email automation (#8)
+11. **Complete Email System:** Finish remaining email automation scenarios (#8)
 12. **Payment System:** Design and implement patient payment tracking (#12)
-13. **Communication:** Implement phone call templates (#21) and cancellation logic (#6)
-14. **Data Quality:** Design and implement multi-location support (#19)
-15. **Minor Fixes:** Clean up email formatting issues (#16) and FAQ updates (#28)
+13. **Communication:** Implement phone call templates (#20) and cancellation logic (#6)
+14. **Data Quality:** Design and implement multi-location support (#18)
+15. **Code Cleanup:** Complete matching service cleanup (#26) and remove batching logic (#16)
 16. **Implementation Planning:** Create detailed technical specifications for high-priority items
 17. **Audit Current Systems:** Review therapist import reporting logic
-18. **Code Cleanup:** Remove unnecessary batching logic (#17)
 
 ---
 
@@ -816,12 +814,31 @@ Therapists with the literal last name "Null" (e.g., Anne-Kathrin Null) are causi
 
 ---
 
-## 8. Comprehensive Email Automation and Template System - **HIGH PRIORITY**
+## 8. Comprehensive Email Automation and Template System - **MEDIUM PRIORITY** [PARTIALLY COMPLETE]
 
 ### Overview
 Implement a comprehensive email automation system that handles all patient and therapist communications throughout the entire journey, with both automatic triggers and manual template options.
 
-### Automatic Email Categories
+### ✅ COMPLETED COMPONENTS (September 2025)
+
+#### A. Success Email Templates - IMPLEMENTED
+- **4 Template Types Implemented:**
+  - `email_contact` - Patient contacts therapist via email (default)
+  - `phone_contact` - Patient contacts therapist via phone  
+  - `meeting_confirmation_email` - Meeting arranged, confirm via email
+  - `meeting_confirmation_phone` - Meeting arranged, confirm via phone
+
+#### B. PDF Attachment System - IMPLEMENTED  
+- **Automatic PDF Inclusion:** Therapist forms automatically attached to success emails
+- **Template Selection:** API support for choosing template type during patient success
+- **End-to-End Integration:** From therapist acceptance to patient notification with PDFs
+
+#### C. Technical Infrastructure - IMPLEMENTED
+- **Database Support:** JSONB attachments column added
+- **API Endpoints:** Enhanced for template selection and PDF attachments
+- **Email Processing:** PDF attachment handling with 10MB limit per file
+
+### 🔄 REMAINING AUTOMATION CATEGORIES
 
 #### A. Patient Onboarding & Registration
 - **Welcome Email After Registration**
@@ -852,27 +869,6 @@ Implement a comprehensive email automation system that handles all patient and t
   - Content: Search progress, therapists contacted, next steps
   - Opt-out option available
 
-- **First Meeting Coordination (Without Fixed Time)**
-  - Trigger: When therapist shows interest but hasn't proposed time
-  - Content: Therapist contact info, suggested time ranges
-  - Action: Patient to contact therapist directly
-
-- **First Meeting Confirmation (With Proposed Time)**
-  - Trigger: When therapist suggests specific appointment time
-  - Content: Proposed time, location, confirmation request
-  - Actions: Accept/decline buttons, alternative time request
-
-- **Patient-Initiated Therapist Contact Templates** (**UPDATED**)
-  - Trigger: When patient needs to contact therapist for Erstgespräch
-  - Content: Pre-written email templates for patients to use
-  - Templates include:
-    - Initial contact request for appointment
-    - Response to therapist's availability
-    - Rescheduling request
-    - Confirmation of appointment
-  - Delivery: Send templates to patient with clear instructions
-  - Format: Copy-paste ready text with placeholder fields
-
 - **Therapist Rejection Follow-up**
   - Trigger: When therapist rejects patient (no availability, etc.)
   - Content: Acknowledgment, alternative options, continued search
@@ -884,6 +880,11 @@ Implement a comprehensive email automation system that handles all patient and t
   - Content: Satisfaction check, support offer, feedback request
   - Purpose: Ensure therapy is progressing well
 
+- **Payment Confirmation Emails**
+  - Trigger: After payment is confirmed
+  - Content: Confirmation notice, search starting notification
+  - Purpose: Clear communication about next steps
+
 ### Manual Email Templates
 
 #### Categories of Templates
@@ -891,7 +892,6 @@ Implement a comprehensive email automation system that handles all patient and t
    - First outreach to patients
    - Information requests
    - Document reminders
-   - **Patient email templates for therapist contact** (new)
 
 2. **Status Update Templates**
    - Search progress updates
@@ -902,12 +902,6 @@ Implement a comprehensive email automation system that handles all patient and t
    - Payment issues
    - Document problems
    - Complaint responses
-
-4. **Appointment Coordination**
-   - Schedule changes
-   - Cancellations
-   - Rescheduling
-   - **Templates for patients to contact therapists** (new)
 
 ### Implementation Details
 
@@ -929,24 +923,6 @@ Implement a comprehensive email automation system that handles all patient and t
   - Version control for templates
   - A/B testing capability
   - Preview functionality
-
-#### Database Schema
-```sql
-email_templates (
-  id, name, category, subject, body_html, body_text,
-  variables, trigger_type, schedule, version, active
-)
-
-email_automation_rules (
-  id, template_id, trigger_event, conditions,
-  delay_minutes, max_sends, active
-)
-
-email_log (
-  id, patient_id, template_id, sent_at, status,
-  open_count, click_count, error_message
-)
-```
 
 #### Configuration Options
 - Enable/disable individual automation rules
@@ -1352,72 +1328,7 @@ Production logs need better management - currently showing too many INFO level l
 
 ---
 
-## 16. Formatting Error in Patient Emails - **MEDIUM PRIORITY NEW**
-
-### Current Issue
-Email templates for patients show formatting errors when therapists have no title. Double asterisks (**) appear where the title would normally be, as the space between title and first name is not conditional.
-
-### Example
-- **Current (Wrong):** "Sehr geehrte/r ** Max Mustermann"
-- **Expected:** "Sehr geehrte/r Max Mustermann"
-
-### Root Cause
-The email template includes a hardcoded space between the title placeholder and first name, which remains even when the title is empty.
-
-### Implementation Requirements
-
-#### A. Template Logic Fix
-- **Conditional Spacing:**
-  ```javascript
-  // Current (problematic)
-  const salutation = `${title} ${firstName} ${lastName}`;
-  
-  // Fixed version
-  const nameParts = [title, firstName, lastName]
-    .filter(part => part && part.trim())
-    .join(' ');
-  const salutation = nameParts;
-  ```
-
-#### B. Email Template Updates
-- **All Affected Templates:**
-  - Patient notification emails
-  - Therapist matching notifications
-  - Appointment confirmations
-  - Status updates
-  - Any template using therapist names
-
-- **Template Syntax:**
-  ```handlebars
-  {{#if therapist.title}}
-    {{therapist.title}} {{therapist.firstName}} {{therapist.lastName}}
-  {{else}}
-    {{therapist.firstName}} {{therapist.lastName}}
-  {{/if}}
-  ```
-
-### Testing Requirements
-- Test all email templates with:
-  - Therapists with titles (Dr., Prof., etc.)
-  - Therapists without titles
-  - Multiple titles
-  - Empty first or last names (edge cases)
-
-### Quality Assurance
-- Review all email templates for similar issues
-- Add unit tests for name formatting
-- Implement email preview functionality
-- Regular email template audits
-
-### Success Metrics
-- Zero formatting errors in emails
-- Improved email professionalism
-- Reduced patient confusion
-- Better brand perception
-
----
-
-## 17. Remove Batching Logic from Communication Service - **MEDIUM PRIORITY NEW**
+## 16. Remove Batching Logic from Communication Service - **MEDIUM PRIORITY NEW**
 
 ### Current Issue
 The communication service contains unnecessary batching logic that adds complexity without providing significant benefits in the current architecture.
@@ -1481,7 +1392,7 @@ Simplify the communication service by removing batching logic and implementing d
 
 ---
 
-## 18. Keep Copy of Contact Form JSON on Email Failure - **MEDIUM PRIORITY NEW**
+## 17. Keep Copy of Contact Form JSON on Email Failure - **MEDIUM PRIORITY NEW**
 
 ### Current Issue
 When email sending fails for contact form submissions, the data is lost and cannot be recovered or resent, leading to missed patient inquiries.
@@ -1565,7 +1476,7 @@ Implement backup storage for contact form data when email sending fails, allowin
 
 ---
 
-## 19. Enhanced Support for Multi-Location Practices - **MEDIUM PRIORITY**
+## 18. Enhanced Support for Multi-Location Practices - **MEDIUM PRIORITY**
 
 ### Current Issue
 Practices with two or more locations are currently treated as independent duplicates in the system, causing confusion and inefficient management of therapist data.
@@ -1623,7 +1534,7 @@ Implement proper support for practices with multiple locations while maintaining
 
 ---
 
-## 20. Grammar Correction for Singular Patient in Therapeutenanfrage - **MEDIUM PRIORITY**
+## 19. Grammar Correction for Singular Patient in Therapeutenanfrage - **MEDIUM PRIORITY**
 
 ### Current Issue
 When a therapeutenanfrage contains only 1 patient, the system uses plural grammar forms, creating unprofessional communications.
@@ -1670,7 +1581,7 @@ Implement dynamic text adjustment to use singular forms when exactly one patient
 
 ---
 
-## 21. Phone Call Templates for Patient Communication - **MEDIUM PRIORITY**
+## 20. Phone Call Templates for Patient Communication - **MEDIUM PRIORITY**
 
 ### Current Issue
 Staff members lack standardized scripts for phone calls with patients, leading to inconsistent communication and missed important topics.
@@ -1731,7 +1642,7 @@ Create customizable phone call templates for various patient interaction scenari
 
 ---
 
-## 22. Track Incoming Emails - **MEDIUM PRIORITY**
+## 21. Track Incoming Emails - **MEDIUM PRIORITY**
 
 ### Requirement
 Implement comprehensive incoming email tracking system to monitor and integrate email communications with patient records.
@@ -1771,7 +1682,7 @@ Implement comprehensive incoming email tracking system to monitor and integrate 
 
 ---
 
-## 23. Add Pagination for Therapist Selection in Vermittlung - **MEDIUM PRIORITY**
+## 22. Add Pagination for Therapist Selection in Vermittlung - **MEDIUM PRIORITY**
 
 ### Requirement
 Implement pagination for therapist selection in the vermittlung process of therapeutenanfragen to improve performance and user experience.
@@ -1807,7 +1718,7 @@ Large therapist lists in the therapeutenanfrage form cause performance issues an
 
 ---
 
-## 24. Therapist Import Reporting Corrections - **MEDIUM PRIORITY**
+## 23. Therapist Import Reporting Corrections - **MEDIUM PRIORITY**
 
 ### Current Issue
 Reporting of therapist imports shows incorrect numbers for successful and failed imports.
@@ -1835,7 +1746,7 @@ Reporting of therapist imports shows incorrect numbers for successful and failed
 
 ---
 
-## 25. Proton Drive as Alternative to iCloud Backup - **MEDIUM PRIORITY**
+## 24. Proton Drive as Alternative to iCloud Backup - **MEDIUM PRIORITY**
 
 ### Current Issue
 Currently using iCloud for data backups, which may not provide sufficient privacy guarantees and GDPR compliance for sensitive patient data.
@@ -1949,7 +1860,7 @@ Evaluate and potentially implement Proton Drive as a more privacy-focused, Europ
 
 ---
 
-## 26. Fix Area Code Formatting Issue - **MEDIUM PRIORITY**
+## 25. Fix Area Code Formatting Issue - **MEDIUM PRIORITY**
 
 ### Current Issue
 Frontend always formats area codes as 4 digits, but some German cities have 5-digit area codes (e.g., Berlin 030 vs. smaller cities with 5 digits), causing incorrect phone number display and potential calling issues.
@@ -2017,67 +1928,117 @@ Frontend always formats area codes as 4 digits, but some German cities have 5-di
 
 ---
 
-## 27. Matching Service Cleanup - **MEDIUM PRIORITY**
+## 26. Matching Service Cleanup - **MEDIUM PRIORITY**
 
 ### Current Issue
-The matching service requires cleanup and optimization as described in the separate matching service document.
+The matching service requires cleanup and optimization to remove legacy functionality and improve performance, maintainability, and reliability.
 
-### Requirement
-Implement comprehensive cleanup of the matching service to improve performance, maintainability, and reliability.
+### ✅ COMPLETED COMPONENTS
+- **Removed kontaktanfrage endpoint** (POST /api/platzsuchen/{id}/kontaktanfrage)
+- **Updated API documentation** to remove outdated endpoint references
 
-### Implementation Areas
-- **Code Refactoring:**
-  - Remove duplicate code
-  - Improve error handling
-  - Optimize database queries
-  - Standardize coding patterns
+### 🔄 REMAINING CLEANUP TASKS
 
-- **Performance Optimization:**
-  - Implement caching strategies
-  - Optimize matching algorithms
-  - Reduce database round trips
-  - Improve query performance
+#### A. Database Schema Cleanup - HIGH PRIORITY
+- **Remove Legacy Contact Request Field:**
+  ```sql
+  -- Remove legacy contact request field
+  ALTER TABLE matching_service.platzsuche 
+  DROP COLUMN IF EXISTS gesamt_angeforderte_kontakte;
+  ```
 
-- **Architecture Improvements:**
-  - Separate concerns properly
-  - Implement proper service boundaries
-  - Add comprehensive logging
-  - Improve testability
+- **Remove from API Responses:**
+  - Remove `gesamt_angeforderte_kontakte` field from all API endpoints
+  - Update response models and serializers
 
-### Technical Tasks
-- **Database Optimization:**
-  - Add missing indexes
-  - Optimize complex queries
-  - Implement query result caching
-  - Review and optimize joins
+#### B. Error Handling Improvements - HIGH PRIORITY
+- **Standardize Error Responses:**
+  - Create common error response format
+  - Add specific error codes for different failure scenarios
+  - Improve validation error messages (currently mix English/German)
 
-- **Service Refactoring:**
-  - Extract common functionality
-  - Implement proper interfaces
-  - Add dependency injection
-  - Improve configuration management
+- **Files to Improve:**
+  - `api/anfrage.py` - All resource classes
+  - `services.py` - Cross-service communication errors
+  - `algorithms/anfrage_creator.py` - Constraint validation errors
 
-- **Testing Enhancement:**
-  - Add unit tests for all components
-  - Implement integration tests
-  - Add performance benchmarks
-  - Create test data generators
+#### C. Testing Infrastructure - HIGH PRIORITY
+- **Test Coverage Needed:**
+  - Unit tests for algorithm functions
+  - Integration tests for API endpoints
+  - Mock tests for cross-service communication
 
-### Documentation Requirements
-- Update API documentation
-- Create service architecture diagrams
-- Document matching algorithms
-- Add troubleshooting guide
+- **Test Scenarios:**
+  - Therapist selection with various PLZ prefixes
+  - Constraint validation (distance, preferences, exclusions)
+  - Inquiry creation and response handling
+  - Error conditions and edge cases
+
+#### D. Configuration Centralization - MEDIUM PRIORITY
+- **Centralize Hard-coded Values:**
+  ```python
+  # shared/config.py additions needed
+  ANFRAGE_CONFIG = {
+      'min_size': 1,  # Make configurable
+      'max_size': 6,
+      'plz_match_digits': 2,
+      'default_max_distance_km': 25,
+      'cooling_period_weeks': 4  # Currently hard-coded
+  }
+  ```
+
+- **Files to Update:**
+  - `algorithms/anfrage_creator.py` - Use config for all constants
+  - `models/therapeutenanfrage.py` - Dynamic constraint validation
+  - `services.py` - Use config for cooling periods
+
+#### E. Code Cleanup - MEDIUM PRIORITY
+- **Bundle Terminology References:**
+  - Update comments in `algorithms/anfrage_creator.py`
+  - Field comment "renamed from bundle" in `models/therapeut_anfrage_patient.py`
+  - Comments about "Bundle/Bündel" in `api/__init__.py`
+
+- **Inquiry Size Validation Decision:**
+  - Current constraint: `anfragegroesse >= 3 AND anfragegroesse <= 6`
+  - API documentation states minimum is 1
+  - **Decision needed:** Update constraint to >= 1 or update docs to >= 3
+
+#### F. Performance Optimizations - LOW PRIORITY
+- **Optimization Opportunities:**
+  - `GET /platzsuchen` - Batch patient data fetching
+  - `GET /therapeutenanfragen` - Batch therapist data fetching
+  - Database query optimization for large datasets
+  - Caching for frequently accessed therapist data
+
+### Implementation Priority Matrix
+
+| Priority | Component | Effort | Risk | Business Impact |
+|----------|-----------|--------|------|-----------------|
+| **High** | Remove gesamt_angeforderte_kontakte | Medium | Low | Medium (Code clarity) |
+| **High** | Error Handling Standardization | Medium | Low | High (User experience) |
+| **High** | Testing Infrastructure | High | Low | High (Quality assurance) |
+| **Medium** | Configuration Centralization | Medium | Medium | Medium (Maintainability) |
+| **Medium** | Bundle References Cleanup | Low | Low | Low (Code clarity) |
+| **Low** | Inquiry Size Validation | Low | Medium | Low (Business rule clarity) |
+| **Low** | Performance Optimizations | High | Medium | Low (Current scale) |
+
+### Migration Requirements
+- **Database Migration:** Required for removing `gesamt_angeforderte_kontakte` column
+- **API Breaking Changes:** 
+  - Removing field from responses is a breaking change
+  - Consider API versioning or deprecation period
+- **Testing:** Comprehensive testing after each cleanup phase
 
 ### Success Metrics
-- Reduced matching time by 50%
-- Improved code coverage to 80%+
-- Reduced bug reports by 40%
-- Better service reliability
+- Reduced code complexity
+- Improved error handling consistency
+- 80%+ test coverage
+- Centralized configuration
+- Better maintainability scores
 
 ---
 
-## 28. Add Traumatherapie Questions to FAQ - **LOW PRIORITY NEW**
+## 27. Add Traumatherapie Questions to FAQ - **LOW PRIORITY NEW**
 
 ### Current Issue
 The FAQ section on www.curavani.com is missing important information about Traumatherapie (trauma therapy), which is a common patient inquiry.
@@ -2133,7 +2094,7 @@ Add comprehensive Traumatherapie-related questions and answers to the FAQ sectio
 
 ---
 
-## 29. Fix Hyphenated Name Parsing in Scraper - **LOW PRIORITY**
+## 28. Fix Hyphenated Name Parsing in Scraper - **LOW PRIORITY**
 
 ### Current Issue
 The scraper incorrectly handles therapist names with malformed hyphens (e.g., "Tietz -Roder" instead of "Tietz-Roder"), causing incorrect name splitting where the hyphenated last name is split incorrectly.
@@ -2207,10 +2168,11 @@ The raw data from the 116117.de website sometimes contains inconsistent formatti
 ---
 
 **Document Owner:** Development Team  
-**Last Updated:** January 2025 (v5.4)  
+**Last Updated:** September 2025 (v5.5)  
 **Next Review:** After critical issue resolution and implementation of high-priority items
 **Changes:** 
 - v5.1: Removed 3 completed items (#6, #29, #32) that were implemented in Step 3
 - v5.2: Added critical distance constraint bypass bug (#30) discovered during PLZ 52159 investigation
 - v5.3: Added low priority hyphenated name parsing fix (#31) for scraper data quality improvement
 - v5.4: Removed 4 items (#2, #21 x2, #25, #28), added 5 new items (therapist duplicates, email formatting, batching removal, contact form backup, FAQ update)
+- v5.5: Updated Item #8 to show partial completion of email system, removed Item #16 (formatting issue), expanded Item #26 with matching service cleanup details, renumbered all subsequent items
