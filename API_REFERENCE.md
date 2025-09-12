@@ -2,7 +2,7 @@
 
 **Single Source of Truth for All API Integration**
 
-Last Updated: January 2025 - Updated with Step 3 Implementation
+Last Updated: January 2025 - Updated with PDF Attachments and Template Selection
 
 ## Overview
 
@@ -90,10 +90,11 @@ The following fields are managed automatically by the backend and **cannot be se
   - The patient responds to an email (antwort_erhalten = true)
   - A phone call with the patient is completed (status = "abgeschlossen")
 
-### Matching Service (STEP 3 - NEW)
+### Matching Service
 - **Automatic behaviors when platzsuche status changes to "erfolgreich"**:
   - Must have `vermittelter_therapeut_id` set (validation enforced)
-  - Automatically sends success email to patient with therapist contact details
+  - Automatically sends success email to patient with therapist contact details and PDF attachments
+  - Email template can be specified via `email_template_type` parameter
   - Automatically updates patient status to "in_Therapie" if email sends successfully
   - If patient has no email, status still changes but no email is sent
 
@@ -393,6 +394,7 @@ curl "http://localhost:8004/api/emails?recipient_type=therapist&status=Gesendet"
       "antwortdatum": null,
       "antwortinhalt": null,
       "gesendet_am": "2025-06-08",
+      "attachments": [],
       "created_at": "2025-06-08",
       "updated_at": "2025-06-08"
     }
@@ -412,11 +414,11 @@ curl "http://localhost:8004/api/emails?recipient_type=therapist&status=Gesendet"
 curl "http://localhost:8004/api/emails/1"
 ```
 
-**Example Response:** Same structure as single email in list response, plus `inhalt_html` and `inhalt_text` fields.
+**Example Response:** Same structure as single email in list response, plus `inhalt_html` and `inhalt_text` fields, and `attachments` array.
 
 ## POST /emails
 
-**Description:** Create a new email. Must specify either `therapist_id` OR `patient_id`, not both.
+**Description:** Create a new email. Must specify either `therapist_id` OR `patient_id`, not both. Supports PDF attachments.
 
 **Status Field Behavior:**
 - Default status is "Entwurf" (draft) if not specified
@@ -436,11 +438,13 @@ curl "http://localhost:8004/api/emails/1"
 - `absender_email` (string) - defaults to system email
 - `absender_name` (string) - defaults to system name
 - `add_legal_footer` (boolean) - defaults to true
+- `attachments` (array of strings) - List of file paths to PDF documents (max 10MB per file)
 
 **Validation Rules:**
 - Cannot specify both `therapist_id` and `patient_id`
 - Must specify at least one of `therapist_id` or `patient_id`
 - Must provide either `inhalt_markdown` or `inhalt_html`
+- PDF attachments must be valid file paths, max 10MB per file
 
 **Validation Errors (400):**
 ```json
@@ -459,8 +463,9 @@ curl "http://localhost:8004/api/emails/1"
 1. **Status Control**: You can set initial status via the API
 2. **Markdown Processing**: URLs in markdown content are automatically detected and converted to clickable links
 3. **Legal Footer**: Added by default unless explicitly disabled
+4. **PDF Attachments**: Attached PDFs are sent with the email when status changes to "Gesendet"
 
-**Example Request (Patient Email with immediate queuing):**
+**Example Request (Patient Email with PDF attachment and immediate queuing):**
 ```bash
 curl -X POST "http://localhost:8004/api/emails" \
   -H "Content-Type: application/json" \
@@ -470,13 +475,23 @@ curl -X POST "http://localhost:8004/api/emails" \
     "inhalt_markdown": "# Update\n\nSehr geehrter Herr Mustermann...",
     "empfaenger_email": "patient@example.com",
     "empfaenger_name": "Max Mustermann",
+    "attachments": [
+      "/data/therapist_pdfs/development/102/Therapieanfrage_Praxis.pdf"
+    ],
     "status": "In_Warteschlange"
   }'
 ```
 
 ## PUT /emails/{id}
 
-**Description:** Update email response information.
+**Description:** Update email response information and attachments.
+
+**Optional Fields:**
+- `status` (string) - Email status
+- `antwort_erhalten` (boolean) - Response received flag
+- `antwortdatum` (string) - Response date
+- `antwortinhalt` (string) - Response content
+- `attachments` (array of strings) - Update PDF attachments
 
 **Example Request:**
 ```bash
@@ -834,7 +849,6 @@ All endpoints follow consistent error response patterns:
 - Only practice owner is returned for selection
 
 ### New Endpoints:
-- **`POST /api/platzsuchen/{id}/kontaktanfrage`** - Request additional contacts
 - **`DELETE /api/platzsuchen/{id}`** - Delete patient search
 - **`DELETE /api/therapeutenanfragen/{id}`** - Delete therapeutenanfrage
 
@@ -859,34 +873,6 @@ All German enums follow proper grammar rules with noun capitalization:
 - `auf_der_Suche` (not `auf_der_suche`)
 - `in_Therapie` (not `in_therapie`)
 - API calls must use exact capitalization
-
----
-
-# Key Changes in Step 3 (January 28, 2025)
-
-## 🆕 Platzsuche Model Updates
-
-### New Field:
-- **`vermittelter_therapeut_id`** (Integer, nullable) - Tracks the therapist assigned to the patient
-  - Set automatically when therapist accepts patient via anfrage response
-  - Can be set manually via PUT `/api/platzsuchen/{id}`
-  - Required before marking platzsuche as "erfolgreich"
-
-### Validation Rules:
-- **Cannot mark as "erfolgreich" without `vermittelter_therapeut_id`**
-  - Returns 400 error: "Cannot mark as erfolgreich without vermittelter_therapeut_id"
-- **Cannot change `vermittelter_therapeut_id` after status is "erfolgreich"**
-  - Returns 400 error: "Cannot change vermittelter_therapeut_id after successful placement"
-
-### Automatic Behaviors:
-When platzsuche status changes to "erfolgreich" (with `vermittelter_therapeut_id` set):
-1. **Success email sent to patient** containing:
-   - Therapist contact details (name, address, phone, email)
-   - Instructions for contacting the therapist
-   - Pre-written email template for patient to use
-   - Important reminders (insurance card, etc.)
-2. **Patient status automatically updated to "in_Therapie"** (if email sends successfully)
-3. **System note added** documenting the successful placement
 
 ---
 
@@ -1559,6 +1545,84 @@ curl "http://localhost:8002/api/therapists/123/communication"
 }
 ```
 
+## GET /therapists/{id}/pdfs
+
+**Description:** Get list of PDF forms for a therapist.
+
+**Example Request:**
+```bash
+curl "http://localhost:8002/api/therapists/102/pdfs"
+```
+
+**Example Response:**
+```json
+{
+  "therapist_id": 102,
+  "therapist_name": "Dr. Max Mustermann",
+  "pdf_count": 2,
+  "pdfs": [
+    {
+      "filename": "Therapieanfrage_Praxis_Mustermann.pdf",
+      "path": "/data/therapist_pdfs/development/102/Therapieanfrage_Praxis_Mustermann.pdf",
+      "size": 245678,
+      "created": "2025-06-01T10:30:00"
+    },
+    {
+      "filename": "Anmeldebogen_2025.pdf",
+      "path": "/data/therapist_pdfs/development/102/Anmeldebogen_2025.pdf",
+      "size": 189234,
+      "created": "2025-06-15T14:20:00"
+    }
+  ]
+}
+```
+
+## POST /therapists/{id}/pdfs
+
+**Description:** Upload a PDF form for a therapist. Requires multipart/form-data with file upload.
+
+**Request:** multipart/form-data with `file` field containing PDF document (max 10MB)
+
+**Example Request:**
+```bash
+curl -X POST "http://localhost:8002/api/therapists/102/pdfs" \
+  -F "file=@/path/to/document.pdf"
+```
+
+**Example Response:**
+```json
+{
+  "message": "PDF uploaded successfully",
+  "therapist_id": 102,
+  "filename": "document.pdf"
+}
+```
+
+## DELETE /therapists/{id}/pdfs
+
+**Description:** Delete PDF form(s) for a therapist.
+
+**Query Parameters:**
+- `filename` (optional): Specific file to delete. If not provided, deletes all PDFs for the therapist.
+
+**Example Requests:**
+```bash
+# Delete specific file
+curl -X DELETE "http://localhost:8002/api/therapists/102/pdfs?filename=Anmeldebogen_2025.pdf"
+
+# Delete all files
+curl -X DELETE "http://localhost:8002/api/therapists/102/pdfs"
+```
+
+**Example Response:**
+```json
+{
+  "message": "All 2 PDF files deleted successfully",
+  "therapist_id": 102,
+  "files_deleted": 2
+}
+```
+
 ## GET /therapists/import-status
 
 **Description:** Get the current status of the therapist import system.
@@ -1732,7 +1796,7 @@ curl -X DELETE "http://localhost:8002/api/therapists/1"
 curl "http://localhost:8003/api/platzsuchen?status=aktiv"
 ```
 
-**Example Response (STEP 3 - UPDATED):**
+**Example Response:**
 ```json
 {
   "data": [
@@ -1778,7 +1842,7 @@ curl "http://localhost:8003/api/platzsuchen?status=aktiv"
 curl "http://localhost:8003/api/platzsuchen/1"
 ```
 
-**Example Response (STEP 3 - UPDATED):**
+**Example Response:**
 ```json
 {
   "id": 1,
@@ -1879,7 +1943,19 @@ curl -X POST "http://localhost:8003/api/platzsuchen" \
 - `status` (string) - New status ("aktiv", "pausiert", "erfolgreich", "abgebrochen")
 - `notizen` (string) - Notes to add or update
 - `ausgeschlossene_therapeuten` (array of integers) - List of excluded therapist IDs
-- `vermittelter_therapeut_id` (integer) - ID of therapist assigned to patient **(STEP 3 NEW)**
+- `vermittelter_therapeut_id` (integer) - ID of therapist assigned to patient
+- `email_template_type` (string) - Email template to use when marking as "erfolgreich":
+  - `"email_contact"` (default) - Patient should contact therapist via email
+  - `"phone_contact"` - Patient should contact therapist via phone
+  - `"meeting_confirmation_email"` - Meeting already arranged, confirm via email
+  - `"meeting_confirmation_phone"` - Meeting already arranged, confirm via phone
+- `meeting_details` (object) - Required for confirmation templates:
+  ```json
+  {
+    "date": "20. Januar 2025",
+    "time": "14:00 Uhr"
+  }
+  ```
 
 **Status Transition Rules:**
 - `aktiv` → `pausiert`, `erfolgreich`, `abgebrochen`
@@ -1887,13 +1963,16 @@ curl -X POST "http://localhost:8003/api/platzsuchen" \
 - `erfolgreich` → (no transitions allowed - terminal state)
 - `abgebrochen` → (no transitions allowed - terminal state)
 
-**Special Validation (STEP 3):**
+**Special Validation:**
 - Cannot set status to "erfolgreich" without `vermittelter_therapeut_id`
 - Cannot change `vermittelter_therapeut_id` once status is "erfolgreich"
 
-**Automatic Actions (STEP 3):**
+**Automatic Actions:**
 When status changes to "erfolgreich" (with `vermittelter_therapeut_id` set):
-- Success email automatically sent to patient with therapist contact details
+- Success email automatically sent to patient with:
+  - Selected template format
+  - Therapist contact details
+  - PDF attachments (if therapist has forms available)
 - Patient status automatically updated to "in_Therapie" if email sends successfully
 
 **Example Request - Set Therapist:**
@@ -1906,12 +1985,17 @@ curl -X PUT "http://localhost:8003/api/platzsuchen/1" \
   }'
 ```
 
-**Example Request - Mark Successful (triggers email):**
+**Example Request - Mark Successful with Template Selection:**
 ```bash
 curl -X PUT "http://localhost:8003/api/platzsuchen/1" \
   -H "Content-Type: application/json" \
   -d '{
-    "status": "erfolgreich"
+    "status": "erfolgreich",
+    "email_template_type": "meeting_confirmation_email",
+    "meeting_details": {
+      "date": "25. Januar 2025",
+      "time": "15:00 Uhr"
+    }
   }'
 ```
 
@@ -1926,45 +2010,6 @@ curl -X PUT "http://localhost:8003/api/platzsuchen/1" \
 ```json
 {
   "message": "Cannot change vermittelter_therapeut_id after successful placement"
-}
-```
-
-## POST /platzsuchen/{id}/kontaktanfrage
-
-**Description:** Request additional contacts for a patient search.
-
-**Request Body:**
-```json
-{
-  "requested_count": 5,  // Required: Number of additional contacts to request (1-100)
-  "notizen": "Patient urgently needs more options"  // Optional: Notes about the request
-}
-```
-
-**Example Request:**
-```bash
-curl -X POST "http://localhost:8003/api/platzsuchen/1/kontaktanfrage" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "requested_count": 3,
-    "notizen": "Previous therapists declined"
-  }'
-```
-
-**Example Response:**
-```json
-{
-  "message": "Requested 3 additional contacts",
-  "previous_total": 6,
-  "new_total": 9,
-  "search_id": 1
-}
-```
-
-**Error Response (400):**
-```json
-{
-  "message": "Can only request contacts for active searches. Current status: erfolgreich"
 }
 ```
 
@@ -2154,7 +2199,7 @@ curl -X POST "http://localhost:8003/api/therapeutenanfragen/101/senden"
 
 **Description:** Record therapist response.
 
-**STEP 3 Behavior:**
+**Behavior:**
 When a therapist accepts a patient (outcome = "angenommen"):
 - The platzsuche's `vermittelter_therapeut_id` is automatically set to the therapist ID
 - A system note is added to the platzsuche documenting the acceptance
