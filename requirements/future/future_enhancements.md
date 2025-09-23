@@ -1,8 +1,8 @@
 # Future Enhancements - Priority Items
 
-**Document Version:** 5.5  
+**Document Version:** 5.6  
 **Date:** September 2025  
-**Status:** Requirements Gathering (Updated - documented partial completion of email system, removed formatting issue, consolidated matching service cleanup)
+**Status:** Requirements Gathering (Updated - simplified email automation system to focus on weekly status updates only)
 
 ---
 
@@ -17,7 +17,7 @@
 | **High** | Analyse Duplicates of Therapists (#5) | Medium | High |
 | **High** | Cancel Scheduled Phone Calls on Rejection (#6) | Medium | High |
 | **High** | Handle "Null" Last Name in Imports (#7) | Medium | High |
-| **Medium** | Comprehensive Email Automation System (#8) **[PARTIALLY COMPLETE]** | High | Very High |
+| **Medium** | Weekly Status Updates Email Automation (#8) **[FOCUSED SCOPE]** | Medium | High |
 | **High** | Fix ICD10 Diagnostic Matching Logic (#9) | Medium-High | High |
 | **High** | Fix Therapeutenanfrage Frontend Exit Issue (#10) | Low | High |
 | **High** | Automatic Removal of Successful Platzsuchen (#11) | Medium | High |
@@ -46,20 +46,19 @@
 1. **IMMEDIATE - Critical Bug:** Fix distance constraint bypass bug (#1) that allows invalid matches when therapist city is missing
 2. **IMMEDIATE - Data Protection:** Implement backup testing and monitoring (#2) to ensure data recoverability
 3. **URGENT - Import Fix:** Handle "Null" last name issue (#7) affecting therapist imports and scraper
-4. **URGENT:** Fix non-functional automatic reminders and follow-up systems
-5. **URGENT:** Implement duplicate handling for patients (#3) to ensure data integrity
-6. **URGENT:** Fix ICD10 diagnostic matching logic (#9) - review Angela Fath-Volk case
-7. **HIGH:** Investigate and resolve therapist duplicates (#5) - check name matching logic
-8. **Infrastructure:** Set up production log management (#15)
-9. **Quick Wins:** Implement frontend fixes (#10) and validation improvements (#14)
-10. **User Experience:** Implement pause functionality (#13)
-11. **Complete Email System:** Finish remaining email automation scenarios (#8)
-12. **Payment System:** Design and implement patient payment tracking (#12)
-13. **Communication:** Implement phone call templates (#20) and cancellation logic (#6)
-14. **Data Quality:** Design and implement multi-location support (#18)
-15. **Code Cleanup:** Complete matching service cleanup (#26) and remove batching logic (#16)
-16. **Implementation Planning:** Create detailed technical specifications for high-priority items
-17. **Audit Current Systems:** Review therapist import reporting logic
+4. **URGENT:** Implement duplicate handling for patients (#3) to ensure data integrity
+5. **URGENT:** Fix ICD10 diagnostic matching logic (#9) - review Angela Fath-Volk case
+6. **HIGH:** Investigate and resolve therapist duplicates (#5) - check name matching logic
+7. **Infrastructure:** Set up production log management (#15)
+8. **Quick Wins:** Implement frontend fixes (#10) and validation improvements (#14)
+9. **User Experience:** Implement pause functionality (#13)
+10. **Complete Email System:** Implement weekly status updates automation (#8)
+11. **Payment System:** Design and implement patient payment tracking (#12)
+12. **Communication:** Implement phone call templates (#20) and cancellation logic (#6)
+13. **Data Quality:** Design and implement multi-location support (#18)
+14. **Code Cleanup:** Complete matching service cleanup (#26) and remove batching logic (#16)
+15. **Implementation Planning:** Create detailed technical specifications for high-priority items
+16. **Audit Current Systems:** Review therapist import reporting logic
 
 ---
 
@@ -814,135 +813,126 @@ Therapists with the literal last name "Null" (e.g., Anne-Kathrin Null) are causi
 
 ---
 
-## 8. Comprehensive Email Automation and Template System - **MEDIUM PRIORITY** [PARTIALLY COMPLETE]
+## 8. Weekly Status Updates Email Automation - **MEDIUM PRIORITY** [FOCUSED SCOPE]
 
 ### Overview
-Implement a comprehensive email automation system that handles all patient and therapist communications throughout the entire journey, with both automatic triggers and manual template options.
+Implement automated weekly status update emails for patients with active therapy searches to reduce manual communication work and keep patients informed of their search progress.
 
 ### ✅ COMPLETED COMPONENTS (September 2025)
 
-#### A. Success Email Templates - IMPLEMENTED
-- **4 Template Types Implemented:**
-  - `email_contact` - Patient contacts therapist via email (default)
-  - `phone_contact` - Patient contacts therapist via phone  
-  - `meeting_confirmation_email` - Meeting arranged, confirm via email
-  - `meeting_confirmation_phone` - Meeting arranged, confirm via phone
+#### A. Email Infrastructure - IMPLEMENTED
+- **Email Service:** Core email sending functionality operational
+- **Template System:** PDF attachment system and template selection working
+- **Success Notifications:** Patient notification emails when therapy found (4 template types implemented)
 
-#### B. PDF Attachment System - IMPLEMENTED  
-- **Automatic PDF Inclusion:** Therapist forms automatically attached to success emails
-- **Template Selection:** API support for choosing template type during patient success
-- **End-to-End Integration:** From therapist acceptance to patient notification with PDFs
+### 🔄 FOCUSED AUTOMATION REQUIREMENT
 
-#### C. Technical Infrastructure - IMPLEMENTED
-- **Database Support:** JSONB attachments column added
-- **API Endpoints:** Enhanced for template selection and PDF attachments
-- **Email Processing:** PDF attachment handling with 10MB limit per file
+#### Weekly Status Update Emails
+- **Trigger:** Every Monday during active search (status = "auf_der_Suche")
+- **Recipients:** Patients with active platzsuchen that haven't found therapy yet
+- **Content Requirements:**
+  - Search progress update
+  - Number of therapists contacted since last update
+  - Current status of inquiries
+  - Next steps and timeline expectations
+  - Supportive messaging
+  - Contact information for questions
 
-### 🔄 REMAINING AUTOMATION CATEGORIES
-
-#### A. Patient Onboarding & Registration
-- **Welcome Email After Registration**
-  - Trigger: Immediately after patient signs up
-  - Content: Welcome message, next steps, required documents
-  - Includes: PTV11 form requirements, timeline expectations
-
-- **Post-Contact Signing Next Steps**
-  - Trigger: After patient signs initial contact/agreement
-  - Content: Clear next steps, timeline, what to expect
-  - Includes: Document checklist, contact information
-
-- **Patient Import Notifications** (to staff)
-  - Trigger: Each successful GCS import
-  - Recipient: `info@curavani.com`
-  - Content: Patient name, import timestamp, file source, validation status
-
-#### B. Document & Form Reminders
-- **PTV11 Form Reminders**
-  - Schedule: 3, 7, 14, and 21 days after registration
-  - Stop after: Form submission or 4 attempts
-  - Content: Importance of form, submission instructions, deadline
-  - Manual option: One-click reminder button in admin
-
-#### C. Therapy Matching Communications
-- **Weekly Status Updates**
-  - Trigger: Weekly for patients with active platzsuchen
-  - Content: Search progress, therapists contacted, next steps
-  - Opt-out option available
-
-- **Therapist Rejection Follow-up**
-  - Trigger: When therapist rejects patient (no availability, etc.)
-  - Content: Acknowledgment, alternative options, continued search
-  - Tone: Supportive and encouraging
-
-#### D. Ongoing Care & Follow-up
-- **Therapy Check-in Emails**
-  - Schedule: 4 weeks after therapy start, then quarterly
-  - Content: Satisfaction check, support offer, feedback request
-  - Purpose: Ensure therapy is progressing well
-
-- **Payment Confirmation Emails**
-  - Trigger: After payment is confirmed
-  - Content: Confirmation notice, search starting notification
-  - Purpose: Clear communication about next steps
-
-### Manual Email Templates
-
-#### Categories of Templates
-1. **Initial Contact Templates**
-   - First outreach to patients
-   - Information requests
-   - Document reminders
-
-2. **Status Update Templates**
-   - Search progress updates
-   - Waiting list notifications
-   - General check-ins
-
-3. **Problem Resolution Templates**
-   - Payment issues
-   - Document problems
-   - Complaint responses
+- **Business Rules:**
+  - Only send to patients actively searching
+  - Skip if patient found therapist in past week  
+  - Include opt-out option for non-critical communications
+  - Stop sending after successful match or search termination
+  - Respect patient communication preferences
 
 ### Implementation Details
 
-#### Technical Architecture
-- **Email Service Enhancement**
-  - Centralized template management system
-  - Variable substitution engine
-  - Multi-language support (German primary)
-  - HTML and plain text versions
+#### A. Technical Architecture
+- **Scheduler Integration:**
+  - Cron job or scheduled task running every Monday
+  - Query for eligible patients (active searches)
+  - Generate personalized status updates
+  - Track email delivery and engagement
 
-- **Automation Engine**
-  - Event-driven triggers
-  - Scheduled job processor
-  - Rate limiting and throttling
-  - Retry logic for failures
+#### B. Email Template Requirements
+- **Template Location:** `shared/templates/emails/weekly_progress_update.md`
+- **Dynamic Content:**
+  ```markdown
+  Subject: Therapy Search Update - Week {search_week} 
+  
+  Dear {patient_name},
+  
+  Here's your weekly update on your therapy search:
+  
+  **This Week:**
+  - {therapists_contacted} therapists contacted
+  - {responses_received} responses received
+  - Current status: {search_status}
+  
+  **Next Steps:**
+  - {next_actions}
+  
+  We continue working to find you the right therapist...
+  ```
 
-- **Template Management System**
-  - WYSIWYG editor for staff
-  - Version control for templates
-  - A/B testing capability
-  - Preview functionality
+#### C. Data Requirements
+- Track weekly metrics per patient:
+  - Therapists contacted per week
+  - Responses received
+  - Search duration
+  - Geographic expansion if needed
+  - Historical progress
 
-#### Configuration Options
-- Enable/disable individual automation rules
-- Customizable sending schedules
-- Business hours enforcement
-- Holiday blackout dates
-- Per-patient opt-out preferences
+#### D. Integration Points
+- **Patient Service:** Get active platzsuchen list
+- **Matching Service:** Get weekly activity data
+- **Communication Service:** Send emails with tracking
+- **Database:** Log email delivery and responses
 
 ### Success Metrics
-- Email open rates by category
-- Response/action rates
-- Reduction in manual follow-ups
-- Patient satisfaction scores
-- Time saved by staff
+- **Engagement:** Email open rates > 60%
+- **Satisfaction:** Reduced patient inquiries about search status
+- **Efficiency:** 90% reduction in manual status update calls
+- **Retention:** Maintained patient engagement during waiting periods
+
+### Technical Implementation
+- **Database Schema Updates:**
+  ```sql
+  -- Track weekly email status
+  ALTER TABLE patient_communications 
+  ADD COLUMN weekly_update_last_sent TIMESTAMP,
+  ADD COLUMN weekly_update_opt_out BOOLEAN DEFAULT FALSE;
+  ```
+
+- **Scheduling Logic:**
+  ```python
+  def send_weekly_updates():
+      # Get eligible patients (active searches, not opted out)
+      patients = get_active_search_patients(
+          exclude_opted_out=True,
+          exclude_recently_matched=True
+      )
+      
+      for patient in patients:
+          # Generate personalized update
+          update_data = generate_weekly_update(patient)
+          
+          # Send email
+          send_email(
+              template='weekly_progress_update',
+              recipient=patient.email,
+              data=update_data
+          )
+          
+          # Track delivery
+          log_communication(patient.id, 'weekly_update')
+  ```
 
 ### GDPR Compliance
-- Clear consent mechanisms
-- Unsubscribe options in all emails
-- Data retention policies
-- Audit trail for all communications
+- Clear consent for weekly updates during registration
+- Easy opt-out mechanism in every email
+- Data retention policies for communication logs
+- Right to erasure compliance
 
 ---
 
@@ -1086,7 +1076,7 @@ Implement automatic cleanup: when a patient's platzsuche becomes "erfolgreich", 
 No systematic way to document whether patients have paid for services, causing billing confusion and follow-up difficulties.
 
 ### Requirement
-Implement comprehensive payment tracking functionality integrated with patient records. Furthermore, implement that patients get an email after the payment is confirmed. So they know that the search is starting now for them.
+Implement comprehensive payment tracking functionality integrated with patient records.
 
 ### Payment Information to Track
 - **Payment Status:**
@@ -1133,7 +1123,6 @@ Implement comprehensive payment tracking functionality integrated with patient r
   - Payment reminder emails
   - Receipt generation
   - Monthly billing reports
-  - **Payment confirmation email to patient**
 
 ### Integration Points
 - Patient management system
@@ -2168,11 +2157,7 @@ The raw data from the 116117.de website sometimes contains inconsistent formatti
 ---
 
 **Document Owner:** Development Team  
-**Last Updated:** September 2025 (v5.5)  
+**Last Updated:** September 2025 (v5.6)  
 **Next Review:** After critical issue resolution and implementation of high-priority items
 **Changes:** 
-- v5.1: Removed 3 completed items (#6, #29, #32) that were implemented in Step 3
-- v5.2: Added critical distance constraint bypass bug (#30) discovered during PLZ 52159 investigation
-- v5.3: Added low priority hyphenated name parsing fix (#31) for scraper data quality improvement
-- v5.4: Removed 4 items (#2, #21 x2, #25, #28), added 5 new items (therapist duplicates, email formatting, batching removal, contact form backup, FAQ update)
-- v5.5: Updated Item #8 to show partial completion of email system, removed Item #16 (formatting issue), expanded Item #26 with matching service cleanup details, renumbered all subsequent items
+- v5.6: Simplified Item #8 to focus only on weekly status updates automation, removing completed and unwanted email automation categories based on user requirements
