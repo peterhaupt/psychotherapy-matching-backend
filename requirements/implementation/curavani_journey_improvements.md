@@ -1,16 +1,19 @@
-# Curavani User Journey Improvements - Complete Implementation Guide
-**Version:** 5.0  
+# Curavani User Journey Improvements - Implementation Status
+**Version:** 6.0  
 **Date:** January 2025  
-**Status:** Phase 1 (Contracts) & Phase 4 (Email) Completed!
-**Last Updated:** January 2025
+**Last Updated:** January 23, 2025
 
 ---
 
-## Implementation Status Overview
+## 🎯 PROJECT OVERVIEW
 
-### ✅ COMPLETED ITEMS (January 2025)
+Simplifying the patient registration process from 7 steps to 3 steps, improving UX, and updating contract structure.
 
-#### Phase 1: Contract Simplification - COMPLETED!
+---
+
+## ✅ COMPLETED ITEMS (January 2025)
+
+### Phase 1: Contract Simplification - COMPLETED ✅
 - ✅ Reduced from 6 to 4 contract parts
 - ✅ Created `teil_a_vereinbarung.md` - Merged and simplified Teil A + Teil E
 - ✅ Updated `teil_d_widerruf.md` - Removed Muster-Widerrufsformular reference
@@ -20,144 +23,223 @@
 - ✅ Generated PDF versions of all contract documents
 - ✅ Simplified language and removed unnecessary legal complexity
 
-#### Phase 4: Email Confirmation System - COMPLETED!
+### Phase 1b: PHP Updates for New Contract Structure - COMPLETED ✅
+**Date Completed:** January 23, 2025
+- ✅ Updated `verify_token.php` to 3-step structure (numbered 2-4)
+- ✅ Updated `verify_token_functions.php` to use only 4 contract parts
+- ✅ Removed references to Teil E and Widerrufsformular
+- ✅ Updated progress indicator from 7 steps to 3 steps
+- ✅ Changed contract display from inline text to PDF links
+- ✅ Implemented single checkbox for all contracts acceptance
+
+### Phase 3: Service Overview Page - COMPLETED ✅
+- ✅ Created `service_buchen.html` 
+- ✅ Implemented dynamic pricing from `prices.json`
+- ✅ Removed all "Sonderaktion" references
+- ✅ Clear guarantee differentiation
+
+### Phase 4: Email Confirmation System - COMPLETED ✅
 - ✅ Created `email_bestaetigen.html` with improved UX
 - ✅ Updated `verification_email.md` template
 - ✅ Fixed template variables and fallbacks
 - ✅ Implemented 4-step process indicators
 - ✅ Updated email subject lines
 
-#### Phase 3: Service Overview Page - COMPLETED!
-- ✅ Created `service_buchen.html` 
-- ✅ Implemented dynamic pricing from `prices.json`
-- ✅ Removed all "Sonderaktion" references
-- ✅ Clear guarantee differentiation
+### Phase 5: Main Registration Form Updates - COMPLETED ✅
+**Date Completed:** January 23, 2025
+- ✅ Increased symptom selection from 3 to 6 maximum
+- ✅ Implemented dynamic availability requirements:
+  - 10 hours minimum for group therapy
+  - 20 hours minimum for individual therapy
+- ✅ Updated contract display method (PDF links instead of inline)
+- ✅ Implemented dynamic pricing display based on therapy selection
+- ✅ Simplified consent process (single checkbox for all contracts)
 
-#### Terminology & Pricing Updates - COMPLETED!
+### Terminology & Pricing Updates - COMPLETED ✅
 - ✅ Changed "Registrierung" → "Therapieplatzsuche"
 - ✅ Changed buttons to "Therapieplatz finden lassen"
 - ✅ Centralized pricing in `prices.json`
 - ✅ Removed hardcoded prices throughout
 
-### ⏳ PENDING ITEMS
+---
 
-#### Phase 1b: Update PHP for New Contract Structure
-- ⏳ Update `verify_token_functions.php` to use 4-part structure
-- ⏳ Update `verify_token.php` to show only 4 contract steps
-- ⏳ Update progress indicator from 7 steps to 5 steps
-- ⏳ Remove references to Teil E and Widerrufsformular
+## 🔄 PARTIALLY COMPLETED / IN TESTING
 
-#### Phase 2: Live Helper Chat Integration
+### Local Testing Environment Setup
+**Status:** In Progress
+- ✅ Docker environment configured
+- ✅ PDO MySQL extension installed
+- ✅ Path configurations fixed for local testing
+- ⏳ Full end-to-end testing pending
+
+---
+
+## ⏳ PENDING ITEMS
+
+### Phase 2: Live Helper Chat Integration
+**Status:** Not Started
 - ⏳ Choose and configure chat solution
 - ⏳ Add widget to all pages
 - ⏳ Set up operator accounts
 
-#### Phase 5: Main Registration Form Updates
-- ⏳ Increase symptom selection from 3 to 6
-- ⏳ Reduce availability requirement from 20 to 10 hours
-- ⏳ Update contract display method (PDF links instead of inline)
-- ⏳ Implement dynamic pricing display
-
-#### Phase 6: Backend Email Automation
+### Phase 6: Backend Email Automation
+**Status:** Not Started
 - ⏳ Payment confirmation emails
-- ⏳ Weekly progress updates
+- ⏳ Weekly progress updates during search
 - ⏳ Webinar invitations
+- ⏳ Update email verification template (currently using old version)
 
 ---
 
-## Phase 1b: Update PHP for New Contract Structure (NEXT PRIORITY)
+## 📁 FILES MODIFIED
 
-### Required PHP Updates
+### Core Registration Files (January 23, 2025)
+1. **verify_token.php**
+   - Reduced from 7 to 3 steps
+   - Steps numbered 2-4 (email verification is step 1)
+   - Removed contract text display
+   - Added PDF links
+   - Single consent checkbox
 
-#### 1. Update verify_token_functions.php
+2. **verify-token-styles.css**
+   - Updated progress bar for 3 steps
+   - Removed contract-container styles
+   - Adjusted mobile responsive styles
 
-**Current Code (6 parts):**
-```php
-function getAllContractTexts() {
-    $parts = ['a', 'b', 'c', 'd', 'e', 'widerrufsformular'];
-    // ...
-}
-```
+3. **includes/verify_token_functions.php**
+   - `validateSymptomArray()` - max 6 symptoms
+   - `validateAvailability()` - dynamic (10h/20h)
+   - `getAllContractTexts()` - only 4 parts
+   - Simplified consent structure
 
-**New Code (4 parts):**
-```php
-function getAllContractTexts() {
-    $parts = ['a', 'b', 'c', 'd'];
-    // ...
-}
-```
+### Contract Files
+- `contracts/teil_a_vereinbarung.md` (+ PDF)
+- `contracts/teil_b_vollmacht.md` (+ PDF)
+- `contracts/teil_c_datenschutz.md` (+ PDF)
+- `contracts/teil_d_widerruf.md` (+ PDF)
+- ~~`contracts/teil_e_allgemein.md`~~ (removed)
+- ~~`contracts/anlage_widerrufsformular.md`~~ (removed)
 
-**Update contract file mappings:**
-```php
-switch ($part) {
-    case 'a':
-        $filename = 'teil_a_vereinbarung.md';
-        break;
-    case 'b':
-        $filename = 'teil_b_vollmacht.md';
-        break;
-    case 'c':
-        $filename = 'teil_c_datenschutz.md';
-        break;
-    case 'd':
-        $filename = 'teil_d_widerruf.md';
-        break;
-}
-```
-
-#### 2. Update verify_token.php Multi-Step Form
-
-**Current Structure (7 steps):**
-1. Personal Information
-2. Contract Part A
-3. Contract Part B  
-4. Contract Part C
-5. Contract Part D + Widerrufsformular
-6. Contract Part E
-7. Confirmation
-
-**New Structure (5 steps):**
-1. Personal Information
-2. Contract Part A (simplified)
-3. Contract Part B (Vollmacht)
-4. Contract Part C (Datenschutz)
-5. Contract Part D (Widerruf) + Confirmation
-
-**Remove these consent checkboxes:**
-- `consent_part_e`
-- `consent_widerrufsformular`
-
-**Update confirmation section in Step 5:**
-```php
-// Remove references to:
-$requiredConsents = ['consent_part_a', 'consent_part_b', 'consent_part_c', 'consent_part_d'];
-// Remove consent_part_e and consent_widerrufsformular
-```
-
-#### 3. Contract PDF Access
-
-**Add PDF download functionality:**
-```php
-// In verify_token.php, add PDF download links
-<a href="/contracts/teil_a_vereinbarung.pdf" target="_blank">Teil A als PDF</a>
-<a href="/contracts/teil_b_vollmacht.pdf" target="_blank">Teil B als PDF</a>
-<a href="/contracts/teil_c_datenschutz.pdf" target="_blank">Teil C als PDF</a>
-<a href="/contracts/teil_d_widerruf.pdf" target="_blank">Teil D als PDF</a>
-```
+### Supporting Files
+- `prices.json` - Central pricing configuration
+- `email_bestaetigen.html` - Email verification page
+- `service_buchen.html` - Service overview page
+- `patienten.html` - Main landing page
 
 ---
 
-## Phase 5: Main Registration Form Updates (After Phase 1b)
+## 🔑 KEY IMPROVEMENTS IMPLEMENTED
 
-### Form Field Changes Required
+### User Experience
+- **Reduced cognitive load:** 7 → 3 steps
+- **Faster completion:** Estimated 12 minutes → 8 minutes
+- **Clearer pricing:** Dynamic display based on selection
+- **Better mobile experience:** Optimized for touch devices
+- **Simplified contracts:** PDF links instead of scrolling text
 
-#### 1. Symptom Selection
-```javascript
-// Current validation
-if (selectedSymptoms.length > 3) {
-    alert('Sie können maximal 3 Symptome auswählen.');
-}
+### Technical Improvements
+- **Dynamic validation:** Availability adjusts based on therapy type
+- **Centralized pricing:** Single source of truth in `prices.json`
+- **Cleaner code:** Removed redundant contract handling
+- **Better error handling:** Improved validation messages
 
-// New validation
-if (selectedSymptoms.length > 6) {
-    alert('Sie können maximal 6 Symptome auswählen.');
+### Business Benefits
+- **Higher conversion expected:** Simpler process
+- **Flexibility:** Easy price updates via JSON
+- **Compliance maintained:** All legal requirements still met
+- **A/B testing ready:** Old version can be preserved for comparison
+
+---
+
+## 📊 METRICS TO TRACK
+
+### Conversion Metrics
+- Form completion rate (baseline vs. new)
+- Drop-off by step
+- Time to completion
+- Error frequency by field
+
+### User Feedback
+- Support tickets related to registration
+- User satisfaction scores
+- Qualitative feedback on process
+
+---
+
+## 🚀 DEPLOYMENT CHECKLIST
+
+### Pre-Deployment
+- [x] Backup existing files
+- [x] Test in local Docker environment
+- [ ] Test with production-like data
+- [ ] Verify PDF contracts are accessible
+- [ ] Update email templates in backend
+
+### Deployment
+- [ ] Deploy updated PHP files
+- [ ] Deploy updated CSS
+- [ ] Clear server cache
+- [ ] Test with real verification token
+- [ ] Monitor error logs
+
+### Post-Deployment
+- [ ] Verify form submissions work
+- [ ] Check Object Storage integration
+- [ ] Confirm email notifications sent
+- [ ] Monitor conversion metrics
+- [ ] Collect initial user feedback
+
+---
+
+## 🐛 KNOWN ISSUES / CONSIDERATIONS
+
+1. **Email Template:** Still using old template - needs backend update
+2. **PDF Access:** Ensure `/contracts/*.pdf` files are accessible
+3. **Browser Compatibility:** Test on older browsers
+4. **Session Timeout:** 30-minute token validity unchanged
+
+---
+
+## 📝 NOTES FOR FINETUNING SESSION
+
+### Areas for Potential Refinement
+1. **Step 2 (Personal Data)**
+   - Field order optimization
+   - Auto-formatting for phone/PLZ
+   - Address autocomplete?
+
+2. **Step 3 (Therapy Requirements)**
+   - Symptom categorization UI
+   - Availability picker UX
+   - Better visual feedback for selections
+
+3. **Step 4 (Booking)**
+   - PDF preview inline?
+   - Payment method selection?
+   - Terms acceptance wording
+
+### Questions to Consider
+- Should we add progress saving (draft functionality)?
+- Do we need field-level help text?
+- Should availability show visual calendar?
+- Add estimated wait time display?
+- Include therapist matching preview?
+
+---
+
+## 📞 SUPPORT & CONTACT
+
+**Technical Issues:**
+- Development Team: dev@curavani.com
+- Peter Haupt: peter@curavani.com
+
+**Business Questions:**
+- Support: info@curavani.com
+- Phone: 0151 46359691
+
+---
+
+**Document Version:** 6.0  
+**Last Updated:** January 23, 2025  
+**Next Review:** After finetuning session  
+**Status:** Ready for finetuning discussion
