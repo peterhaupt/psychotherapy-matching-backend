@@ -26,10 +26,6 @@ Bitte überweisen Sie den Betrag von **{{ price }}** an folgendes Konto:
 
 Nach Zahlungseingang werden wir innerhalb von 24 Stunden mit der Suche nach einem passenden Therapieplatz beginnen.
 
-{% if patient.offen_fuer_gruppentherapie %}
-**Hinweis:** Falls Sie später doch einen Einzeltherapieplatz wünschen, ist ein Upgrade für zusätzlich {{ upgrade_price }} möglich.
-{% endif %}
-
 ### 3. Notfall und akute Hilfe
 
 Curavani bietet selbst keine medizinische oder psychotherapeutische Behandlung. Falls Sie daher akut Hilfe benötigen, wenden Sie sich bitte an folgende Stellen:
