@@ -8,6 +8,7 @@ Changes made:
 4. Updated automatic startdatum test for new payment-based logic
 5. Fixed case sensitivity for auf_der_Suche status (capital 'S')
 6. Updated cascade integration tests for simplified deletion logic
+7. Updated symptom validation to allow 1-6 symptoms instead of 1-3
 """
 import pytest
 import requests
@@ -262,19 +263,22 @@ class TestPatientServiceAPI:
         # Cleanup
         requests.delete(f"{BASE_URL}/patients/{created_patient['id']}")
 
-    def test_create_patient_with_three_symptoms(self):
-        """Test creating patient with maximum 3 symptoms."""
+    def test_create_patient_with_six_symptoms(self):
+        """Test creating patient with maximum 6 symptoms."""
         patient_data = {
             "anrede": "Herr",
             "geschlecht": "männlich",
             "vorname": "Max",
-            "nachname": "Three",
-            "email": "three@example.com",
+            "nachname": "Six",
+            "email": "six@example.com",
             "geburtsdatum": "1985-01-01",
             "symptome": [
                 "Trauer / Verlust",
                 "Einsamkeit",
-                "Sozialer Rückzug"
+                "Sozialer Rückzug",
+                "Depression / Niedergeschlagenheit",
+                "Ängste / Panikattacken",
+                "Burnout / Erschöpfung"
             ],
             "krankenkasse": "AOK"
         }
@@ -283,7 +287,7 @@ class TestPatientServiceAPI:
         assert response.status_code == 201
         
         created_patient = response.json()
-        assert len(created_patient["symptome"]) == 3
+        assert len(created_patient["symptome"]) == 6
         
         # Cleanup
         requests.delete(f"{BASE_URL}/patients/{created_patient['id']}")
@@ -306,8 +310,8 @@ class TestPatientServiceAPI:
         # Updated to match actual implementation message
         assert "At least one symptom is required" in response.json()["message"]
 
-    def test_reject_patient_with_four_symptoms(self):
-        """Test that patient creation fails with more than 3 symptoms."""
+    def test_reject_patient_with_seven_symptoms(self):
+        """Test that patient creation fails with more than 6 symptoms."""
         patient_data = {
             "anrede": "Frau",
             "geschlecht": "weiblich",
@@ -319,15 +323,18 @@ class TestPatientServiceAPI:
                 "Depression / Niedergeschlagenheit",
                 "Ängste / Panikattacken",
                 "Burnout / Erschöpfung",
-                "Schlafstörungen"
+                "Schlafstörungen",
+                "Stress / Überforderung",
+                "Trauer / Verlust",
+                "Reizbarkeit / Wutausbrüche"
             ],
             "krankenkasse": "Barmer"
         }
         
         response = requests.post(f"{BASE_URL}/patients", json=patient_data)
         assert response.status_code == 400
-        # Updated to match actual implementation message
-        assert "Between 1 and 3 symptoms must be selected" in response.json()["message"]
+        # Updated to match new implementation message
+        assert "Between 1 and 6 symptoms must be selected" in response.json()["message"]
 
     def test_reject_patient_with_invalid_symptom(self):
         """Test that patient creation fails with invalid symptom."""

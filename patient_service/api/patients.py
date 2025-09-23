@@ -6,6 +6,8 @@ from sqlalchemy import or_
 from datetime import datetime, date
 import requests
 import logging
+import os
+from jinja2 import Environment, FileSystemLoader
 
 from models.patient import Patient, Patientenstatus, Therapeutgeschlechtspraeferenz, Anrede, Geschlecht, Therapieverfahren
 from shared.utils.database import SessionLocal
@@ -16,6 +18,9 @@ from imports import ImportStatus
 
 # Get configuration
 config = get_config()
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 # PHASE 2: Valid symptoms list for validation
 VALID_SYMPTOMS = [
@@ -149,8 +154,9 @@ def validate_symptoms(symptoms):
     if not isinstance(symptoms, list):
         raise ValueError("Symptoms must be provided as an array")
     
-    if len(symptoms) < 1 or len(symptoms) > 3:
-        raise ValueError("Between 1 and 3 symptoms must be selected")
+    # UPDATED: Changed from 3 to 6 maximum symptoms
+    if len(symptoms) < 1 or len(symptoms) > 6:
+        raise ValueError("Between 1 and 6 symptoms must be selected")
     
     for symptom in symptoms:
         if symptom not in VALID_SYMPTOMS:
@@ -290,6 +296,101 @@ def parse_date_field(date_string: str, field_name: str):
         raise ValueError(f"Invalid date format for {field_name}. Use YYYY-MM-DD")
 
 
+def _send_payment_confirmation_email(patient_id: int, db):
+    """Send payment confirmation email to patient.
+    
+    Args:
+        patient_id: ID of the patient
+        db: Database session
+    """
+    try:
+        # Get patient data
+        patient = db.query(Patient).filter(Patient.id == patient_id).first()
+        if not patient or not patient.email:
+            logger.warning(f"Cannot send payment confirmation - patient {patient_id} not found or no email")
+            return
+        
+        # Set up Jinja2 environment for templates
+        if os.path.exists('/app/shared'):
+            shared_path = '/app/shared'
+        else:
+            # Local development - go up from patient_service to project root
+            shared_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'shared')
+        
+        template_dir = os.path.join(shared_path, 'templates', 'emails')
+        
+        if not os.path.exists(template_dir):
+            logger.error(f"Template directory not found: {template_dir}")
+            return
+        
+        env = Environment(loader=FileSystemLoader(template_dir))
+        
+        # Prepare template context
+        context = {
+            'patient': {
+                'anrede': patient.anrede.value if patient.anrede else '',
+                'nachname': patient.nachname,
+                'zahlungsreferenz': patient.zahlungsreferenz,
+                'offen_fuer_gruppentherapie': patient.offen_fuer_gruppentherapie
+            }
+        }
+        
+        # Render template
+        try:
+            template = env.get_template('payment_confirmation.md')
+            email_markdown = template.render(context)
+        except Exception as e:
+            logger.error(f"Failed to render payment confirmation template: {str(e)}")
+            # Fallback to simple message
+            therapy_type = "Gruppentherapieplatz" if patient.offen_fuer_gruppentherapie else "Einzeltherapieplatz"
+            email_markdown = f"""
+Sehr geehrte/r {patient.vorname} {patient.nachname},
+
+Ihre Zahlung ist bei uns eingegangen - vielen Dank!
+
+Zahlungsreferenz: {patient.zahlungsreferenz}
+
+Ab sofort suchen wir aktiv einen {therapy_type} für Sie.
+
+Wir kontaktieren nun Therapeuten in Ihrer Nähe und melden uns bei Ihnen, sobald wir einen passenden Platz gefunden haben.
+
+Bei Fragen erreichen Sie uns unter info@curavani.com
+
+Mit freundlichen Grüßen
+Ihr Curavani Team
+            """.strip()
+        
+        # Send email via communication service
+        comm_service_url = config.get_service_url('communication', internal=True)
+        
+        email_data = {
+            'patient_id': patient_id,
+            'betreff': 'Zahlung eingegangen - Ihre Therapieplatzsuche startet jetzt!',
+            'inhalt_markdown': email_markdown,
+            'empfaenger_email': patient.email,
+            'empfaenger_name': f"{patient.vorname} {patient.nachname}",
+            'absender_email': 'info@curavani.com',
+            'absender_name': 'Curavani',
+            'add_legal_footer': True,
+            'status': 'In_Warteschlange'  # Queue for sending
+        }
+        
+        response = requests.post(
+            f"{comm_service_url}/api/emails",
+            json=email_data,
+            timeout=10
+        )
+        
+        if response.ok:
+            logger.info(f"Payment confirmation email queued for patient {patient_id}")
+        else:
+            logger.error(f"Failed to send payment confirmation email for patient {patient_id}: {response.status_code}")
+            
+    except Exception as e:
+        logger.error(f"Error sending payment confirmation email for patient {patient_id}: {str(e)}")
+        # Don't fail the payment processing if email fails
+
+
 def check_and_apply_payment_status_transition(patient, old_payment_status, db):
     """Check if payment confirmation should trigger automatic status changes.
     
@@ -297,6 +398,7 @@ def check_and_apply_payment_status_transition(patient, old_payment_status, db):
     When zahlung_eingegangen changes from False to True:
     - Set startdatum to today (if vertraege_unterschrieben is true)
     - Change status from "offen" to "auf_der_Suche"
+    - Send payment confirmation email
     
     Args:
         patient: The patient object
@@ -305,7 +407,6 @@ def check_and_apply_payment_status_transition(patient, old_payment_status, db):
     """
     # Check if payment was just confirmed (False -> True)
     if not old_payment_status and patient.zahlung_eingegangen:
-        logger = logging.getLogger(__name__)
         logger.info(f"Payment confirmed for patient {patient.id}")
         
         # Check if contracts are signed
@@ -320,6 +421,9 @@ def check_and_apply_payment_status_transition(patient, old_payment_status, db):
                 old_status = patient.status
                 patient.status = Patientenstatus.auf_der_Suche
                 logger.info(f"Changed status from {old_status.value} to {patient.status.value} for patient {patient.id}")
+            
+            # Send payment confirmation email
+            _send_payment_confirmation_email(patient.id, db)
 
 
 class PatientLastContactResource(Resource):

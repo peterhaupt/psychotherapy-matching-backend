@@ -2,6 +2,7 @@
 
 Tests the validate_symptoms function from patient_service.api.patients.
 This file contains ONLY unit tests - no integration or API endpoint tests.
+Updated to support 1-6 symptoms instead of 1-3.
 """
 import sys
 import pytest
@@ -163,17 +164,17 @@ class TestSymptomValidation:
         
         assert "At least one symptom is required" in str(exc_info.value)
     
-    def test_maximum_three_symptoms_allowed(self, mock_patient_dependencies):
-        """Test that 4+ symptoms should fail - maximum 3 allowed."""
+    def test_maximum_six_symptoms_allowed(self, mock_patient_dependencies):
+        """Test that 7+ symptoms should fail - maximum 6 allowed."""
         validate_symptoms = mock_patient_dependencies['validate_symptoms']
         
-        # Select 4 valid symptoms
-        four_symptoms = VALID_SYMPTOMS[:4]
+        # Select 7 valid symptoms
+        seven_symptoms = VALID_SYMPTOMS[:7]
         
         with pytest.raises(ValueError) as exc_info:
-            validate_symptoms(four_symptoms)
+            validate_symptoms(seven_symptoms)
         
-        assert "Between 1 and 3 symptoms must be selected" in str(exc_info.value)
+        assert "Between 1 and 6 symptoms must be selected" in str(exc_info.value)
     
     def test_exactly_one_symptom_valid(self, mock_patient_dependencies):
         """Test that exactly one valid symptom passes."""
@@ -212,6 +213,54 @@ class TestSymptomValidation:
         except ValueError as e:
             pytest.fail(f"Three valid symptoms should pass, but got: {e}")
     
+    def test_exactly_four_symptoms_valid(self, mock_patient_dependencies):
+        """Test that exactly four valid symptoms pass."""
+        validate_symptoms = mock_patient_dependencies['validate_symptoms']
+        
+        try:
+            validate_symptoms([
+                "Depression / Niedergeschlagenheit",
+                "Schlafstörungen",
+                "Ängste / Panikattacken",
+                "Burnout / Erschöpfung"
+            ])
+            # Should not raise
+        except ValueError as e:
+            pytest.fail(f"Four valid symptoms should pass, but got: {e}")
+    
+    def test_exactly_five_symptoms_valid(self, mock_patient_dependencies):
+        """Test that exactly five valid symptoms pass."""
+        validate_symptoms = mock_patient_dependencies['validate_symptoms']
+        
+        try:
+            validate_symptoms([
+                "Depression / Niedergeschlagenheit",
+                "Schlafstörungen",
+                "Ängste / Panikattacken",
+                "Burnout / Erschöpfung",
+                "Stress / Überforderung"
+            ])
+            # Should not raise
+        except ValueError as e:
+            pytest.fail(f"Five valid symptoms should pass, but got: {e}")
+    
+    def test_exactly_six_symptoms_valid(self, mock_patient_dependencies):
+        """Test that exactly six valid symptoms pass."""
+        validate_symptoms = mock_patient_dependencies['validate_symptoms']
+        
+        try:
+            validate_symptoms([
+                "Depression / Niedergeschlagenheit",
+                "Schlafstörungen",
+                "Ängste / Panikattacken",
+                "Burnout / Erschöpfung",
+                "Stress / Überforderung",
+                "Trauer / Verlust"
+            ])
+            # Should not raise
+        except ValueError as e:
+            pytest.fail(f"Six valid symptoms should pass, but got: {e}")
+    
     def test_mixed_valid_invalid_symptoms(self, mock_patient_dependencies):
         """Test that mix of valid and invalid symptoms should fail."""
         validate_symptoms = mock_patient_dependencies['validate_symptoms']
@@ -241,15 +290,18 @@ class TestSymptomValidation:
         except ValueError as e:
             pytest.fail(f"Duplicate symptoms should be allowed, but got: {e}")
         
-        # But 4 of the same should fail (exceeds max of 3)
+        # But 7 of the same should fail (exceeds max of 6)
         with pytest.raises(ValueError) as exc_info:
             validate_symptoms([
                 "Depression / Niedergeschlagenheit",
                 "Depression / Niedergeschlagenheit",
                 "Depression / Niedergeschlagenheit",
+                "Depression / Niedergeschlagenheit",
+                "Depression / Niedergeschlagenheit",
+                "Depression / Niedergeschlagenheit",
                 "Depression / Niedergeschlagenheit"
             ])
-        assert "Between 1 and 3 symptoms must be selected" in str(exc_info.value)
+        assert "Between 1 and 6 symptoms must be selected" in str(exc_info.value)
     
     def test_symptom_case_sensitive(self, mock_patient_dependencies):
         """Test that exact case match is required."""
