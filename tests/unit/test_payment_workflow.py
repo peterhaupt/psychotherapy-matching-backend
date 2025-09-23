@@ -324,7 +324,7 @@ class TestSymptomValidation:
         """Test the validate_symptoms function."""
         validate_symptoms = mock_patient_dependencies['validate_symptoms']
         
-        # Valid case: 1-3 symptoms from the list
+        # Valid case: 1-6 symptoms from the list
         valid_symptoms = ["Depression / Niedergeschlagenheit", "Ängste / Panikattacken"]
         try:
             validate_symptoms(valid_symptoms)  # Should not raise
@@ -336,12 +336,15 @@ class TestSymptomValidation:
             validate_symptoms([])
         
         # Invalid: too many symptoms
-        with pytest.raises(ValueError, match="Between 1 and 3 symptoms"):
+        with pytest.raises(ValueError, match="Between 1 and 6 symptoms"):
             validate_symptoms([
                 "Depression / Niedergeschlagenheit",
                 "Ängste / Panikattacken", 
                 "Burnout / Erschöpfung",
-                "Schlafstörungen"
+                "Schlafstörungen",
+                "Stress / Überforderung",
+                "Trauer / Verlust",
+                "Reizbarkeit / Wutausbrüche"
             ])
         
         # Invalid: wrong symptom
