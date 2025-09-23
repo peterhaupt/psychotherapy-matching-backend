@@ -1,19 +1,30 @@
-**Betreff:** {{ data.subject|default('Bestätigen Sie Ihre E-Mail-Adresse | Curavani') }}
+Hallo,
 
-Sehr geehrte Damen und Herren,
+vielen Dank für Ihr Interesse an unserer Therapieplatzsuche.
 
-vielen Dank für Ihre Registrierung bei Curavani.
+**Schritt 1 von 4: E-Mail-Adresse bestätigen**
 
-Um Ihre Registrierung abzuschließen, bestätigen Sie bitte Ihre E-Mail-Adresse.
+Um mit Ihrer Therapieplatzsuche zu beginnen, bestätigen Sie bitte Ihre E-Mail-Adresse:
 
-Klicken Sie dazu auf folgenden Link oder kopieren Sie ihn in die Adresszeile Ihres Browsers:
+[E-Mail-Adresse bestätigen]({{ verification_link }})
 
-[E-Mail-Adresse bestätigen]({{ data.verification_link }})
+Falls das Klicken auf den Link nicht funktioniert, kopieren Sie ihn einfach in Ihren Browser.
 
-**Dieser Link ist {{ data.expiry_minutes }} Minuten gültig.**
+**Was passiert nach der Bestätigung?**
+- Schritt 2: Persönliche Daten (5 Min.)
+- Schritt 3: Therapiebedarf angeben (5 Min.)  
+- Schritt 4: Service buchen & bezahlen (2 Min.)
 
-Falls Sie diese E-Mail nicht angefordert haben, können Sie sie einfach ignorieren.
+Dann starten wir sofort Ihre Therapieplatzsuche mit unserer Garantie:
+✓ Gruppentherapieplatz innerhalb 1 Monat
+✓ Einzeltherapieplatz innerhalb 3 Monaten
 
-Mit freundlichen Grüßen
+**Wichtig:** Dieser Link ist nur {{ expiry_minutes }} Minuten gültig.
 
-Ihr Curavani Team
+Bei Fragen erreichen Sie uns unter info@curavani.com oder 0151 46359691.
+
+Mit freundlichen Grüßen,
+Ihr Curavani-Team
+
+---
+Curavani | Die Plattform zur Vermittlung von Psychotherapieplätzen
