@@ -863,9 +863,9 @@ class TestPatientSuccessEmailsAndPDFs:
         
         # Check initial status
         print(f"Email {email_id} initial status: {email['status']}")
-        
-        # The email should be queued (In_Warteschlange)
-        assert email['status'] == 'In_Warteschlange'
+
+        # The email should be queued (In_Warteschlange) or being sent (Wird_gesendet)
+        assert email['status'] in ['In_Warteschlange', 'Wird_gesendet']
         
         # Wait for email queue processor to send it (runs every 30 seconds)
         print("Waiting for email queue processor to send the email...")

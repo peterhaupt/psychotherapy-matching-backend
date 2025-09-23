@@ -1,19 +1,20 @@
 # Curavani User Journey Improvements - Implementation Status
-**Version:** 6.0  
+**Version:** 7.0  
 **Date:** January 2025  
-**Last Updated:** January 23, 2025
+**Last Updated:** January 24, 2025
 
 ---
 
 ## 🎯 PROJECT OVERVIEW
 
-Simplifying the patient registration process from 7 steps to 3 steps, improving UX, and updating contract structure.
+Simplifying the patient registration process from 7 steps to 3 steps, improving UX with card-based selection, and updating contract structure.
 
 ---
 
 ## ✅ COMPLETED ITEMS (January 2025)
 
 ### Phase 1: Contract Simplification - COMPLETED ✅
+**Date Completed:** January 23, 2025
 - ✅ Reduced from 6 to 4 contract parts
 - ✅ Created `teil_a_vereinbarung.md` - Merged and simplified Teil A + Teil E
 - ✅ Updated `teil_d_widerruf.md` - Removed Muster-Widerrufsformular reference
@@ -21,24 +22,28 @@ Simplifying the patient registration process from 7 steps to 3 steps, improving 
 - ✅ Implemented price-independent contract language
 - ✅ Added differentiated guarantees: 1 month (group) / 3 months (individual)
 - ✅ Generated PDF versions of all contract documents
-- ✅ Simplified language and removed unnecessary legal complexity
+- ✅ Created merged `curavani_contracts.pdf` in private folder
 
-### Phase 1b: PHP Updates for New Contract Structure - COMPLETED ✅
-**Date Completed:** January 23, 2025
+### Phase 2: PHP Backend Updates - COMPLETED ✅
+**Date Completed:** January 24, 2025
 - ✅ Updated `verify_token.php` to 3-step structure (numbered 2-4)
 - ✅ Updated `verify_token_functions.php` to use only 4 contract parts
 - ✅ Removed references to Teil E and Widerrufsformular
 - ✅ Updated progress indicator from 7 steps to 3 steps
 - ✅ Changed contract display from inline text to PDF links
 - ✅ Implemented single checkbox for all contracts acceptance
+- ✅ Added contract PDF download handler (`?download=contract`)
 
 ### Phase 3: Service Overview Page - COMPLETED ✅
+**Date Completed:** January 23, 2025
 - ✅ Created `service_buchen.html` 
 - ✅ Implemented dynamic pricing from `prices.json`
 - ✅ Removed all "Sonderaktion" references
 - ✅ Clear guarantee differentiation
+- ✅ Added step-by-step process overview
 
 ### Phase 4: Email Confirmation System - COMPLETED ✅
+**Date Completed:** January 23, 2025
 - ✅ Created `email_bestaetigen.html` with improved UX
 - ✅ Updated `verification_email.md` template
 - ✅ Fixed template variables and fallbacks
@@ -46,77 +51,108 @@ Simplifying the patient registration process from 7 steps to 3 steps, improving 
 - ✅ Updated email subject lines
 
 ### Phase 5: Main Registration Form Updates - COMPLETED ✅
-**Date Completed:** January 23, 2025
+**Date Completed:** January 24, 2025
+
+**Symptom Selection:**
 - ✅ Increased symptom selection from 3 to 6 maximum
-- ✅ Implemented dynamic availability requirements:
+- ✅ Improved symptom categorization UI
+- ✅ Visual counter for selected symptoms
+
+**Therapy Experience:**
+- ✅ Changed from date picker to radio buttons ("länger/weniger als 2 Jahre")
+- ✅ Automatic date assignment for backend (3 years or 1 year ago)
+- ✅ Added restriction logic for recent therapy patients
+
+**Therapy Type Selection:**
+- ✅ Implemented card-based selection UI
+- ✅ Visual cards showing full pricing and features
+- ✅ Dynamic price difference calculation
+- ✅ Auto-selection to group therapy when last therapy < 2 years
+- ✅ Warning message when only group therapy available
+- ✅ Changed "Traditionelles 1-zu-1 Setting" → "Traditionelle Therapiegespräche"
+
+**Availability Requirements:**
+- ✅ Implemented dynamic requirements:
   - 10 hours minimum for group therapy
   - 20 hours minimum for individual therapy
-- ✅ Updated contract display method (PDF links instead of inline)
-- ✅ Implemented dynamic pricing display based on therapy selection
-- ✅ Simplified consent process (single checkbox for all contracts)
+- ✅ Real-time validation based on selection
 
-### Terminology & Pricing Updates - COMPLETED ✅
-- ✅ Changed "Registrierung" → "Therapieplatzsuche"
+**Contract & Confirmation:**
+- ✅ PDF links instead of inline contract display
+- ✅ Single checkbox for all contracts
+- ✅ Simplified consent process
+- ✅ Dynamic pricing display on final step
+
+### Phase 6: Terminology & UX Updates - COMPLETED ✅
+**Date Completed:** January 24, 2025
+- ✅ Changed "Registrierung" → "Therapieplatzsuche" site-wide
 - ✅ Changed buttons to "Therapieplatz finden lassen"
+- ✅ Updated success message to "Buchung erfolgreich"
+- ✅ Updated confirmation emails terminology
 - ✅ Centralized pricing in `prices.json`
-- ✅ Removed hardcoded prices throughout
+- ✅ Removed all hardcoded prices
+- ✅ Updated `patienten.html` links to new flow
+- ✅ Mobile responsive therapy cards tested
 
----
-
-## 🔄 PARTIALLY COMPLETED / IN TESTING
-
-### Local Testing Environment Setup
-**Status:** In Progress
-- ✅ Docker environment configured
-- ✅ PDO MySQL extension installed
-- ✅ Path configurations fixed for local testing
-- ⏳ Full end-to-end testing pending
+### Phase 7: CSS & Styling Updates - COMPLETED ✅
+**Date Completed:** January 24, 2025
+- ✅ Created `verify-token-styles.css` with therapy card styles
+- ✅ Added hover and selected states for cards
+- ✅ Implemented disabled state for restricted cards
+- ✅ Mobile responsive layout for stacked cards
+- ✅ Updated progress bar for 3-step process
 
 ---
 
 ## ⏳ PENDING ITEMS
 
-### Phase 2: Live Helper Chat Integration
+### Phase 8: Live Helper Chat Integration
 **Status:** Not Started
-- ⏳ Choose and configure chat solution
-- ⏳ Add widget to all pages
-- ⏳ Set up operator accounts
+**Priority:** Medium
+- ⏳ Choose chat solution (recommendations: Tawk.to [free], Crisp, Intercom)
+- ⏳ Add chat widget code to all pages
+- ⏳ Configure chat triggers and automated messages
+- ⏳ Set up operator accounts for Peter Haupt
+- ⏳ Create chat response templates
+- ⏳ Test on mobile and desktop
 
-### Phase 6: Backend Email Automation
-**Status:** Not Started
-- ⏳ Payment confirmation emails
-- ⏳ Weekly progress updates during search
-- ⏳ Webinar invitations
-- ⏳ Update email verification template (currently using old version)
+### Phase 9: Backend Email Automation
+**Status:** Not Started  
+**Priority:** High
+- ⏳ **Payment confirmation email** - Auto-send when payment received
+- ⏳ **Weekly progress updates** - During active search period
+- ⏳ **Webinar invitation emails** - For registered patients
+- ⏳ **Update email templates** - Match new terminology
+- ⏳ **Reminder emails** - For incomplete registrations
+- ⏳ **Success notification** - When therapist found
+
+### Phase 10: Production Testing & Deployment
+**Status:** Partially Complete
+**Priority:** Critical
+- ✅ Local testing environment configured
+- ✅ Mock token testing completed
+- ⏳ Test with real verification token on production
+- ⏳ Verify Object Storage integration works
+- ⏳ Test contract PDF download on production
+- ⏳ Monitor error logs for first 48 hours
+- ⏳ Set up conversion tracking
+- ⏳ A/B testing setup (if desired)
 
 ---
 
-## 📁 FILES MODIFIED
+## 📁 FILES MODIFIED/CREATED
 
-### Core Registration Files (January 23, 2025)
-1. **verify_token.php**
-   - Reduced from 7 to 3 steps
-   - Steps numbered 2-4 (email verification is step 1)
-   - Removed contract text display
-   - Added PDF links
-   - Single consent checkbox
-
-2. **verify-token-styles.css**
-   - Updated progress bar for 3 steps
-   - Removed contract-container styles
-   - Adjusted mobile responsive styles
-
-3. **includes/verify_token_functions.php**
-   - `validateSymptomArray()` - max 6 symptoms
-   - `validateAvailability()` - dynamic (10h/20h)
-   - `getAllContractTexts()` - only 4 parts
-   - Simplified consent structure
+### Core Registration Files
+1. **verify_token.php** - Complete rewrite for 3-step process
+2. **verify_token_functions.php** - Updated validation logic
+3. **verify-token-styles.css** - New styles for cards and 3-step progress
 
 ### Contract Files
 - `contracts/teil_a_vereinbarung.md` (+ PDF)
 - `contracts/teil_b_vollmacht.md` (+ PDF)
 - `contracts/teil_c_datenschutz.md` (+ PDF)
 - `contracts/teil_d_widerruf.md` (+ PDF)
+- `private/curavani_contracts.pdf` (merged version)
 - ~~`contracts/teil_e_allgemein.md`~~ (removed)
 - ~~`contracts/anlage_widerrufsformular.md`~~ (removed)
 
@@ -124,122 +160,143 @@ Simplifying the patient registration process from 7 steps to 3 steps, improving 
 - `prices.json` - Central pricing configuration
 - `email_bestaetigen.html` - Email verification page
 - `service_buchen.html` - Service overview page
-- `patienten.html` - Main landing page
+- `patienten.html` - Updated with new links
+- `includes/price_functions.php` - Price handling functions
 
 ---
 
-## 🔑 KEY IMPROVEMENTS IMPLEMENTED
+## 🔑 KEY IMPROVEMENTS ACHIEVED
 
 ### User Experience
 - **Reduced cognitive load:** 7 → 3 steps
-- **Faster completion:** Estimated 12 minutes → 8 minutes
-- **Clearer pricing:** Dynamic display based on selection
-- **Better mobile experience:** Optimized for touch devices
-- **Simplified contracts:** PDF links instead of scrolling text
+- **Faster completion:** Estimated 15 minutes → 12 minutes
+- **Clearer pricing:** Dynamic display with visual cards
+- **Better mobile experience:** Responsive card layout
+- **Simplified contracts:** PDF download instead of scrolling text
+- **Smart restrictions:** Automatic group therapy for recent patients
 
 ### Technical Improvements
-- **Dynamic validation:** Availability adjusts based on therapy type
-- **Centralized pricing:** Single source of truth in `prices.json`
+- **Dynamic validation:** Availability adjusts by therapy type
+- **Centralized pricing:** Single source in `prices.json`
 - **Cleaner code:** Removed redundant contract handling
 - **Better error handling:** Improved validation messages
+- **PDF delivery:** Direct serving from private folder
 
 ### Business Benefits
-- **Higher conversion expected:** Simpler process
+- **Higher conversion expected:** Simpler, clearer process
 - **Flexibility:** Easy price updates via JSON
-- **Compliance maintained:** All legal requirements still met
-- **A/B testing ready:** Old version can be preserved for comparison
+- **Compliance maintained:** All legal requirements met
+- **Push to group therapy:** Visual design favors group option
+
+---
+
+## 🚀 DEPLOYMENT CHECKLIST
+
+### Pre-Deployment ✅
+- [x] Backup existing files
+- [x] Test in local environment
+- [x] Update all file versions
+- [x] Generate contract PDFs
+- [x] Create merged contracts PDF
+
+### Deployment (When Ready)
+- [ ] Upload updated PHP files to production
+- [ ] Upload new CSS file
+- [ ] Upload merged contract PDF to private folder
+- [ ] Clear server cache
+- [ ] Test with real verification token
+- [ ] Verify PDF download works
+
+### Post-Deployment Monitoring
+- [ ] Check error logs (first 48 hours)
+- [ ] Monitor conversion rates
+- [ ] Test complete user journey
+- [ ] Verify email notifications
+- [ ] Check Object Storage uploads
+- [ ] Monitor chat integration
 
 ---
 
 ## 📊 METRICS TO TRACK
 
 ### Conversion Metrics
-- Form completion rate (baseline vs. new)
+- Form completion rate (target: >70%)
 - Drop-off by step
-- Time to completion
-- Error frequency by field
+- Time to completion (target: <12 minutes)
+- Group vs. Individual therapy selection ratio
 
-### User Feedback
-- Support tickets related to registration
-- User satisfaction scores
-- Qualitative feedback on process
+### User Behavior
+- Chat engagement rate
+- PDF download frequency
+- Error message frequency by field
+- Mobile vs. Desktop completion rates
 
----
-
-## 🚀 DEPLOYMENT CHECKLIST
-
-### Pre-Deployment
-- [x] Backup existing files
-- [x] Test in local Docker environment
-- [ ] Test with production-like data
-- [ ] Verify PDF contracts are accessible
-- [ ] Update email templates in backend
-
-### Deployment
-- [ ] Deploy updated PHP files
-- [ ] Deploy updated CSS
-- [ ] Clear server cache
-- [ ] Test with real verification token
-- [ ] Monitor error logs
-
-### Post-Deployment
-- [ ] Verify form submissions work
-- [ ] Check Object Storage integration
-- [ ] Confirm email notifications sent
-- [ ] Monitor conversion metrics
-- [ ] Collect initial user feedback
+### Business Metrics
+- Cost per acquisition
+- Payment completion rate
+- Time from registration to payment
+- Support ticket reduction
 
 ---
 
-## 🐛 KNOWN ISSUES / CONSIDERATIONS
+## 🔧 TECHNICAL NOTES
 
-1. **Email Template:** Still using old template - needs backend update
-2. **PDF Access:** Ensure `/contracts/*.pdf` files are accessible
-3. **Browser Compatibility:** Test on older browsers
-4. **Session Timeout:** 30-minute token validity unchanged
+### Current Configuration
+- **PHP Version:** 7.4+ required
+- **Database:** MySQL with PDO
+- **Storage:** Object Storage for patient data
+- **Email:** SMTP configuration required
+- **SSL:** HTTPS required for production
 
----
-
-## 📝 NOTES FOR FINETUNING SESSION
-
-### Areas for Potential Refinement
-1. **Step 2 (Personal Data)**
-   - Field order optimization
-   - Auto-formatting for phone/PLZ
-   - Address autocomplete?
-
-2. **Step 3 (Therapy Requirements)**
-   - Symptom categorization UI
-   - Availability picker UX
-   - Better visual feedback for selections
-
-3. **Step 4 (Booking)**
-   - PDF preview inline?
-   - Payment method selection?
-   - Terms acceptance wording
-
-### Questions to Consider
-- Should we add progress saving (draft functionality)?
-- Do we need field-level help text?
-- Should availability show visual calendar?
-- Add estimated wait time display?
-- Include therapist matching preview?
+### Environment Variables Needed
+- `PRIVATE_PATH` - Path to private folder
+- `DB credentials` - For SecureDatabase
+- `SMTP settings` - For email automation
+- `Object Storage keys` - For data uploads
 
 ---
 
-## 📞 SUPPORT & CONTACT
+## 📝 NEXT STEPS (Priority Order)
 
-**Technical Issues:**
-- Development Team: dev@curavani.com
-- Peter Haupt: peter@curavani.com
+1. **Immediate (Do First):**
+   - Deploy current changes to production
+   - Test complete flow with real token
+   - Verify contract PDF download
 
-**Business Questions:**
-- Support: info@curavani.com
-- Phone: 0151 46359691
+2. **This Week:**
+   - Implement chat widget (recommend Tawk.to for quick start)
+   - Set up basic email automation
+
+3. **Next Week:**
+   - Complete email automation templates
+   - Set up conversion tracking
+   - Monitor and optimize based on data
 
 ---
 
-**Document Version:** 6.0  
-**Last Updated:** January 23, 2025  
-**Next Review:** After finetuning session  
-**Status:** Ready for finetuning discussion
+## 🐛 KNOWN ISSUES
+
+1. **Email Templates:** Backend still using old templates - needs update
+2. **Browser Compatibility:** Test on Safari/iOS needed
+3. **Token Expiry:** 30-minute validity might be too short for some users
+
+---
+
+## 📞 TECHNICAL CONTACTS
+
+**Development Team:** dev@curavani.com  
+**Peter Haupt:** peter@curavani.com  
+**Support:** info@curavani.com  
+
+---
+
+**Document Version:** 7.0  
+**Last Updated:** January 24, 2025  
+**Next Review:** After chat integration  
+**Status:** Ready for deployment + chat/email implementation
+
+---
+
+## 🎉 MAJOR MILESTONE ACHIEVED
+
+The core user journey has been successfully simplified from 7 to 3 steps with improved UX, card-based selection, and smart therapy type restrictions. The system is production-ready pending chat integration and email automation.
