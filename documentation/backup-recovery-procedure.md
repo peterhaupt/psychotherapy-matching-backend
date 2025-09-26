@@ -113,6 +113,8 @@ ssh -L 8011:localhost:8011 -L 8012:localhost:8012 -L 8013:localhost:8013 -L 8014
 
 ### 5.2 Manual Data Verification
 
+# only works at the moment in Google Chrome
+
 http://192.168.64.5:3001
 
 #### Check Three Patients

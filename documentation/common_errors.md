@@ -38,6 +38,89 @@ docker-compose logs matching_service-dev
 
 ---
 
+## Docker DNS Resolution Failure in Linux VM
+
+### Error
+```
+ERROR: unable to select packages:
+  bash (no such package):
+    required by: world[bash]
+WARNING: fetching https://dl-cdn.alpinelinux.org/alpine/v3.18/main: temporary error (try again later)
+```
+
+### Symptoms
+- Docker builds fail with Alpine package fetch errors
+- Container DNS works on macOS (Docker Desktop) but not on Linux VM
+- `apk add` commands fail during Docker build
+- Error only occurs during build, not when pulling images
+
+### Cause
+Docker containers on Linux VM cannot resolve DNS through the configured nameserver (often a local router like FritzBox at 192.168.64.1). This happens because:
+
+1. **Docker Desktop (macOS)** provides its own DNS resolver at `192.168.65.7` that proxies to host DNS
+2. **Docker Engine (Linux)** uses the VM's DNS directly, which might be:
+   - A router (FritzBox) that refuses queries from Docker's bridge network
+   - systemd-resolved (`127.0.0.53`) that only listens on loopback
+   - VMware Fusion's gateway that doesn't provide DNS service
+
+### Diagnosis
+```bash
+# Check what DNS your VM uses
+cat /etc/resolv.conf
+
+# Test DNS from host (should work)
+curl -I https://dl-cdn.alpinelinux.org/alpine/v3.18/main/aarch64/APKINDEX.tar.gz
+
+# Check Docker's DNS configuration
+docker run --rm alpine cat /etc/resolv.conf
+
+# Test DNS inside container (will fail)
+docker run --rm alpine nslookup dl-cdn.alpinelinux.org
+
+# Test with public DNS (should work)
+docker run --rm alpine nslookup dl-cdn.alpinelinux.org 8.8.8.8
+```
+
+### Solution
+Configure Docker to use public DNS servers:
+
+```bash
+# Create Docker daemon configuration
+sudo tee /etc/docker/daemon.json << 'EOF'
+{
+  "dns": ["8.8.8.8", "8.8.4.4", "1.1.1.1"]
+}
+EOF
+
+# Restart Docker to apply changes
+sudo systemctl restart docker
+
+# Verify the fix
+docker run --rm alpine nslookup dl-cdn.alpinelinux.org
+
+# Retry your build
+make build-test
+```
+
+### Why This Happens
+- **FritzBox/Router DNS**: Routers often restrict DNS queries to specific IP ranges, blocking Docker's bridge network (`172.17.0.0/16`)
+- **systemd-resolved**: Only listens on loopback, unreachable from containers
+- **VMware DNS**: Gateway IP might not run a DNS service
+- **Recent changes**: Router firmware updates, Docker updates, or Ubuntu systemd updates can break previously working configurations
+
+### Prevention
+- Always configure Docker daemon with explicit DNS on Linux VMs
+- Use public DNS servers for reliability
+- Document the configuration in your setup procedures
+- Include DNS configuration in VM provisioning scripts
+
+### Alternative Solutions
+1. **Configure router** to accept DNS from Docker's subnet (if you have admin access)
+2. **Use host networking** for builds: `docker build --network=host` (not recommended)
+3. **Add DNS to each build**: `docker build --build-arg DNS=8.8.8.8` (requires Dockerfile changes)
+
+---
+
 ## Cross-Service API Timeout
 
 ### Error
