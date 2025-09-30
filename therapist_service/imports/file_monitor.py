@@ -19,7 +19,8 @@ class LocalFileMonitor:
     
     - Processes files from scraper output directory
     - Runs once every 24 hours
-    - For each ZIP code, processes only the latest file
+    - For urgent files: processes all files from urgent_processed directory
+    - For regular files: processes only the latest file per ZIP code from date folders
     - Handles errors gracefully and sends notifications
     """
     
@@ -42,11 +43,18 @@ class LocalFileMonitor:
         except ValueError:
             raise ValueError(f"THERAPIST_IMPORT_CHECK_INTERVAL_SECONDS must be a valid integer, got: {check_interval_str}")
         
+        # Determine urgent path based on base_path
+        # If base_path is /scraping_data, urgent_path is /scraping_data_urgent
+        base_dir = os.path.dirname(self.base_path.rstrip('/'))
+        base_name = os.path.basename(self.base_path.rstrip('/'))
+        self.urgent_path = os.path.join(base_dir, f"{base_name}_urgent")
+        
         # Initialize importer
         self.importer = TherapistImporter()
         
         logger.info(f"Local File Monitor initialized")
         logger.info(f"Base path: {self.base_path}")
+        logger.info(f"Urgent path: {self.urgent_path}")
         logger.info(f"Check interval: {self.check_interval} seconds ({self.check_interval / 3600} hours)")
     
     def run(self):
@@ -76,58 +84,120 @@ class LocalFileMonitor:
             time.sleep(self.check_interval)
     
     def _process_latest_files(self):
-        """Find and process the latest file for each ZIP code."""
+        """Find and process urgent files first, then regular files."""
         logger.info("Starting daily therapist import run...")
-        
-        # Find all JSON files grouped by ZIP code
-        files_by_zip = self._find_files_by_zip()
-        
-        if not files_by_zip:
-            logger.info("No files found to process")
-            return
-        
-        logger.info(f"Found files for {len(files_by_zip)} ZIP codes")
         
         # Track errors across all files
         all_errors = []
         total_processed = 0
         total_failed = 0
         
-        # Process the latest file for each ZIP code
-        for zip_code, files in files_by_zip.items():
-            # Sort by date folder (newest first)
-            files.sort(key=lambda x: x[0], reverse=True)
+        # STEP 1: Process urgent files first (if directory exists)
+        urgent_files = self._find_urgent_files()
+        if urgent_files:
+            logger.info(f"[URGENT] Found {len(urgent_files)} urgent files to process")
             
-            # Get the latest file
-            date_folder, file_path = files[0]
-            logger.info(f"Processing ZIP {zip_code}: {date_folder}/{os.path.basename(file_path)}")
+            for file_path in urgent_files:
+                # Extract ZIP code from filename
+                zip_code = os.path.basename(file_path).replace('.json', '')
+                logger.info(f"[URGENT] Processing urgent file: {zip_code}")
+                
+                # Process the file
+                file_errors = self._process_file(file_path, zip_code)
+                
+                if file_errors:
+                    all_errors.extend(file_errors)
+                    total_failed += len(file_errors)
+                
+                # Count total therapists processed (including failures)
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                        therapist_count = len(data.get('therapists', []))
+                        total_processed += therapist_count
+                        ImportStatus.record_file_processed(
+                            f"URGENT/{os.path.basename(file_path)}",
+                            therapist_count,
+                            len(file_errors)
+                        )
+                except:
+                    pass
+        else:
+            logger.info("[URGENT] No urgent files found or urgent directory does not exist")
+        
+        # STEP 2: Process regular files (existing behavior)
+        files_by_zip = self._find_files_by_zip()
+        
+        if not files_by_zip:
+            logger.info("No regular files found to process")
+        else:
+            logger.info(f"Found files for {len(files_by_zip)} ZIP codes")
             
-            # Process the file
-            file_errors = self._process_file(file_path, zip_code)
-            
-            if file_errors:
-                all_errors.extend(file_errors)
-                total_failed += len(file_errors)
-            
-            # Count total therapists processed (including failures)
-            try:
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    therapist_count = len(data.get('therapists', []))
-                    total_processed += therapist_count
-                    ImportStatus.record_file_processed(
-                        f"{date_folder}/{os.path.basename(file_path)}",
-                        therapist_count,
-                        len(file_errors)
-                    )
-            except:
-                pass
+            # Process the latest file for each ZIP code
+            for zip_code, files in files_by_zip.items():
+                # Sort by date folder (newest first)
+                files.sort(key=lambda x: x[0], reverse=True)
+                
+                # Get the latest file
+                date_folder, file_path = files[0]
+                logger.info(f"Processing ZIP {zip_code}: {date_folder}/{os.path.basename(file_path)}")
+                
+                # Process the file
+                file_errors = self._process_file(file_path, zip_code)
+                
+                if file_errors:
+                    all_errors.extend(file_errors)
+                    total_failed += len(file_errors)
+                
+                # Count total therapists processed (including failures)
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                        therapist_count = len(data.get('therapists', []))
+                        total_processed += therapist_count
+                        ImportStatus.record_file_processed(
+                            f"{date_folder}/{os.path.basename(file_path)}",
+                            therapist_count,
+                            len(file_errors)
+                        )
+                except:
+                    pass
         
         # Send summary notification if there were errors
         if all_errors:
             self._send_error_summary(all_errors, total_processed, total_failed)
         
         logger.info(f"Daily import run completed. Processed: {total_processed}, Failed: {total_failed}")
+    
+    def _find_urgent_files(self) -> List[str]:
+        """Find all urgent JSON files in the urgent directory.
+        
+        Returns:
+            List of full file paths to urgent JSON files
+        """
+        urgent_files = []
+        
+        # Check if urgent directory exists
+        if not os.path.exists(self.urgent_path):
+            logger.debug(f"[URGENT] Urgent directory does not exist: {self.urgent_path}")
+            return urgent_files
+        
+        try:
+            # List all JSON files in the urgent directory
+            for filename in os.listdir(self.urgent_path):
+                if filename.endswith('.json'):
+                    file_path = os.path.join(self.urgent_path, filename)
+                    if os.path.isfile(file_path):
+                        urgent_files.append(file_path)
+                        logger.debug(f"[URGENT] Found urgent file: {filename}")
+            
+            # Sort for consistent ordering (by ZIP code)
+            urgent_files.sort()
+            
+        except Exception as e:
+            logger.error(f"[URGENT] Error scanning urgent directory: {str(e)}")
+        
+        return urgent_files
     
     def _find_files_by_zip(self) -> Dict[str, List[Tuple[str, str]]]:
         """Find all JSON files grouped by ZIP code.

@@ -204,6 +204,7 @@ services:
       - "${THERAPIST_SERVICE_PORT}:${THERAPIST_SERVICE_INTERNAL_PORT}"
     volumes:
       - ../curavani_scraping/data/processed:/scraping_data:ro
+      - ../curavani_scraping/data/urgent_processed:/scraping_data_urgent:ro
       - ./data/therapist_pdfs:/data/therapist_pdfs
     depends_on:
       pgbouncer-prod:

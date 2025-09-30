@@ -198,6 +198,7 @@ services:
       - ./therapist_service:/app
       - ./shared:/app/shared
       - ../curavani_scraping/data/processed:/scraping_data:ro
+      - ../curavani_scraping/data/urgent_processed:/scraping_data_urgent:ro
       - ./data/therapist_pdfs:/data/therapist_pdfs
     depends_on:
       pgbouncer:
