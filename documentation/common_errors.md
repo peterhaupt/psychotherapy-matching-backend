@@ -38,6 +38,137 @@ docker-compose logs matching_service-dev
 
 ---
 
+## Test Data Not Properly Cleaned Up
+
+### Error
+```
+AssertionError: assert 18584 in []
+# Test therapists not found in API results
+# Tests fail because expected test data is missing
+```
+
+### Symptoms
+- Tests create therapists/patients but they don't appear in query results
+- Tests pass individually but fail when run multiple times
+- Database accumulates orphaned test data (1000+ records)
+- New test data not returned due to API pagination limits
+- Test failures increase over time as database fills up
+
+### Cause
+**Cleanup code doesn't execute when tests fail:**
+
+```python
+def test_something(self):
+    therapist1 = self.create_test_therapist(plz="52064")
+    therapist2 = self.create_test_therapist(plz="52064")
+    
+    response = requests.get(f"{BASE_URL}/therapeuten-zur-auswahl?plz_prefix=52")
+    therapist_ids = [t['id'] for t in response.json()['data']]
+    
+    assert therapist1['id'] in therapist_ids  # ❌ FAILS HERE
+    
+    # Cleanup - THIS NEVER RUNS because test failed above!
+    self.safe_delete_therapist(therapist1['id'])
+    self.safe_delete_therapist(therapist2['id'])
+```
+
+**The accumulation cycle:**
+1. Test run 1: Creates 3 therapists → Test fails → Cleanup doesn't run → **3 orphaned therapists**
+2. Test run 2: Creates 3 more → Test fails again → **6 orphaned therapists**
+3. After 333 runs: **1000+ orphaned therapists in database**
+4. API returns max 1000 results → New test therapists not included → Tests fail
+
+### Solution
+Use a **fake postcode** for all test data and **cleanup BEFORE tests run** using pytest fixtures:
+
+```python
+class TestMatchingServiceAPI:
+    """Test class for Matching Service API endpoints."""
+    
+    # Use fake postcode that doesn't exist in Germany
+    TEST_PLZ_PREFIX = "99"
+    TEST_PLZ_BASE = "99999"
+    TEST_CITY = "Teststadt"
+    
+    @classmethod
+    def setup_class(cls):
+        """Setup test class - clean up any existing test data."""
+        print("\n" + "="*60)
+        print("CLEANING UP TEST DATA BEFORE TESTS START")
+        print("="*60)
+        cls.cleanup_test_therapists()
+        print("="*60 + "\n")
+    
+    @classmethod
+    def cleanup_test_therapists(cls):
+        """Delete all therapists with test PLZ prefix."""
+        try:
+            # Get all therapists with test PLZ
+            response = requests.get(
+                f"{THERAPIST_BASE_URL}/therapists",
+                params={"plz_prefix": cls.TEST_PLZ_PREFIX, "limit": 10000}
+            )
+            
+            if response.status_code == 200:
+                therapists = response.json().get('data', [])
+                print(f"Found {len(therapists)} test therapists to clean up")
+                
+                for therapist in therapists:
+                    delete_response = requests.delete(
+                        f"{THERAPIST_BASE_URL}/therapists/{therapist['id']}"
+                    )
+                    if delete_response.status_code == 200:
+                        print(f"✓ Deleted test therapist {therapist['id']}")
+                    else:
+                        print(f"✗ Failed to delete therapist {therapist['id']}")
+                        
+                print(f"Cleanup complete: {len(therapists)} therapists removed")
+        except Exception as e:
+            print(f"Error during cleanup: {str(e)}")
+    
+    def create_test_therapist(self, **kwargs):
+        """Create therapist with test postcode."""
+        # Always use test postcode
+        if 'plz' not in kwargs:
+            kwargs['plz'] = self.TEST_PLZ_BASE
+        if 'ort' not in kwargs:
+            kwargs['ort'] = self.TEST_CITY
+            
+        # Create therapist
+        response = requests.post(f"{THERAPIST_BASE_URL}/therapists", json=kwargs)
+        assert response.status_code == 201
+        return response.json()
+```
+
+### Key Benefits
+1. **Complete isolation**: Test data clearly separated from real data by fake postcode
+2. **Guaranteed cleanup**: Runs BEFORE tests start, not after (when failures prevent execution)
+3. **No accumulation**: Always starts with clean slate
+4. **No API limits**: Won't hit pagination limits with old test data
+5. **Easy identification**: All test data uses same recognizable postcode
+
+### Fake Postcode Selection
+- **99999**: Not used in real German postcodes
+- **12345**: Classic test number, clearly fake
+- **00000**: Outside valid range
+
+**Recommendation**: Use **99999** - memorable and definitely not real.
+
+### Alternative Solutions (Not Recommended)
+1. **Pytest fixtures with yield**: Still fails if test crashes before yield
+2. **try/finally blocks**: Still fails if assertion raises exception
+3. **Separate test database**: Overhead of maintaining separate DB
+4. **Manual cleanup scripts**: Requires remembering to run them
+
+### Prevention
+- Always use fake postcodes/identifiers for test data
+- Implement cleanup in `setup_class()` or `setup_method()`, not in teardown
+- Use recognizable test data patterns (e.g., email@test.com, plz=99999)
+- Monitor test database size for accumulation
+- Document test data patterns in test README
+
+---
+
 ## Docker DNS Resolution Failure in Linux VM
 
 ### Error
