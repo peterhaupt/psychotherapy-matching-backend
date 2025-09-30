@@ -5,8 +5,9 @@ All tests here should pass once Phase 2 and Phase 3 are complete.
 
 NOTE: Email sending tests are temporarily commented out to avoid bounce messages in test environment.
 
-UPDATED: Now uses unique email domains per test to avoid conflicts with existing test data.
-Each email gets its own unique domain (e.g., test-a1b2c3d4.local) to ensure complete isolation.
+UPDATED: Now uses fake PLZ codes (99xxx) for complete test isolation.
+All test therapists and patients use PLZ 99xxx to avoid conflicts with real data.
+Test data is automatically cleaned up before each test run.
 """
 import pytest
 import requests
@@ -24,10 +25,16 @@ COMMUNICATION_BASE_URL = os.environ["COMMUNICATION_API_URL"]
 
 class TestMatchingServiceAPI:
     """Test class for Matching Service API endpoints."""
+    
+    # Test PLZ codes - fake postal codes not used in Germany for test isolation
+    TEST_PLZ_PREFIX = "99"
+    TEST_PLZ_BASE = "99000"
+    TEST_PLZ_VARIANTS = ["99001", "99002", "99003", "99004", "99005"]
+    TEST_CITY = "Teststadt"
 
     @classmethod
     def setup_class(cls):
-        """Setup test class - wait for service to be ready."""
+        """Setup test class - wait for service to be ready and clean up test data."""
         max_retries = 30
         for i in range(max_retries):
             try:
@@ -40,6 +47,52 @@ class TestMatchingServiceAPI:
             time.sleep(1)
         else:
             pytest.fail("Matching service did not start in time")
+        
+        # Clean up all test therapists and patients before tests
+        print(f"\nCleaning up test data with PLZ prefix {cls.TEST_PLZ_PREFIX}...")
+        cls.cleanup_test_therapists()
+        cls.cleanup_test_patients()
+        print("Test data cleanup complete\n")
+
+    @classmethod
+    def cleanup_test_therapists(cls):
+        """Delete all therapists with test PLZ prefix."""
+        try:
+            response = requests.get(
+                f"{THERAPIST_BASE_URL}/therapists?plz_prefix={cls.TEST_PLZ_PREFIX}&limit=10000"
+            )
+            if response.status_code == 200:
+                data = response.json()
+                therapists = data.get('data', [])
+                for therapist in therapists:
+                    try:
+                        requests.delete(f"{THERAPIST_BASE_URL}/therapists/{therapist['id']}")
+                    except:
+                        pass
+                print(f"Cleaned up {len(therapists)} test therapists")
+        except Exception as e:
+            print(f"Warning: Could not cleanup test therapists: {e}")
+    
+    @classmethod
+    def cleanup_test_patients(cls):
+        """Delete all patients with test PLZ prefix."""
+        try:
+            response = requests.get(
+                f"{PATIENT_BASE_URL}/patients?limit=10000"
+            )
+            if response.status_code == 200:
+                data = response.json()
+                patients = data.get('data', [])
+                # Filter for test PLZ
+                test_patients = [p for p in patients if p.get('plz', '').startswith(cls.TEST_PLZ_PREFIX)]
+                for patient in test_patients:
+                    try:
+                        requests.delete(f"{PATIENT_BASE_URL}/patients/{patient['id']}")
+                    except:
+                        pass
+                print(f"Cleaned up {len(test_patients)} test patients")
+        except Exception as e:
+            print(f"Warning: Could not cleanup test patients: {e}")
 
     def generate_unique_email(self, prefix="test"):
         """Generate a unique email address with its own domain for complete test isolation.
@@ -52,14 +105,20 @@ class TestMatchingServiceAPI:
         return f"{prefix}@test-{unique_id}.local"
 
     def create_test_patient(self, **kwargs):
-        """Helper to create a test patient with Phase 2 format."""
+        """Helper to create a test patient with Phase 2 format and fake PLZ by default."""
+        # Use fake PLZ unless explicitly overridden
+        if 'plz' not in kwargs:
+            kwargs['plz'] = self.TEST_PLZ_BASE
+        if 'ort' not in kwargs:
+            kwargs['ort'] = self.TEST_CITY
+        
         default_data = {
             "anrede": "Herr",
             "geschlecht": "männlich",
             "vorname": "Test",
             "nachname": "Patient",
-            "plz": "52064",
-            "ort": "Aachen",
+            "plz": kwargs.get('plz', self.TEST_PLZ_BASE),
+            "ort": kwargs.get('ort', self.TEST_CITY),
             "email": self.generate_unique_email("patient"),
             "telefon": "+49 123 456789",
             "strasse": "Teststraße 123",
@@ -83,7 +142,13 @@ class TestMatchingServiceAPI:
         return response.json()
 
     def create_test_therapist(self, **kwargs):
-        """Helper to create a test therapist with unique email by default."""
+        """Helper to create a test therapist with unique email and fake PLZ by default."""
+        # Use fake PLZ unless explicitly overridden
+        if 'plz' not in kwargs:
+            kwargs['plz'] = self.TEST_PLZ_BASE
+        if 'ort' not in kwargs:
+            kwargs['ort'] = self.TEST_CITY
+        
         # Only generate unique email if 'email' key is not provided at all
         # If email=None is explicitly passed, it will be kept as None
         if 'email' not in kwargs:
@@ -94,8 +159,8 @@ class TestMatchingServiceAPI:
             "geschlecht": "männlich",
             "vorname": "Test",
             "nachname": "Therapeut",
-            "plz": "52062",
-            "ort": "Aachen",
+            "plz": kwargs.get('plz', self.TEST_PLZ_BASE),
+            "ort": kwargs.get('ort', self.TEST_CITY),
             "telefon": "+49 241 123456",
             "status": "aktiv",
             "potenziell_verfuegbar": True,
@@ -299,6 +364,8 @@ class TestMatchingServiceAPI:
             "geschlecht": "weiblich",
             "vorname": "No",
             "nachname": "Symptoms",
+            "plz": self.TEST_PLZ_BASE,
+            "ort": self.TEST_CITY,
             "email": self.generate_unique_email("no-symptoms"),
             "geburtsdatum": "1990-01-01",
             "symptome": [],  # Empty array
@@ -533,13 +600,13 @@ class TestMatchingServiceAPI:
         """Test getting therapists for selection with PLZ filter and deduplication."""
         # Create therapists with unique emails using unique domains
         therapist1 = self.create_test_therapist(
-            plz="52064",
+            plz="99064",
             potenziell_verfuegbar=True,
             ueber_curavani_informiert=True,
             nachname="TestTherapist1"
         )
         therapist2 = self.create_test_therapist(
-            plz="52062",
+            plz="99062",
             potenziell_verfuegbar=True,
             ueber_curavani_informiert=False,
             nachname="TestTherapist2"
@@ -549,12 +616,12 @@ class TestMatchingServiceAPI:
             nachname="TestTherapist3"
         )
         
-        # Get therapists with PLZ prefix 52
-        response = requests.get(f"{BASE_URL}/therapeuten-zur-auswahl?plz_prefix=52")
+        # Get therapists with PLZ prefix 99
+        response = requests.get(f"{BASE_URL}/therapeuten-zur-auswahl?plz_prefix=99")
         assert response.status_code == 200
         
         data = response.json()
-        assert data['plz_prefix'] == "52"
+        assert data['plz_prefix'] == "99"
         therapists = data['data']
         
         # Find our test therapists in the results
@@ -563,7 +630,7 @@ class TestMatchingServiceAPI:
             if t['id'] in [therapist1['id'], therapist2['id'], therapist3['id']]
         ]
         
-        # Verify only therapists with PLZ 52xxx are returned
+        # Verify only therapists with PLZ 99xxx are returned
         our_therapist_ids = [t['id'] for t in our_therapists]
         assert therapist1['id'] in our_therapist_ids
         assert therapist2['id'] in our_therapist_ids
@@ -577,14 +644,14 @@ class TestMatchingServiceAPI:
     def test_therapeuten_zur_auswahl_email_priority(self):
         """Test that therapists with email are prioritized."""
         therapist_with_email = self.create_test_therapist(
-            plz="52064",
+            plz="99064",
             potenziell_verfuegbar=True,
             ueber_curavani_informiert=True,
             nachname="WithEmail"
         )
         
         therapist_without_email = self.create_test_therapist(
-            plz="52065",
+            plz="99065",
             potenziell_verfuegbar=True,
             ueber_curavani_informiert=True,
             email=None,  # Explicitly no email
@@ -592,7 +659,7 @@ class TestMatchingServiceAPI:
         )
         
         # Get therapists for selection
-        response = requests.get(f"{BASE_URL}/therapeuten-zur-auswahl?plz_prefix=52")
+        response = requests.get(f"{BASE_URL}/therapeuten-zur-auswahl?plz_prefix=99")
         assert response.status_code == 200
         
         data = response.json()
@@ -637,7 +704,7 @@ class TestMatchingServiceAPI:
         # Create multiple therapists with same email (same practice)
         # Dr. should be selected as practice owner due to title
         therapist_dr = self.create_test_therapist(
-            plz="52064",
+            plz="99064",
             titel="Dr.",
             vorname="Hans",
             nachname="Mueller",
@@ -645,14 +712,14 @@ class TestMatchingServiceAPI:
         )
         
         therapist_regular = self.create_test_therapist(
-            plz="52064",
+            plz="99064",
             vorname="Peter",
             nachname="Schmidt",
             email=shared_email
         )
         
         # Get therapists for selection
-        response = requests.get(f"{BASE_URL}/therapeuten-zur-auswahl?plz_prefix=52")
+        response = requests.get(f"{BASE_URL}/therapeuten-zur-auswahl?plz_prefix=99")
         assert response.status_code == 200
         
         data = response.json()
@@ -680,21 +747,21 @@ class TestMatchingServiceAPI:
         shared_email = f"praxis.weber@{unique_domain}"
         
         therapist_weber = self.create_test_therapist(
-            plz="52064",
+            plz="99064",
             vorname="Anna",
             nachname="Weber",
             email=shared_email
         )
         
         therapist_other = self.create_test_therapist(
-            plz="52064",
+            plz="99064",
             vorname="Klaus",
             nachname="Meyer",
             email=shared_email
         )
         
         # Get therapists for selection
-        response = requests.get(f"{BASE_URL}/therapeuten-zur-auswahl?plz_prefix=52")
+        response = requests.get(f"{BASE_URL}/therapeuten-zur-auswahl?plz_prefix=99")
         assert response.status_code == 200
         
         data = response.json()
@@ -721,21 +788,21 @@ class TestMatchingServiceAPI:
         shared_email = f"praxis.mueller@{unique_domain}"
         
         therapist_mueller = self.create_test_therapist(
-            plz="52064",
+            plz="99064",
             vorname="Hans",
             nachname="Müller",  # With umlaut
             email=shared_email
         )
         
         therapist_other = self.create_test_therapist(
-            plz="52064",
+            plz="99064",
             vorname="Peter",
             nachname="Schmidt",
             email=shared_email
         )
         
         # Get therapists for selection
-        response = requests.get(f"{BASE_URL}/therapeuten-zur-auswahl?plz_prefix=52")
+        response = requests.get(f"{BASE_URL}/therapeuten-zur-auswahl?plz_prefix=99")
         assert response.status_code == 200
         
         data = response.json()
@@ -757,21 +824,21 @@ class TestMatchingServiceAPI:
         """Test that therapists without email are handled individually."""
         # Create multiple therapists without email
         therapist1_no_email = self.create_test_therapist(
-            plz="52064",
+            plz="99064",
             vorname="No",
             nachname="Email1",
             email=None  # Explicitly no email
         )
         
         therapist2_no_email = self.create_test_therapist(
-            plz="52065",
+            plz="99065",
             vorname="No",
             nachname="Email2",
             email=None  # Explicitly no email
         )
         
         # Get therapists for selection
-        response = requests.get(f"{BASE_URL}/therapeuten-zur-auswahl?plz_prefix=52")
+        response = requests.get(f"{BASE_URL}/therapeuten-zur-auswahl?plz_prefix=99")
         assert response.status_code == 200
         
         data = response.json()
@@ -802,27 +869,27 @@ class TestMatchingServiceAPI:
         
         # Create therapists with different titles
         therapist_prof = self.create_test_therapist(
-            plz="52064",
+            plz="99064",
             titel="Prof.",
             nachname="Professor",
             email=shared_email
         )
         
         therapist_dr = self.create_test_therapist(
-            plz="52064",
+            plz="99064",
             titel="Dr.",
             nachname="Doctor",
             email=shared_email
         )
         
         therapist_regular = self.create_test_therapist(
-            plz="52064",
+            plz="99064",
             nachname="Regular",
             email=shared_email
         )
         
         # Get therapists for selection
-        response = requests.get(f"{BASE_URL}/therapeuten-zur-auswahl?plz_prefix=52")
+        response = requests.get(f"{BASE_URL}/therapeuten-zur-auswahl?plz_prefix=99")
         assert response.status_code == 200
         
         data = response.json()
@@ -844,9 +911,9 @@ class TestMatchingServiceAPI:
 
     def test_create_therapeutenanfrage(self):
         """Test creating an anfrage for a manually selected therapist."""
-        therapist = self.create_test_therapist(plz="52064")
-        patient1 = self.create_test_patient(plz="52062")
-        patient2 = self.create_test_patient(plz="52068")
+        therapist = self.create_test_therapist(plz="99064")
+        patient1 = self.create_test_patient(plz="99062")
+        patient2 = self.create_test_patient(plz="99068")
         
         # Create searches
         search1_response = requests.post(
@@ -868,7 +935,7 @@ class TestMatchingServiceAPI:
             f"{BASE_URL}/therapeutenanfragen/erstellen-fuer-therapeut",
             json={
                 "therapist_id": therapist['id'],
-                "plz_prefix": "52",
+                "plz_prefix": "99",
                 "sofort_senden": False
             }
         )
@@ -897,9 +964,9 @@ class TestMatchingServiceAPI:
 
     def test_therapeutenanfrage_email_without_diagnosis(self):
         """Test that therapeutenanfrage emails don't contain diagnosis."""
-        therapist = self.create_test_therapist(plz="52064")
+        therapist = self.create_test_therapist(plz="99064")
         patient = self.create_test_patient(
-            plz="52062",
+            plz="99062",
             symptome=["Trauer / Verlust", "Sozialer Rückzug"]
         )
         
@@ -916,7 +983,7 @@ class TestMatchingServiceAPI:
             f"{BASE_URL}/therapeutenanfragen/erstellen-fuer-therapeut",
             json={
                 "therapist_id": therapist['id'],
-                "plz_prefix": "52",
+                "plz_prefix": "99",
                 "sofort_senden": False
             }
         )
@@ -955,7 +1022,7 @@ class TestMatchingServiceAPI:
         """Test that sending anfrage to therapist without email creates phone call with correct availability time."""
         # Create therapist with PRODUCTION FORMAT availability - ONLY TUESDAY
         therapist = self.create_test_therapist(
-            plz="52064",
+            plz="99064",
             email=None,  # Explicitly no email
             telefon="+49 241 123456",
             nachname="NoEmail",
@@ -964,7 +1031,7 @@ class TestMatchingServiceAPI:
             }
         )
         
-        patient = self.create_test_patient(plz="52062")
+        patient = self.create_test_patient(plz="99062")
         search_response = requests.post(
             f"{BASE_URL}/platzsuchen",
             json={"patient_id": patient['id']}
@@ -977,7 +1044,7 @@ class TestMatchingServiceAPI:
             f"{BASE_URL}/therapeutenanfragen/erstellen-fuer-therapeut",
             json={
                 "therapist_id": therapist['id'],
-                "plz_prefix": "52",
+                "plz_prefix": "99",
                 "sofort_senden": False
             }
         )
@@ -1033,9 +1100,9 @@ class TestMatchingServiceAPI:
         
         NOTE: Email sending step temporarily disabled to avoid bounce messages.
         """
-        therapist = self.create_test_therapist(plz="52064")
+        therapist = self.create_test_therapist(plz="99064")
         
-        patient = self.create_test_patient(plz="52062")
+        patient = self.create_test_patient(plz="99062")
         search_response = requests.post(
             f"{BASE_URL}/platzsuchen",
             json={"patient_id": patient['id']}
@@ -1048,7 +1115,7 @@ class TestMatchingServiceAPI:
             f"{BASE_URL}/therapeutenanfragen/erstellen-fuer-therapeut",
             json={
                 "therapist_id": therapist['id'],
-                "plz_prefix": "52",
+                "plz_prefix": "99",
                 "sofort_senden": False
             }
         )
@@ -1104,8 +1171,8 @@ class TestMatchingServiceAPI:
 
     def test_anfrage_response_sets_vermittelter_therapeut(self):
         """Test that when therapist accepts patient, vermittelter_therapeut_id is automatically set."""
-        therapist = self.create_test_therapist(plz="52064")
-        patient = self.create_test_patient(plz="52062")
+        therapist = self.create_test_therapist(plz="99064")
+        patient = self.create_test_patient(plz="99062")
         
         # Create search
         search_response = requests.post(
@@ -1120,7 +1187,7 @@ class TestMatchingServiceAPI:
             f"{BASE_URL}/therapeutenanfragen/erstellen-fuer-therapeut",
             json={
                 "therapist_id": therapist['id'],
-                "plz_prefix": "52",
+                "plz_prefix": "99",
                 "sofort_senden": False
             }
         )
@@ -1170,10 +1237,10 @@ class TestMatchingServiceAPI:
         """
         # Create therapist and patient with unique domains
         therapist = self.create_test_therapist(
-            plz="52064",
+            plz="99064",
             telefon="+49 241 123456"
         )
-        patient = self.create_test_patient(plz="52062")
+        patient = self.create_test_patient(plz="99062")
         
         # Step 1: Create search
         search_response = requests.post(
@@ -1194,7 +1261,7 @@ class TestMatchingServiceAPI:
             f"{BASE_URL}/therapeutenanfragen/erstellen-fuer-therapeut",
             json={
                 "therapist_id": therapist['id'],
-                "plz_prefix": "52",
+                "plz_prefix": "99",
                 "sofort_senden": False
             }
         )
@@ -1413,18 +1480,18 @@ class TestMatchingServiceAPI:
             geschlecht="divers",
             vorname="Alex",
             nachname="Diverse",
-            plz="52064"
+            plz="99064"
         )
         
         therapist_keine_angabe = self.create_test_therapist(
             geschlecht="keine_Angabe",
             vorname="Chris",
             nachname="NoGender",
-            plz="52065"
+            plz="99065"
         )
         
         # Get therapists for selection
-        response = requests.get(f"{BASE_URL}/therapeuten-zur-auswahl?plz_prefix=52")
+        response = requests.get(f"{BASE_URL}/therapeuten-zur-auswahl?plz_prefix=99")
         assert response.status_code == 200
         
         data = response.json()
@@ -1468,6 +1535,8 @@ class TestMatchingServiceAPI:
             "geschlecht": "männlich",
             "vorname": "Incomplete",
             "nachname": "Patient",
+            "plz": self.TEST_PLZ_BASE,
+            "ort": self.TEST_CITY,
             "email": self.generate_unique_email("incomplete")
             # Missing: symptome, krankenkasse, geburtsdatum, etc.
         }
