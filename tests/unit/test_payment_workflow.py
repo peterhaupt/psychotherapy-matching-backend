@@ -1,6 +1,7 @@
-"""Unit tests for payment confirmation workflow in Phase 2.
+"""Unit tests for payment confirmation workflow in Phase 2 with VOUCHER SUPPORT.
 
-Tests cover payment tracking, zahlungsreferenz extraction, and automatic status transitions.
+Tests cover payment tracking, zahlungsreferenz extraction, automatic status transitions,
+and voucher booking functionality.
 """
 import sys
 import pytest
@@ -209,6 +210,11 @@ class TestPaymentConfirmation:
         patient.zahlung_eingegangen = True  # Payment just confirmed
         patient.status = Patientenstatus.offen
         patient.startdatum = None
+        patient.zahlungsreferenz = 'a7f3e9b2'  # Regular (non-voucher) reference
+        patient.email = 'test@example.com'
+        patient.vorname = 'Test'
+        patient.nachname = 'Patient'
+        patient.offen_fuer_gruppentherapie = False
         
         # Mock database session
         mock_db = Mock()
@@ -217,18 +223,52 @@ class TestPaymentConfirmation:
         with patch('patient_service.api.patients.date') as mock_date:
             mock_date.today.return_value = date(2025, 1, 15)
             
-            # Mock marshal for logging purposes
-            with patch('patient_service.api.patients.marshal') as mock_marshal:
-                mock_marshal.return_value = {'id': 1}
-                
+            # Mock the email sending function
+            with patch('patient_service.api.patients._send_payment_confirmation_email') as mock_send_email:
                 # Call the actual function
                 check_and_apply_payment_status_transition(
                     patient, 
                     old_payment_status=False,  # Was not paid
                     db=mock_db
                 )
+                
+                # Verify email was sent for regular payment
+                mock_send_email.assert_called_once_with(1, mock_db)
         
         # Verify the changes
+        assert patient.status == Patientenstatus.auf_der_Suche
+        assert patient.startdatum == date(2025, 1, 15)
+    
+    def test_voucher_payment_skips_confirmation_email(self, mock_patient_dependencies):
+        """Test that voucher bookings skip payment confirmation email."""
+        check_and_apply_payment_status_transition = mock_patient_dependencies['check_and_apply_payment_status_transition']
+        Patientenstatus = mock_patient_dependencies['Patientenstatus']
+        
+        # Create a mock voucher patient
+        patient = Mock()
+        patient.id = 2
+        patient.vertraege_unterschrieben = True
+        patient.zahlung_eingegangen = True  # Payment auto-confirmed for voucher
+        patient.status = Patientenstatus.offen
+        patient.startdatum = None
+        patient.zahlungsreferenz = 'VOUCHER_a7f3e9b2'  # VOUCHER prefix
+        
+        mock_db = Mock()
+        
+        with patch('patient_service.api.patients.date') as mock_date:
+            mock_date.today.return_value = date(2025, 1, 15)
+            
+            with patch('patient_service.api.patients._send_payment_confirmation_email') as mock_send_email:
+                check_and_apply_payment_status_transition(
+                    patient,
+                    old_payment_status=False,  # Was not paid (but auto-confirmed for voucher)
+                    db=mock_db
+                )
+                
+                # Verify NO email was sent for voucher payment
+                mock_send_email.assert_not_called()
+        
+        # Verify status still changed
         assert patient.status == Patientenstatus.auf_der_Suche
         assert patient.startdatum == date(2025, 1, 15)
     
@@ -243,6 +283,7 @@ class TestPaymentConfirmation:
         patient.zahlung_eingegangen = True
         patient.status = Patientenstatus.offen
         patient.startdatum = None
+        patient.zahlungsreferenz = 'a7f3e9b2'
         
         mock_db = Mock()
         
@@ -298,13 +339,18 @@ class TestPaymentConfirmation:
         patient.zahlung_eingegangen = True
         patient.status = Patientenstatus.offen
         patient.startdatum = original_date  # Already has a date
+        patient.zahlungsreferenz = 'a7f3e9b2'
+        patient.email = 'test@example.com'
+        patient.vorname = 'Test'
+        patient.nachname = 'Patient'
+        patient.offen_fuer_gruppentherapie = False
         
         mock_db = Mock()
         
         with patch('patient_service.api.patients.date') as mock_date:
             mock_date.today.return_value = date(2025, 1, 15)
             
-            with patch('patient_service.api.patients.marshal'):
+            with patch('patient_service.api.patients._send_payment_confirmation_email'):
                 check_and_apply_payment_status_transition(
                     patient,
                     old_payment_status=False,
@@ -395,10 +441,10 @@ class TestPatientImporter:
         # Check the data passed to create_patient
         call_args = mock_create.call_args[0][0]
         assert call_args['zahlungsreferenz'] == 'a7f3e9b2'
-        assert call_args['zahlung_eingegangen'] == False  # Default for new imports
+        assert call_args['zahlung_eingegangen'] == False  # Default for non-voucher imports
     
     def test_import_sends_confirmation_email(self, mock_patient_dependencies):
-        """Test that successful import sends confirmation email."""
+        """Test that successful import sends confirmation email with voucher parameters."""
         PatientImporter = mock_patient_dependencies['PatientImporter']
         
         importer = PatientImporter()
@@ -424,8 +470,88 @@ class TestPatientImporter:
         assert success == True
         assert "Patient created with ID: 123" in message
         
-        # Verify email was sent
-        mock_send.assert_called_once_with(123, mock_create.call_args[0][0])
+        # UPDATED: Verify email was sent with new voucher parameters
+        mock_send.assert_called_once_with(
+            123,
+            mock_create.call_args[0][0],
+            False,  # is_voucher (default for non-voucher)
+            0       # price_paid (default)
+        )
+    
+    def test_voucher_import_marks_payment_and_prefix(self, mock_patient_dependencies):
+        """Test that voucher imports mark payment as received with VOUCHER_ prefix."""
+        PatientImporter = mock_patient_dependencies['PatientImporter']
+        
+        importer = PatientImporter()
+        
+        # Test data with voucher metadata
+        test_data = {
+            'patient_data': {
+                'anrede': 'Herr',
+                'geschlecht': 'männlich',
+                'vorname': 'Voucher',
+                'nachname': 'User',
+                'email': 'voucher@example.com',
+                'symptome': ['Burnout / Erschöpfung']
+            },
+            'registration_token': 'c3d4e5f6a7b8c9d0',
+            'consent_metadata': {
+                'voucher_booking': True,
+                'price_paid': 0
+            }
+        }
+        
+        with patch.object(importer, '_create_patient_via_api') as mock_create:
+            mock_create.return_value = (True, 456, None)
+            
+            with patch.object(importer, '_send_patient_confirmation_email') as mock_send:
+                success, message = importer.import_patient(test_data)
+        
+        # Check the data passed to create_patient
+        call_args = mock_create.call_args[0][0]
+        assert call_args['zahlungsreferenz'] == 'VOUCHER_c3d4e5f6'  # With VOUCHER_ prefix
+        assert call_args['zahlung_eingegangen'] == True  # Auto-confirmed for voucher
+        
+        # Verify email was sent with voucher parameters
+        mock_send.assert_called_once_with(
+            456,
+            mock_create.call_args[0][0],
+            True,  # is_voucher
+            0      # price_paid
+        )
+    
+    def test_voucher_import_with_missing_token(self, mock_patient_dependencies):
+        """Test voucher import handles missing registration token gracefully."""
+        PatientImporter = mock_patient_dependencies['PatientImporter']
+        
+        importer = PatientImporter()
+        
+        # Test data without registration token
+        test_data = {
+            'patient_data': {
+                'anrede': 'Frau',
+                'geschlecht': 'weiblich',
+                'vorname': 'No',
+                'nachname': 'Token',
+                'email': 'notoken@example.com',
+                'symptome': ['Ängste / Panikattacken']
+            },
+            'consent_metadata': {
+                'voucher_booking': True,
+                'price_paid': 0
+            }
+        }
+        
+        with patch.object(importer, '_create_patient_via_api') as mock_create:
+            mock_create.return_value = (True, 789, None)
+            
+            with patch.object(importer, '_send_patient_confirmation_email'):
+                success, message = importer.import_patient(test_data)
+        
+        # Check the data passed to create_patient
+        call_args = mock_create.call_args[0][0]
+        assert call_args['zahlungsreferenz'] == 'VOUCHER_NOREF'  # Default when no token
+        assert call_args['zahlung_eingegangen'] == True  # Still auto-confirmed
 
 
 if __name__ == "__main__":
