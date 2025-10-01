@@ -843,7 +843,7 @@ class PatientListResource(PaginatedListResource):
                 if patient.status == Patientenstatus.offen:
                     patient.status = Patientenstatus.auf_der_Suche
                     # Log if voucher
-                    if patient.zahlungsreferenz and patient.zahlungsreferenz.startswith('VOUCHER_'):
+                    if patient.zahlungsreferenz and patient.zahlungsreferenz.startswith('V_'):
                         logger.info(f"Voucher patient created with auto-start: {patient.id}")
             
             db.add(patient)

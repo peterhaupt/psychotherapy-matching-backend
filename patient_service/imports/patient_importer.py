@@ -134,7 +134,7 @@ class PatientImporter:
         if is_voucher:
             # Mark voucher bookings with special prefix and auto-confirm payment
             base_ref = data.get('zahlungsreferenz', '')[:8] if data.get('zahlungsreferenz') else 'NOREF'
-            api_data['zahlungsreferenz'] = f'VOUCHER_{base_ref}'
+            api_data['zahlungsreferenz'] = f'V_{base_ref[:6]}'
             api_data['zahlung_eingegangen'] = True  # Auto-confirm for vouchers
             logger.info(f"Voucher booking detected - marking as pre-paid with reference: VOUCHER_{base_ref}")
         else:
