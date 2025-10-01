@@ -412,7 +412,7 @@ def check_and_apply_payment_status_transition(patient, old_payment_status, db):
         logger.info(f"Payment confirmed for patient {patient.id}")
         
         # VOUCHER SUPPORT: Check if this is a voucher booking
-        if patient.zahlungsreferenz and patient.zahlungsreferenz.startswith('VOUCHER_'):
+        if patient.zahlungsreferenz and patient.zahlungsreferenz.startswith('V_'):
             logger.info(f"Voucher booking detected - skipping payment confirmation email for patient {patient.id}")
             
             # Check if contracts are signed
