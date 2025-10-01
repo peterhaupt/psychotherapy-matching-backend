@@ -1,4 +1,4 @@
-"""Patient import logic with validation - Phase 2 updates."""
+"""Patient import logic with validation - Phase 2 updates with VOUCHER SUPPORT."""
 import logging
 import os
 from typing import Dict, Any, Tuple
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class PatientImporter:
-    """Handle patient data import with validation - Phase 2 updates."""
+    """Handle patient data import with validation - Phase 2 updates with VOUCHER SUPPORT."""
     
     def __init__(self):
         """Initialize the patient importer."""
@@ -31,6 +31,7 @@ class PatientImporter:
         - Remove diagnosis handling
         - Extract and store zahlungsreferenz
         - Send confirmation email with contract link
+        - VOUCHER SUPPORT: Handle voucher bookings with €0 pricing
         
         Args:
             data: Patient data from JSON file (may include HMAC wrapper)
@@ -63,17 +64,22 @@ class PatientImporter:
             else:
                 logger.warning("No registration_token found in import data")
             
+            # VOUCHER SUPPORT: Extract voucher status
+            is_voucher = data.get('consent_metadata', {}).get('voucher_booking', False)
+            price_paid = data.get('consent_metadata', {}).get('price_paid', 0)
+            
             # Map fields from JSON to API format
-            api_data = self._map_patient_data(patient_data)
+            api_data = self._map_patient_data(patient_data, is_voucher)
             
             # Create patient using API logic
             success, patient_id, error_msg = self._create_patient_via_api(api_data)
             
             if success:
-                logger.info(f"Successfully imported patient ID: {patient_id}")
+                logger.info(f"Successfully imported patient ID: {patient_id} (Voucher: {is_voucher})")
                 
                 # PHASE 2: Send confirmation email with contract link
-                self._send_patient_confirmation_email(patient_id, api_data)
+                # VOUCHER SUPPORT: Pass voucher info to email function
+                self._send_patient_confirmation_email(patient_id, api_data, is_voucher, price_paid)
                 
                 return True, f"Patient created with ID: {patient_id}"
             else:
@@ -83,7 +89,7 @@ class PatientImporter:
             logger.error(f"Error importing patient: {str(e)}", exc_info=True)
             return False, f"Import exception: {str(e)}"
     
-    def _map_patient_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def _map_patient_data(self, data: Dict[str, Any], is_voucher: bool = False) -> Dict[str, Any]:
         """Map patient data from JSON format to API format.
         
         PHASE 2 Updates:
@@ -91,9 +97,11 @@ class PatientImporter:
         - Ensure symptome is handled as array
         - Remove PTV11/psychotherapeutische_sprechstunde mapping
         - Include zahlungsreferenz if present
+        - VOUCHER SUPPORT: Mark voucher bookings and auto-confirm payment
         
         Args:
             data: Patient data from JSON
+            is_voucher: Whether this is a voucher booking
             
         Returns:
             Mapped data for API
@@ -120,14 +128,19 @@ class PatientImporter:
             'verkehrsmittel': data.get('verkehrsmittel'),
             'offen_fuer_gruppentherapie': data.get('offen_fuer_gruppentherapie', False),
             'vertraege_unterschrieben': True,  # Always true for imported patients
-            # PHASE 2: Include zahlungsreferenz
-            'zahlungsreferenz': data.get('zahlungsreferenz'),
-            # PHASE 2: Payment not yet received for new imports
-            'zahlung_eingegangen': False,
         }
         
-        # REMOVED: diagnosis field mapping
-        # REMOVED: hat_ptv11/psychotherapeutische_sprechstunde mapping
+        # VOUCHER SUPPORT: Handle zahlungsreferenz and payment status based on voucher
+        if is_voucher:
+            # Mark voucher bookings with special prefix and auto-confirm payment
+            base_ref = data.get('zahlungsreferenz', '')[:8] if data.get('zahlungsreferenz') else 'NOREF'
+            api_data['zahlungsreferenz'] = f'VOUCHER_{base_ref}'
+            api_data['zahlung_eingegangen'] = True  # Auto-confirm for vouchers
+            logger.info(f"Voucher booking detected - marking as pre-paid with reference: VOUCHER_{base_ref}")
+        else:
+            # Regular booking - payment pending
+            api_data['zahlungsreferenz'] = data.get('zahlungsreferenz')
+            api_data['zahlung_eingegangen'] = False  # Awaiting payment
         
         # Handle complex fields
         if 'zeitliche_verfuegbarkeit' in data:
@@ -225,8 +238,13 @@ class PatientImporter:
             # Create patient
             patient = Patient(**processed_data)
             
-            # Note: We don't set startdatum here because zahlung_eingegangen is False
-            # The status will remain 'offen' until payment is confirmed
+            # VOUCHER SUPPORT: If zahlung_eingegangen is True (voucher), set status to auf_der_Suche
+            if processed_data.get('zahlung_eingegangen', False) and processed_data.get('vertraege_unterschrieben', False):
+                from datetime import date
+                from models.patient import Patientenstatus
+                patient.startdatum = date.today()
+                patient.status = Patientenstatus.auf_der_Suche
+                logger.info("Voucher patient - setting startdatum and status to auf_der_Suche")
             
             db.add(patient)
             db.commit()
@@ -245,14 +263,18 @@ class PatientImporter:
         finally:
             db.close()
     
-    def _send_patient_confirmation_email(self, patient_id: int, patient_data: Dict[str, Any]):
+    def _send_patient_confirmation_email(self, patient_id: int, patient_data: Dict[str, Any], 
+                                         is_voucher: bool = False, price_paid: float = 0):
         """Send confirmation email to patient with contract link and payment info.
         
         PHASE 2: Uses template from shared/templates/emails/patient_registration_confirmation.md
+        VOUCHER SUPPORT: Shows €0 pricing for voucher users
         
         Args:
             patient_id: ID of the created patient
             patient_data: Patient data including email and zahlungsreferenz
+            is_voucher: Whether this is a voucher booking
+            price_paid: The price to be paid (0 for vouchers)
         """
         try:
             email = patient_data.get('email')
@@ -260,31 +282,41 @@ class PatientImporter:
                 logger.warning(f"No email address for patient {patient_id}, skipping confirmation email")
                 return
             
-            # Fetch current prices from web
-            try:
-                response = requests.get('https://www.curavani.com/prices.json', timeout=10)
-                response.raise_for_status()
-                prices = response.json()
-                
-                # Determine price based on therapy type
+            # VOUCHER SUPPORT: Skip price fetching for voucher users
+            if is_voucher:
+                # Use €0 pricing for vouchers
                 offen_fuer_gruppentherapie = patient_data.get('offen_fuer_gruppentherapie', False)
-                if offen_fuer_gruppentherapie:
-                    price = prices['gruppentherapie']
-                    service_type = 'Gruppentherapie'
-                else:
-                    price = prices['einzeltherapie']
-                    service_type = 'Einzeltherapie'
-                
-                # Format price in German format (e.g., "95,00 Euro")
-                formatted_price = f"{price:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.') + " Euro"
-                
-                # Calculate upgrade price difference
-                upgrade_diff = prices['einzeltherapie'] - prices['gruppentherapie']
-                formatted_upgrade_price = f"{upgrade_diff:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.') + " Euro"
-                
-            except Exception as e:
-                logger.error(f"Failed to fetch prices from web: {str(e)}")
-                raise  # Fail the import to retry later
+                service_type = 'Gruppentherapie' if offen_fuer_gruppentherapie else 'Einzeltherapie'
+                formatted_price = "0,00 Euro"
+                formatted_upgrade_price = "0,00 Euro"
+                price = 0
+                logger.info(f"Voucher booking - using €0 pricing for patient {patient_id}")
+            else:
+                # Fetch current prices from web for regular bookings
+                try:
+                    response = requests.get('https://www.curavani.com/prices.json', timeout=10)
+                    response.raise_for_status()
+                    prices = response.json()
+                    
+                    # Determine price based on therapy type
+                    offen_fuer_gruppentherapie = patient_data.get('offen_fuer_gruppentherapie', False)
+                    if offen_fuer_gruppentherapie:
+                        price = prices['gruppentherapie']
+                        service_type = 'Gruppentherapie'
+                    else:
+                        price = prices['einzeltherapie']
+                        service_type = 'Einzeltherapie'
+                    
+                    # Format price in German format (e.g., "95,00 Euro")
+                    formatted_price = f"{price:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.') + " Euro"
+                    
+                    # Calculate upgrade price difference
+                    upgrade_diff = prices['einzeltherapie'] - prices['gruppentherapie']
+                    formatted_upgrade_price = f"{upgrade_diff:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.') + " Euro"
+                    
+                except Exception as e:
+                    logger.error(f"Failed to fetch prices from web: {str(e)}")
+                    raise  # Fail the import to retry later
             
             # Set up Jinja2 environment pointing to shared templates
             # In Docker container, shared is mounted at /app/shared
@@ -351,7 +383,7 @@ class PatientImporter:
             )
             
             if response.ok:
-                logger.info(f"Confirmation email queued for patient {patient_id}")
+                logger.info(f"Confirmation email queued for patient {patient_id} (Voucher: {is_voucher})")
             else:
                 logger.error(f"Failed to send confirmation email for patient {patient_id}: {response.status_code} - {response.text}")
                 # Don't fail the import if email fails - log error and continue
@@ -362,8 +394,8 @@ class PatientImporter:
                 
         except Exception as e:
             logger.error(f"Error sending confirmation email for patient {patient_id}: {str(e)}")
-            # Re-raise to fail the import if it's a price fetching error
-            if "Failed to fetch prices" in str(e):
+            # Re-raise to fail the import if it's a price fetching error (for regular bookings)
+            if "Failed to fetch prices" in str(e) and not is_voucher:
                 raise
             # Don't fail the import for other email errors
             self.send_error_notification(

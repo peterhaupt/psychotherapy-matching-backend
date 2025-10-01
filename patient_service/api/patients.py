@@ -1,4 +1,4 @@
-"""Patient API endpoints implementation with Phase 2 updates - symptom validation and payment fields."""
+"""Patient API endpoints implementation with Phase 2 updates - symptom validation, payment fields, and VOUCHER SUPPORT."""
 from flask import request, jsonify
 from flask_restful import Resource, fields, marshal_with, reqparse, marshal
 from sqlalchemy.exc import SQLAlchemyError
@@ -400,6 +400,8 @@ def check_and_apply_payment_status_transition(patient, old_payment_status, db):
     - Change status from "offen" to "auf_der_Suche"
     - Send payment confirmation email
     
+    VOUCHER SUPPORT: Skip payment confirmation email for voucher bookings
+    
     Args:
         patient: The patient object
         old_payment_status: Previous value of zahlung_eingegangen
@@ -409,6 +411,27 @@ def check_and_apply_payment_status_transition(patient, old_payment_status, db):
     if not old_payment_status and patient.zahlung_eingegangen:
         logger.info(f"Payment confirmed for patient {patient.id}")
         
+        # VOUCHER SUPPORT: Check if this is a voucher booking
+        if patient.zahlungsreferenz and patient.zahlungsreferenz.startswith('VOUCHER_'):
+            logger.info(f"Voucher booking detected - skipping payment confirmation email for patient {patient.id}")
+            
+            # Check if contracts are signed
+            if patient.vertraege_unterschrieben:
+                # Set start date if not already set
+                if not patient.startdatum:
+                    patient.startdatum = date.today()
+                    logger.info(f"Set startdatum to {patient.startdatum} for voucher patient {patient.id}")
+                
+                # Change status from offen to auf_der_Suche
+                if patient.status == Patientenstatus.offen:
+                    old_status = patient.status
+                    patient.status = Patientenstatus.auf_der_Suche
+                    logger.info(f"Changed status from {old_status.value} to {patient.status.value} for voucher patient {patient.id}")
+            
+            # NO payment confirmation email for voucher bookings
+            return
+        
+        # Regular (non-voucher) payment confirmation flow
         # Check if contracts are signed
         if patient.vertraege_unterschrieben:
             # Set start date if not already set
@@ -422,7 +445,7 @@ def check_and_apply_payment_status_transition(patient, old_payment_status, db):
                 patient.status = Patientenstatus.auf_der_Suche
                 logger.info(f"Changed status from {old_status.value} to {patient.status.value} for patient {patient.id}")
             
-            # Send payment confirmation email
+            # Send payment confirmation email (only for regular bookings)
             _send_payment_confirmation_email(patient.id, db)
 
 
@@ -586,7 +609,7 @@ class PatientResource(Resource):
                     else:
                         setattr(patient, key, value)
             
-            # PHASE 2: Check for payment confirmation and apply automatic transitions
+            # PHASE 2 + VOUCHER SUPPORT: Check for payment confirmation and apply automatic transitions
             check_and_apply_payment_status_transition(patient, old_payment_status, db)
             
             db.commit()
@@ -811,13 +834,17 @@ class PatientListResource(PaginatedListResource):
             
             patient = Patient(**patient_data)
             
-            # PHASE 2: Check if we should set startdatum automatically based on payment
+            # PHASE 2 + VOUCHER SUPPORT: Check if we should set startdatum automatically based on payment
+            # Note: When creating via API, we check for voucher prefix
             if patient.vertraege_unterschrieben and patient.zahlung_eingegangen:
                 if not patient.startdatum:
                     patient.startdatum = date.today()
                 # Also set status if it's still offen
                 if patient.status == Patientenstatus.offen:
                     patient.status = Patientenstatus.auf_der_Suche
+                    # Log if voucher
+                    if patient.zahlungsreferenz and patient.zahlungsreferenz.startswith('VOUCHER_'):
+                        logger.info(f"Voucher patient created with auto-start: {patient.id}")
             
             db.add(patient)
             db.commit()
