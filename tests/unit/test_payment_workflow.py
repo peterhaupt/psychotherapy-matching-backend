@@ -251,7 +251,7 @@ class TestPaymentConfirmation:
         patient.zahlung_eingegangen = True  # Payment auto-confirmed for voucher
         patient.status = Patientenstatus.offen
         patient.startdatum = None
-        patient.zahlungsreferenz = 'VOUCHER_a7f3e9b2'  # VOUCHER prefix
+        patient.zahlungsreferenz = 'V_a7f3e9'  # V_ prefix (shortened)
         
         mock_db = Mock()
         
@@ -479,7 +479,7 @@ class TestPatientImporter:
         )
     
     def test_voucher_import_marks_payment_and_prefix(self, mock_patient_dependencies):
-        """Test that voucher imports mark payment as received with VOUCHER_ prefix."""
+        """Test that voucher imports mark payment as received with V_ prefix."""
         PatientImporter = mock_patient_dependencies['PatientImporter']
         
         importer = PatientImporter()
@@ -509,7 +509,8 @@ class TestPatientImporter:
         
         # Check the data passed to create_patient
         call_args = mock_create.call_args[0][0]
-        assert call_args['zahlungsreferenz'] == 'VOUCHER_c3d4e5f6'  # With VOUCHER_ prefix
+        # FIXED: Updated to match implementation's V_ prefix (shortened to 8 chars)
+        assert call_args['zahlungsreferenz'] == 'V_c3d4e5'  # With V_ prefix (shortened to 8 chars)
         assert call_args['zahlung_eingegangen'] == True  # Auto-confirmed for voucher
         
         # Verify email was sent with voucher parameters
@@ -550,7 +551,8 @@ class TestPatientImporter:
         
         # Check the data passed to create_patient
         call_args = mock_create.call_args[0][0]
-        assert call_args['zahlungsreferenz'] == 'VOUCHER_NOREF'  # Default when no token
+        # FIXED: Updated to match implementation's V_ prefix
+        assert call_args['zahlungsreferenz'] == 'V_NOREF'  # Default when no token
         assert call_args['zahlung_eingegangen'] == True  # Still auto-confirmed
 
 
