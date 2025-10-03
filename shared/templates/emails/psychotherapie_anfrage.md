@@ -6,7 +6,7 @@ Sehr geehrter Herr
 Sehr geehrte Damen und Herren
 {%- endif %} {% if therapist.titel %}{{ therapist.titel }} {% endif %}{{ therapist.nachname }},
 
-wir sind auf der Suche nach Psychotherapieplätzen für {{ patient_count }} Patienten. Können Sie hierfür ein oder mehrere Erstgespräche innerhalb der nächsten drei Wochen anbieten? Außerdem ist uns wichtig, dass bei entsprechender Passung die Therapie innerhalb von weiteren sechs Wochen nach dem Erstgespräch beginnen kann.
+wir sind auf der Suche nach Psychotherapieplätzen für {{ patient_count }} Patienten. Können Sie hierfür kurzfristig ein oder mehrere Erstgespräche anbieten? Außerdem ist uns wichtig, dass bei entsprechender Passung die Therapie zeitnah nach den Erstgesprächen beginnen kann.
 
 Vielen Dank für eine kurze Rückmeldung.
 
