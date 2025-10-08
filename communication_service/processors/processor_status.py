@@ -18,6 +18,9 @@ class ProcessorStatus:
         # Contact forms
         'contacts_processed_today': 0,
         'contacts_failed_today': 0,
+        # Waitlist verifications
+        'waitlist_processed_today': 0,
+        'waitlist_failed_today': 0,
         # General
         'last_error': None,
         'last_error_time': None,
@@ -42,8 +45,10 @@ class ProcessorStatus:
                 cls._status['verifications_failed_today'] = 0
                 cls._status['contacts_processed_today'] = 0
                 cls._status['contacts_failed_today'] = 0
+                cls._status['waitlist_processed_today'] = 0
+                cls._status['waitlist_failed_today'] = 0
                 cls._status['recent_files'] = []
-            
+
             return {
                 'running': cls._status['running'],
                 'last_check': cls._status['last_check'].isoformat() if cls._status['last_check'] else None,
@@ -51,6 +56,8 @@ class ProcessorStatus:
                 'verifications_failed_today': cls._status['verifications_failed_today'],
                 'contacts_processed_today': cls._status['contacts_processed_today'],
                 'contacts_failed_today': cls._status['contacts_failed_today'],
+                'waitlist_processed_today': cls._status['waitlist_processed_today'],
+                'waitlist_failed_today': cls._status['waitlist_failed_today'],
                 'last_error': cls._status['last_error'],
                 'last_error_time': cls._status['last_error_time'].isoformat() if cls._status['last_error_time'] else None,
                 'total_processed': cls._status['total_processed'],
@@ -73,17 +80,19 @@ class ProcessorStatus:
                 cls._status['verifications_failed_today'] = 0
                 cls._status['contacts_processed_today'] = 0
                 cls._status['contacts_failed_today'] = 0
+                cls._status['waitlist_processed_today'] = 0
+                cls._status['waitlist_failed_today'] = 0
                 cls._status['recent_files'] = []
-            
+
             # Determine health status
             is_healthy = True
             issues = []
-            
+
             # Check if processor is running
             if not cls._status['running']:
                 is_healthy = False
                 issues.append("Storage processor not running")
-            
+
             # Check for recent startup/critical errors
             if cls._status['last_error'] and cls._status['last_error_time']:
                 error_age = datetime.utcnow() - cls._status['last_error_time']
@@ -91,7 +100,7 @@ class ProcessorStatus:
                 if error_age < timedelta(hours=1):
                     is_healthy = False
                     issues.append("Recent processor error")
-            
+
             # Check failure rate for recent files
             recent_files = cls._status['recent_files'][-20:]
             if len(recent_files) >= 5:  # Only check if we have enough data
@@ -100,14 +109,14 @@ class ProcessorStatus:
                 if failure_rate > 0.5:  # More than 50% failure rate
                     is_healthy = False
                     issues.append(f"High failure rate: {failure_rate:.1%}")
-            
+
             # Check if last check was too long ago (more than 5 minutes)
             if cls._status['last_check']:
                 time_since_check = datetime.utcnow() - cls._status['last_check']
                 if time_since_check > timedelta(minutes=5):
                     is_healthy = False
                     issues.append("Processor inactive for too long")
-            
+
             return {
                 'status': 'healthy' if is_healthy else 'unhealthy',
                 'service': 'storage-processor',
@@ -116,6 +125,7 @@ class ProcessorStatus:
                     'last_check': cls._status['last_check'].isoformat() if cls._status['last_check'] else None,
                     'verifications_processed_today': cls._status['verifications_processed_today'],
                     'contacts_processed_today': cls._status['contacts_processed_today'],
+                    'waitlist_processed_today': cls._status['waitlist_processed_today'],
                     'last_error': cls._status['last_error'],
                     'last_error_time': cls._status['last_error_time'].isoformat() if cls._status['last_error_time'] else None,
                     'issues': issues
@@ -143,8 +153,10 @@ class ProcessorStatus:
                 cls._status['verifications_failed_today'] = 0
                 cls._status['contacts_processed_today'] = 0
                 cls._status['contacts_failed_today'] = 0
+                cls._status['waitlist_processed_today'] = 0
+                cls._status['waitlist_failed_today'] = 0
                 cls._status['recent_files'] = []
-            
+
             cls._status['verifications_processed_today'] += 1
             cls._status['total_processed'] += 1
             cls._status['recent_files'].append({
@@ -153,7 +165,7 @@ class ProcessorStatus:
                 'status': 'success',
                 'time': datetime.utcnow().isoformat()
             })
-            
+
             # Keep only last 50 files in memory
             if len(cls._status['recent_files']) > 50:
                 cls._status['recent_files'] = cls._status['recent_files'][-50:]
@@ -174,8 +186,10 @@ class ProcessorStatus:
                 cls._status['verifications_failed_today'] = 0
                 cls._status['contacts_processed_today'] = 0
                 cls._status['contacts_failed_today'] = 0
+                cls._status['waitlist_processed_today'] = 0
+                cls._status['waitlist_failed_today'] = 0
                 cls._status['recent_files'] = []
-            
+
             cls._status['verifications_failed_today'] += 1
             cls._status['total_failed'] += 1
             cls._status['last_error'] = f"Verification {file_name}: {error}"
@@ -187,7 +201,7 @@ class ProcessorStatus:
                 'error': error,
                 'time': datetime.utcnow().isoformat()
             })
-            
+
             # Keep only last 50 files in memory
             if len(cls._status['recent_files']) > 50:
                 cls._status['recent_files'] = cls._status['recent_files'][-50:]
@@ -207,8 +221,10 @@ class ProcessorStatus:
                 cls._status['verifications_failed_today'] = 0
                 cls._status['contacts_processed_today'] = 0
                 cls._status['contacts_failed_today'] = 0
+                cls._status['waitlist_processed_today'] = 0
+                cls._status['waitlist_failed_today'] = 0
                 cls._status['recent_files'] = []
-            
+
             cls._status['contacts_processed_today'] += 1
             cls._status['total_processed'] += 1
             cls._status['recent_files'].append({
@@ -217,7 +233,7 @@ class ProcessorStatus:
                 'status': 'success',
                 'time': datetime.utcnow().isoformat()
             })
-            
+
             # Keep only last 50 files in memory
             if len(cls._status['recent_files']) > 50:
                 cls._status['recent_files'] = cls._status['recent_files'][-50:]
@@ -238,8 +254,10 @@ class ProcessorStatus:
                 cls._status['verifications_failed_today'] = 0
                 cls._status['contacts_processed_today'] = 0
                 cls._status['contacts_failed_today'] = 0
+                cls._status['waitlist_processed_today'] = 0
+                cls._status['waitlist_failed_today'] = 0
                 cls._status['recent_files'] = []
-            
+
             cls._status['contacts_failed_today'] += 1
             cls._status['total_failed'] += 1
             cls._status['last_error'] = f"Contact {file_name}: {error}"
@@ -251,7 +269,7 @@ class ProcessorStatus:
                 'error': error,
                 'time': datetime.utcnow().isoformat()
             })
-            
+
             # Keep only last 50 files in memory
             if len(cls._status['recent_files']) > 50:
                 cls._status['recent_files'] = cls._status['recent_files'][-50:]
@@ -268,9 +286,77 @@ class ProcessorStatus:
             cls._status['last_error_time'] = datetime.utcnow()
     
     @classmethod
+    def record_waitlist_success(cls, file_name: str):
+        """Record a successful waitlist verification email.
+
+        Args:
+            file_name: Name of the processed file
+        """
+        with cls._lock:
+            # Reset daily counters if date changed
+            if cls._status['current_date'] != date.today():
+                cls._status['current_date'] = date.today()
+                cls._status['verifications_processed_today'] = 0
+                cls._status['verifications_failed_today'] = 0
+                cls._status['contacts_processed_today'] = 0
+                cls._status['contacts_failed_today'] = 0
+                cls._status['waitlist_processed_today'] = 0
+                cls._status['waitlist_failed_today'] = 0
+                cls._status['recent_files'] = []
+
+            cls._status['waitlist_processed_today'] += 1
+            cls._status['total_processed'] += 1
+            cls._status['recent_files'].append({
+                'file': file_name,
+                'type': 'waitlist',
+                'status': 'success',
+                'time': datetime.utcnow().isoformat()
+            })
+
+            # Keep only last 50 files in memory
+            if len(cls._status['recent_files']) > 50:
+                cls._status['recent_files'] = cls._status['recent_files'][-50:]
+
+    @classmethod
+    def record_waitlist_failure(cls, file_name: str, error: str):
+        """Record a failed waitlist verification email.
+
+        Args:
+            file_name: Name of the file that failed
+            error: Error message
+        """
+        with cls._lock:
+            # Reset daily counters if date changed
+            if cls._status['current_date'] != date.today():
+                cls._status['current_date'] = date.today()
+                cls._status['verifications_processed_today'] = 0
+                cls._status['verifications_failed_today'] = 0
+                cls._status['contacts_processed_today'] = 0
+                cls._status['contacts_failed_today'] = 0
+                cls._status['waitlist_processed_today'] = 0
+                cls._status['waitlist_failed_today'] = 0
+                cls._status['recent_files'] = []
+
+            cls._status['waitlist_failed_today'] += 1
+            cls._status['total_failed'] += 1
+            cls._status['last_error'] = f"Waitlist {file_name}: {error}"
+            cls._status['last_error_time'] = datetime.utcnow()
+            cls._status['recent_files'].append({
+                'file': file_name,
+                'type': 'waitlist',
+                'status': 'failed',
+                'error': error,
+                'time': datetime.utcnow().isoformat()
+            })
+
+            # Keep only last 50 files in memory
+            if len(cls._status['recent_files']) > 50:
+                cls._status['recent_files'] = cls._status['recent_files'][-50:]
+
+    @classmethod
     def set_running(cls, running: bool):
         """Set the running status.
-        
+
         Args:
             running: Whether the processor is running
         """

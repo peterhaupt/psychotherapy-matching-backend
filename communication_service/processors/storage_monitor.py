@@ -13,6 +13,7 @@ from shared.config import get_config
 from shared.utils.object_storage import ObjectStorageClient
 from .verification_processor import VerificationProcessor
 from .contact_processor import ContactProcessor
+from .waitlist_processor import WaitlistProcessor
 from .processor_status import ProcessorStatus
 
 logger = logging.getLogger(__name__)
@@ -44,6 +45,7 @@ class StorageMonitor:
         # Initialize processors
         self.verification_processor = VerificationProcessor()
         self.contact_processor = ContactProcessor()
+        self.waitlist_processor = WaitlistProcessor()
         
         logger.info(f"Storage Monitor initialized")
         logger.info(f"Container: {self.storage_client.container}")
@@ -51,13 +53,13 @@ class StorageMonitor:
     
     def run(self):
         """Main monitoring loop."""
-        logger.info("Starting storage monitoring for verifications and contacts...")
-        
+        logger.info("Starting storage monitoring for verifications, contacts, and waitlist...")
+
         while True:
             try:
                 # Update status
                 ProcessorStatus.update_last_check()
-                
+
                 # Process verification emails
                 try:
                     verification_files = self.storage_client.list_files('verifications')
@@ -70,7 +72,7 @@ class StorageMonitor:
                 except Exception as e:
                     logger.error(f"Error processing verifications: {str(e)}")
                     ProcessorStatus.record_error(f"Verification check failed: {str(e)}")
-                
+
                 # Process contact forms
                 try:
                     contact_files = self.storage_client.list_files('contacts')
@@ -83,11 +85,24 @@ class StorageMonitor:
                 except Exception as e:
                     logger.error(f"Error processing contacts: {str(e)}")
                     ProcessorStatus.record_error(f"Contact check failed: {str(e)}")
-                
+
+                # Process waitlist verifications
+                try:
+                    waitlist_files = self.storage_client.list_files('waitlist')
+                    if waitlist_files:
+                        logger.info(f"Found {len(waitlist_files)} waitlist files to process")
+                        for file_name in waitlist_files:
+                            self._process_waitlist(file_name)
+                    else:
+                        logger.debug("No waitlist files found")
+                except Exception as e:
+                    logger.error(f"Error processing waitlist: {str(e)}")
+                    ProcessorStatus.record_error(f"Waitlist check failed: {str(e)}")
+
             except Exception as e:
                 logger.error(f"Error in monitoring loop: {str(e)}", exc_info=True)
                 ProcessorStatus.record_error(str(e))
-            
+
             # Wait before next check
             time.sleep(self.check_interval)
     
@@ -228,7 +243,76 @@ class StorageMonitor:
                 f"Error processing contact file: {file_name}",
                 f"Exception: {str(e)}"
             )
-    
+
+    def _process_waitlist(self, file_name: str):
+        """Process a single waitlist verification file.
+
+        Args:
+            file_name: Name of the file in Object Storage
+        """
+        logger.info(f"Processing waitlist file: {file_name}")
+
+        try:
+            # Download and verify file
+            try:
+                data = self.storage_client.download_file('waitlist', file_name)
+            except ValueError as e:
+                # HMAC verification failed or other validation error
+                logger.error(f"Validation failed for waitlist {file_name}: {str(e)}")
+                ProcessorStatus.record_waitlist_failure(file_name, str(e))
+
+                # Delete from Object Storage
+                self.storage_client.delete_file('waitlist', file_name)
+
+                # Send notification
+                self._send_error_notification(
+                    f"Validation failed for waitlist file: {file_name}",
+                    f"Error: {str(e)}"
+                )
+                return
+            except Exception as e:
+                logger.error(f"Failed to download waitlist {file_name}: {str(e)}")
+                ProcessorStatus.record_waitlist_failure(file_name, f"Download failed: {str(e)}")
+
+                # Try to delete from Object Storage anyway
+                self.storage_client.delete_file('waitlist', file_name)
+                return
+
+            # Process waitlist verification
+            success, message = self.waitlist_processor.process_waitlist_verification(data)
+
+            if success:
+                logger.info(f"Successfully processed waitlist: {file_name}")
+                ProcessorStatus.record_waitlist_success(file_name)
+            else:
+                logger.error(f"Failed to process waitlist {file_name}: {message}")
+                ProcessorStatus.record_waitlist_failure(file_name, message)
+
+                # Send error notification
+                self._send_error_notification(
+                    f"Failed to process waitlist file: {file_name}",
+                    f"Error: {message}"
+                )
+
+            # Always delete from Object Storage after processing
+            if self.storage_client.delete_file('waitlist', file_name):
+                logger.info(f"Deleted from Object Storage: waitlist/{file_name}")
+            else:
+                logger.error(f"Could not delete from Object Storage: waitlist/{file_name}")
+
+        except Exception as e:
+            logger.error(f"Unexpected error processing waitlist {file_name}: {str(e)}", exc_info=True)
+            ProcessorStatus.record_waitlist_failure(file_name, str(e))
+
+            # Delete from Object Storage
+            self.storage_client.delete_file('waitlist', file_name)
+
+            # Send notification
+            self._send_error_notification(
+                f"Error processing waitlist file: {file_name}",
+                f"Exception: {str(e)}"
+            )
+
     def _send_error_notification(self, subject: str, body: str):
         """Send error notification via system messages endpoint.
         
