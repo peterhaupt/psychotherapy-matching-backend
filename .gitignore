@@ -376,3 +376,6 @@ AI_GUIDELINES.md
 
 # Scraping service (maintained in separate repository)
 scraping_service/
+
+# Scraping integration documentation (internal)
+documentation/09_scraper_integration.md
