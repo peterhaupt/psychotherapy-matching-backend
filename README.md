@@ -93,7 +93,7 @@ The system follows a microservice architecture with:
 
 1. Clone the repository:
    ```
-   git clone https://github.com/your-organization/therapy-platform.git
+   git clone https://github.com/peterhaupt/psychotherapy-matching-backend.git
    ```
 
 2. Start the services:
@@ -122,12 +122,14 @@ The web scraper component is developed in a separate repository: [curavani_scrap
 
 Detailed documentation for each component is available in the `/documentation` directory.
 
+## Related Projects
+
+**Frontend Repository**: [psychotherapy-matching-frontend](https://github.com/peterhaupt/psychotherapy-matching-frontend)
+
+The frontend web interface for this matching platform is maintained in a separate repository.
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 **Important**: The MIT License provides this software "AS IS" without warranty. Users assume all responsibility for compliance with applicable laws and regulations.
-
-## Acknowledgments
-
-[Any acknowledgments or credits for libraries, tools, or resources used]
