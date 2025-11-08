@@ -56,7 +56,6 @@ The Psychotherapy Matching Platform facilitates the efficient assignment of psyc
 - **Matching Service**: Implementation of matching algorithm
 - **Communication Service**: Email and phone call management
 - **Geocoding Service**: Location-based calculations and distance management
-- **Scraping Service**: Therapist data acquisition from 116117.de ([Separate Repository](https://github.com/peterhaupt/curavani_scraping))
 
 ## Architecture
 
@@ -77,9 +76,8 @@ The system follows a microservice architecture with:
 - ✅ Matching Service
 - ✅ Communication Service
 - ✅ Geocoding Service
-- ✅ Scraping Service (Developed in [separate repository](https://github.com/peterhaupt/curavani_scraping))
-- 🔄 Web Interface (Planned)
-- 🔄 Testing Enhancements (In progress)
+- ✅ Web Interface
+- ✅ Testing Enhancements
 
 ## Getting Started
 
@@ -113,10 +111,6 @@ The system follows a microservice architecture with:
    - Matching Service: http://localhost:8003
    - Communication Service: http://localhost:8004
    - Geocoding Service: http://localhost:8005
-
-## Web Scraper Integration
-
-The web scraper component is developed in a separate repository: [curavani_scraping](https://github.com/peterhaupt/curavani_scraping). It integrates with the main system through a cloud storage bucket interface. See [SCRAPER_INTEGRATION.md](SCRAPER_INTEGRATION.md) for details.
 
 ## Documentation
 
