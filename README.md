@@ -2,6 +2,49 @@
 
 A comprehensive microservice-based system for matching patients with therapists in Germany.
 
+---
+
+## IMPORTANT DISCLAIMERS AND WARNINGS
+
+### Medical and Mental Health Disclaimer
+
+**THIS SOFTWARE IS NOT INTENDED FOR MEDICAL OR MENTAL HEALTH TREATMENT**
+
+- This platform is a demonstration project and portfolio piece showing technical capabilities
+- **DO NOT USE** this software to diagnose, treat, cure, or prevent any disease or medical condition
+- **DO NOT USE** this software as a substitute for professional medical advice, diagnosis, or treatment
+- This software is not designed to provide emergency services or crisis intervention
+- Always seek the advice of qualified health providers with any questions regarding medical or mental health conditions
+- If you are experiencing a mental health emergency, contact emergency services immediately
+
+### Legal and Regulatory Compliance
+
+**USERS ARE SOLELY RESPONSIBLE FOR LEGAL COMPLIANCE**
+
+- Healthcare regulations vary significantly by country, region, and jurisdiction
+- Users of this software must ensure full compliance with all applicable laws and regulations, including but not limited to:
+  - Medical device regulations (e.g., EU MDR, FDA regulations)
+  - Health data protection laws (e.g., GDPR, HIPAA, national data protection laws)
+  - Healthcare provider licensing requirements
+  - Patient consent and privacy requirements
+  - Professional liability and insurance requirements
+- This software is provided as a technical demonstration only
+- The authors and contributors make no representations regarding regulatory compliance
+- It is your responsibility to obtain all necessary legal approvals, certifications, and licenses before deploying this system
+
+### Data Protection and Privacy
+
+- This system processes sensitive personal health information
+- You must implement appropriate security measures and data protection safeguards
+- You are responsible for conducting privacy impact assessments and data protection compliance reviews
+- Never deploy this system with real patient data without proper legal authorization and security measures
+
+### No Warranty
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND. See the LICENSE file for full details.
+
+---
+
 ## Project Overview
 
 The Psychotherapy Matching Platform facilitates the efficient assignment of psychotherapy places to patients in need. The system manages patient data, therapist information, and automates the matching and communication process.
@@ -81,7 +124,9 @@ Detailed documentation for each component is available in the `/documentation` d
 
 ## License
 
-[Specify the license here]
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+**Important**: The MIT License provides this software "AS IS" without warranty. Users assume all responsibility for compliance with applicable laws and regulations.
 
 ## Acknowledgments
 

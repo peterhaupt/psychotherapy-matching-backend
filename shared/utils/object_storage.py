@@ -81,9 +81,15 @@ class ObjectStorageClient:
             
             # Create session
             sess = session.Session(auth=auth)
-            
-            # Create Swift connection - let it auto-discover the storage URL
 
+            # Create Swift connection
+            # Storage URL format: https://s3.pub2.infomaniak.cloud/object/v1/AUTH_{project_id}
+            storage_url = os.environ.get('SWIFT_STORAGE_URL')
+            if not storage_url:
+                raise ValueError(
+                    "SWIFT_STORAGE_URL environment variable is required. "
+                    "Format: https://s3.pub2.infomaniak.cloud/object/v1/AUTH_{project_id}"
+                )
             self.conn = Connection(session=sess, preauthurl=storage_url)
             
             # Test connection and log the discovered URL

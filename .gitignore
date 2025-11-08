@@ -85,7 +85,7 @@ ipython_config.py
 # pyenv
 #   For a library or package, you might want to ignore these files since the code is
 #   intended to run in multiple environments; otherwise, check them in:
-# .python-version
+.python-version
 
 # pipenv
 #   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
@@ -201,12 +201,9 @@ config/local/
 *.local.yml
 *.local.json
 
-# VS Code
+# VS Code - ignore all
+.vscode/
 .vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
 
 # ignore .DS_Store files in all folders
 .DS_Store
@@ -218,6 +215,10 @@ config/local/
 .env.dev
 .env.prod
 .env.test
+.env.*_old
+.env.*.old
+.env.backup
+.env.*.backup
 
 # Keep the example file
 !.env.example
@@ -248,3 +249,130 @@ dev/
 
 # ignore OpenStack application credentials
 app-cred-curavani_backend-openrc.sh
+*.openrc.sh
+
+# ===================================
+# SENSITIVE CREDENTIALS AND SECRETS
+# ===================================
+
+# API Keys and Secrets
+**/secrets/
+**/secret/
+*.secret
+*.secrets.json
+.secrets
+secrets.yaml
+secrets.yml
+
+# SSH and Certificate files
+*.pem
+*.key
+*.cert
+*.crt
+*.p12
+*.pfx
+*.cer
+id_rsa
+id_rsa.pub
+id_dsa
+id_dsa.pub
+id_ecdsa
+id_ecdsa.pub
+id_ed25519
+id_ed25519.pub
+
+# Cloud provider credentials
+*gcloud*.json
+*service-account*.json
+*serviceaccount*.json
+aws-credentials
+.aws/credentials
+gcp-credentials.json
+azure-credentials.json
+
+# Database dumps and exports (additional patterns)
+*.dmp
+*.bak
+*.sqlite
+*.sqlite3
+*.db
+
+# Patient and Personal Data
+**/patient_data/
+**/personal_data/
+**/test_data_real/
+**/production_data/
+**/real_data/
+**/pii/
+
+# Therapy-specific sensitive content
+**/session_notes/
+**/medical_records/
+**/health_data/
+**/patient_files/
+
+# Configuration files that might contain secrets
+docker-compose.override.yml
+.env.*.backup
+config.local.*
+settings.local.*
+*-secrets.yaml
+*-secrets.yml
+
+# IDE and Editor files with potential secrets
+.idea/
+.vscode/settings.json
+*.swp
+*.swo
+*~
+.project
+.settings/
+
+# Temporary files that might contain sensitive data
+*.tmp
+*.temp
+/tmp/
+temp/
+
+# Log files that might contain sensitive information
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Operating System files
+Thumbs.db
+desktop.ini
+
+# Terraform state files (may contain secrets)
+*.tfstate
+*.tfstate.*
+.terraform/
+
+# Kubernetes secrets
+*-secret.yaml
+*-secret.yml
+kube-config
+.kube/
+
+# Email templates with real content (if any)
+**/emails/real/
+**/email_archives/
+
+# ===================================
+# PROJECT-SPECIFIC EXCLUSIONS
+# ===================================
+
+# Internal requirements and planning documents
+requirements/
+requirements.md
+
+# AI assistant guidelines (internal use only)
+AI_GUIDELINES.md
+*_GUIDELINES.md
+.claude/
+.cursor/
+
+# Scraping service (maintained in separate repository)
+scraping_service/
